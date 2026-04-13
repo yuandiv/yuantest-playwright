@@ -1,0 +1,14 @@
+<% if (annotations && annotations.length > 0) { %>
+<div class="section">
+    <div class="section-header">
+        <span>Annotations</span>
+        <span class="badge" style="background:#f3f4f6;color:#4b5563"><%- annotations.length %> found</span>
+    </div>
+    <div class="section-body">
+        <% annotations.forEach(function(a) { %>
+            <span class="annotation annotation-<%- a.type %>">@<%- a.type %></span>
+            <span style="font-size:13px;color:#6b7280;margin-right:12px"><%- a.testName %> (<%- a.file %>)</span>
+        <% }); %>
+    </div>
+</div>
+<% } %>

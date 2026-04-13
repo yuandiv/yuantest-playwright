@@ -1,0 +1,35 @@
+# Source files
+src/
+dashboard/
+tests/
+
+# Config files
+tsconfig.json
+jest.config.js
+eslint.config.js
+prettier.config.js
+.prettierrc.js
+.prettierignore
+playwright.config.ts
+vite.config.ts
+
+# Development files
+.github/
+.gitignore
+*.log
+*.tsbuildinfo
+
+# Test files
+coverage/
+test-*.json
+
+# Documentation (keep README and LICENSE)
+CONTRIBUTING.md
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,122 @@
+{
+  "name": "yuantest-playwright",
+  "version": "1.0.0",
+  "description": "Playwright test orchestrator, executor and reporter with web UI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "yuantest": "./bin/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').cpSync('src/reporter/templates','dist/reporter/templates',{recursive:true})\" && vite build",
+    "build:server": "tsc && node -e \"require('fs').cpSync('src/reporter/templates','dist/reporter/templates',{recursive:true})\"",
+    "build:dashboard": "vite build",
+    "start": "node bin/cli.js",
+    "dev": "npx tsx src/cli.ts",
+    "dev:dashboard": "vite",
+    "ui": "node bin/start-ui.js",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:integration": "jest --testPathPattern=tests/integration",
+    "test:e2e": "jest --testPathPattern=tests/e2e",
+    "test:all": "jest --testPathPattern='tests/(unit|integration|e2e)'",
+    "test:benchmark": "jest --testPathPattern=tests/benchmark --runInBand --verbose",
+    "benchmark": "npm run test:benchmark",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc",
+    "docs:watch": "typedoc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "playwright",
+    "test-orchestrator",
+    "test-reporter",
+    "test-runner",
+    "playwright-reporter",
+    "test-automation",
+    "e2e-testing",
+    "test-framework",
+    "flaky-tests",
+    "test-dashboard",
+    "ci-cd"
+  ],
+  "author": "YuanDiv",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuandiv/yuantest-playwright.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yuandiv/yuantest-playwright/issues"
+  },
+  "homepage": "https://github.com/yuandiv/yuantest-playwright#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "LICENSE",
+    "README.md",
+    "README.en.md"
+  ],
+  "dependencies": {
+    "@playwright/test": "^1.40.0",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.10",
+    "dotenv": "^16.3.1",
+    "ejs": "^5.0.1",
+    "express": "^4.18.2",
+    "glob": "^10.3.10",
+    "jiti": "^2.4.0",
+    "ora": "^5.4.1",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "recharts": "^3.8.1",
+    "ws": "^8.14.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/cors": "^2.8.17",
+    "@types/ejs": "^3.1.5",
+    "@types/express": "^4.17.21",
+    "@types/glob": "^8.1.0",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.0",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/supertest": "^7.2.0",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^8.58.1",
+    "@typescript-eslint/parser": "^8.58.1",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "globals": "^17.4.0",
+    "jest": "^29.7.0",
+    "jest-util": "^29.7.0",
+    "prettier": "^3.8.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "supertest": "^7.2.2",
+    "tailwindcss": "^4.2.2",
+    "ts-jest": "^29.4.6",
+    "typedoc": "^0.28.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

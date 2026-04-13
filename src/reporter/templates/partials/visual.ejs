@@ -1,0 +1,25 @@
+<% if (visual) { %>
+<div class="section">
+    <div class="section-header">
+        <span>Visual Testing</span>
+        <span class="badge" style="background:#d1fae5;color:#065f46"><%- visual.passRate > 0 ? (visual.passRate * 100).toFixed(0) + '% pass' : 'N/A' %></span>
+    </div>
+    <div class="section-body">
+        <div style="display:flex;gap:16px;margin-bottom:12px">
+            <span class="badge" style="background:#d1fae5;color:#065f46">Identical: <%- visual.identical || 0 %></span>
+            <span class="badge" style="background:#fef3c7;color:#92400e">Different: <%- visual.different || 0 %></span>
+            <span class="badge" style="background:#fee2e2;color:#991b1b">Regression: <%- visual.regression || 0 %></span>
+            <span class="badge" style="background:#dbeafe;color:#1e40af">New: <%- visual.new || 0 %></span>
+        </div>
+        <% (visual.results || []).forEach(function(r) { %>
+            <div class="visual-result">
+                <span class="visual-status visual-<%- r.status %>"><%- r.status %></span>
+                <span style="font-size:13px;color:#374151"><%- r.testId %></span>
+                <% if (r.diffPixelRatio > 0) { %>
+                    <span style="font-size:12px;color:#9ca3af">diff: <%- (r.diffPixelRatio * 100).toFixed(2) %>%</span>
+                <% } %>
+            </div>
+        <% }); %>
+    </div>
+</div>
+<% } %>

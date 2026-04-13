@@ -1,0 +1,8 @@
+dist
+node_modules
+coverage
+dashboard
+public
+*.md
+*.json
+*.html

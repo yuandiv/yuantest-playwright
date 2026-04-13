@@ -1,0 +1,22 @@
+<% if (artifacts && artifacts.total > 0) { %>
+<%
+    var typeLabels = {
+        screenshot: 'Screenshots',
+        video: 'Videos',
+        download: 'Downloads',
+        trace: 'Traces',
+        attachment: 'Attachments'
+    };
+%>
+<div class="section">
+    <div class="section-header">
+        <span>Artifacts</span>
+        <span class="badge" style="background:#dbeafe;color:#1d4ed8"><%- artifacts.total %> total</span>
+    </div>
+    <div class="section-body">
+        <% Object.keys(artifacts.byType).forEach(function(type) { %>
+            <span class="badge" style="background:#eff6ff;color:#1d4ed8"><%- typeLabels[type] || type %>: <%- artifacts.byType[type] %></span>
+        <% }); %>
+    </div>
+</div>
+<% } %>

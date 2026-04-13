@@ -1,0 +1,51 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "plugin": [],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "includeVersion": true,
+  "githubPages": true,
+  "readme": "README.md",
+  "name": "@yuantest/playwright",
+  "navigationLinks": {
+    "GitHub": "https://github.com/yuandiv/yuantest-playwright",
+    "npm": "https://www.npmjs.com/package/@yuantest/playwright"
+  },
+  "sidebarLinks": {
+    "GitHub": "https://github.com/yuandiv/yuantest-playwright"
+  },
+  "sort": ["source-order"],
+  "kindSortOrder": [
+    "Document",
+    "Reference",
+    "Project",
+    "Module",
+    "Namespace",
+    "Enum",
+    "EnumMember",
+    "Class",
+    "Interface",
+    "TypeAlias",
+    "Constructor",
+    "Property",
+    "Variable",
+    "Function",
+    "Accessor",
+    "Method",
+    "Parameter",
+    "TypeParameter",
+    "TypeLiteral"
+  ],
+  "visibilityFilters": {
+    "protected": true,
+    "private": false,
+    "inherited": true,
+    "external": false
+  },
+  "searchInComments": true,
+  "cleanOutputDir": true
+}
