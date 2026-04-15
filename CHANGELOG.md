@@ -5,6 +5,83 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-04-15
+
+### Added
+
+#### Configuration Management
+
+- **PlaywrightConfigMerger** - New configuration validation and merging system
+  - Automatic discovery of `playwright.config.ts/js/mts/mjs` files
+  - Configuration file validation (existence and parseability)
+  - Smart merging of user config with framework defaults
+  - Automatic injection of required reporters (html/json)
+
+#### Internationalization (i18n)
+
+- **i18n Module** - Complete internationalization support
+  - Support for Chinese (`zh`) and English (`en`)
+  - Global language switching via `setLang()`
+  - Translation function `t(key, lang?)` with dynamic language support
+  - New translation keys: `configNotFound`, `configParseFailed`, `testDirNotFound`, `executorAlreadyRunning`
+
+### Changed
+
+#### API Enhancements
+
+- **API Response Structure** - Enhanced API responses with detailed error information
+  - `startRun()` and `rerunTest()` now return `StartRunResult` object instead of `boolean`
+  - New interface: `{ success: boolean; error?: string }`
+  - Provides detailed error messages for better debugging
+
+#### Configuration Changes
+
+- **Default Port** - Changed default UI port from 3000 to 5274
+  - Avoids conflicts with common development servers (e.g., React Dev Server)
+  - Updated in all documentation and examples
+
+#### Frontend Improvements
+
+- **Dashboard UI** - Enhanced user experience
+  - Removed "Refresh Test Cases" button (auto-refresh on directory switch)
+  - Improved error handling with `formatStartError()` function
+  - Better test directory switching logic with validation feedback
+
+#### Backend Enhancements
+
+- **UI Server** - Improved request handling
+  - Added language middleware for automatic language detection
+  - Refactored test directory validation using `PlaywrightConfigMerger.validateProjectPath()`
+  - Enhanced test discovery API with `configValidation` field
+
+- **Test Discovery** - Better configuration handling
+  - Uses config file directory as working directory
+  - Returns validation results instead of empty lists on errors
+
+- **Executor** - Dynamic configuration management
+  - Dynamic config merging instead of hardcoded paths
+  - Proper working directory resolution based on config location
+
+### Fixed
+
+- **Type Safety** - Added `Artifact` type import in CLI
+- **Error Tracking** - Added `cause` property to error objects in config loader
+- **Test Assertions** - Updated test messages to match new CLI output
+
+### Dependencies
+
+- **FontAwesome** - Migrated from CDN to local package
+  - Replaced CDN link with `@fortawesome/fontawesome-free: ^7.2.0`
+  - Improved stability and reduced external dependencies
+
+### Breaking Changes
+
+- **Default Port**: Port changed from 3000 to 5274 - Update scripts and configurations
+- **API Response**: `startRun()` and `rerunTest()` now return `{ success, error? }` instead of `boolean`
+- **Test Directory Validation**: Use new `validateProjectPath()` method instead of old validation logic
+
+---
+
 ## [1.0.0] - 2026-04-11
 
 ### Added
@@ -115,4 +192,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.0.1]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.1
 [1.0.0]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.0
