@@ -94,7 +94,10 @@ async function loadJsonConfig(
   try {
     return JSON.parse(content);
   } catch (error) {
-    throw new Error(`Invalid JSON in config file ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Invalid JSON in config file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
+    );
   }
 }
 

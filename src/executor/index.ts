@@ -1,6 +1,14 @@
 import { EventEmitter } from 'events';
 import { spawn, ChildProcess } from 'child_process';
-import { TestConfig, TestResult, RunResult, SuiteResult, BrowserType, ErrorCode } from '../types';
+import {
+  TestConfig,
+  TestResult,
+  RunResult,
+  SuiteResult,
+  BrowserType,
+  ErrorCode,
+  Artifact,
+} from '../types';
 import { PlaywrightRunnerError } from '../types';
 import * as path from 'path';
 import dayjs from 'dayjs';
@@ -12,6 +20,7 @@ import { VisualTestingManager } from '../visual';
 import { FlakyTestManager } from '../flaky';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
+import { PlaywrightConfigMerger } from '../config/merger';
 
 const PROGRESS_MARKER = '__PW_PROGRESS__';
 
@@ -125,6 +134,7 @@ export class Executor extends EventEmitter {
   private realtimeStats = { passed: 0, failed: 0, skipped: 0, totalTests: 0 };
   private storage: StorageProvider;
   private skippedQuarantinedTests: string[] = [];
+  private configMerger: PlaywrightConfigMerger;
 
   get currentRun(): RunResult | null {
     return this._currentRun;
@@ -213,6 +223,7 @@ export class Executor extends EventEmitter {
     };
     this.storage = storage || getStorage();
     this.flakyManager = flakyManager || null;
+    this.configMerger = new PlaywrightConfigMerger(this.storage);
     this.initializeManagers();
   }
 
@@ -665,7 +676,13 @@ module.exports = ProgressReporter;
     testFiles?: string[];
     testLocations?: string[];
   }): Promise<void> {
-    const projectConfigPath = path.resolve('playwright.config.ts');
+    const testDir = this.config.testDir;
+    const mergedConfig = await this.configMerger.mergeConfig(testDir, this.config.outputDir);
+
+    if (!mergedConfig.configPath) {
+      this.log.warn(`No playwright.config.ts found in ${testDir}, tests may not run correctly`);
+    }
+
     const jsonReportPath = path.resolve(this.config.outputDir, 'results.json');
     const progressReporterPath = path.resolve(await this.writeProgressReporter());
 
@@ -681,23 +698,30 @@ module.exports = ProgressReporter;
 
     const args: string[] = ['test'];
 
-    if (await this.storage.exists(projectConfigPath)) {
-      args.push(`--config=${projectConfigPath}`);
+    const configPath = mergedConfig.configPath;
+    if (configPath) {
+      args.push(`--config=${configPath}`);
     }
 
-    const cwd = process.cwd();
+    const cwd = configPath ? path.dirname(configPath) : process.cwd();
 
     if (options?.testLocations && options.testLocations.length > 0) {
       for (const location of options.testLocations) {
-        let relativePath = path.isAbsolute(location) ? path.relative(cwd, location) : location;
-        relativePath = relativePath.split(path.sep).join('/');
-        args.push(relativePath);
+        let testPath = location;
+        if (path.isAbsolute(location)) {
+          testPath = path.relative(cwd, location);
+        }
+        testPath = testPath.split(path.sep).join('/');
+        args.push(testPath);
       }
     } else if (options?.testFiles && options.testFiles.length > 0) {
       for (const file of options.testFiles) {
-        let relativePath = path.isAbsolute(file) ? path.relative(cwd, file) : file;
-        relativePath = relativePath.split(path.sep).join('/');
-        args.push(relativePath);
+        let testPath = file;
+        if (path.isAbsolute(file)) {
+          testPath = path.relative(cwd, file);
+        }
+        testPath = testPath.split(path.sep).join('/');
+        args.push(testPath);
       }
     }
 
@@ -737,8 +761,14 @@ module.exports = ProgressReporter;
     this.log.info(`Running Playwright tests via CLI`);
     this.log.info(`Command: npx playwright ${args.join(' ')}`);
     this.log.info(`Working directory: ${cwd}`);
+    this.log.info(`Config path: ${configPath || 'none'}`);
+    this.log.info(`Test directory: ${mergedConfig.testDirAbsolute}`);
     this.log.info(`HTML report will be generated at: ${htmlReportPath}`);
     this.log.info(`JSON report will be generated at: ${jsonReportPath}`);
+
+    if (mergedConfig.warnings.length > 0) {
+      this.log.warn(`Config warnings: ${mergedConfig.warnings.join('; ')}`);
+    }
 
     const exitCode = await new Promise<number>((resolve, reject) => {
       const proc = spawn('npx', ['playwright', ...args], {
@@ -1149,7 +1179,7 @@ module.exports = ProgressReporter;
         const artifacts = await this.artifactManager.discoverArtifacts(runId);
         this._currentRun!.metadata!.artifacts = {
           total: artifacts.length,
-          byType: artifacts.reduce((acc: Record<string, number>, a) => {
+          byType: artifacts.reduce((acc: Record<string, number>, a: Artifact) => {
             acc[a.type] = (acc[a.type] || 0) + 1;
             return acc;
           }, {}),

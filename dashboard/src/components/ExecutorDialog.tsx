@@ -27,7 +27,6 @@ interface ExecutorDialogProps {
   onClearAll: () => void;
   onExpandAll: () => void;
   onCollapseAll: () => void;
-  onRefreshTests: () => void;
   onModal: (content: React.ReactNode) => void;
 }
 
@@ -485,7 +484,7 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
 export function ExecutorDialog({
   isOpen, onClose, lang, testFiles, testCases, selectedIds, expandedPaths, isExecuting, isLoadingTests, logs, versionInput, testDir,
   onSelectedIdsChange, onExpandedPathsChange, onRun, onStop, onClearLogs,
-  onVersionChange, onTestDirChange, onSelectAll, onClearAll, onExpandAll, onCollapseAll, onRefreshTests, onModal,
+  onVersionChange, onTestDirChange, onSelectAll, onClearAll, onExpandAll, onCollapseAll, onModal,
 }: ExecutorDialogProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [tempTestDir, setTempTestDir] = useState(testDir);
@@ -525,6 +524,10 @@ export function ExecutorDialog({
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    setTempTestDir(testDir);
+  }, [testDir]);
 
   /**
    * 处理单个测试用例的执行
@@ -701,8 +704,11 @@ export function ExecutorDialog({
                 onClick={async () => {
                   if (tempTestDir === testDir) return;
                   setIsValidating(true);
-                  onTestDirChange(tempTestDir);
-                  setIsValidating(false);
+                  try {
+                    await onTestDirChange(tempTestDir);
+                  } finally {
+                    setIsValidating(false);
+                  }
                 }}
                 disabled={isValidating || tempTestDir === testDir}
                 className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
@@ -718,17 +724,6 @@ export function ExecutorDialog({
                 )}
               </button>
             </div>
-            <button
-              onClick={onRefreshTests}
-              disabled={isExecuting}
-              className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
-                isExecuting
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
-              }`}
-            >
-              <i className={`fas fa-sync-alt mr-1 ${isExecuting ? 'animate-spin' : ''}`}></i>{t('refreshTests', lang) || '刷新用例'}
-            </button>
           </div>
 
           <div className="flex-1 flex gap-4 min-h-0">

@@ -1,6 +1,6 @@
 {
   "name": "yuantest-playwright",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Playwright test orchestrator, executor and reporter with web UI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,7 @@
     "build:server": "tsc && node -e \"require('fs').cpSync('src/reporter/templates','dist/reporter/templates',{recursive:true})\"",
     "build:dashboard": "vite build",
     "start": "node bin/cli.js",
-    "dev": "npx tsx src/cli.ts",
+    "dev": "npx tsx src/cli/index.ts",
     "dev:dashboard": "vite",
     "ui": "node bin/start-ui.js",
     "test": "jest",
@@ -66,6 +66,7 @@
     "README.en.md"
   ],
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.2.0",
     "@playwright/test": "^1.40.0",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",

@@ -23,6 +23,7 @@ import {
   SavePreferencesRequestSchema,
 } from '../validation';
 import { HTTP_STATUS } from '../constants';
+import { Lang, setLang, getLang } from '../i18n';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -136,6 +137,18 @@ export class DashboardServer {
   private setupRoutes(): void {
     const v1Router = Router();
 
+    v1Router.use((req: Request, res: Response, next: NextFunction) => {
+      const lang =
+        (req.query.lang as Lang) ||
+        (req.headers['accept-language']?.startsWith('zh') ? 'zh' : 'en') ||
+        'zh';
+      if (lang === 'zh' || lang === 'en') {
+        setLang(lang);
+        this.testDiscovery.setLang(lang);
+      }
+      next();
+    });
+
     v1Router.get('/health', (req: Request, res: Response) => {
       res.json({
         status: 'ok',
@@ -174,6 +187,7 @@ export class DashboardServer {
             total: number;
             files?: any;
             tests: any[];
+            configValidation?: any;
           } | null;
           if (cached) {
             res.json(cached);
@@ -183,6 +197,19 @@ export class DashboardServer {
 
         if (structured) {
           const result = await this.testDiscovery.discoverTestsStructured(testDir, configPath);
+
+          if (result.configValidation && !result.configValidation.valid) {
+            const response = {
+              total: 0,
+              files: [],
+              tests: [],
+              configValidation: result.configValidation,
+              error: result.configValidation.error,
+            };
+            res.json(response);
+            return;
+          }
+
           const response = {
             total: result.tests.length,
             files: result.files,
@@ -196,14 +223,27 @@ export class DashboardServer {
               tags: t.tags,
               annotations: t.annotations,
             })),
+            configValidation: result.configValidation,
           };
           this.cache.set(cacheKey, response);
           res.json(response);
         } else {
-          const tests = await this.testDiscovery.discoverTests(testDir, configPath);
+          const result = await this.testDiscovery.discoverTestsStructured(testDir, configPath);
+
+          if (result.configValidation && !result.configValidation.valid) {
+            const response = {
+              total: 0,
+              tests: [],
+              configValidation: result.configValidation,
+              error: result.configValidation.error,
+            };
+            res.json(response);
+            return;
+          }
+
           const response = {
-            total: tests.length,
-            tests: tests.map((t) => ({
+            total: result.tests.length,
+            tests: result.tests.map((t) => ({
               id: t.id,
               title: t.title,
               fullTitle: t.fullTitle,
@@ -213,6 +253,7 @@ export class DashboardServer {
               tags: t.tags,
               annotations: t.annotations,
             })),
+            configValidation: result.configValidation,
           };
           this.cache.set(cacheKey, response);
           res.json(response);
@@ -947,47 +988,15 @@ export class DashboardServer {
           return;
         }
 
-        const resolvedPath = path.resolve(testDir);
+        const validationResult = await this.testDiscovery.validateProjectPath(testDir);
 
-        if (!fs.existsSync(resolvedPath)) {
+        if (!validationResult.valid) {
           res.status(HTTP_STATUS.BAD_REQUEST).json({
-            error: 'Directory does not exist',
-            path: resolvedPath,
+            error: validationResult.error,
+            configExists: validationResult.configExists,
+            path: path.resolve(testDir),
           });
           return;
-        }
-
-        if (!fs.statSync(resolvedPath).isDirectory()) {
-          res.status(HTTP_STATUS.BAD_REQUEST).json({
-            error: 'Path is not a directory',
-            path: resolvedPath,
-          });
-          return;
-        }
-
-        const testFiles = fs
-          .readdirSync(resolvedPath)
-          .filter(
-            (file) =>
-              file.endsWith('.spec.ts') ||
-              file.endsWith('.spec.js') ||
-              file.endsWith('.test.ts') ||
-              file.endsWith('.test.js')
-          );
-
-        if (testFiles.length === 0) {
-          const hasSubdirs = fs
-            .readdirSync(resolvedPath, { withFileTypes: true })
-            .some((dirent) => dirent.isDirectory());
-
-          if (!hasSubdirs) {
-            res.status(HTTP_STATUS.BAD_REQUEST).json({
-              error: 'No test files found in directory',
-              path: resolvedPath,
-              hint: 'Directory should contain .spec.ts, .spec.js, .test.ts, or .test.js files',
-            });
-            return;
-          }
         }
 
         this.testDir = testDir;
@@ -1003,8 +1012,10 @@ export class DashboardServer {
         res.json({
           success: true,
           testDir,
-          resolvedPath,
-          testFileCount: testFiles.length,
+          resolvedPath: validationResult.testDirAbsolute,
+          configPath: validationResult.configPath,
+          configExists: validationResult.configExists,
+          warnings: validationResult.warnings,
         });
       })
     );
@@ -1029,41 +1040,16 @@ export class DashboardServer {
           return;
         }
 
-        const resolvedPath = path.resolve(testDir);
-
-        if (!fs.existsSync(resolvedPath)) {
-          res.json({
-            valid: false,
-            error: 'Directory does not exist',
-            path: resolvedPath,
-          });
-          return;
-        }
-
-        if (!fs.statSync(resolvedPath).isDirectory()) {
-          res.json({
-            valid: false,
-            error: 'Path is not a directory',
-            path: resolvedPath,
-          });
-          return;
-        }
-
-        const testFiles = fs
-          .readdirSync(resolvedPath)
-          .filter(
-            (file) =>
-              file.endsWith('.spec.ts') ||
-              file.endsWith('.spec.js') ||
-              file.endsWith('.test.ts') ||
-              file.endsWith('.test.js')
-          );
+        const validationResult = await this.testDiscovery.validateProjectPath(testDir);
 
         res.json({
-          valid: true,
-          path: resolvedPath,
-          testFileCount: testFiles.length,
-          hasTestFiles: testFiles.length > 0,
+          valid: validationResult.valid,
+          configPath: validationResult.configPath,
+          configExists: validationResult.configExists,
+          testDir: validationResult.testDir,
+          testDirAbsolute: validationResult.testDirAbsolute,
+          error: validationResult.error,
+          warnings: validationResult.warnings,
         });
       })
     );

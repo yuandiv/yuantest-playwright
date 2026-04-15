@@ -4,6 +4,8 @@ import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
 import { TTLCache } from '../cache';
 import { CACHE_CONFIG } from '../constants';
+import { PlaywrightConfigMerger, ConfigValidationResult } from '../config/merger';
+import { Lang } from '../i18n';
 
 export interface DiscoveredTest {
   id: string;
@@ -46,6 +48,7 @@ export interface DiscoveredSuite {
 export interface TestDiscoveryResult {
   files: DiscoveredFile[];
   tests: DiscoveredTest[];
+  configValidation?: ConfigValidationResult;
 }
 
 interface PlaywrightListSpec {
@@ -87,11 +90,25 @@ interface PlaywrightListOutput {
 export class TestDiscovery {
   private log = logger.child('TestDiscovery');
   private storage: StorageProvider;
-  private cache: TTLCache<{ tests: DiscoveredTest[]; files: DiscoveredFile[] }>;
+  private cache: TTLCache<{
+    tests: DiscoveredTest[];
+    files: DiscoveredFile[];
+    configValidation?: ConfigValidationResult;
+  }>;
+  private configMerger: PlaywrightConfigMerger;
 
-  constructor(storage?: StorageProvider) {
+  constructor(storage?: StorageProvider, lang?: Lang) {
     this.storage = storage || getStorage();
     this.cache = new TTLCache(CACHE_CONFIG.TEST_DISCOVERY_TTL);
+    this.configMerger = new PlaywrightConfigMerger(this.storage, lang);
+  }
+
+  setLang(lang: Lang): void {
+    this.configMerger.setLang(lang);
+  }
+
+  async validateProjectPath(projectDir: string): Promise<ConfigValidationResult> {
+    return this.configMerger.validateProjectPath(projectDir);
   }
 
   async discoverTests(
@@ -114,15 +131,29 @@ export class TestDiscovery {
       const cached = this.cache.get(cacheKey);
       if (cached) {
         this.log.debug(`Using cached discovery result for ${testDir}`);
-        return { files: cached.files, tests: cached.tests };
+        return {
+          files: cached.files,
+          tests: cached.tests,
+          configValidation: cached.configValidation,
+        };
       }
     }
 
     const files: DiscoveredFile[] = [];
     const allTests: DiscoveredTest[] = [];
 
+    const configValidation = await this.configMerger.validateProjectPath(testDir);
+
+    if (!configValidation.valid) {
+      this.log.warn(`Invalid project path: ${configValidation.error}`);
+      return { files, tests: allTests, configValidation };
+    }
+
     try {
-      const jsonOutput = await this.runPlaywrightListJSON(testDir, configPath);
+      const jsonOutput = await this.runPlaywrightListJSON(
+        testDir,
+        configPath || configValidation.configPath || undefined
+      );
       const parsed = this.parseJSONOutput(jsonOutput, testDir);
 
       for (const file of parsed.files) {
@@ -135,14 +166,14 @@ export class TestDiscovery {
 
       this.log.info(`Discovered ${allTests.length} tests in ${files.length} files`);
 
-      this.cache.set(cacheKey, { tests: allTests, files });
+      this.cache.set(cacheKey, { tests: allTests, files, configValidation });
     } catch (error) {
       this.log.error(
         `Failed to discover tests: ${error instanceof Error ? error.message : String(error)}`
       );
     }
 
-    return { files, tests: allTests };
+    return { files, tests: allTests, configValidation };
   }
 
   invalidateCache(testDir?: string): void {
@@ -202,11 +233,13 @@ export class TestDiscovery {
       args.push(`--config=${resolvedConfigPath}`);
     }
 
-    this.log.info(`Running: npx ${args.join(' ')} in ${testDir}`);
+    const cwd = resolvedConfigPath ? path.dirname(resolvedConfigPath) : testDir;
+
+    this.log.info(`Running: npx ${args.join(' ')} in ${cwd}`);
 
     return new Promise((resolve, reject) => {
       const proc = spawn('npx', args, {
-        cwd: testDir,
+        cwd,
         shell: true,
         env: { ...process.env },
       });

@@ -18,7 +18,7 @@ import { ArtifactManager } from '../artifacts';
 import { VisualTestingManager } from '../visual';
 import { PlaywrightConfigBuilder } from '../config';
 import { loadConfigFile, mergeConfig, getDashboardConfig } from '../config/loader';
-import { TestConfig, BrowserType } from '../types';
+import { TestConfig, BrowserType, Artifact } from '../types';
 import { logger } from '../logger';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -651,7 +651,7 @@ program
 
     for (const [type, items] of Object.entries(byType)) {
       console.log(chalk.bold(`\n  ${type} (${items.length}):`));
-      items.slice(0, 10).forEach((a) => {
+      items.slice(0, 10).forEach((a: Artifact) => {
         const size = artifactManager.formatSize(a.size);
         console.log(`    ${a.fileName} | ${size} | ${a.testName}`);
       });

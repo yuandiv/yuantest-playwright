@@ -11,6 +11,11 @@ export async function fetchJSON<T>(url: string): Promise<T | null> {
   }
 }
 
+export interface StartRunResult {
+  success: boolean;
+  error?: string;
+}
+
 export async function startRun(options: {
   testDir?: string;
   baseURL?: string;
@@ -21,16 +26,20 @@ export async function startRun(options: {
   testLocations?: string[];
   testFiles?: string[];
   describePattern?: string;
-}): Promise<boolean> {
+}): Promise<StartRunResult> {
   try {
     const res = await fetch(`${API_BASE}/runs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(options),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (res.ok) {
+      return { success: true };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { success: false, error: data.error || `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Network error' };
   }
 }
 
@@ -130,10 +139,22 @@ export interface DiscoveredFile {
   tests: DiscoveredTest[];
 }
 
+export interface ConfigValidationResult {
+  valid: boolean;
+  configPath: string | null;
+  configExists: boolean;
+  testDir: string | null;
+  testDirAbsolute: string | null;
+  error?: string;
+  warnings: string[];
+}
+
 export interface TestDiscoveryResult {
   total: number;
   files: DiscoveredFile[];
   tests: DiscoveredTest[];
+  configValidation?: ConfigValidationResult;
+  error?: string;
 }
 
 export async function getTests(testDir: string = './tests', configPath?: string): Promise<{
@@ -227,7 +248,9 @@ export async function setTestDir(testDir: string): Promise<{
   success: boolean; 
   testDir?: string; 
   resolvedPath?: string; 
-  testFileCount?: number;
+  configPath?: string | null;
+  configExists?: boolean;
+  warnings?: string[];
   error?: string;
 }> {
   try {
@@ -249,10 +272,12 @@ export async function setTestDir(testDir: string): Promise<{
 
 export async function validateTestDir(testDir: string): Promise<{
   valid: boolean;
-  path?: string;
-  testFileCount?: number;
-  hasTestFiles?: boolean;
+  configPath?: string | null;
+  configExists?: boolean;
+  testDir?: string | null;
+  testDirAbsolute?: string | null;
   error?: string;
+  warnings?: string[];
 }> {
   try {
     const res = await fetch(`${API_BASE}/testdir/validate?testDir=${encodeURIComponent(testDir)}`);
@@ -279,7 +304,7 @@ export async function getHealthMetrics(options?: {
   return fetchJSON(url);
 }
 
-export async function rerunTest(testLocation: string): Promise<boolean> {
+export async function rerunTest(testLocation: string): Promise<StartRunResult> {
   try {
     const res = await fetch(`${API_BASE}/runs`, {
       method: 'POST',
@@ -288,8 +313,12 @@ export async function rerunTest(testLocation: string): Promise<boolean> {
         testLocations: [testLocation]
       }),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (res.ok) {
+      return { success: true };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { success: false, error: data.error || `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Network error' };
   }
 }

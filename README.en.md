@@ -93,17 +93,17 @@ yuantest run --test-dir ./tests --timeout 60000 --retries 2
 ### 2. Start Web Dashboard
 
 ```bash
-# Default port 3000
+# Default port 5274
 yuantest ui
 
 # Custom port
 yuantest ui --port 8080
 
 # Custom report and data directories
-yuantest ui --port 3000 --output ./reports --data ./test-data
+yuantest ui --port 5274 --output ./reports --data ./test-data
 ```
 
-Then open **http://localhost:3000** in your browser to view the visualization interface.
+Then open **http://localhost:5274** in your browser to view the visualization interface.
 
 ## 📖 CLI Commands Reference
 
@@ -270,8 +270,8 @@ async function main() {
   });
   console.log(`Final: ${result.passed}/${result.totalTests} passed`);
 
-  // 5. Start Dashboard
-  const server = new DashboardServer(3000, './reports', './test-data');
+  // 5. 启动 Dashboard
+  const server = new DashboardServer(5274, './reports', './test-data');
   await server.start();
 }
 
@@ -411,7 +411,7 @@ export default defineConfig({
     autoQuarantine: false,
   },
   dashboard: {
-    port: 3000,
+    port: 5274,
     open: true,
   },
 });

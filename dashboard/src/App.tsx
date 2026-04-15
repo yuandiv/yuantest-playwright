@@ -545,6 +545,10 @@ function App() {
       const cases = extractAllTests(files);
       setTestCases(cases);
       setSelectedIds(new Set(cases.map(c => c.id)));
+    } else if (result && result.configValidation && !result.configValidation.valid) {
+      setTestFiles([]);
+      setTestCases([]);
+      setSelectedIds(new Set());
     } else {
       const annotations = await api.getAnnotations(testDir);
       if (annotations && annotations.length > 0) {
@@ -581,22 +585,6 @@ function App() {
     loadHealthMetrics();
   }, [loadTests, loadRunsFromServer, loadHealthMetrics]);
 
-  const handleRefreshTests = useCallback(async () => {
-    setIsLoadingTests(true);
-    addLog(`🔄 ${t('refreshing', lang) || '正在刷新测试用例...'}...`, 'info');
-    try {
-      const result = await api.refreshTests();
-      if (result && result.success) {
-        addLog(`✅ ${t('refreshSuccess', lang) || '刷新成功'}: ${result.total} ${t('testCasesFound', lang) || '个测试用例'}`, 'success');
-        await loadTests(true);
-      } else {
-        addLog(`❌ ${t('refreshFailed', lang) || '刷新失败'}`, 'error');
-      }
-    } finally {
-      setIsLoadingTests(false);
-    }
-  }, [lang, addLog, loadTests]);
-
   const handleTestDirChange = useCallback(async (newTestDir: string) => {
     setIsLoadingTests(true);
     addLog(`📁 ${t('selectTestDir', lang)}: ${newTestDir}`, 'info');
@@ -608,7 +596,19 @@ function App() {
           addLog(`🗑️ ${t('clearedOldStatus', lang) || '已清除旧目录的测试状态'}`, 'info');
         }
         setTestDir(newTestDir);
-        addLog(`✅ ${t('testDirSetSuccess', lang)}: ${result.testFileCount || 0} ${t('testCasesFound', lang) || '个测试文件'}`, 'success');
+        
+        if (result.configExists) {
+          addLog(`✅ ${t('testDirSetSuccess', lang)}: ${result.configPath}`, 'success');
+        } else {
+          addLog(`❌ ${t('configNotFound', lang)}`, 'error');
+        }
+        
+        if (result.warnings && result.warnings.length > 0) {
+          for (const warning of result.warnings) {
+            addLog(`⚠️ ${warning}`, 'info');
+          }
+        }
+        
         await loadTests(true);
       } else {
         addLog(`❌ ${t('testDirSetFailed', lang)}: ${result.error || 'Unknown error'}`, 'error');
@@ -617,6 +617,22 @@ function App() {
       setIsLoadingTests(false);
     }
   }, [lang, addLog, loadTests, testDir]);
+
+  const formatStartError = useCallback((error: string): string => {
+    if (error.includes('already in progress') || error.includes('execution is already')) {
+      return t('executorAlreadyRunning', lang);
+    }
+    if (error.includes('Invalid testDir') || error.includes('path traversal')) {
+      return t('invalidTestDir', lang);
+    }
+    if (error.includes('Network') || error.includes('fetch')) {
+      return t('networkError', lang);
+    }
+    if (error.startsWith('HTTP 5')) {
+      return t('serverError', lang);
+    }
+    return error;
+  }, [lang]);
 
   const handleRun = async (mode: 'test' | 'describe' | 'file', target: string) => {
     if (isExecuting) {
@@ -627,30 +643,31 @@ function App() {
     logBatchUpdater.current?.clear();
     addLog(`🚀 ${t('startExecution', lang)}...`, 'info');
     
-    let ok = false;
+    let result: api.StartRunResult;
     
     if (mode === 'test') {
       const locations = target.includes(',') ? target.split(',') : [target];
-      ok = await api.startRun({
+      result = await api.startRun({
         version: versionInput,
         testLocations: locations,
       });
     } else if (mode === 'describe') {
-      ok = await api.startRun({
+      result = await api.startRun({
         version: versionInput,
         describePattern: target,
       });
-    } else if (mode === 'file') {
-      ok = await api.startRun({
+    } else {
+      result = await api.startRun({
         version: versionInput,
         testFiles: [target],
       });
     }
     
-    if (ok) {
+    if (result.success) {
       addLog(`✅ ${t('executionStarted', lang)}`, 'success');
     } else {
-      addLog(`❌ ${t('failedToStart', lang)}`, 'error');
+      const errorMsg = result.error ? formatStartError(result.error) : t('failedToStart', lang);
+      addLog(`❌ ${t('failedToStart', lang)}: ${errorMsg}`, 'error');
     }
   };
 
@@ -673,14 +690,15 @@ function App() {
       return tc ? `${tc.file}:${tc.line}` : null;
     }).filter((loc): loc is string => loc !== null);
     
-    const ok = await api.startRun({
+    const result = await api.startRun({
       version: versionInput,
       testLocations,
     });
-    if (ok) {
+    if (result.success) {
       addLog(`✅ ${t('executionStarted', lang)}`, 'success');
     } else {
-      addLog(`❌ ${t('failedToStart', lang)}`, 'error');
+      const errorMsg = result.error ? formatStartError(result.error) : t('failedToStart', lang);
+      addLog(`❌ ${t('failedToStart', lang)}: ${errorMsg}`, 'error');
     }
   };
 
@@ -838,7 +856,6 @@ function App() {
         onClearAll={() => setSelectedIds(new Set())}
         onExpandAll={() => setExpandedPaths(collectAllPaths())}
         onCollapseAll={() => setExpandedPaths(new Set())}
-        onRefreshTests={handleRefreshTests}
         onModal={setModalContent}
       />
       <Modal content={modalContent} onClose={() => setModalContent(null)} />

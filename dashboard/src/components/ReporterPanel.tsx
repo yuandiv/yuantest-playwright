@@ -282,11 +282,11 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
     const testLocation = `${test.file}:${test.line}`;
     
     try {
-      const success = await api.rerunTest(testLocation);
-      if (success) {
+      const result = await api.rerunTest(testLocation);
+      if (result.success) {
         onRerunMessage({ type: 'success', text: `Rerun initiated for: ${test.name}` });
       } else {
-        onRerunMessage({ type: 'error', text: 'Failed to initiate rerun' });
+        onRerunMessage({ type: 'error', text: `Failed to initiate rerun: ${result.error || 'Unknown error'}` });
       }
       setTimeout(() => onRerunMessage(null), 3000);
     } catch (error) {
