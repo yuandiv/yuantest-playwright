@@ -183,6 +183,7 @@ describe('Orchestrator-Executor Integration', () => {
         outputDir: outputDir,
       });
 
+      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
       const runPromise = executor.execute();
       await expect(executor.execute()).rejects.toThrow('Executor is already running');
       await runPromise.catch(() => {});

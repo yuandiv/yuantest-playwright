@@ -198,6 +198,7 @@ describe('Executor', () => {
   describe('execute', () => {
     it('should throw error if already running', async () => {
       const executor = new Executor(config, storage);
+      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
       const firstRun = executor.execute();
       await expect(executor.execute()).rejects.toThrow('already running');
       await firstRun.catch(() => {});
