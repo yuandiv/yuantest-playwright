@@ -422,12 +422,6 @@ export class FilesystemStorage implements StorageProvider, StorageProviderWithRe
 
   async mkdir(dirPath: string): Promise<void> {
     try {
-      await fs.promises.access(dirPath);
-      return;
-    } catch {
-      // Directory doesn't exist, create it
-    }
-    try {
       await fs.promises.mkdir(dirPath, { recursive: true });
     } catch (error) {
       const nodeError = error as NodeJS.ErrnoException;

@@ -11,11 +11,7 @@ export class ArtifactManager extends BaseManager {
   private storage: StorageProvider;
   private artifacts: Artifact[] = [];
 
-  constructor(
-    config: ArtifactConfig,
-    baseDir: string,
-    storage?: StorageProvider
-  ) {
+  constructor(config: ArtifactConfig, baseDir: string, storage?: StorageProvider) {
     super();
     this.config = config;
     this.baseDir = config.outputDir || baseDir;
@@ -142,7 +138,7 @@ export class ArtifactManager extends BaseManager {
   }
 
   private generateId(filePath: string): string {
-    return crypto.createHash('md5').update(filePath).digest('hex');
+    return crypto.createHash('sha256').update(filePath).digest('hex');
   }
 
   async getArtifact(id: string, runId?: string): Promise<Artifact | null> {
