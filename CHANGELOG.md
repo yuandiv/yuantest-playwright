@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-04-16
+
+### Added
+
+#### Artifact Management
+
+- **ArtifactManager** - Complete test artifact management module
+  - `discoverArtifacts()` - Scan directory to discover all test artifacts
+  - `getArtifact()` - Get single artifact by ID or path
+  - `getArtifactContent()` - Read artifact file content
+  - `deleteArtifact()` - Delete specified artifact file
+  - `cleanArtifacts()` - Clean expired artifacts (default 7 days)
+  - `getArtifactsByType()` - Filter artifacts by type (screenshot/video/trace)
+  - `getArtifactsByTest()` - Filter artifacts by test ID
+  - `getArtifactStats()` - Get artifact statistics
+  - Automatic file type detection (images, videos, traces)
+  - Configurable file size filtering via `maxFileSize`
+
+### Changed
+
+#### Storage Improvements
+
+- **FilesystemStorage.mkdir()** - Fixed race condition in directory creation
+  - Added existence check before creating directories
+  - Properly handles `EEXIST` errors from concurrent creation attempts
+  - Uses `{ recursive: true }` option for safe nested directory creation
+
+#### Testing Improvements
+
+- **Test Optimization** - Added mocks to prevent actual Playwright test execution
+  - Mocked `runPlaywrightTests()` in integration and unit tests
+  - Improves test speed and focuses on logic verification
+
+### Fixed
+
+- **.gitignore Rules** - Corrected artifact folder ignore patterns
+  - Added leading `/` to ignore only root directory folders: `/artifacts/`, `/traces/`, `/visual-testing/`, `/html-report/`
+  - Prevents accidentally ignoring subdirectories with same names
+
+---
+
 ## [1.0.1] - 2026-04-15
 
 ### Added
@@ -192,5 +233,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.0.2]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.2
 [1.0.1]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.1
 [1.0.0]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.0
