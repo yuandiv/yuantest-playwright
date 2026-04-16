@@ -55,8 +55,11 @@ describe('CLI E2E Tests', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cli-e2e-test-'));
   });
 
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+  afterEach(async () => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
   });
 
   describe('Help and Version', () => {

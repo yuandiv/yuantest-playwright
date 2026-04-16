@@ -7,13 +7,17 @@ describe('Reporter', () => {
   let tmpDir: string;
   let reporter: Reporter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'reporter-test-'));
     reporter = new Reporter(tmpDir);
+    await new Promise(resolve => setTimeout(resolve, 10));
   });
 
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+  afterEach(async () => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
   });
 
   it('should generate a report', async () => {
@@ -433,13 +437,17 @@ describe('JSONReporter', () => {
   let tmpDir: string;
   let reporter: JSONReporter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'json-reporter-test-'));
     reporter = new JSONReporter(tmpDir);
+    await new Promise(resolve => setTimeout(resolve, 10));
   });
 
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+  afterEach(async () => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
   });
 
   it('should generate JSON report string', async () => {

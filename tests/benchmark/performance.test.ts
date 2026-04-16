@@ -104,8 +104,9 @@ describe('Performance Benchmarks', () => {
     storage = new MemoryStorage();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     storage.clear();
+    await new Promise(resolve => setTimeout(resolve, 10));
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     } catch {}

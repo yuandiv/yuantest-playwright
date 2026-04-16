@@ -223,10 +223,14 @@ describe('FilesystemStorage', () => {
   beforeEach(async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fs-storage-test-'));
     storage = new FilesystemStorage();
+    await new Promise(resolve => setTimeout(resolve, 10));
   });
 
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+  afterEach(async () => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
   });
 
   describe('basic operations', () => {

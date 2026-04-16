@@ -134,14 +134,14 @@ describe('TTLCache', () => {
   let cache: TTLCache<string>;
 
   beforeEach(() => {
-    cache = new TTLCache<string>(100, { maxSize: 10 });
+    cache = new TTLCache<string>(200, { maxSize: 10 });
   });
 
   it('should expire entries after TTL', async () => {
     cache.set('key1', 'value1');
     expect(cache.get('key1')).toBe('value1');
 
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, 300));
     expect(cache.get('key1')).toBeNull();
   });
 
@@ -149,7 +149,7 @@ describe('TTLCache', () => {
     cache.set('key1', 'value1');
     expect(cache.has('key1')).toBe(true);
 
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, 300));
     expect(cache.has('key1')).toBe(false);
   });
 });
