@@ -102,9 +102,27 @@ async function loadJsonConfig(
 }
 
 function loadJsConfig(filePath: string): YuanTestConfigFile {
+  const isTypeScript = filePath.endsWith('.ts') || filePath.endsWith('.mts');
+
+  if (isTypeScript) {
+    try {
+      const tsx = require('tsx/cjs/api');
+      const callerPath = resolveCallerPath();
+      delete require.cache[require.resolve(filePath)];
+      const config = tsx.require(filePath, callerPath);
+      const result = config?.default ?? config;
+      return typeof result === 'function'
+        ? (result as () => YuanTestConfigFile)()
+        : (result as YuanTestConfigFile);
+    } catch (tsxError) {
+      console.warn(`tsx load failed, trying jiti: ${tsxError instanceof Error ? tsxError.message : String(tsxError)}`);
+    }
+  }
+
   let jiti: (filePath: string) => unknown;
   try {
-    jiti = require('jiti')(__filename, { interopDefault: true, esmResolve: true });
+    const callerPath = resolveCallerPath();
+    jiti = require('jiti')(callerPath, { interopDefault: true, esmResolve: true });
   } catch {
     jiti = require(filePath);
   }
@@ -115,6 +133,13 @@ function loadJsConfig(filePath: string): YuanTestConfigFile {
   return typeof config === 'function'
     ? (config as () => YuanTestConfigFile)()
     : (config as YuanTestConfigFile);
+}
+
+function resolveCallerPath(): string {
+  if (typeof __filename !== 'undefined') {
+    return __filename;
+  }
+  return process.cwd();
 }
 
 export async function loadConfigFile(

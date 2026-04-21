@@ -41,12 +41,11 @@ export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data }) 
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-5">
-      <DashboardHeader lang={lang} stats={stats} />
-      
       <div className="p-5">
         <DashboardToolbar
           lang={lang}
           config={config}
+          stats={stats}
           hasData={hasData && !!stats}
           onReset={resetConfig}
           onDateChange={setDateRange}
@@ -93,45 +92,10 @@ export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data }) 
   );
 };
 
-interface DashboardHeaderProps {
-  lang: Lang;
-  stats: any;
-}
-
-/**
- * 仪表盘标题区域
- */
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ lang, stats }) => (
-  <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-5 py-4">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-          <i className="fas fa-heartbeat text-white text-lg"></i>
-        </div>
-        <div>
-          <h2 className="text-white font-bold text-lg">
-            {t('healthDashboard', lang) || 'Health Dashboard'}
-          </h2>
-          <p className="text-white/70 text-xs">
-            {t('subtitle', lang) || 'Test execution health metrics'}
-          </p>
-        </div>
-      </div>
-      {stats && (
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <div className="text-white/60 text-xs">{t('dataPoints', lang) || 'Data Points'}</div>
-            <div className="text-white font-semibold">{stats.dataPoints}</div>
-          </div>
-        </div>
-      )}
-    </div>
-  </div>
-);
-
 interface DashboardToolbarProps {
   lang: Lang;
   config: { dateRange: { start: string; end: string } };
+  stats: any;
   hasData: boolean;
   onReset: () => void;
   onDateChange: (start: string, end: string) => void;
@@ -147,6 +111,7 @@ interface DashboardToolbarProps {
 const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
   lang,
   config,
+  stats,
   hasData,
   onReset,
   onDateChange,
@@ -193,6 +158,16 @@ const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
       onExportHTML={onExportHTML}
       onExportJSON={onExportJSON}
     />
+
+    {stats && (
+      <div className="flex items-center gap-2 ml-2 px-3 py-2 bg-indigo-50 rounded-lg border border-indigo-200">
+        <i className="fas fa-database text-indigo-500 text-sm"></i>
+        <div className="text-xs">
+          <span className="text-indigo-600 font-medium">{t('dataPoints', lang) || 'Data Points'}: </span>
+          <span className="text-indigo-700 font-semibold">{stats.dataPoints}</span>
+        </div>
+      </div>
+    )}
   </div>
 );
 

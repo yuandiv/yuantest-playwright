@@ -47,6 +47,108 @@ A powerful Playwright test orchestrator, executor, and reporter with CLI tools a
 - **Visual testing** - Integrated pixel-comparison visual regression testing
 - **Config hot reload** - Support for dynamic configuration file loading
 
+## 🌟 Core Advantages
+
+### 1. All-in-One Solution
+
+yuantest-playwright provides complete test lifecycle management without combining multiple tools:
+
+| Module | Description |
+|--------|-------------|
+| **Orchestrator** | Smart test sharding, load balancing, optimized allocation based on historical execution time |
+| **Executor** | Execution via Playwright CLI, no internal API dependencies, strong upgrade compatibility |
+| **RealtimeReporter** | WebSocket real-time push of test progress |
+| **DashboardServer** | Complete Web UI + REST API |
+| **FlakyTestManager** | Automatic detection, quarantine, and statistics of unstable tests |
+| **ArtifactManager** | Unified management of screenshots, videos, and trace files |
+
+### 2. Intelligent Flaky Test Management
+
+This is the **core differentiating value** of the project, a rare capability in the market:
+
+```typescript
+// Automatically record test history and calculate failure rate
+existing.failureRate = failures / totalRuns;
+
+// One-click quarantine support
+yuantest flaky --quarantine <test-id>
+```
+
+- Automatic identification of flaky tests based on historical data
+- Customizable threshold support
+- Automatic quarantine mechanism to avoid CI/CD disruption
+- Detailed failure trend analysis
+
+### 3. Real-time Visualization Dashboard
+
+- **WebSocket Real-time Push** - Test execution process visible in real-time, no need to wait for test completion
+- **React + Tailwind Modern Frontend** - Responsive design with Chinese/English switching support
+- **Performance Optimization** - Batch updates, message rate limiting, state caching for smooth handling of large-scale tests
+- **Internationalization Support** - One-click Chinese/English switching
+
+### 4. Intelligent Test Orchestration
+
+```typescript
+// ShardOptimizer - Optimize sharding based on historical execution time
+const optimizedAssignments = await optimizer.optimize(tests, shards);
+```
+
+- Automatic test file discovery with multiple file format support
+- Intelligent sharding based on historical execution time for load balancing
+- Multi-browser, multi-project parallel execution support
+
+### 5. No Internal API Dependencies
+
+```typescript
+// Execute via Playwright CLI, not internal APIs
+spawn('npx', ['playwright', 'test', ...args]);
+```
+
+This means:
+- No compatibility issues with Playwright version upgrades
+- Behavior completely consistent with official CLI
+- Low long-term maintenance cost
+
+## 🔄 Comparison with allure-playwright
+
+| Dimension | yuantest-playwright | allure-playwright |
+|-----------|---------------------|-------------------|
+| **Positioning** | Full-stack test management platform | Report generator |
+| **Real-time** | ✅ WebSocket real-time push | ❌ Generate report after test completion |
+| **Web Dashboard** | ✅ Built-in React Dashboard | ✅ Allure Server (requires extra deployment) |
+| **Flaky Management** | ✅ Auto detection + quarantine + statistics | ❌ None |
+| **Test Orchestration** | ✅ Smart sharding + load balancing | ❌ None |
+| **Test Execution** | ✅ Built-in Executor | ❌ Requires external execution |
+| **Historical Trends** | ✅ Built-in storage | ✅ Requires History configuration |
+| **Failure Analysis** | ✅ Auto categorization + fix suggestions | ⚠️ Manual analysis required |
+| **Internationalization** | ✅ Chinese/English | ⚠️ Self-configuration required |
+| **Deployment Complexity** | ✅ Single npm package | ⚠️ Requires Allure Server |
+| **Report Aesthetics** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Ecosystem Maturity** | Emerging project | Mature ecosystem |
+| **CI/CD Integration** | ✅ CLI + API | ✅ Wide support |
+
+### Core Differences Summary
+
+| yuantest-playwright Advantages | allure-playwright Advantages |
+|-------------------------------|------------------------------|
+| All-in-one solution | More visually appealing reports |
+| Real-time test progress monitoring | Mature ecosystem, large community |
+| Flaky test management | Support for multiple test frameworks |
+| Intelligent test orchestration | Rich historical trend charts |
+| Simple deployment | Strong plugin extensibility |
+
+### Best Practice: Complementary Usage
+
+Use yuantest-playwright for daily test management and real-time monitoring, while integrating allure-playwright for generating polished final reports:
+
+```bash
+# Daily development: Use yuantest for real-time monitoring
+yuantest run --test-dir ./tests
+
+# CI/CD: Generate Allure report for archiving
+npx playwright test --reporter=allure-playwright
+```
+
 ## 📦 Installation
 
 ### Install via npm (Recommended)

@@ -1,8 +1,21 @@
 const API_BASE = '/api/v1';
 
+let currentLang: string = 'zh';
+
+export function setApiLang(lang: string): void {
+  currentLang = lang;
+}
+
+export function getApiLang(): string {
+  return currentLang;
+}
+
 export async function fetchJSON<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url);
+    const urlObj = new URL(url, 'http://localhost');
+    urlObj.searchParams.set('lang', currentLang);
+    const urlWithLang = urlObj.pathname + urlObj.search;
+    const res = await fetch(urlWithLang);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (e) {
@@ -254,7 +267,7 @@ export async function setTestDir(testDir: string): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch(`${API_BASE}/testdir`, {
+    const res = await fetch(`${API_BASE}/testdir?lang=${currentLang}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ testDir }),

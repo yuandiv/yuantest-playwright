@@ -47,6 +47,108 @@
 - **视觉测试** - 集成像素对比的视觉回归测试
 - **配置热加载** - 支持配置文件动态加载
 
+## 🌟 核心优势
+
+### 1. 一体化解决方案
+
+yuantest-playwright 提供完整的测试生命周期管理，无需组合多个工具：
+
+| 功能模块 | 说明 |
+|---------|------|
+| **Orchestrator** | 智能测试分片、负载均衡、基于历史时间的优化分配 |
+| **Executor** | 通过 Playwright CLI 执行，无内部 API 依赖，升级兼容性强 |
+| **RealtimeReporter** | WebSocket 实时推送测试进度 |
+| **DashboardServer** | 完整的 Web UI + REST API |
+| **FlakyTestManager** | 自动检测、隔离、统计不稳定测试 |
+| **ArtifactManager** | 统一管理截图、视频、Trace 文件 |
+
+### 2. Flaky 测试智能管理
+
+这是项目的**核心差异化价值**，市场上稀缺的能力：
+
+```typescript
+// 自动记录测试历史，计算失败率
+existing.failureRate = failures / totalRuns;
+
+// 支持一键隔离
+yuantest flaky --quarantine <test-id>
+```
+
+- 基于历史数据自动识别 Flaky 测试
+- 支持自定义阈值 (`threshold`)
+- 自动隔离机制避免影响 CI/CD
+- 提供详细的失败趋势分析
+
+### 3. 实时可视化 Dashboard
+
+- **WebSocket 实时推送** - 测试执行过程实时可见，无需等待测试结束
+- **React + Tailwind 现代前端** - 响应式设计，支持中英文切换
+- **性能优化** - 批量更新、消息限流、状态缓存，流畅处理大规模测试
+- **国际化支持** - 中英文一键切换
+
+### 4. 智能测试编排
+
+```typescript
+// ShardOptimizer - 基于历史执行时间优化分片
+const optimizedAssignments = await optimizer.optimize(tests, shards);
+```
+
+- 自动发现测试文件，支持多种文件格式
+- 基于历史执行时间的智能分片，实现负载均衡
+- 支持多浏览器、多项目并行执行
+
+### 5. 无内部 API 依赖
+
+```typescript
+// 通过 Playwright CLI 执行，而非内部 API
+spawn('npx', ['playwright', 'test', ...args]);
+```
+
+这意味着：
+- Playwright 版本升级无兼容性问题
+- 与官方 CLI 行为完全一致
+- 长期维护成本低
+
+## 🔄 与 allure-playwright 对比
+
+| 维度 | yuantest-playwright | allure-playwright |
+|------|---------------------|-------------------|
+| **定位** | 全栈测试管理平台 | 报告生成器 |
+| **实时性** | ✅ WebSocket 实时推送 | ❌ 测试结束后生成报告 |
+| **Web Dashboard** | ✅ 内置 React Dashboard | ✅ Allure Server (需额外部署) |
+| **Flaky 管理** | ✅ 自动检测+隔离+统计 | ❌ 无 |
+| **测试编排** | ✅ 智能分片+负载均衡 | ❌ 无 |
+| **测试执行** | ✅ 内置 Executor | ❌ 需外部执行 |
+| **历史趋势** | ✅ 内置存储 | ✅ 需配置 History |
+| **失败分析** | ✅ 自动分类+修复建议 | ⚠️ 需手动分析 |
+| **国际化** | ✅ 中英文 | ⚠️ 需自行配置 |
+| **部署复杂度** | ✅ 单 npm 包 | ⚠️ 需 Allure Server |
+| **报告美观度** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **生态成熟度** | 新兴项目 | 成熟生态 |
+| **CI/CD 集成** | ✅ CLI + API | ✅ 广泛支持 |
+
+### 核心差异总结
+
+| yuantest-playwright 优势 | allure-playwright 优势 |
+|-------------------------|----------------------|
+| 一体化解决方案 | 报告视觉效果更精美 |
+| 实时监控测试进度 | 生态成熟、社区大 |
+| Flaky 测试管理 | 支持多种测试框架 |
+| 智能测试编排 | 历史趋势图表丰富 |
+| 部署简单 | 插件扩展性强 |
+
+### 最佳实践：两者互补
+
+使用 yuantest-playwright 进行日常测试管理和实时监控，同时集成 allure-playwright 生成精美的最终报告：
+
+```bash
+# 日常开发：使用 yuantest 实时监控
+yuantest run --test-dir ./tests
+
+# CI/CD：生成 Allure 报告归档
+npx playwright test --reporter=allure-playwright
+```
+
 ## 📦 安装
 
 ### 通过 npm 安装（推荐）

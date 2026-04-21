@@ -156,13 +156,8 @@ export class TestDiscovery {
       );
       const parsed = this.parseJSONOutput(jsonOutput, testDir);
 
-      for (const file of parsed.files) {
-        files.push(file);
-        allTests.push(...file.tests);
-        for (const describe of file.describes) {
-          allTests.push(...this.collectTestsFromDescribe(describe));
-        }
-      }
+      files.push(...parsed.files);
+      allTests.push(...parsed.tests);
 
       this.log.info(`Discovered ${allTests.length} tests in ${files.length} files`);
 
@@ -341,7 +336,7 @@ export class TestDiscovery {
             currentFile.tests.push(test);
             allTests.push(test);
           }
-        } else {
+        } else if (currentFile) {
           const describe: DiscoveredDescribe = {
             title: suite.title,
             file: filePath,
@@ -357,12 +352,15 @@ export class TestDiscovery {
             allTests.push(test);
           }
 
-          if (currentFile) {
-            if (parentPath.length === 0) {
-              currentFile.describes.push(describe);
-            } else {
-              this.addDescribeToParent(currentFile.describes, parentPath, describe);
-            }
+          if (parentPath.length === 0) {
+            currentFile.describes.push(describe);
+          } else {
+            this.addDescribeToParent(currentFile.describes, parentPath, describe);
+          }
+        } else {
+          for (const spec of suite.specs) {
+            const test = this.createDiscoveredTest(spec, filePath || rootDir, parentPath);
+            allTests.push(test);
           }
         }
       }

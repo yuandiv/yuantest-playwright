@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { spawn } from 'child_process';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
 import { t, Lang } from '../i18n';
@@ -199,19 +200,186 @@ export class PlaywrightConfigMerger {
       throw new Error(`${t('configFileNotFound', this.lang)}: ${absolutePath}`);
     }
 
-    let jiti: (filePath: string) => unknown;
     try {
-      jiti = require('jiti')(__filename, { interopDefault: true, esmResolve: true });
-    } catch {
-      jiti = require(absolutePath);
+      const config = await this.loadConfigInSubprocess(absolutePath);
+      return typeof config === 'function'
+        ? (config as () => PlaywrightConfigFile)()
+        : (config as PlaywrightConfigFile);
+    } catch (subprocessError) {
+      this.log.debug?.(
+        `Subprocess load failed, trying in-process load: ${subprocessError instanceof Error ? subprocessError.message : String(subprocessError)}`
+      );
+      
+      const config = await this.loadConfigWithJiti(absolutePath);
+      return typeof config === 'function'
+        ? (config as () => PlaywrightConfigFile)()
+        : (config as PlaywrightConfigFile);
+    }
+  }
+
+  private async loadConfigInSubprocess(absolutePath: string): Promise<unknown> {
+    const CONFIG_LOAD_TIMEOUT = 30000;
+
+    return new Promise((resolve, reject) => {
+      const loaderScript = `
+        const configPath = process.argv[1];
+        
+        async function loadConfig() {
+          try {
+            const config = require(configPath);
+            const result = config?.default ?? config;
+            console.log(JSON.stringify(result));
+          } catch (error) {
+            console.error('ERROR:', error.message);
+            process.exit(1);
+          }
+        }
+        
+        loadConfig();
+      `;
+
+      const child = spawn('node', ['-e', loaderScript, absolutePath], {
+        cwd: path.dirname(absolutePath),
+        env: { ...process.env, NODE_OPTIONS: '--require tsx/cjs' },
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let stdout = '';
+      let stderr = '';
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      let settled = false;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      };
+
+      const finalize = (error: Error | null, result?: unknown) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+
+        if (error) {
+          try {
+            child.kill('SIGTERM');
+          } catch {
+            // Ignore kill errors
+          }
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      };
+
+      timeoutId = setTimeout(() => {
+        finalize(new Error(`Config load timeout after ${CONFIG_LOAD_TIMEOUT}ms`));
+      }, CONFIG_LOAD_TIMEOUT);
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          finalize(new Error(`Subprocess exited with code ${code}: ${stderr}`));
+          return;
+        }
+
+        try {
+          const config = JSON.parse(stdout.trim());
+          finalize(null, config);
+        } catch (parseError) {
+          finalize(new Error(`Failed to parse config: ${parseError instanceof Error ? parseError.message : String(parseError)}`));
+        }
+      });
+
+      child.on('error', (error) => {
+        finalize(new Error(`Failed to spawn subprocess: ${error.message}`));
+      });
+    });
+  }
+
+  private loadConfigWithJiti(absolutePath: string): unknown {
+    const isTypeScript = absolutePath.endsWith('.ts') || absolutePath.endsWith('.mts');
+
+    if (isTypeScript) {
+      try {
+        return this.loadConfigWithTsx(absolutePath);
+      } catch (tsxError) {
+        this.log.debug?.(
+          `tsx load failed, trying jiti: ${tsxError instanceof Error ? tsxError.message : String(tsxError)}`
+        );
+      }
     }
 
-    delete require.cache[require.resolve(absolutePath)];
-    const config = jiti(absolutePath);
+    let createJiti: (id: string, opts?: Record<string, unknown>) => (filePath: string) => unknown;
+    try {
+      createJiti = require('jiti');
+    } catch {
+      throw new Error(
+        `${t('configParseFailed', this.lang)}: jiti module not available. Please install jiti (npm install jiti) to load TypeScript config files.`
+      );
+    }
 
-    return typeof config === 'function'
-      ? (config as () => PlaywrightConfigFile)()
-      : (config as PlaywrightConfigFile);
+    const jitiId = this.resolveJitiId();
+
+    try {
+      const jiti = createJiti(jitiId, { interopDefault: true, esmResolve: true });
+      delete require.cache[require.resolve(absolutePath)];
+      return jiti(absolutePath);
+    } catch (jitiError) {
+      this.log.debug?.(
+        `jiti load failed, trying with require fallback: ${jitiError instanceof Error ? jitiError.message : String(jitiError)}`
+      );
+
+      try {
+        delete require.cache[require.resolve(absolutePath)];
+        const config = require(absolutePath);
+        return config?.default ?? config;
+      } catch (requireError) {
+        const jitiMsg = jitiError instanceof Error ? jitiError.message : String(jitiError);
+        const reqMsg = requireError instanceof Error ? requireError.message : String(requireError);
+        throw new Error(
+          `${t('configParseFailed', this.lang)}: ${jitiMsg}` +
+          (isTypeScript
+            ? ` | ${t('configLoadFailed', this.lang)}: TypeScript config requires jiti or tsx. Original error: ${reqMsg}`
+            : ` | Fallback require also failed: ${reqMsg}`)
+        );
+      }
+    }
+  }
+
+  private loadConfigWithTsx(absolutePath: string): unknown {
+    try {
+      const tsx = require('tsx/cjs/api');
+      delete require.cache[require.resolve(absolutePath)];
+      
+      const callerPath = this.resolveJitiId();
+      const config = tsx.require(absolutePath, callerPath);
+      return config?.default ?? config;
+    } catch (error) {
+      throw new Error(
+        `tsx load failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  private resolveJitiId(): string {
+    if (typeof __filename !== 'undefined' && __filename) {
+      return __filename;
+    }
+
+    try {
+      return __filename;
+    } catch {
+      return process.cwd();
+    }
   }
 
   resolveTestDir(testDir: string, configPath: string): string {

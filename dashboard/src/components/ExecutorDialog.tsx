@@ -702,7 +702,6 @@ export function ExecutorDialog({
               />
               <button
                 onClick={async () => {
-                  if (tempTestDir === testDir) return;
                   setIsValidating(true);
                   try {
                     await onTestDirChange(tempTestDir);
@@ -710,17 +709,17 @@ export function ExecutorDialog({
                     setIsValidating(false);
                   }
                 }}
-                disabled={isValidating || tempTestDir === testDir}
-                className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-                  isValidating || tempTestDir === testDir
+                disabled={isValidating || isExecuting}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isValidating || isExecuting
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-600'
                 }`}
               >
                 {isValidating ? (
-                  <><i className="fas fa-spinner fa-spin mr-0.5"></i>{t('loading', lang)}</>
+                  <><i className="fas fa-spinner fa-spin mr-1"></i>{t('loading', lang)}</>
                 ) : (
-                  <><i className="fas fa-check mr-0.5"></i>{t('confirm', lang)}</>
+                  <><i className="fas fa-sync-alt mr-1"></i>{t('loadTestCases', lang)}</>
                 )}
               </button>
             </div>

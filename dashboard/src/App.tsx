@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from
 import { t, Lang } from './i18n';
 import { useWebSocket } from './hooks/useWebSocket';
 import * as api from './services/api';
+import { setApiLang } from './services/api';
 import { TestCase, RunReport, FlakyTest, QuarantinedTest, ServerRun, TestFile, TestDescribe, HealthMetric } from './types';
 import { Header } from './components/Header';
 import { KPICards } from './components/KPICards';
@@ -119,7 +120,10 @@ function App() {
   useEffect(() => {
     api.getPreferences().then(prefs => {
       if (prefs) {
-        if (prefs.lang) setLang(prefs.lang as Lang);
+        if (prefs.lang) {
+          setLang(prefs.lang as Lang);
+          setApiLang(prefs.lang);
+        }
         if (prefs.lastVersion) setVersionInput(prefs.lastVersion);
         if (prefs.testDir) setTestDir(prefs.testDir);
       }
@@ -383,43 +387,17 @@ function App() {
     logBatchUpdater.current?.add({ msg, type });
   }, []);
 
-  const loadTests = useCallback(async (forceRefresh: boolean = false) => {
-    const savedStatusMap = new Map<string, { status?: TestCase['status']; lastDuration: number | null; lastError: string | null }>();
-    const saved = localStorage.getItem('testCasesStatus');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          for (const tc of parsed) {
-            savedStatusMap.set(tc.id, {
-              status: tc.status,
-              lastDuration: tc.lastDuration,
-              lastError: tc.lastError,
-            });
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to parse saved test cases status:', error);
-        localStorage.removeItem('testCasesStatus');
-      }
-    }
-
-    const result = await api.getTestsStructured(testDir, undefined, forceRefresh);
+  const loadTests = useCallback(async (forceRefresh: boolean = false, testDirOverride?: string): Promise<number> => {
+    const dirToUse = testDirOverride ?? testDir;
+    console.log('[loadTests] dirToUse:', dirToUse, 'testDir:', testDir, 'testDirOverride:', testDirOverride);
+    const result = await api.getTestsStructured(dirToUse, undefined, forceRefresh);
+    console.log('[loadTests] result:', result ? { 
+      filesLength: result.files?.length, 
+      testsLength: result.tests?.length,
+      configValidation: result.configValidation 
+    } : null);
     
-    const mergeStatus = (tc: TestCase): TestCase => {
-      const saved = savedStatusMap.get(tc.id);
-      if (saved) {
-        return {
-          ...tc,
-          status: saved.status || tc.status,
-          lastDuration: saved.lastDuration ?? tc.lastDuration,
-          lastError: saved.lastError ?? tc.lastError,
-        };
-      }
-      return tc;
-    };
-
-    const convertTest = (t: api.DiscoveredTest): TestCase => mergeStatus({
+    const convertTest = (t: api.DiscoveredTest): TestCase => ({
       id: t.id,
       name: t.title,
       fullTitle: t.fullTitle,
@@ -474,6 +452,7 @@ function App() {
       const cases = extractAllTests(files);
       setTestCases(cases);
       setSelectedIds(new Set(cases.map(c => c.id)));
+      return cases.length;
     } else if (result && result.tests && result.tests.length > 0) {
       const fileMap = new Map<string, TestFile>();
       
@@ -493,16 +472,7 @@ function App() {
         const parts = fullTitle.split(' > ');
         
         if (parts.length === 1) {
-          file.tests.push(mergeStatus({
-            id: t.id,
-            name: t.title,
-            fullTitle: t.fullTitle,
-            file: t.file,
-            line: t.line,
-            column: t.column,
-            lastDuration: null,
-            lastError: null,
-          }));
+          file.tests.push(convertTest(t));
         } else {
           let currentDescribes = file.describes;
           for (let i = 0; i < parts.length - 1; i++) {
@@ -524,16 +494,7 @@ function App() {
           
           const lastDescribe = currentDescribes[currentDescribes.length - 1];
           if (lastDescribe) {
-            lastDescribe.tests.push(mergeStatus({
-              id: t.id,
-              name: t.title,
-              fullTitle: t.fullTitle,
-              file: t.file,
-              line: t.line,
-              column: t.column,
-              lastDuration: null,
-              lastError: null,
-            }));
+            lastDescribe.tests.push(convertTest(t));
           }
         }
       }
@@ -545,19 +506,21 @@ function App() {
       const cases = extractAllTests(files);
       setTestCases(cases);
       setSelectedIds(new Set(cases.map(c => c.id)));
+      return cases.length;
     } else if (result && result.configValidation && !result.configValidation.valid) {
       setTestFiles([]);
       setTestCases([]);
       setSelectedIds(new Set());
+      return 0;
     } else {
-      const annotations = await api.getAnnotations(testDir);
+      const annotations = await api.getAnnotations(dirToUse);
       if (annotations && annotations.length > 0) {
         const seen = new Set<string>();
         const cases: TestCase[] = [];
         for (const ann of annotations) {
           if (!seen.has(ann.testId)) {
             seen.add(ann.testId);
-            cases.push(mergeStatus({
+            cases.push({
               id: ann.testId,
               name: ann.testName,
               fullTitle: ann.testName,
@@ -566,15 +529,17 @@ function App() {
               column: 0,
               lastDuration: null,
               lastError: null,
-            }));
+            });
           }
         }
         if (cases.length > 0) {
           setTestCases(cases);
           setSelectedIds(new Set(cases.map(c => c.id)));
+          return cases.length;
         }
       }
     }
+    return 0;
   }, [testDir]);
 
   useEffect(() => {
@@ -587,21 +552,16 @@ function App() {
 
   const handleTestDirChange = useCallback(async (newTestDir: string) => {
     setIsLoadingTests(true);
+    setTestFiles([]);
+    setTestCases([]);
+    setSelectedIds(new Set());
+    localStorage.removeItem('testCasesStatus');
     addLog(`📁 ${t('selectTestDir', lang)}: ${newTestDir}`, 'info');
     try {
       const result = await api.setTestDir(newTestDir);
       if (result.success) {
-        if (testDir !== newTestDir) {
-          localStorage.removeItem('testCasesStatus');
-          addLog(`🗑️ ${t('clearedOldStatus', lang) || '已清除旧目录的测试状态'}`, 'info');
-        }
+        addLog(`⏳ ${t('loadingTests', lang)}，${t('pleaseWait', lang)}`, 'info');
         setTestDir(newTestDir);
-        
-        if (result.configExists) {
-          addLog(`✅ ${t('testDirSetSuccess', lang)}: ${result.configPath}`, 'success');
-        } else {
-          addLog(`❌ ${t('configNotFound', lang)}`, 'error');
-        }
         
         if (result.warnings && result.warnings.length > 0) {
           for (const warning of result.warnings) {
@@ -609,14 +569,15 @@ function App() {
           }
         }
         
-        await loadTests(true);
+        const testCount = await loadTests(true, newTestDir);
+        addLog(`✅ ${t('testCasesLoadSuccess', lang)} ${testCount} ${t('testCasesFound', lang)}`, 'success');
       } else {
-        addLog(`❌ ${t('testDirSetFailed', lang)}: ${result.error || 'Unknown error'}`, 'error');
+        addLog(`❌ ${t('testCasesLoadFailed', lang)}: ${result.error || 'Unknown error'}`, 'error');
       }
     } finally {
       setIsLoadingTests(false);
     }
-  }, [lang, addLog, loadTests, testDir]);
+  }, [lang, addLog, loadTests]);
 
   const formatStartError = useCallback((error: string): string => {
     if (error.includes('already in progress') || error.includes('execution is already')) {
@@ -728,6 +689,7 @@ function App() {
 
   const switchLang = (l: Lang) => {
     setLang(l);
+    setApiLang(l);
     api.savePreferences({ lang: l });
   };
 

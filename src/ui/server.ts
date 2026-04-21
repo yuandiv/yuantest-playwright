@@ -180,6 +180,11 @@ export class DashboardServer {
         const structured = req.query.structured === 'true';
         const forceRefresh = req.query.force === 'true';
 
+        if (forceRefresh) {
+          this.testDiscovery.invalidateCache(testDir);
+          this.cache.invalidate(`tests:${testDir}`);
+        }
+
         const cacheKey = `tests:${testDir}:${configPath || 'default'}:${structured ? 'structured' : 'flat'}`;
 
         if (!forceRefresh) {
@@ -196,7 +201,11 @@ export class DashboardServer {
         }
 
         if (structured) {
-          const result = await this.testDiscovery.discoverTestsStructured(testDir, configPath);
+          const result = await this.testDiscovery.discoverTestsStructured(
+            testDir,
+            configPath,
+            !forceRefresh
+          );
 
           if (result.configValidation && !result.configValidation.valid) {
             const response = {
@@ -206,6 +215,7 @@ export class DashboardServer {
               configValidation: result.configValidation,
               error: result.configValidation.error,
             };
+            this.cache.set(cacheKey, response);
             res.json(response);
             return;
           }
@@ -228,7 +238,11 @@ export class DashboardServer {
           this.cache.set(cacheKey, response);
           res.json(response);
         } else {
-          const result = await this.testDiscovery.discoverTestsStructured(testDir, configPath);
+          const result = await this.testDiscovery.discoverTestsStructured(
+            testDir,
+            configPath,
+            !forceRefresh
+          );
 
           if (result.configValidation && !result.configValidation.valid) {
             const response = {
@@ -237,6 +251,7 @@ export class DashboardServer {
               configValidation: result.configValidation,
               error: result.configValidation.error,
             };
+            this.cache.set(cacheKey, response);
             res.json(response);
             return;
           }
@@ -282,10 +297,11 @@ export class DashboardServer {
     v1Router.post('/tests/refresh', async (req: Request, res: Response) => {
       try {
         this.cache.invalidate('tests:');
+        this.testDiscovery.invalidateCache();
         const testDir = req.body?.testDir || this.testDir;
         const configPath = req.body?.configPath;
 
-        const result = await this.testDiscovery.discoverTestsStructured(testDir, configPath);
+        const result = await this.testDiscovery.discoverTestsStructured(testDir, configPath, false);
         const response = {
           total: result.tests.length,
           files: result.files,
@@ -1001,6 +1017,7 @@ export class DashboardServer {
 
         this.testDir = testDir;
         this.cache.invalidate('tests:');
+        this.testDiscovery.invalidateCache();
 
         const existing =
           (await this.storage.readJSON<Record<string, string>>(

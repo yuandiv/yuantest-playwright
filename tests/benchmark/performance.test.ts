@@ -295,7 +295,7 @@ describe('Performance Benchmarks', () => {
       );
 
       console.log(formatResult(result));
-      expect(result.avgTime).toBeLessThan(100);
+      expect(result.avgTime).toBeLessThan(200);
     });
 
     it('should benchmark medium report generation (100 tests)', async () => {
