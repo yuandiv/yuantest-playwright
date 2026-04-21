@@ -320,7 +320,7 @@ export class TestDiscovery {
         this.log.info(`Added file to map: ${filePath}`);
       }
 
-      const currentFile = filePath ? fileMap.get(filePath)! : null;
+      const currentFile = filePath ? (fileMap.get(filePath) ?? null) : null;
 
       if (suite.specs && suite.specs.length > 0) {
         const isFileSuite =

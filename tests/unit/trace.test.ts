@@ -2,11 +2,23 @@ import { TraceManager } from '../../src/trace';
 import { StorageProvider } from '../../src/storage';
 import * as path from 'path';
 
+jest.mock('child_process', () => ({
+  execSync: jest.fn(),
+  spawn: jest.fn(() => ({
+    on: jest.fn(),
+    stdout: { on: jest.fn() },
+    stderr: { on: jest.fn() },
+    kill: jest.fn(),
+  })),
+}));
+
 describe('TraceManager', () => {
   let traceManager: TraceManager;
   let mockStorage: jest.Mocked<StorageProvider>;
+  let mockExecSync: jest.MockedFunction<typeof import('child_process').execSync>;
 
   beforeEach(() => {
+    mockExecSync = require('child_process').execSync;
     mockStorage = {
       exists: jest.fn(),
       readText: jest.fn(),
@@ -320,10 +332,11 @@ describe('TraceManager', () => {
   });
 
   describe('mergeTraces', () => {
-    it.skip('should merge multiple traces', async () => {
+    it('should merge multiple traces', async () => {
       mockStorage.exists.mockResolvedValue(true);
       mockStorage.writeText.mockResolvedValue();
       mockStorage.remove.mockResolvedValue();
+      mockExecSync.mockReturnValue(Buffer.from(''));
 
       const result = await traceManager.mergeTraces(
         ['/path/to/trace1.zip', '/path/to/trace2.zip'],
@@ -332,6 +345,11 @@ describe('TraceManager', () => {
 
       expect(result).toBe('/output/merged.zip');
       expect(mockStorage.writeText).toHaveBeenCalled();
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining('npx playwright merge-trace'),
+        expect.objectContaining({ stdio: 'pipe', shell: true })
+      );
+      expect(mockStorage.remove).toHaveBeenCalled();
     });
   });
 

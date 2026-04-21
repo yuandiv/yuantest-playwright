@@ -115,7 +115,9 @@ function loadJsConfig(filePath: string): YuanTestConfigFile {
         ? (result as () => YuanTestConfigFile)()
         : (result as YuanTestConfigFile);
     } catch (tsxError) {
-      console.warn(`tsx load failed, trying jiti: ${tsxError instanceof Error ? tsxError.message : String(tsxError)}`);
+      console.warn(
+        `tsx load failed, trying jiti: ${tsxError instanceof Error ? tsxError.message : String(tsxError)}`
+      );
     }
   }
 

@@ -1,5 +1,4 @@
 import * as path from 'path';
-import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
@@ -209,7 +208,7 @@ export class PlaywrightConfigMerger {
       this.log.debug?.(
         `Subprocess load failed, trying in-process load: ${subprocessError instanceof Error ? subprocessError.message : String(subprocessError)}`
       );
-      
+
       const config = await this.loadConfigWithJiti(absolutePath);
       return typeof config === 'function'
         ? (config as () => PlaywrightConfigFile)()
@@ -241,7 +240,7 @@ export class PlaywrightConfigMerger {
       const child = spawn('node', ['-e', loaderScript, absolutePath], {
         cwd: path.dirname(absolutePath),
         env: { ...process.env, NODE_OPTIONS: '--require tsx/cjs' },
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
       });
 
       let stdout = '';
@@ -257,7 +256,9 @@ export class PlaywrightConfigMerger {
       };
 
       const finalize = (error: Error | null, result?: unknown) => {
-        if (settled) return;
+        if (settled) {
+          return;
+        }
         settled = true;
         cleanup();
 
@@ -295,7 +296,11 @@ export class PlaywrightConfigMerger {
           const config = JSON.parse(stdout.trim());
           finalize(null, config);
         } catch (parseError) {
-          finalize(new Error(`Failed to parse config: ${parseError instanceof Error ? parseError.message : String(parseError)}`));
+          finalize(
+            new Error(
+              `Failed to parse config: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+            )
+          );
         }
       });
 
@@ -347,9 +352,10 @@ export class PlaywrightConfigMerger {
         const reqMsg = requireError instanceof Error ? requireError.message : String(requireError);
         throw new Error(
           `${t('configParseFailed', this.lang)}: ${jitiMsg}` +
-          (isTypeScript
-            ? ` | ${t('configLoadFailed', this.lang)}: TypeScript config requires jiti or tsx. Original error: ${reqMsg}`
-            : ` | Fallback require also failed: ${reqMsg}`)
+            (isTypeScript
+              ? ` | ${t('configLoadFailed', this.lang)}: TypeScript config requires jiti or tsx. Original error: ${reqMsg}`
+              : ` | Fallback require also failed: ${reqMsg}`),
+          { cause: requireError }
         );
       }
     }
@@ -359,13 +365,14 @@ export class PlaywrightConfigMerger {
     try {
       const tsx = require('tsx/cjs/api');
       delete require.cache[require.resolve(absolutePath)];
-      
+
       const callerPath = this.resolveJitiId();
       const config = tsx.require(absolutePath, callerPath);
       return config?.default ?? config;
     } catch (error) {
       throw new Error(
-        `tsx load failed: ${error instanceof Error ? error.message : String(error)}`
+        `tsx load failed: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
       );
     }
   }
