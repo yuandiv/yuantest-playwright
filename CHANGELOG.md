@@ -1,195 +1,195 @@
-# Changelog
+# 更新日志
 
-All notable changes to this project will be documented in this file.
+本文件记录了项目的所有重要变更。
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
+本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
 ## [1.0.2] - 2026-04-16
 
-### Added
+### 新增
 
-#### Artifact Management
+#### 测试产物管理
 
-- **ArtifactManager** - Complete test artifact management module
-  - `discoverArtifacts()` - Scan directory to discover all test artifacts
-  - `getArtifact()` - Get single artifact by ID or path
-  - `getArtifactContent()` - Read artifact file content
-  - `deleteArtifact()` - Delete specified artifact file
-  - `cleanArtifacts()` - Clean expired artifacts (default 7 days)
-  - `getArtifactsByType()` - Filter artifacts by type (screenshot/video/trace)
-  - `getArtifactsByTest()` - Filter artifacts by test ID
-  - `getArtifactStats()` - Get artifact statistics
-  - Automatic file type detection (images, videos, traces)
-  - Configurable file size filtering via `maxFileSize`
+- **ArtifactManager** - 完整的测试产物管理模块
+  - `discoverArtifacts()` - 扫描目录发现所有测试产物
+  - `getArtifact()` - 根据 ID 或路径获取单个产物
+  - `getArtifactContent()` - 读取产物文件内容
+  - `deleteArtifact()` - 删除指定的产物文件
+  - `cleanArtifacts()` - 清理过期产物（默认 7 天）
+  - `getArtifactsByType()` - 按类型筛选产物（截图/视频/追踪）
+  - `getArtifactsByTest()` - 按测试 ID 筛选产物
+  - `getArtifactStats()` - 获取产物统计信息
+  - 自动文件类型检测（图片、视频、追踪文件）
+  - 可通过 `maxFileSize` 配置文件大小过滤
 
-### Changed
+### 变更
 
-#### Storage Improvements
+#### 存储改进
 
-- **FilesystemStorage.mkdir()** - Fixed race condition in directory creation
-  - Added existence check before creating directories
-  - Properly handles `EEXIST` errors from concurrent creation attempts
-  - Uses `{ recursive: true }` option for safe nested directory creation
+- **FilesystemStorage.mkdir()** - 修复目录创建的竞态条件
+  - 创建目录前添加存在性检查
+  - 正确处理并发创建时的 `EEXIST` 错误
+  - 使用 `{ recursive: true }` 选项安全创建嵌套目录
 
-#### Testing Improvements
+#### 测试改进
 
-- **Test Optimization** - Added mocks to prevent actual Playwright test execution
-  - Mocked `runPlaywrightTests()` in integration and unit tests
-  - Improves test speed and focuses on logic verification
+- **测试优化** - 添加模拟以防止实际 Playwright 测试执行
+  - 在集成测试和单元测试中模拟 `runPlaywrightTests()`
+  - 提高测试速度并专注于逻辑验证
 
-### Fixed
+### 修复
 
-- **.gitignore Rules** - Corrected artifact folder ignore patterns
-  - Added leading `/` to ignore only root directory folders: `/artifacts/`, `/traces/`, `/visual-testing/`, `/html-report/`
-  - Prevents accidentally ignoring subdirectories with same names
+- **.gitignore 规则** - 修正产物文件夹忽略模式
+  - 添加前导 `/` 仅忽略根目录文件夹：`/artifacts/`、`/traces/`、`/visual-testing/`、`/html-report/`
+  - 防止意外忽略同名的子目录
 
 ---
 
 ## [1.0.1] - 2026-04-15
 
-### Added
+### 新增
 
-#### Configuration Management
+#### 配置管理
 
-- **PlaywrightConfigMerger** - New configuration validation and merging system
-  - Automatic discovery of `playwright.config.ts/js/mts/mjs` files
-  - Configuration file validation (existence and parseability)
-  - Smart merging of user config with framework defaults
-  - Automatic injection of required reporters (html/json)
+- **PlaywrightConfigMerger** - 新的配置验证和合并系统
+  - 自动发现 `playwright.config.ts/js/mts/mjs` 文件
+  - 配置文件验证（存在性和可解析性）
+  - 用户配置与框架默认值的智能合并
+  - 自动注入必需的报告器（html/json）
 
-#### Internationalization (i18n)
+#### 国际化 (i18n)
 
-- **i18n Module** - Complete internationalization support
-  - Support for Chinese (`zh`) and English (`en`)
-  - Global language switching via `setLang()`
-  - Translation function `t(key, lang?)` with dynamic language support
-  - New translation keys: `configNotFound`, `configParseFailed`, `testDirNotFound`, `executorAlreadyRunning`
+- **i18n 模块** - 完整的国际化支持
+  - 支持中文 (`zh`) 和英文 (`en`)
+  - 通过 `setLang()` 进行全局语言切换
+  - 翻译函数 `t(key, lang?)` 支持动态语言
+  - 新增翻译键：`configNotFound`、`configParseFailed`、`testDirNotFound`、`executorAlreadyRunning`
 
-### Changed
+### 变更
 
-#### API Enhancements
+#### API 增强
 
-- **API Response Structure** - Enhanced API responses with detailed error information
-  - `startRun()` and `rerunTest()` now return `StartRunResult` object instead of `boolean`
-  - New interface: `{ success: boolean; error?: string }`
-  - Provides detailed error messages for better debugging
+- **API 响应结构** - 增强带有详细错误信息的 API 响应
+  - `startRun()` 和 `rerunTest()` 现在返回 `StartRunResult` 对象而非 `boolean`
+  - 新接口：`{ success: boolean; error?: string }`
+  - 提供详细错误信息以便更好地调试
 
-#### Configuration Changes
+#### 配置变更
 
-- **Default Port** - Changed default UI port from 3000 to 5274
-  - Avoids conflicts with common development servers (e.g., React Dev Server)
-  - Updated in all documentation and examples
+- **默认端口** - 默认 UI 端口从 3000 改为 5274
+  - 避免与常见开发服务器冲突（如 React Dev Server）
+  - 更新所有文档和示例
 
-#### Frontend Improvements
+#### 前端改进
 
-- **Dashboard UI** - Enhanced user experience
-  - Removed "Refresh Test Cases" button (auto-refresh on directory switch)
-  - Improved error handling with `formatStartError()` function
-  - Better test directory switching logic with validation feedback
+- **仪表板 UI** - 增强用户体验
+  - 移除"刷新测试用例"按钮（切换目录时自动刷新）
+  - 使用 `formatStartError()` 函数改进错误处理
+  - 更好的测试目录切换逻辑并提供验证反馈
 
-#### Backend Enhancements
+#### 后端增强
 
-- **UI Server** - Improved request handling
-  - Added language middleware for automatic language detection
-  - Refactored test directory validation using `PlaywrightConfigMerger.validateProjectPath()`
-  - Enhanced test discovery API with `configValidation` field
+- **UI 服务器** - 改进请求处理
+  - 添加语言中间件以自动检测语言
+  - 使用 `PlaywrightConfigMerger.validateProjectPath()` 重构测试目录验证
+  - 增强 test discovery API，添加 `configValidation` 字段
 
-- **Test Discovery** - Better configuration handling
-  - Uses config file directory as working directory
-  - Returns validation results instead of empty lists on errors
+- **测试发现** - 更好的配置处理
+  - 使用配置文件目录作为工作目录
+  - 错误时返回验证结果而非空列表
 
-- **Executor** - Dynamic configuration management
-  - Dynamic config merging instead of hardcoded paths
-  - Proper working directory resolution based on config location
+- **执行器** - 动态配置管理
+  - 动态配置合并而非硬编码路径
+  - 基于配置位置正确解析工作目录
 
-### Fixed
+### 修复
 
-- **Type Safety** - Added `Artifact` type import in CLI
-- **Error Tracking** - Added `cause` property to error objects in config loader
-- **Test Assertions** - Updated test messages to match new CLI output
+- **类型安全** - 在 CLI 中添加 `Artifact` 类型导入
+- **错误追踪** - 在配置加载器的错误对象中添加 `cause` 属性
+- **测试断言** - 更新测试消息以匹配新的 CLI 输出
 
-### Dependencies
+### 依赖
 
-- **FontAwesome** - Migrated from CDN to local package
-  - Replaced CDN link with `@fortawesome/fontawesome-free: ^7.2.0`
-  - Improved stability and reduced external dependencies
+- **FontAwesome** - 从 CDN 迁移到本地包
+  - 用 `@fortawesome/fontawesome-free: ^7.2.0` 替换 CDN 链接
+  - 提高稳定性并减少外部依赖
 
-### Breaking Changes
+### 破坏性变更
 
-- **Default Port**: Port changed from 3000 to 5274 - Update scripts and configurations
-- **API Response**: `startRun()` and `rerunTest()` now return `{ success, error? }` instead of `boolean`
-- **Test Directory Validation**: Use new `validateProjectPath()` method instead of old validation logic
+- **默认端口**：端口从 3000 改为 5274 - 需更新脚本和配置
+- **API 响应**：`startRun()` 和 `rerunTest()` 现在返回 `{ success, error? }` 而非 `boolean`
+- **测试目录验证**：使用新的 `validateProjectPath()` 方法替代旧的验证逻辑
 
 ---
 
 ## [1.0.0] - 2026-04-11
 
-### Added
+### 新增
 
-#### Core Features
+#### 核心功能
 
-- **Orchestrator** - Intelligent test orchestration with automatic test discovery and smart sharding
-  - Support for distributed test execution across multiple shards
-  - Load balancing based on test duration history
-  - `ShardOptimizer` for intelligent test distribution
+- **Orchestrator** - 智能测试编排，支持自动测试发现和智能分片
+  - 支持跨多个分片的分布式测试执行
+  - 基于测试历史时长的负载均衡
+  - `ShardOptimizer` 用于智能测试分配
 
-- **Executor** - Test execution engine via Playwright CLI
-  - Parallel test execution support
-  - Automatic retry mechanism for failed tests
-  - Multi-browser testing (chromium, firefox, webkit)
-  - Real-time progress tracking via events
-  - `ParallelExecutor` for concurrent test runs
+- **Executor** - 通过 Playwright CLI 的测试执行引擎
+  - 支持并行测试执行
+  - 失败测试的自动重试机制
+  - 多浏览器测试（chromium、firefox、webkit）
+  - 通过事件实时进度追踪
+  - `ParallelExecutor` 用于并发测试运行
 
-- **Reporter** - Comprehensive test reporting system
-  - HTML report generation with EJS templates
-  - JSON report output
-  - Failure analysis with categorization and fix suggestions
-  - Test artifacts management (screenshots, videos, traces)
+- **Reporter** - 全面的测试报告系统
+  - 使用 EJS 模板生成 HTML 报告
+  - JSON 报告输出
+  - 失败分析，包含分类和修复建议
+  - 测试产物管理（截图、视频、追踪）
 
-- **Flaky Test Management** - Automatic detection and isolation of unstable tests
-  - Flaky test detection based on configurable threshold
-  - Quarantine mechanism for isolating problematic tests
-  - Historical flaky test tracking
-  - REST API for quarantine/release operations
+- **不稳定测试管理** - 自动检测和隔离不稳定测试
+  - 基于可配置阈值的不稳定测试检测
+  - 隔离问题测试的隔离机制
+  - 历史不稳定测试追踪
+  - 用于隔离/释放操作的 REST API
 
-- **Web Dashboard** - Visual interface for test management
-  - Real-time test progress display via WebSocket
-  - Historical test run visualization
-  - Flaky test management UI
-  - Failure analysis dashboard
-  - REST API with 15+ endpoints
+- **Web 仪表板** - 测试管理的可视化界面
+  - 通过 WebSocket 实时显示测试进度
+  - 历史测试运行可视化
+  - 不稳定测试管理 UI
+  - 失败分析仪表板
+  - 包含 15+ 端点的 REST API
 
-- **CLI Tool** - Complete command-line interface
-  - `yuantest run` - Execute tests with various options
-  - `yuantest orchestrate` - Preview test distribution plan
-  - `yuantest report` - View test reports
-  - `yuantest flaky` - Manage flaky tests
-  - `yuantest analyze` - Analyze test failures
-  - `yuantest ui` - Launch web dashboard
+- **CLI 工具** - 完整的命令行界面
+  - `yuantest run` - 使用各种选项执行测试
+  - `yuantest orchestrate` - 预览测试分配计划
+  - `yuantest report` - 查看测试报告
+  - `yuantest flaky` - 管理不稳定测试
+  - `yuantest analyze` - 分析测试失败
+  - `yuantest ui` - 启动 Web 仪表板
 
-#### Additional Features
+#### 附加功能
 
-- **Trace Management** - Playwright trace file management and organization
-- **Annotation Support** - Parse and respect test annotations (skip, only, fail, slow, fixme, todo)
-- **Tag Management** - Test tagging system for filtering and organization
-- **Visual Testing** - Screenshot comparison with pixelmatch integration
-- **Artifact Management** - Organized storage of test artifacts
-- **Storage Providers** - Pluggable storage system (Memory and Filesystem implementations)
-- **Cache System** - LRU and TTL cache implementations
-- **Configuration Loader** - Load and merge configuration from `yuantest.config.ts`
-- **Validation** - Zod-based configuration validation
-- **Middleware** - Express middleware utilities for error handling and validation
+- **追踪管理** - Playwright 追踪文件管理和组织
+- **注解支持** - 解析并遵守测试注解（skip、only、fail、slow、fixme、todo）
+- **标签管理** - 用于筛选和组织的测试标签系统
+- **视觉测试** - 集成 pixelmatch 的截图对比
+- **产物管理** - 测试产物的有序存储
+- **存储提供者** - 可插拔的存储系统（内存和文件系统实现）
+- **缓存系统** - LRU 和 TTL 缓存实现
+- **配置加载器** - 从 `yuantest.config.ts` 加载和合并配置
+- **验证** - 基于 Zod 的配置验证
+- **中间件** - 用于错误处理和验证的 Express 中间件工具
 
-### Technical Details
+### 技术细节
 
-- Built with TypeScript 5.9+
-- Targets ES2020
-- CommonJS module output
-- Full type declarations included
-- Node.js >= 16.0.0 support
+- 使用 TypeScript 5.9+ 构建
+- 目标 ES2020
+- CommonJS 模块输出
+- 包含完整类型声明
+- 支持 Node.js >= 16.0.0
 
-### Dependencies
+### 依赖
 
 - `@playwright/test` ^1.40.0
 - `express` ^4.18.2
@@ -202,34 +202,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ora` ^5.4.1
 - `dayjs` ^1.11.10
 
-### Documentation
+### 文档
 
-- Comprehensive README with usage examples
-- API programming guide
-- CLI command reference
-- REST API documentation
+- 包含使用示例的详细 README
+- API 编程指南
+- CLI 命令参考
+- REST API 文档
 
-### Testing
+### 测试
 
-- Unit tests for core modules
-- Integration tests for orchestrator-executor flow
-- E2E tests for CLI functionality
-- Jest configuration with coverage thresholds
+- 核心模块的单元测试
+- orchestrator-executor 流程的集成测试
+- CLI 功能的 E2E 测试
+- 带覆盖率阈值的 Jest 配置
 
 ---
 
-## Future Roadmap
+## 未来路线图
 
-### Planned Features
+### 计划功能
 
-- [ ] Plugin system for custom reporters and executors
-- [ ] Cloud storage providers (S3, GCS, Azure Blob)
-- [ ] Distributed test execution across multiple machines
-- [ ] AI-powered failure analysis and fix suggestions
-- [ ] Slack/Teams notification integration
-- [ ] GitHub Actions integration
-- [ ] Performance benchmarking and regression detection
-- [ ] Test case management integration
+- [ ] 自定义报告器和执行器的插件系统
+- [ ] 云存储提供者（S3、GCS、Azure Blob）
+- [ ] 跨多台机器的分布式测试执行
+- [ ] AI 驱动的失败分析和修复建议
+- [ ] Slack/Teams 通知集成
+- [ ] GitHub Actions 集成
+- [ ] 性能基准测试和回归检测
+- [ ] 测试用例管理集成
 
 ---
 

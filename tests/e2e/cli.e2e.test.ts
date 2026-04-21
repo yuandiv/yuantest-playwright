@@ -3,8 +3,12 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 
+const DIST_PATH = path.join(__dirname, '../../dist');
 const CLI_PATH = path.join(__dirname, '../../bin/cli.js');
+const SRC_CLI_PATH = path.join(__dirname, '../../src/cli/index.ts');
 const TIMEOUT = 30000;
+
+const distExists = fs.existsSync(DIST_PATH);
 
 interface CLIResult {
   stdout: string;
@@ -14,7 +18,12 @@ interface CLIResult {
 
 function runCLI(args: string[], options: { cwd?: string; timeout?: number } = {}): Promise<CLIResult> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('node', [CLI_PATH, ...args], {
+    const useDist = distExists;
+    const command = useDist ? 'node' : 'npx';
+    const cliPath = useDist ? CLI_PATH : SRC_CLI_PATH;
+    const commandArgs = useDist ? [cliPath, ...args] : ['tsx', cliPath, ...args];
+    
+    const proc = spawn(command, commandArgs, {
       cwd: options.cwd || process.cwd(),
       env: { ...process.env, NODE_ENV: 'test' },
       shell: true,
