@@ -108,11 +108,6 @@ function collectAllIdsInFile(file: TestFile): string[] {
   return ids;
 }
 
-function buildDescribeGrepPattern(describeTitle: string): string {
-  const escaped = describeTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return `^${escaped}`;
-}
-
 const TestItemView = memo(function TestItemView({ test, statusOverride, selectedIds, onSelectedIdsChange, onRunTest }: {
   test: TestCase;
   statusOverride?: string;
@@ -545,8 +540,17 @@ export function ExecutorDialog({
   const handleRunDescribe = (describe: TestDescribe) => {
     const allIds = collectAllIdsInDescribe(describe);
     onSelectedIdsChange(new Set(allIds));
-    const pattern = buildDescribeGrepPattern(describe.title);
-    onRun('describe', pattern);
+    const locations: string[] = [];
+    function collectLocations(d: TestDescribe) {
+      for (const test of d.tests) {
+        locations.push(`${test.file}:${test.line}`);
+      }
+      for (const child of d.describes) {
+        collectLocations(child);
+      }
+    }
+    collectLocations(describe);
+    onRun('test', locations.join(','));
   };
 
   /**

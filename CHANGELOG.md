@@ -5,6 +5,123 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
 本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.0.5] - 2026-04-21
+
+### 修复
+
+#### 功能修复
+
+- **执行逻辑** - 不再使用正则表达式匹配测试标题，改为收集测试用例的文件位置信息，遍历 describe 块收集所有测试的位置
+
+---
+
+## [1.0.4] - 2026-04-21
+
+### 修复
+
+#### 测试修复
+
+- **E2E 测试** - 修复 CLI E2E 测试兼容性问题
+  - 更新测试用例以适配新的 API 响应格式
+  - 改进测试超时处理
+
+#### 配置修复
+
+- **ConfigLoader** - 修复配置加载中的路径解析问题
+  - 改进配置文件的搜索逻辑
+  - 增强错误处理机制
+
+- **PlaywrightConfigMerger** - 修复配置合并的边界情况
+  - 处理缺失配置项的默认值
+  - 优化配置验证逻辑
+
+#### 单元测试
+
+- **Trace 测试** - 修复 Trace 管理器的单元测试
+  - 添加缺失的模拟数据
+  - 修复断言逻辑
+
+---
+
+## [1.0.3] - 2026-04-21
+
+### 新增
+
+#### 文档生成
+
+- **TypeDoc 配置** - 添加 TypeDoc 文档生成支持
+  - 配置 `typedoc.json` 支持中文文档生成
+  - 添加 `docs` 和 `docs:watch` 脚本命令
+  - 支持自定义导航链接和侧边栏链接
+  - 配置代码可见性过滤器
+
+#### 配置增强
+
+- **PlaywrightConfigMerger** - 增强配置合并功能
+  - 支持 `PLAYWRIGHT_*` 环境变量覆盖
+  - 改进项目路径验证逻辑
+  - 添加配置验证结果缓存
+  - 优化默认配置与项目配置的合并策略
+
+### 变更
+
+#### 配置加载器
+
+- **ConfigLoader** - 改进配置加载机制
+  - 优化配置文件的搜索优先级
+  - 改进配置解析错误处理
+  - 支持更多配置格式变体
+
+#### 测试发现
+
+- **Discovery** - 优化测试发现模块
+  - 改进测试文件扫描性能
+  - 优化测试目录解析逻辑
+  - 增强对复杂项目结构的支持
+
+#### UI 服务器
+
+- **DashboardServer** - 改进服务器配置处理
+  - 优化测试目录切换逻辑
+  - 改进配置验证反馈
+  - 增强错误信息本地化
+
+#### Dashboard UI
+
+- **App.tsx** - 优化主应用组件
+  - 改进状态管理逻辑
+  - 优化组件渲染性能
+  - 简化代码结构
+
+- **ExecutorDialog** - 改进执行器对话框
+  - 优化用户交互体验
+  - 改进错误提示
+
+- **HealthDashboard** - 改进健康状态面板
+  - 优化数据展示逻辑
+  - 改进组件性能
+
+#### 国际化
+
+- **i18n 模块** - 改进国际化支持
+  - 优化语言切换逻辑
+  - 更新翻译内容
+
+#### API 服务
+
+- **API** - 改进前端 API 服务
+  - 优化请求处理逻辑
+  - 改进错误处理
+
+### 文档
+
+- **README** - 更新中英文文档
+  - 添加更详细的功能说明
+  - 改进使用示例
+  - 更新路线图
+
+---
+
 ## [1.0.2] - 2026-04-16
 
 ### 新增
@@ -233,6 +350,9 @@
 
 ---
 
+[1.0.5]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.5
+[1.0.4]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.4
+[1.0.3]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.3
 [1.0.2]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.2
 [1.0.1]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.1
 [1.0.0]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.0
