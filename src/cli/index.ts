@@ -230,7 +230,7 @@ program
 program
   .command('orchestrate')
   .description('Plan test orchestration without running')
-  .option('-t, --test-dir <path>', 'Test directory', './tests')
+  .option('-t, --test-dir <path>', 'Test directory', './')
   .option('-s, --shards <number>', 'Number of shards', '1')
   .action(async (options) => {
     const spinner = ora('Discovering tests...').start();
@@ -529,7 +529,7 @@ program
 program
   .command('annotations')
   .description('Scan and manage test annotations')
-  .option('-t, --test-dir <path>', 'Test directory', './tests')
+  .option('-t, --test-dir <path>', 'Test directory', './')
   .option('-o, --output <path>', 'Output report path', './annotation-report.json')
   .action(async (options) => {
     const spinner = ora('Scanning annotations...').start();
@@ -571,7 +571,7 @@ program
 program
   .command('tags')
   .description('Scan and manage test tags')
-  .option('-t, --test-dir <path>', 'Test directory', './tests')
+  .option('-t, --test-dir <path>', 'Test directory', './')
   .option('-o, --output <path>', 'Output report path', './tag-report.json')
   .option('--run <tags>', 'Run tests with specific tags (comma separated)')
   .action(async (options) => {

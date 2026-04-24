@@ -21,6 +21,8 @@ import { FlakyTestManager } from '../flaky';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
 import { PlaywrightConfigMerger } from '../config/merger';
+import { stripAnsi } from '../utils/strings';
+import { safePathForCLI, buildSpawnEnv } from '../utils/filesystem';
 
 const PROGRESS_MARKER = '__PW_PROGRESS__';
 
@@ -135,6 +137,7 @@ export class Executor extends EventEmitter {
   private storage: StorageProvider;
   private skippedQuarantinedTests: string[] = [];
   private configMerger: PlaywrightConfigMerger;
+  private resolvedOutputDir: string = '';
 
   get currentRun(): RunResult | null {
     return this._currentRun;
@@ -380,8 +383,7 @@ export class Executor extends EventEmitter {
     }
   }
 
-  private async writeProgressReporter(): Promise<string> {
-    const reporterPath = path.join(this.config.outputDir, 'progress-reporter.cjs');
+  private async writeProgressReporter(reporterPath: string): Promise<void> {
     const reporterCode = `
 const fs = require('fs');
 const path = require('path');
@@ -474,8 +476,12 @@ class ProgressReporter {
 
 module.exports = ProgressReporter;
 `;
+    const reporterDir = path.dirname(reporterPath);
+    if (!(await this.storage.exists(reporterDir))) {
+      const fs = await import('fs/promises');
+      await fs.mkdir(reporterDir, { recursive: true });
+    }
     await this.storage.writeText(reporterPath, reporterCode);
-    return reporterPath;
   }
 
   private handleProgressData(chunk: string): void {
@@ -525,7 +531,7 @@ module.exports = ProgressReporter;
         continue;
       }
 
-      this.emit('output', { data: line, timestamp: Date.now(), runId });
+      this.emit('output', { data: stripAnsi(line), timestamp: Date.now(), runId });
     }
   }
 
@@ -562,14 +568,14 @@ module.exports = ProgressReporter;
       });
     } else if (msg.type === 'stdout' && msg.text) {
       this.emit('output', {
-        data: msg.text.replace(/\n$/, ''),
+        data: stripAnsi(msg.text.replace(/\n$/, '')),
         timestamp: Date.now(),
         runId: this._currentRun.id,
         type: 'stdout',
       });
     } else if (msg.type === 'stderr' && msg.text) {
       this.emit('output', {
-        data: msg.text.replace(/\n$/, ''),
+        data: stripAnsi(msg.text.replace(/\n$/, '')),
         timestamp: Date.now(),
         runId: this._currentRun.id,
         type: 'stderr',
@@ -683,13 +689,28 @@ module.exports = ProgressReporter;
       this.log.warn(`No playwright.config.ts found in ${testDir}, tests may not run correctly`);
     }
 
-    const jsonReportPath = path.resolve(this.config.outputDir, 'results.json');
-    const progressReporterPath = path.resolve(await this.writeProgressReporter());
+    const configPath = mergedConfig.configPath;
+    const cwd = configPath ? path.dirname(configPath) : path.resolve(testDir);
+
+    const resolvedOutputDir = path.isAbsolute(this.config.outputDir)
+      ? this.config.outputDir
+      : path.resolve(cwd, this.config.outputDir);
+    this.resolvedOutputDir = resolvedOutputDir;
+
+    if (!path.isAbsolute(this.config.outputDir)) {
+      this.log.info(
+        `Output directory resolved: ${this.config.outputDir} -> ${resolvedOutputDir} (relative to project: ${cwd})`
+      );
+    }
+
+    const jsonReportPath = path.join(resolvedOutputDir, 'results.json');
+    const progressReporterPath = path.join(resolvedOutputDir, 'progress-reporter.cjs');
+    await this.writeProgressReporter(progressReporterPath);
 
     const runId = this._currentRun?.id || `run_${Date.now()}`;
-    const htmlReportPath = path.resolve(this.config.outputDir, 'html-reports', runId);
+    const htmlReportPath = path.join(resolvedOutputDir, 'html-reports', runId);
 
-    const playwrightReportDir = path.resolve(this.config.outputDir, '../test-sandbox/reports');
+    const playwrightReportDir = path.join(resolvedOutputDir, 'reports');
     if (!(await this.storage.exists(playwrightReportDir))) {
       const fs = await import('fs/promises');
       await fs.mkdir(playwrightReportDir, { recursive: true });
@@ -698,12 +719,10 @@ module.exports = ProgressReporter;
 
     const args: string[] = ['test'];
 
-    const configPath = mergedConfig.configPath;
     if (configPath) {
-      args.push(`--config=${configPath}`);
+      const safeConfigPath = safePathForCLI(configPath);
+      args.push(`--config=${safeConfigPath}`);
     }
-
-    const cwd = configPath ? path.dirname(configPath) : process.cwd();
 
     if (options?.testLocations && options.testLocations.length > 0) {
       for (const location of options.testLocations) {
@@ -712,7 +731,8 @@ module.exports = ProgressReporter;
           testPath = path.relative(cwd, location);
         }
         testPath = testPath.split(path.sep).join('/');
-        args.push(testPath);
+        const safePath = safePathForCLI(testPath);
+        args.push(safePath);
       }
     } else if (options?.testFiles && options.testFiles.length > 0) {
       for (const file of options.testFiles) {
@@ -721,7 +741,8 @@ module.exports = ProgressReporter;
           testPath = path.relative(cwd, file);
         }
         testPath = testPath.split(path.sep).join('/');
-        args.push(testPath);
+        const safePath = safePathForCLI(testPath);
+        args.push(safePath);
       }
     }
 
@@ -763,8 +784,13 @@ module.exports = ProgressReporter;
     this.log.info(`Working directory: ${cwd}`);
     this.log.info(`Config path: ${configPath || 'none'}`);
     this.log.info(`Test directory: ${mergedConfig.testDirAbsolute}`);
+    this.log.info(`Output directory (resolved): ${resolvedOutputDir}`);
     this.log.info(`HTML report will be generated at: ${htmlReportPath}`);
     this.log.info(`JSON report will be generated at: ${jsonReportPath}`);
+
+    if (!(await this.storage.exists(mergedConfig.testDirAbsolute))) {
+      this.log.warn(`Test directory does not exist: ${mergedConfig.testDirAbsolute}`);
+    }
 
     if (mergedConfig.warnings.length > 0) {
       this.log.warn(`Config warnings: ${mergedConfig.warnings.join('; ')}`);
@@ -775,11 +801,10 @@ module.exports = ProgressReporter;
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: true,
-        env: {
-          ...process.env,
+        env: buildSpawnEnv({
           PLAYWRIGHT_HTML_REPORT: playwrightReportDir,
           PLAYWRIGHT_JSON_OUTPUT_FILE: jsonReportPath,
-        },
+        }),
       });
 
       this.currentProcess = proc;
@@ -801,9 +826,10 @@ module.exports = ProgressReporter;
             .split('\n')
             .filter((line) => !line.includes(PROGRESS_MARKER))
             .join('\n');
-          if (cleanText.trim()) {
+          const strippedCleanText = stripAnsi(cleanText);
+          if (strippedCleanText.trim()) {
             this.emit('output', {
-              data: cleanText,
+              data: strippedCleanText,
               timestamp: Date.now(),
               runId: this._currentRun?.id || '',
             });
@@ -1104,8 +1130,8 @@ module.exports = ProgressReporter;
   }
 
   private async postProcessRun(runId: string): Promise<void> {
-    const playwrightReportDir = path.resolve(this.config.outputDir, '../test-sandbox/reports');
-    const targetReportDir = path.resolve(this.config.outputDir, 'html-reports', runId);
+    const playwrightReportDir = path.join(this.resolvedOutputDir, 'reports');
+    const targetReportDir = path.join(this.resolvedOutputDir, 'html-reports', runId);
 
     this.log.info(`Checking for Playwright HTML report at: ${playwrightReportDir}`);
 
@@ -1138,14 +1164,6 @@ module.exports = ProgressReporter;
         }
       } else {
         this.log.warn(`Playwright report directory not found at: ${playwrightReportDir}`);
-
-        const testSandboxDir = path.resolve(this.config.outputDir, '../test-sandbox');
-        if (await this.storage.exists(testSandboxDir)) {
-          const files = await this.storage.readDir(testSandboxDir);
-          this.log.warn(`Files in test-sandbox directory: ${files.join(', ')}`);
-        } else {
-          this.log.warn(`test-sandbox directory not found at: ${testSandboxDir}`);
-        }
       }
     } catch (error: unknown) {
       this.log.error(

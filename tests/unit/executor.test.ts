@@ -10,7 +10,7 @@ describe('Executor', () => {
     storage = new MemoryStorage();
     config = {
       version: '1.0.0',
-      testDir: './tests',
+      testDir: './',
       outputDir: './test-output',
       retries: 0,
       timeout: 30000,
@@ -232,7 +232,7 @@ describe('ParallelExecutor', () => {
     storage = new MemoryStorage();
     config = {
       version: '1.0.0',
-      testDir: './tests',
+      testDir: './',
       outputDir: './test-output',
       retries: 0,
       timeout: 30000,

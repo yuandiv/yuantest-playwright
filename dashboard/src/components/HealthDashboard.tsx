@@ -11,14 +11,15 @@ import { exportToCSV, exportToJSON, exportToHTML } from '../utils/exportUtils';
 interface HealthDashboardProps {
   lang: Lang;
   data: HealthMetric[];
+  onRefresh: () => void;
 }
 
 /**
  * 健康仪表盘主组件
  * 显示测试运行的健康指标数据，包括统计卡片和图表
  */
-export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data }) => {
-  const { config, resetConfig, setDateRange, setActiveTab } = useDashboardConfig();
+export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, onRefresh }) => {
+  const { config, setDateRange, setActiveTab } = useDashboardConfig();
   const { chartData, stats, hasData } = useChartData(data);
 
   const handleExportCSV = () => {
@@ -47,7 +48,7 @@ export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data }) 
           config={config}
           stats={stats}
           hasData={hasData && !!stats}
-          onReset={resetConfig}
+          onRefresh={onRefresh}
           onDateChange={setDateRange}
           onExportCSV={handleExportCSV}
           onExportHTML={handleExportHTML}
@@ -97,7 +98,7 @@ interface DashboardToolbarProps {
   config: { dateRange: { start: string; end: string } };
   stats: any;
   hasData: boolean;
-  onReset: () => void;
+  onRefresh: () => void;
   onDateChange: (start: string, end: string) => void;
   onExportCSV: () => void;
   onExportHTML: () => void;
@@ -113,7 +114,7 @@ const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
   config,
   stats,
   hasData,
-  onReset,
+  onRefresh,
   onDateChange,
   onExportCSV,
   onExportHTML,
@@ -143,12 +144,12 @@ const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
     <div className="flex-1"></div>
 
     <button
-      onClick={onReset}
-      className="flex items-center gap-2 text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-200 hover:text-gray-700 transition-all cursor-pointer"
-      title={t('resetConfig', lang) || 'Reset to default'}
+      onClick={onRefresh}
+      className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 hover:bg-blue-100 hover:text-blue-700 transition-all cursor-pointer"
+      title={t('refresh', lang) || 'Refresh'}
     >
-      <i className="fas fa-undo"></i>
-      <span>{t('reset', lang) || 'Reset'}</span>
+      <i className="fas fa-sync-alt"></i>
+      <span>{t('refresh', lang) || 'Refresh'}</span>
     </button>
 
     <ExportButtons

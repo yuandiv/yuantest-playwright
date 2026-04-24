@@ -276,6 +276,37 @@ export class RealtimeReporter extends EventEmitter {
     this.broadcast(msg);
   }
 
+  broadcastReportCreated(report: RunResult): void {
+    const message: RealTimeMessage = {
+      type: 'report_created',
+      payload: report,
+      timestamp: Date.now(),
+      runId: report.id,
+    };
+    this.broadcast(message);
+    this.log.debug(`Broadcast report_created: ${report.id}`);
+  }
+
+  broadcastReportUpdated(
+    runId: string,
+    updates: {
+      totalTests?: number;
+      passed?: number;
+      failed?: number;
+      skipped?: number;
+      status?: 'running' | 'completed' | 'failed' | 'cancelled';
+      testResult?: TestResult;
+    }
+  ): void {
+    const message: RealTimeMessage = {
+      type: 'report_updated',
+      payload: { runId, ...updates },
+      timestamp: Date.now(),
+      runId,
+    };
+    this.broadcast(message);
+  }
+
   getProgress(runId: string): RunProgress | undefined {
     return this.runProgress.get(runId);
   }

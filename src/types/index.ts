@@ -148,6 +148,13 @@ export interface VisualTestComparison {
   matches: boolean;
 }
 
+export interface TestRunHistory {
+  timestamp: number;
+  status: 'passed' | 'failed' | 'skipped' | 'timedout';
+  duration: number;
+  error?: string;
+}
+
 export interface TestResult {
   id: string;
   title: string;
@@ -159,6 +166,8 @@ export interface TestResult {
   duration: number;
   error?: string;
   retries: number;
+  manualReruns?: number;
+  runHistory?: TestRunHistory[];
   timestamp: number;
   browser: BrowserType;
   shard?: number;
@@ -234,7 +243,7 @@ export interface RunMetadata {
 export interface RunResult {
   id: string;
   version: string;
-  status: 'success' | 'failed' | 'cancelled';
+  status: 'success' | 'failed' | 'cancelled' | 'running';
   startTime: number;
   endTime?: number;
   duration?: number;
@@ -353,6 +362,26 @@ export type RealTimeMessage =
   | {
       type: 'log';
       payload: { message: string; timestamp: number; logType?: string };
+      timestamp: number;
+      runId: string;
+    }
+  | {
+      type: 'report_created';
+      payload: RunResult;
+      timestamp: number;
+      runId: string;
+    }
+  | {
+      type: 'report_updated';
+      payload: {
+        runId: string;
+        totalTests?: number;
+        passed?: number;
+        failed?: number;
+        skipped?: number;
+        status?: 'running' | 'completed' | 'failed' | 'cancelled';
+        testResult?: TestResult;
+      };
       timestamp: number;
       runId: string;
     };

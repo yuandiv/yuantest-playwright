@@ -197,7 +197,7 @@ async function testOrchestrator() {
 
   const config: TestConfig = {
     version: 'test-project',
-    testDir: './tests',
+    testDir: './',
     outputDir: REPORTS_DIR,
     shards: 4,
     workers: 2,
@@ -221,7 +221,7 @@ async function testOrchestrator() {
   assert(orchestration.strategy === 'distributed', 'Strategy should be distributed');
 
   const pwConfig = await orchestrator.createPlaywrightConfig();
-  assert(pwConfig.testDir === './tests', 'Playwright config testDir should match');
+  assert(pwConfig.testDir === './', 'Playwright config testDir should match');
   assert(pwConfig.timeout === 30000, 'Playwright config timeout should match');
   assert(pwConfig.retries === 2, 'Playwright config retries should match');
 
@@ -466,7 +466,7 @@ async function testCLIViaAPI() {
 
   const config: TestConfig = {
     version: 'cli-test',
-    testDir: './tests',
+    testDir: './',
     outputDir: REPORTS_DIR,
     shards: 2,
   };

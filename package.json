@@ -63,7 +63,8 @@
     "bin",
     "LICENSE",
     "README.md",
-    "README.en.md"
+    "README.en.md",
+    "USAGE.md"
   ],
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.2.0",

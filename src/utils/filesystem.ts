@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { StorageProvider, getStorage } from '../storage';
 import { logger } from '../logger';
 
@@ -378,4 +379,57 @@ export function getFileStats(filePath: string): {
     created: stat.birthtimeMs,
     modified: stat.mtimeMs,
   };
+}
+
+export function hasChineseChars(str: string): boolean {
+  return /[\u4e00-\u9fff]/.test(str);
+}
+
+export function getShortPath(longPath: string): string {
+  if (process.platform !== 'win32') {
+    return longPath;
+  }
+
+  if (!fs.existsSync(longPath)) {
+    return longPath;
+  }
+
+  try {
+    const result = execSync(`cmd /c for %I in ("${longPath}") do @echo %~sI`, {
+      encoding: 'utf-8',
+      windowsHide: true,
+    }).trim();
+    return result || longPath;
+  } catch {
+    return longPath;
+  }
+}
+
+export function safePathForCLI(inputPath: string): string {
+  if (process.platform !== 'win32') {
+    return inputPath;
+  }
+
+  if (hasChineseChars(inputPath)) {
+    return getShortPath(inputPath);
+  }
+
+  return inputPath;
+}
+
+export function buildSpawnEnv(additionalEnv?: Record<string, string>): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+
+  if (process.platform === 'win32') {
+    env.CHCP = '65001';
+    env.PYTHONIOENCODING = 'utf-8';
+    env.LANG = 'en_US.UTF-8';
+    env.PYTHONUTF8 = '1';
+  }
+
+  if (additionalEnv) {
+    Object.assign(env, additionalEnv);
+  }
+
+  return env;
 }

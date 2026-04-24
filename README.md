@@ -143,7 +143,7 @@ spawn('npx', ['playwright', 'test', ...args]);
 
 ```bash
 # 日常开发：使用 yuantest 实时监控
-yuantest run --test-dir ./tests
+yuantest run --test-dir ./
 
 # CI/CD：生成 Allure 报告归档
 npx playwright test --reporter=allure-playwright
@@ -177,19 +177,19 @@ npm link
 
 ```bash
 # 基本用法
-yuantest run --test-dir ./tests
+yuantest run --test-dir ./
 
 # 指定项目名称和输出目录
 yuantest run --project my-app --test-dir ./e2e --output ./reports
 
 # 使用 4 个分片并行执行
-yuantest run --test-dir ./tests --shards 4
+yuantest run --test-dir ./ --shards 4
 
 # 指定多个浏览器
-yuantest run --test-dir ./tests --browsers chromium,firefox
+yuantest run --test-dir ./ --browsers chromium,firefox
 
 # 设置超时和重试
-yuantest run --test-dir ./tests --timeout 60000 --retries 2
+yuantest run --test-dir ./ --timeout 60000 --retries 2
 ```
 
 ### 2. 启动 Web Dashboard
@@ -222,7 +222,7 @@ yuantest ui --help
 | 参数 | 简写 | 说明 | 默认值 |
 |------|------|------|--------|
 | `--project` | `-p` | 项目名称 | test-project |
-| `--test-dir` | `-t` | 测试文件目录 | ./tests |
+| `--test-dir` | `-t` | 测试文件目录 | ./ |
 | `--output` | `-o` | 输出目录 | ./test-output |
 | `--shards` | `-s` | 分片数量 | 1 |
 | `--workers` | `-w` | Worker 数量 | 1 |
@@ -237,7 +237,7 @@ yuantest ui --help
 
 ```bash
 # 查看测试分片分配方案
-yuantest orchestrate --test-dir ./tests --shards 4
+yuantest orchestrate --test-dir ./ --shards 4
 ```
 
 ### 查看报告
@@ -397,7 +397,7 @@ console.log(`Found ${flakyTests.length} flaky tests`);
 await flakyManager.quarantineTest('test-id-123');
 
 // 注解管理
-const annotationManager = new AnnotationManager('./tests');
+const annotationManager = new AnnotationManager('./');
 const annotations = await annotationManager.scanAnnotations();
 console.log(`Found ${annotations.length} annotated tests`);
 ```
@@ -536,6 +536,7 @@ export default defineConfig({
 ## 📚 文档
 
 - [API 文档](https://yuandiv.github.io/yuantest-playwright/)
+- [使用指南](USAGE.md) - Web UI 和外部工具执行测试使用指南
 - [更新日志](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
 - [行为准则](CODE_OF_CONDUCT.md)

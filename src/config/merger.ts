@@ -164,7 +164,7 @@ export class PlaywrightConfigMerger {
 
     try {
       const config = await this.loadPlaywrightConfig(configPath);
-      const testDir = config.testDir || './tests';
+      const testDir = config.testDir || './';
       const testDirAbsolute = this.resolveTestDir(testDir, configPath);
 
       if (!(await this.storage.exists(testDirAbsolute))) {
@@ -413,7 +413,7 @@ export class PlaywrightConfigMerger {
       return {
         configPath: null,
         configExists: false,
-        testDir: './tests',
+        testDir: './',
         testDirAbsolute: path.join(absoluteProjectDir, 'tests'),
         testIgnore: FRAMEWORK_DEFAULTS.testIgnore,
         testMatch: FRAMEWORK_DEFAULTS.testMatch,
@@ -441,7 +441,7 @@ export class PlaywrightConfigMerger {
       return {
         configPath,
         configExists: true,
-        testDir: './tests',
+        testDir: './',
         testDirAbsolute: path.join(absoluteProjectDir, 'tests'),
         testIgnore: FRAMEWORK_DEFAULTS.testIgnore,
         testMatch: FRAMEWORK_DEFAULTS.testMatch,
@@ -458,7 +458,7 @@ export class PlaywrightConfigMerger {
       };
     }
 
-    const testDir = externalConfig.testDir || './tests';
+    const testDir = externalConfig.testDir || './';
     const testDirAbsolute = this.resolveTestDir(testDir, configPath);
 
     if (!externalConfig.reporter || externalConfig.reporter.length === 0) {

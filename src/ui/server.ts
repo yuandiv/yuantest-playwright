@@ -81,7 +81,7 @@ export class DashboardServer {
     this.port = port;
     this.outputDir = outputDir;
     this.dataDir = dataDir;
-    this.testDir = './tests';
+    this.testDir = './';
     this.staticPath = path.join(__dirname, '../public');
     this.storage = getStorage();
     this.testDiscovery = new TestDiscovery();
@@ -220,6 +220,20 @@ export class DashboardServer {
             return;
           }
 
+          if (result.error) {
+            const response = {
+              total: 0,
+              files: [],
+              tests: [],
+              configValidation: result.configValidation,
+              error: result.error,
+              rawOutput: result.rawOutput,
+            };
+            this.cache.set(cacheKey, response);
+            res.json(response);
+            return;
+          }
+
           const response = {
             total: result.tests.length,
             files: result.files,
@@ -250,6 +264,19 @@ export class DashboardServer {
               tests: [],
               configValidation: result.configValidation,
               error: result.configValidation.error,
+            };
+            this.cache.set(cacheKey, response);
+            res.json(response);
+            return;
+          }
+
+          if (result.error) {
+            const response = {
+              total: 0,
+              tests: [],
+              configValidation: result.configValidation,
+              error: result.error,
+              rawOutput: result.rawOutput,
             };
             this.cache.set(cacheKey, response);
             res.json(response);
@@ -343,7 +370,7 @@ export class DashboardServer {
         const runOptions = req.body;
         const fileConfig = await loadConfigFile();
 
-        const testDir = runOptions.testDir || this.testDir || fileConfig?.testDir || './tests';
+        const testDir = runOptions.testDir || this.testDir || fileConfig?.testDir || './';
         if (!isPathSafe(testDir)) {
           res.status(400).json({ error: 'Invalid testDir: path traversal is not allowed' });
           return;
@@ -366,8 +393,10 @@ export class DashboardServer {
 
         this.executor = new Executor(config, this.storage, this.flakyManager);
 
-        this.executor.on('run_started', (data) => {
-          this.realtimeReporter.broadcastRunStarted(data.runId, config.version);
+        this.executor.on('run_started', async (data) => {
+          const report = await this.reporter.createPendingReport(data.runId, config.version);
+          this.realtimeReporter.broadcastRunStarted(data.runId, config.version, 0);
+          this.realtimeReporter.broadcastReportCreated(report);
           this.log.info(`Run started via API: ${data.runId}`);
         });
 
@@ -385,19 +414,46 @@ export class DashboardServer {
           });
         });
 
-        this.executor.on('test_result', (result) => {
-          this.realtimeReporter.broadcastTestResult(
-            this.executor?.currentRun?.id || config.version,
-            result
-          );
+        this.executor.on('test_result', async (result) => {
+          const suiteName = result.fullTitle?.split(' > ').slice(0, -1).join(' > ') || 'Test Suite';
+          const runId = this.executor?.currentRun?.id || '';
+
+          await this.reporter.updatePendingReport(runId, result, suiteName);
+
+          this.realtimeReporter.broadcastTestResult(runId, result);
+
+          const pendingReport = this.reporter.getPendingReport(runId);
+          if (pendingReport) {
+            this.realtimeReporter.broadcastReportUpdated(runId, {
+              totalTests: pendingReport.totalTests,
+              passed: pendingReport.passed,
+              failed: pendingReport.failed,
+              skipped: pendingReport.skipped,
+              status: 'running',
+              testResult: result,
+            });
+          }
         });
 
         this.executor.on('run_completed', async (result: RunResult) => {
+          const status = result.status === 'success' ? 'success' : 'failed';
+
+          try {
+            await this.reporter.finalizePendingReport(result.id, status);
+          } catch (error) {
+            this.log.warn(
+              `Failed to finalize pending report, generating new report: ${
+                error instanceof Error ? error.message : String(error)
+              }`
+            );
+            await this.reporter.generateReport(result);
+          }
+
           this.realtimeReporter.broadcastRunProgress(result.id, {
             totalTests: result.totalTests,
           });
           this.realtimeReporter.broadcastRunCompleted(result.id, result);
-          await this.reporter.generateReport(result);
+
           await this.flakyManager.recordRunResults(result);
           this.reporter.clearCache();
           this.cache.invalidate('runs');
@@ -447,7 +503,7 @@ export class DashboardServer {
           runOptions.testIds.length > 0
         ) {
           const testIds = runOptions.testIds as string[];
-          const testDir = config.testDir || './tests';
+          const testDir = config.testDir || './';
           const discoveredTests = await this.testDiscovery.discoverTests(testDir);
 
           const testLocations: string[] = [];
@@ -726,6 +782,99 @@ export class DashboardServer {
         }
         this.cache.invalidate('runs');
         res.json({ success: true, message: `Report ${req.params.id} deleted` });
+      })
+    );
+
+    v1Router.post(
+      '/runs/:runId/tests/:testId/rerun',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { runId, testId } = req.params;
+        const { testLocation } = req.body;
+
+        if (!testLocation) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'testLocation is required' });
+          return;
+        }
+
+        const report = await this.reporter.getReport(runId);
+        if (!report) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Run not found' });
+          return;
+        }
+
+        let testInfo: { file?: string; line?: number } | null = null;
+        for (const suite of report.suites) {
+          const test = suite.tests.find((t) => t.id === testId);
+          if (test) {
+            testInfo = { file: test.file, line: test.line };
+            break;
+          }
+        }
+
+        if (!testInfo || !testInfo.file || !testInfo.line) {
+          res
+            .status(HTTP_STATUS.NOT_FOUND)
+            .json({ error: 'Test not found or missing file/line info' });
+          return;
+        }
+
+        if (this.executor?.isCurrentlyRunning()) {
+          res.status(HTTP_STATUS.CONFLICT).json({ error: 'An execution is already in progress' });
+          return;
+        }
+
+        const fileConfig = await loadConfigFile();
+        const config: TestConfig = mergeConfig(fileConfig, {
+          version: report.version,
+          testDir: this.testDir,
+          outputDir: this.outputDir,
+          retries: 0,
+          timeout: fileConfig?.timeout ?? 30000,
+          workers: 1,
+          browsers: ['chromium'],
+          htmlReport: false,
+        });
+
+        this.executor = new Executor(config, this.storage, this.flakyManager);
+
+        let testResult: any = null;
+
+        this.executor.on('test_result', (result) => {
+          if (
+            result.id === testId ||
+            (result.file === testInfo!.file && result.line === testInfo!.line)
+          ) {
+            testResult = result;
+          }
+        });
+
+        res.json({ status: 'started', message: 'Test rerun initiated' });
+
+        try {
+          await this.executor.execute({
+            testLocations: [testLocation],
+          });
+
+          if (testResult) {
+            const updated = await this.reporter.updateTestResult(runId, testId, testResult);
+            if (updated) {
+              this.realtimeReporter.broadcastTestResult(runId, testResult);
+              this.log.info(`Test rerun completed and report updated: ${testId}`);
+            } else {
+              this.log.warn(`Failed to update test result in report: ${testId}`);
+            }
+          } else {
+            this.log.warn(`Test result not found after rerun: ${testId}`);
+          }
+
+          this.cache.invalidate('runs');
+        } catch (error: unknown) {
+          this.log.error('Test rerun failed', error instanceof Error ? error : undefined);
+          this.realtimeReporter.broadcastError(
+            runId,
+            error instanceof Error ? error.message : 'Unknown error'
+          );
+        }
       })
     );
 
@@ -1015,16 +1164,20 @@ export class DashboardServer {
           return;
         }
 
-        this.testDir = testDir;
-        this.cache.invalidate('tests:');
-        this.testDiscovery.invalidateCache();
+        await this.updatePathsForTestDir(testDir);
 
-        const existing =
-          (await this.storage.readJSON<Record<string, string>>(
-            path.join(this.dataDir, 'user-preferences.json')
-          )) || {};
-        const merged = { ...existing, testDir };
-        await this.storage.writeJSON(path.join(this.dataDir, 'user-preferences.json'), merged);
+        try {
+          const existing =
+            (await this.storage.readJSON<Record<string, string>>(
+              path.join(this.dataDir, 'user-preferences.json')
+            )) || {};
+          const merged = { ...existing, testDir };
+          await this.storage.writeJSON(path.join(this.dataDir, 'user-preferences.json'), merged);
+        } catch (prefError) {
+          this.log.warn(
+            `Failed to save preferences: ${prefError instanceof Error ? prefError.message : String(prefError)}`
+          );
+        }
 
         res.json({
           success: true,
@@ -1180,26 +1333,103 @@ export class DashboardServer {
     return this.testDir;
   }
 
-  private setupStaticFiles(): void {
-    const htmlReportsPath = path.resolve(this.outputDir, 'html-reports');
-    if (fs.existsSync(htmlReportsPath)) {
-      this.app.use('/html-reports', express.static(htmlReportsPath));
-      this.log.info(`HTML reports available at http://localhost:${this.port}/html-reports`);
-    }
+  private async updatePathsForTestDir(testDir: string): Promise<void> {
+    const absoluteDir = path.resolve(testDir);
+    this.testDir = testDir;
+    this.outputDir = path.join(absoluteDir, 'test-reports');
+    this.dataDir = path.join(absoluteDir, 'test-data');
 
-    const playwrightReportPath = path.resolve(this.outputDir, '../test-sandbox/reports');
-    if (fs.existsSync(playwrightReportPath)) {
-      this.app.use('/playwright-report', express.static(playwrightReportPath));
-      this.log.info(
-        `Playwright HTML report available at http://localhost:${this.port}/playwright-report`
+    try {
+      await this.storage.mkdir(this.outputDir);
+    } catch (e) {
+      this.log.warn(
+        `Failed to create outputDir ${this.outputDir}: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+    try {
+      await this.storage.mkdir(this.dataDir);
+    } catch (e) {
+      this.log.warn(
+        `Failed to create dataDir ${this.dataDir}: ${e instanceof Error ? e.message : String(e)}`
       );
     }
 
-    const artifactsPath = path.resolve(this.outputDir, '../test-sandbox/artifacts');
-    if (fs.existsSync(artifactsPath)) {
-      this.app.use('/artifacts', express.static(artifactsPath));
-      this.log.info(`Artifacts available at http://localhost:${this.port}/artifacts`);
-    }
+    this.reporter = new Reporter(this.outputDir, this.storage);
+    this.flakyManager = new FlakyTestManager(this.dataDir, {}, this.storage);
+
+    this.traceManager = new TraceManager(
+      {
+        enabled: true,
+        mode: 'on',
+        screenshots: true,
+        snapshots: true,
+        sources: true,
+        attachments: true,
+      },
+      path.join(absoluteDir, 'traces')
+    );
+
+    this.artifactManager = new ArtifactManager(
+      { enabled: true, screenshots: 'on', videos: 'on' },
+      path.join(absoluteDir, 'test-sandbox', 'artifacts')
+    );
+
+    this.visualManager = new VisualTestingManager(
+      {
+        enabled: true,
+        threshold: 0.2,
+        maxDiffPixelRatio: 0.01,
+        maxDiffPixels: 10,
+        updateSnapshots: false,
+      },
+      path.join(absoluteDir, 'visual-testing')
+    );
+
+    logger.init(this.dataDir);
+
+    this.cache.invalidate('tests:');
+    this.cache.invalidate('runs');
+    this.cache.invalidate('stats');
+    this.cache.invalidate('traces:');
+    this.cache.invalidate('artifacts:');
+    this.testDiscovery.invalidateCache();
+
+    this.log.info(
+      `Paths updated for test directory: ${absoluteDir}\n` +
+        `  outputDir: ${this.outputDir}\n` +
+        `  dataDir: ${this.dataDir}\n` +
+        `  traces: ${path.join(absoluteDir, 'traces')}\n` +
+        `  artifacts: ${path.join(absoluteDir, 'test-sandbox', 'artifacts')}`
+    );
+  }
+
+  private setupStaticFiles(): void {
+    this.app.use('/html-reports', (req: Request, res: Response, next: NextFunction) => {
+      const htmlReportsPath = path.resolve(this.outputDir, 'html-reports');
+      if (fs.existsSync(htmlReportsPath)) {
+        express.static(htmlReportsPath)(req, res, next);
+      } else {
+        next();
+      }
+    });
+
+    this.app.use('/playwright-report', (req: Request, res: Response, next: NextFunction) => {
+      const playwrightReportPath = path.resolve(this.outputDir, '../test-sandbox/reports');
+      if (fs.existsSync(playwrightReportPath)) {
+        express.static(playwrightReportPath)(req, res, next);
+      } else {
+        next();
+      }
+    });
+
+    this.app.use('/artifacts', (req: Request, res: Response, next: NextFunction) => {
+      const artifactsPath = path.resolve(this.outputDir, '../test-sandbox/artifacts');
+      if (fs.existsSync(artifactsPath)) {
+        express.static(artifactsPath)(req, res, next);
+      } else {
+        next();
+      }
+    });
 
     if (fs.existsSync(this.staticPath)) {
       this.app.use(express.static(this.staticPath));

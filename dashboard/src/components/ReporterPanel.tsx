@@ -172,25 +172,34 @@ export function ReporterPanel({ lang, reports, activeReportId, onActiveReportCha
               <p className="text-gray-400 text-xs p-3 text-center">{t('noReports', lang)}</p>
             ) : sortedReports.map(report => {
               const isActive = activeReportId === report.id;
+              const isRunning = report.status === 'running';
               const passRate = report.totalTests > 0 ? ((report.passed / report.totalTests) * 100).toFixed(0) : '0';
               const rateColor = Number(passRate) >= 80 ? 'text-green-600 bg-green-50' : Number(passRate) >= 50 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50';
               return (
                 <div
                   key={report.id}
-                  className={`border rounded-lg p-2.5 cursor-pointer transition bg-white ${isActive ? 'border-indigo-400 bg-indigo-50' : 'hover:bg-gray-50'}`}
+                  className={`border rounded-lg p-2.5 cursor-pointer transition bg-white ${isActive ? 'border-indigo-400 bg-indigo-50' : 'hover:bg-gray-50'} ${isRunning ? 'ring-2 ring-blue-200 ring-opacity-50' : ''}`}
                   onClick={() => onActiveReportChange(report.id)}
                 >
                   <div className="flex justify-between items-center text-xs mb-1">
                     <span className="font-mono text-gray-600">{new Date(report.timestamp).toLocaleString()}</span>
                     <div className="flex items-center gap-2">
+                      {isRunning && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-600 animate-pulse flex items-center gap-1">
+                          <i className="fas fa-spinner fa-spin text-[8px]"></i>
+                          {t('running', lang)}
+                        </span>
+                      )}
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${rateColor}`}>{passRate}%</span>
-                      <button
-                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                        onClick={(e) => handleDeleteClick(e, report.id)}
-                        title={t('delete', lang) || '删除'}
-                      >
-                        <i className="fas fa-trash-alt text-xs"></i>
-                      </button>
+                      {!isRunning && (
+                        <button
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                          onClick={(e) => handleDeleteClick(e, report.id)}
+                          title={t('delete', lang) || '删除'}
+                        >
+                          <i className="fas fa-trash-alt text-xs"></i>
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
@@ -274,7 +283,7 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
     e.stopPropagation();
     
     if (!test.file || !test.line) {
-      onRerunMessage({ type: 'error', text: 'Test file or line information is missing' });
+      onRerunMessage({ type: 'error', text: t('testFileOrLineMissing', lang) });
       setTimeout(() => onRerunMessage(null), 3000);
       return;
     }
@@ -282,21 +291,27 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
     const testLocation = `${test.file}:${test.line}`;
     
     try {
-      const result = await api.rerunTest(testLocation);
+      const result = await api.rerunTest(String(report.id), test.id, testLocation);
       if (result.success) {
-        onRerunMessage({ type: 'success', text: `Rerun initiated for: ${test.name}` });
+        onRerunMessage({ type: 'success', text: `${t('rerunInitiated', lang)}${test.name}` });
       } else {
-        onRerunMessage({ type: 'error', text: `Failed to initiate rerun: ${result.error || 'Unknown error'}` });
+        onRerunMessage({ type: 'error', text: `${t('failedToInitiateRerun', lang)}${result.error || t('unknownError', lang)}` });
       }
       setTimeout(() => onRerunMessage(null), 3000);
     } catch (error) {
-      onRerunMessage({ type: 'error', text: 'Error during rerun' });
+      onRerunMessage({ type: 'error', text: t('errorDuringRerun', lang) });
       setTimeout(() => onRerunMessage(null), 3000);
     }
   };
 
   return (
     <div>
+      {report.status === 'running' && (
+        <div className="mb-3 p-2 bg-blue-50 rounded-lg flex items-center gap-2 text-blue-600 text-xs border border-blue-100">
+          <i className="fas fa-spinner fa-spin"></i>
+          <span>{t('reportRunning', lang) || '正在执行中，报告内容实时更新...'}</span>
+        </div>
+      )}
       <div className="mb-3">
         <div className="flex justify-between items-center mb-2">
           <span className="font-bold text-sm text-gray-800">{t('report', lang)} #{report.id}</span>
@@ -339,6 +354,7 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
             {report.details.map((d, i) => {
               const isFailed = d.status === 'failed';
               const hasRetries = d.retries && d.retries > 0;
+              const totalRunCount = 1 + (d.retries || 0) + (d.manualReruns || 0);
               return (
                 <tr 
                   key={i} 
@@ -360,14 +376,10 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
                   <td className="py-1.5 px-2 text-center">{isFailed ? '❌' : '✅'}</td>
                   <td className="py-1.5 px-2 text-center text-gray-600">{d.duration || '-'}</td>
                   <td className="py-1.5 px-2 text-center">
-                    {hasRetries ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700">
-                        <i className="fas fa-redo text-[8px]"></i>
-                        {d.retries}
-                      </span>
-                    ) : (
-                      <span className="text-gray-300">-</span>
-                    )}
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700">
+                      <i className="fas fa-redo text-[8px]"></i>
+                      {totalRunCount}
+                    </span>
                   </td>
                   <td className="py-1.5 px-2 max-w-[200px]">
                     {d.error ? <span className="text-red-500 truncate block" title={d.error}>{d.error}</span> : <span className="text-gray-300">-</span>}

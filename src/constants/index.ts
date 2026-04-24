@@ -6,7 +6,7 @@ export const DEFAULTS = {
   BROWSERS: ['chromium'] as const,
   PROJECT_NAME: 'test-project',
   OUTPUT_DIR: './test-output',
-  TEST_DIR: './tests',
+  TEST_DIR: './',
   DATA_DIR: './test-data',
   REPORTS_DIR: './test-reports',
 } as const;

@@ -18,7 +18,7 @@ describe('Constants', () => {
       expect(DEFAULTS.BROWSERS).toEqual(['chromium']);
       expect(DEFAULTS.PROJECT_NAME).toBe('test-project');
       expect(DEFAULTS.OUTPUT_DIR).toBe('./test-output');
-      expect(DEFAULTS.TEST_DIR).toBe('./tests');
+      expect(DEFAULTS.TEST_DIR).toBe('./');
       expect(DEFAULTS.DATA_DIR).toBe('./test-data');
       expect(DEFAULTS.REPORTS_DIR).toBe('./test-reports');
     });

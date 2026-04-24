@@ -3,7 +3,7 @@ import { t, Lang } from './i18n';
 import { useWebSocket } from './hooks/useWebSocket';
 import * as api from './services/api';
 import { setApiLang } from './services/api';
-import { TestCase, RunReport, FlakyTest, QuarantinedTest, ServerRun, TestFile, TestDescribe, HealthMetric } from './types';
+import { TestCase, RunReport, RunDetail, FlakyTest, QuarantinedTest, ServerRun, TestFile, TestDescribe, HealthMetric } from './types';
 import { Header } from './components/Header';
 import { KPICards } from './components/KPICards';
 import { ExecutorDialog } from './components/ExecutorDialog';
@@ -41,7 +41,7 @@ function App() {
   const [versionInput, setVersionInput] = useState('1.0.0');
   const [modalContent, setModalContent] = useState<React.ReactNode | null>(null);
   const [isExecutorDialogOpen, setIsExecutorDialogOpen] = useState(false);
-  const [testDir, setTestDir] = useState<string>('./tests');
+  const [testDir, setTestDir] = useState<string>('./');
   const [isLoadingTests, setIsLoadingTests] = useState(false);
   const originalTestFilesRef = useRef<TestFile[]>([]);
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
@@ -250,6 +250,7 @@ function App() {
             file: test.file,
             line: test.line,
             retries: test.retries || testResult?.retry || 0,
+            manualReruns: test.manualReruns || 0,
           };
         });
         
@@ -297,6 +298,60 @@ function App() {
 
     if (msg.type === 'connected') {
       setWsConnected(true);
+    } else if (msg.type === 'report_created') {
+      const report = msg.payload;
+      const newReport: RunReport = {
+        id: report.id,
+        timestamp: new Date(report.startTime).toISOString(),
+        version: report.version,
+        totalTests: report.totalTests,
+        passed: report.passed,
+        failed: report.failed,
+        skipped: report.skipped,
+        duration: '0',
+        details: [],
+        status: 'running',
+      };
+      setReports(prev => {
+        if (prev.some(r => r.id === newReport.id)) return prev;
+        return [newReport, ...prev];
+      });
+      setActiveReportId(newReport.id);
+    } else if (msg.type === 'report_updated') {
+      const { runId, totalTests, passed, failed, skipped, status, testResult } = msg.payload;
+      setReports(prev => prev.map(report => {
+        if (report.id !== runId) return report;
+        
+        const newDetails = [...report.details];
+        if (testResult) {
+          const existingIndex = newDetails.findIndex(d => d.id === testResult.id);
+          const newDetail: RunDetail = {
+            id: testResult.id,
+            name: testResult.title,
+            status: testResult.status === 'passed' ? 'passed' : 'failed',
+            duration: ((testResult.duration || 0) / 1000).toFixed(2),
+            error: testResult.error || null,
+            file: testResult.file,
+            line: testResult.line,
+            retries: testResult.retries || 0,
+          };
+          if (existingIndex >= 0) {
+            newDetails[existingIndex] = newDetail;
+          } else {
+            newDetails.push(newDetail);
+          }
+        }
+        
+        return {
+          ...report,
+          totalTests: totalTests ?? report.totalTests,
+          passed: passed ?? report.passed,
+          failed: failed ?? report.failed,
+          skipped: skipped ?? report.skipped,
+          status: status || report.status,
+          details: newDetails,
+        };
+      }));
     } else if (msg.type === 'run_started') {
       setIsExecuting(true);
       logBatchUpdater.current?.add({ msg: `📡 ${t('running', lang)}...`, type: 'info' });
@@ -325,6 +380,21 @@ function App() {
       }
     } else if (msg.type === 'run_completed') {
       setIsExecuting(false);
+      const result = msg.payload;
+      
+      setReports(prev => prev.map(report => {
+        if (report.id !== result.id) return report;
+        return {
+          ...report,
+          totalTests: result.totalTests,
+          passed: result.passed,
+          failed: result.failed,
+          skipped: result.skipped,
+          duration: ((result.duration || 0) / 1000).toFixed(2),
+          status: result.status === 'success' ? 'completed' : 'failed',
+        };
+      }));
+      
       logBatchUpdater.current?.add({ msg: `✅ ${t('idle', lang)}`, type: 'success' });
       logBatchUpdater.current?.flush();
       
@@ -333,7 +403,10 @@ function App() {
           tc.status === 'running' ? { ...tc, status: 'idle' as const } : tc
         ));
       });
-      loadRunsFromServer();
+      
+      setTimeout(() => {
+        loadRunsFromServer();
+      }, 500);
     } else if (msg.type === 'test_result') {
       const r = msg.payload;
       logBatchUpdater.current?.add({
@@ -353,7 +426,42 @@ function App() {
         });
       }
     } else if (msg.type === 'test_result_batch') {
-      const { results } = msg.payload;
+      const { results, currentProgress } = msg.payload;
+      const runId = msg.runId;
+      
+      setReports(prev => prev.map(report => {
+        if (report.id !== runId) return report;
+        
+        const newDetails = [...report.details];
+        for (const r of results) {
+          const existingIndex = newDetails.findIndex(d => d.id === r.id);
+          const newDetail: RunDetail = {
+            id: r.id,
+            name: r.title,
+            status: r.status === 'passed' ? 'passed' : 'failed',
+            duration: ((r.duration || 0) / 1000).toFixed(2),
+            error: r.error || null,
+            file: r.file,
+            line: r.line,
+            retries: r.retries || 0,
+          };
+          if (existingIndex >= 0) {
+            newDetails[existingIndex] = newDetail;
+          } else {
+            newDetails.push(newDetail);
+          }
+        }
+        
+        return {
+          ...report,
+          totalTests: currentProgress?.totalTests ?? report.totalTests,
+          passed: currentProgress?.passed ?? report.passed,
+          failed: currentProgress?.failed ?? report.failed,
+          skipped: currentProgress?.skipped ?? report.skipped,
+          details: newDetails,
+        };
+      }));
+      
       for (const r of results) {
         const newStatus = r.status === 'passed' ? 'passed' as const : 
                           r.status === 'failed' ? 'failed' as const : 
@@ -387,14 +495,20 @@ function App() {
     logBatchUpdater.current?.add({ msg, type });
   }, []);
 
-  const loadTests = useCallback(async (forceRefresh: boolean = false, testDirOverride?: string): Promise<number> => {
+  const loadTests = useCallback(async (forceRefresh: boolean = false, testDirOverride?: string): Promise<{
+    count: number;
+    error?: string;
+    rawOutput?: string;
+  }> => {
     const dirToUse = testDirOverride ?? testDir;
     console.log('[loadTests] dirToUse:', dirToUse, 'testDir:', testDir, 'testDirOverride:', testDirOverride);
     const result = await api.getTestsStructured(dirToUse, undefined, forceRefresh);
     console.log('[loadTests] result:', result ? { 
       filesLength: result.files?.length, 
       testsLength: result.tests?.length,
-      configValidation: result.configValidation 
+      configValidation: result.configValidation,
+      error: result.error,
+      rawOutput: result.rawOutput ? '(present)' : undefined
     } : null);
     
     const convertTest = (t: api.DiscoveredTest): TestCase => ({
@@ -437,6 +551,13 @@ function App() {
       }
       return allTests;
     }
+
+    if (result && result.error) {
+      setTestFiles([]);
+      setTestCases([]);
+      setSelectedIds(new Set());
+      return { count: 0, error: result.error, rawOutput: result.rawOutput };
+    }
     
     if (result && result.files && result.files.length > 0) {
       const files: TestFile[] = result.files.map(f => ({
@@ -452,7 +573,7 @@ function App() {
       const cases = extractAllTests(files);
       setTestCases(cases);
       setSelectedIds(new Set(cases.map(c => c.id)));
-      return cases.length;
+      return { count: cases.length };
     } else if (result && result.tests && result.tests.length > 0) {
       const fileMap = new Map<string, TestFile>();
       
@@ -506,12 +627,12 @@ function App() {
       const cases = extractAllTests(files);
       setTestCases(cases);
       setSelectedIds(new Set(cases.map(c => c.id)));
-      return cases.length;
+      return { count: cases.length };
     } else if (result && result.configValidation && !result.configValidation.valid) {
       setTestFiles([]);
       setTestCases([]);
       setSelectedIds(new Set());
-      return 0;
+      return { count: 0 };
     } else {
       const annotations = await api.getAnnotations(dirToUse);
       if (annotations && annotations.length > 0) {
@@ -535,11 +656,11 @@ function App() {
         if (cases.length > 0) {
           setTestCases(cases);
           setSelectedIds(new Set(cases.map(c => c.id)));
-          return cases.length;
+          return { count: cases.length };
         }
       }
     }
-    return 0;
+    return { count: 0 };
   }, [testDir]);
 
   useEffect(() => {
@@ -569,8 +690,14 @@ function App() {
           }
         }
         
-        const testCount = await loadTests(true, newTestDir);
-        addLog(`✅ ${t('testCasesLoadSuccess', lang)} ${testCount} ${t('testCasesFound', lang)}`, 'success');
+        const loadResult = await loadTests(true, newTestDir);
+        addLog(`✅ ${t('testCasesLoadSuccess', lang)} ${loadResult.count} ${t('testCasesFound', lang)}`, 'success');
+        if (loadResult.error) {
+          addLog(`❌ ${loadResult.error}`, 'error');
+        }
+        if (loadResult.rawOutput) {
+          addLog(`📋 JSON: ${loadResult.rawOutput}`, 'info');
+        }
       } else {
         addLog(`❌ ${t('testCasesLoadFailed', lang)}: ${result.error || 'Unknown error'}`, 'error');
       }
@@ -767,7 +894,8 @@ function App() {
       {showHealthDashboard ? (
         <HealthDashboard 
           lang={lang} 
-          data={healthMetrics} 
+          data={healthMetrics}
+          onRefresh={loadHealthMetrics}
         />
       ) : (
         <>

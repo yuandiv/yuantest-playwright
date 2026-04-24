@@ -121,7 +121,7 @@ export async function releaseTest(testId: string): Promise<boolean> {
   }
 }
 
-export async function getAnnotations(testDir: string = './tests'): Promise<any[] | null> {
+export async function getAnnotations(testDir: string = './'): Promise<any[] | null> {
   return fetchJSON(`${API_BASE}/annotations?testDir=${encodeURIComponent(testDir)}`);
 }
 
@@ -168,9 +168,10 @@ export interface TestDiscoveryResult {
   tests: DiscoveredTest[];
   configValidation?: ConfigValidationResult;
   error?: string;
+  rawOutput?: string;
 }
 
-export async function getTests(testDir: string = './tests', configPath?: string): Promise<{
+export async function getTests(testDir: string = './', configPath?: string): Promise<{
   total: number;
   tests: Array<{
     id: string;
@@ -190,7 +191,7 @@ export async function getTests(testDir: string = './tests', configPath?: string)
   return fetchJSON(url);
 }
 
-export async function getTestsStructured(testDir: string = './tests', configPath?: string, forceRefresh: boolean = false): Promise<TestDiscoveryResult | null> {
+export async function getTestsStructured(testDir: string = './', configPath?: string, forceRefresh: boolean = false): Promise<TestDiscoveryResult | null> {
   let url = `${API_BASE}/tests?testDir=${encodeURIComponent(testDir)}&structured=true`;
   if (configPath) {
     url += `&configPath=${encodeURIComponent(configPath)}`;
@@ -201,7 +202,7 @@ export async function getTestsStructured(testDir: string = './tests', configPath
   return fetchJSON(url);
 }
 
-export async function refreshTests(testDir: string = './tests', configPath?: string): Promise<{ success: boolean; message: string; total: number } | null> {
+export async function refreshTests(testDir: string = './', configPath?: string): Promise<{ success: boolean; message: string; total: number } | null> {
   try {
     const res = await fetch(`${API_BASE}/tests/refresh`, {
       method: 'POST',
@@ -215,7 +216,7 @@ export async function refreshTests(testDir: string = './tests', configPath?: str
   }
 }
 
-export async function getTestStats(testDir: string = './tests'): Promise<{
+export async function getTestStats(testDir: string = './'): Promise<{
   totalTests: number;
   totalFiles: number;
   byTag: Record<string, number>;
@@ -317,13 +318,13 @@ export async function getHealthMetrics(options?: {
   return fetchJSON(url);
 }
 
-export async function rerunTest(testLocation: string): Promise<StartRunResult> {
+export async function rerunTest(runId: string, testId: string, testLocation: string): Promise<StartRunResult> {
   try {
-    const res = await fetch(`${API_BASE}/runs`, {
+    const res = await fetch(`${API_BASE}/runs/${runId}/tests/${testId}/rerun`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        testLocations: [testLocation]
+        testLocation
       }),
     });
     if (res.ok) {

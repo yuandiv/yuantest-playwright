@@ -194,6 +194,12 @@ const zh: Record<string, string> = {
   avgValue: '均值',
   dataPoints: '数据点',
   runTestsHint: '运行测试以查看健康指标',
+  reportRunning: '正在执行中，报告内容实时更新...',
+  rerunInitiated: '已开始重跑: ',
+  failedToInitiateRerun: '启动重跑失败: ',
+  unknownError: '未知错误',
+  errorDuringRerun: '重跑时出错',
+  testFileOrLineMissing: '测试文件或行信息缺失',
 };
 
 const en: Record<string, string> = {
@@ -393,6 +399,12 @@ const en: Record<string, string> = {
   avgValue: 'Avg',
   dataPoints: 'Data Points',
   runTestsHint: 'Run tests to see health metrics',
+  reportRunning: 'Running... Report content updates in real-time',
+  rerunInitiated: 'Rerun initiated for: ',
+  failedToInitiateRerun: 'Failed to initiate rerun: ',
+  unknownError: 'Unknown error',
+  errorDuringRerun: 'Error during rerun',
+  testFileOrLineMissing: 'Test file or line information is missing',
 };
 
 const translations: Record<string, Record<string, string>> = { zh, en };

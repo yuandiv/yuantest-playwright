@@ -177,7 +177,7 @@ export function mergeConfig(
 ): TestConfig {
   const base: TestConfig = {
     version: '1.0.0',
-    testDir: './tests',
+    testDir: './',
     outputDir: './test-output',
     retries: 0,
     timeout: 30000,

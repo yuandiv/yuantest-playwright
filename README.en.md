@@ -143,7 +143,7 @@ Use yuantest-playwright for daily test management and real-time monitoring, whil
 
 ```bash
 # Daily development: Use yuantest for real-time monitoring
-yuantest run --test-dir ./tests
+yuantest run --test-dir ./
 
 # CI/CD: Generate Allure report for archiving
 npx playwright test --reporter=allure-playwright
@@ -177,19 +177,19 @@ npm link
 
 ```bash
 # Basic usage
-yuantest run --test-dir ./tests
+yuantest run --test-dir ./
 
 # Specify project name and output directory
 yuantest run --project my-app --test-dir ./e2e --output ./reports
 
 # Parallel execution with 4 shards
-yuantest run --test-dir ./tests --shards 4
+yuantest run --test-dir ./ --shards 4
 
 # Specify multiple browsers
-yuantest run --test-dir ./tests --browsers chromium,firefox
+yuantest run --test-dir ./ --browsers chromium,firefox
 
 # Set timeout and retries
-yuantest run --test-dir ./tests --timeout 60000 --retries 2
+yuantest run --test-dir ./ --timeout 60000 --retries 2
 ```
 
 ### 2. Start Web Dashboard
@@ -222,7 +222,7 @@ yuantest ui --help
 | Parameter | Short | Description | Default |
 |-----------|-------|-------------|---------|
 | `--project` | `-p` | Project name | test-project |
-| `--test-dir` | `-t` | Test file directory | ./tests |
+| `--test-dir` | `-t` | Test file directory | ./ |
 | `--output` | `-o` | Output directory | ./test-output |
 | `--shards` | `-s` | Number of shards | 1 |
 | `--workers` | `-w` | Number of workers | 1 |
@@ -237,7 +237,7 @@ yuantest ui --help
 
 ```bash
 # View test shard distribution plan
-yuantest orchestrate --test-dir ./tests --shards 4
+yuantest orchestrate --test-dir ./ --shards 4
 ```
 
 ### View Reports
@@ -397,7 +397,7 @@ console.log(`Found ${flakyTests.length} flaky tests`);
 await flakyManager.quarantineTest('test-id-123');
 
 // Annotation management
-const annotationManager = new AnnotationManager('./tests');
+const annotationManager = new AnnotationManager('./');
 const annotations = await annotationManager.scanAnnotations();
 console.log(`Found ${annotations.length} annotated tests`);
 ```

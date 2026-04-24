@@ -6,6 +6,8 @@ import { TTLCache } from '../cache';
 import { CACHE_CONFIG } from '../constants';
 import { PlaywrightConfigMerger, ConfigValidationResult } from '../config/merger';
 import { Lang } from '../i18n';
+import { stripAnsi } from '../utils/strings';
+import { safePathForCLI, buildSpawnEnv } from '../utils/filesystem';
 
 export interface DiscoveredTest {
   id: string;
@@ -49,6 +51,8 @@ export interface TestDiscoveryResult {
   files: DiscoveredFile[];
   tests: DiscoveredTest[];
   configValidation?: ConfigValidationResult;
+  error?: string;
+  rawOutput?: string;
 }
 
 interface PlaywrightListSpec {
@@ -94,6 +98,8 @@ export class TestDiscovery {
     tests: DiscoveredTest[];
     files: DiscoveredFile[];
     configValidation?: ConfigValidationResult;
+    error?: string;
+    rawOutput?: string;
   }>;
   private configMerger: PlaywrightConfigMerger;
 
@@ -135,6 +141,8 @@ export class TestDiscovery {
           files: cached.files,
           tests: cached.tests,
           configValidation: cached.configValidation,
+          error: cached.error,
+          rawOutput: cached.rawOutput,
         };
       }
     }
@@ -150,10 +158,35 @@ export class TestDiscovery {
     }
 
     try {
-      const jsonOutput = await this.runPlaywrightListJSON(
+      const listResult = await this.runPlaywrightListJSON(
         testDir,
         configPath || configValidation.configPath || undefined
       );
+
+      if (listResult.exitCode !== 0 && listResult.exitCode !== null) {
+        this.log.error(
+          `Playwright list failed with exit code ${listResult.exitCode}: ${listResult.stderr}`
+        );
+        const error =
+          listResult.stderr || `Playwright list failed with exit code ${listResult.exitCode}`;
+        const result: TestDiscoveryResult = {
+          files,
+          tests: allTests,
+          configValidation,
+          error,
+          rawOutput: listResult.stdout || undefined,
+        };
+        this.cache.set(cacheKey, {
+          tests: allTests,
+          files,
+          configValidation,
+          error,
+          rawOutput: listResult.stdout || undefined,
+        });
+        return result;
+      }
+
+      const jsonOutput = listResult.stdout || '{}';
       const parsed = this.parseJSONOutput(jsonOutput, testDir);
 
       files.push(...parsed.files);
@@ -166,6 +199,12 @@ export class TestDiscovery {
       this.log.error(
         `Failed to discover tests: ${error instanceof Error ? error.message : String(error)}`
       );
+      return {
+        files,
+        tests: allTests,
+        configValidation,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
 
     return { files, tests: allTests, configValidation };
@@ -216,7 +255,14 @@ export class TestDiscovery {
     return null;
   }
 
-  private async runPlaywrightListJSON(testDir: string, configPath?: string): Promise<string> {
+  private async runPlaywrightListJSON(
+    testDir: string,
+    configPath?: string
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number | null;
+  }> {
     const args = ['playwright', 'test', '--list', '--reporter=json'];
 
     let resolvedConfigPath = configPath;
@@ -225,43 +271,42 @@ export class TestDiscovery {
     }
 
     if (resolvedConfigPath) {
-      args.push(`--config=${resolvedConfigPath}`);
+      const safeConfigPath = safePathForCLI(resolvedConfigPath);
+      args.push(`--config=${safeConfigPath}`);
     }
 
     const cwd = resolvedConfigPath ? path.dirname(resolvedConfigPath) : testDir;
 
     this.log.info(`Running: npx ${args.join(' ')} in ${cwd}`);
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const proc = spawn('npx', args, {
         cwd,
         shell: true,
-        env: { ...process.env },
+        env: buildSpawnEnv(),
       });
 
       let stdout = '';
       let stderr = '';
 
       proc.stdout?.on('data', (data: Buffer) => {
-        stdout += data.toString();
+        stdout += data.toString('utf-8');
       });
 
       proc.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString();
+        stderr += data.toString('utf-8');
       });
 
       proc.on('error', (error) => {
-        reject(new Error(`Failed to run playwright list: ${error.message}`));
+        resolve({
+          stdout,
+          stderr: `Failed to run playwright list: ${error.message}`,
+          exitCode: -1,
+        });
       });
 
       proc.on('close', (code) => {
-        if (stdout.length > 0) {
-          resolve(stdout);
-        } else if (code === 0) {
-          resolve('{}');
-        } else {
-          reject(new Error(`Playwright list failed with code ${code}: ${stderr}`));
-        }
+        resolve({ stdout: stripAnsi(stdout), stderr: stripAnsi(stderr), exitCode: code });
       });
     });
   }

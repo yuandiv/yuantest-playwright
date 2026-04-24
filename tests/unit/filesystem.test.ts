@@ -41,21 +41,21 @@ describe('filesystem utils', () => {
     });
 
     it('should walk directory and return files', () => {
-      const testDir = path.join(__dirname, '../../tests');
+      const testDir = path.join(__dirname, '../../');
       const result = walkDir(testDir, { extensions: ['.ts'] });
       
       expect(result.length).toBeGreaterThan(0);
     });
 
     it('should filter by extensions', () => {
-      const testDir = path.join(__dirname, '../../tests');
+      const testDir = path.join(__dirname, '../../');
       const result = walkDir(testDir, { extensions: ['.ts'] });
       
       expect(result.every(f => f.endsWith('.ts'))).toBe(true);
     });
 
     it('should ignore specified directories', () => {
-      const testDir = path.join(__dirname, '../../tests');
+      const testDir = path.join(__dirname, '../../');
       const result = walkDir(testDir, { ignoreDirs: ['node_modules', '__mocks__'] });
       
       expect(result.length).toBeGreaterThan(0);
@@ -72,7 +72,7 @@ describe('filesystem utils', () => {
     });
 
     it('should call callback for each file', () => {
-      const testDir = path.join(__dirname, '../../tests');
+      const testDir = path.join(__dirname, '../../');
       const callback = jest.fn();
       
       walkDirWithCallback(testDir, callback, { extensions: ['.ts'] });

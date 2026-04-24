@@ -34,10 +34,12 @@ export interface RunReport {
   totalTests: number;
   passed: number;
   failed: number;
+  skipped?: number;
   duration: string;
   details: RunDetail[];
   htmlReportUrl?: string | null;
   skippedQuarantinedTests?: string[];
+  status?: 'running' | 'completed' | 'failed' | 'cancelled';
 }
 
 export interface TestAttachment {
@@ -57,6 +59,7 @@ export interface RunDetail {
   file?: string;
   line?: number;
   retries?: number;
+  manualReruns?: number;
 }
 
 export interface FlakyTest {

@@ -17,7 +17,7 @@ describe('ConfigLoader', () => {
   it('should return defaults when no config file exists', () => {
     const config = mergeConfig(null, {});
     expect(config.version).toBe('1.0.0');
-    expect(config.testDir).toBe('./tests');
+    expect(config.testDir).toBe('./');
     expect(config.outputDir).toBe('./test-output');
     expect(config.retries).toBe(0);
     expect(config.timeout).toBe(30000);

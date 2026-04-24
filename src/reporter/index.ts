@@ -1,4 +1,4 @@
-import { RunResult, TestResult, FailureAnalysis, DashboardStats } from '../types';
+import { RunResult, TestResult, FailureAnalysis, DashboardStats, TestRunHistory } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
 import dayjs from 'dayjs';
@@ -47,6 +47,7 @@ export class Reporter {
   private log = logger.child('Reporter');
   private storage: StorageProvider;
   private initialized: Promise<void>;
+  private pendingReports: Map<string, RunResult> = new Map();
 
   constructor(outputDir: string = DEFAULTS.REPORTS_DIR, storage?: StorageProvider) {
     this.outputDir = outputDir;
@@ -322,6 +323,218 @@ export class Reporter {
     this.reports.clear();
     this.reportOrder = [];
     this.log.debug('Reporter cache cleared');
+  }
+
+  async createPendingReport(runId: string, version: string): Promise<RunResult> {
+    await this.ensureReady();
+
+    const runResult: RunResult = {
+      id: runId,
+      version,
+      status: 'running',
+      startTime: Date.now(),
+      suites: [],
+      totalTests: 0,
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      flakyTests: [],
+      metadata: {},
+    };
+
+    this.pendingReports.set(runId, runResult);
+    this.addToCache(runId, runResult);
+
+    const reportPath = path.join(this.outputDir, `${runId}.json`);
+    await this.storage.writeJSON(reportPath, runResult);
+
+    this.log.info(`Created pending report: ${runId}`);
+    return runResult;
+  }
+
+  async updatePendingReport(
+    runId: string,
+    testResult: TestResult,
+    suiteName: string
+  ): Promise<void> {
+    const report = this.pendingReports.get(runId);
+    if (!report) {
+      this.log.warn(`Pending report not found: ${runId}`);
+      return;
+    }
+
+    let suite = report.suites.find((s) => s.name === suiteName);
+    if (!suite) {
+      suite = {
+        name: suiteName,
+        totalTests: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        duration: 0,
+        tests: [],
+        timestamp: Date.now(),
+      };
+      report.suites.push(suite);
+    }
+
+    const existingTestIndex = suite.tests.findIndex((t) => t.id === testResult.id);
+    if (existingTestIndex >= 0) {
+      const existingTest = suite.tests[existingTestIndex];
+      suite.duration -= existingTest.duration;
+      suite.tests[existingTestIndex] = testResult;
+      suite.duration += testResult.duration;
+
+      if (existingTest.status === 'passed') {
+        suite.passed--;
+        report.passed--;
+      } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
+        suite.failed--;
+        report.failed--;
+      } else if (existingTest.status === 'skipped') {
+        suite.skipped--;
+        report.skipped--;
+      }
+    } else {
+      suite.tests.push(testResult);
+      suite.totalTests++;
+      suite.duration += testResult.duration;
+      report.totalTests++;
+    }
+
+    if (testResult.status === 'passed') {
+      suite.passed++;
+      report.passed++;
+    } else if (testResult.status === 'failed' || testResult.status === 'timedout') {
+      suite.failed++;
+      report.failed++;
+    } else if (testResult.status === 'skipped') {
+      suite.skipped++;
+      report.skipped++;
+    }
+
+    this.addToCache(runId, report);
+  }
+
+  async finalizePendingReport(
+    runId: string,
+    status: 'success' | 'failed' | 'cancelled'
+  ): Promise<string> {
+    await this.ensureReady();
+
+    const report = this.pendingReports.get(runId);
+    if (!report) {
+      throw new Error(`Pending report not found: ${runId}`);
+    }
+
+    report.status = status;
+    report.endTime = Date.now();
+    report.duration = report.endTime - report.startTime;
+
+    const htmlReportPath = await this.generateReport(report);
+
+    const reportPath = path.join(this.outputDir, `${runId}.json`);
+    await this.storage.writeJSON(reportPath, report);
+
+    this.pendingReports.delete(runId);
+
+    this.log.info(`Finalized pending report: ${runId} with status: ${status}`);
+    return htmlReportPath;
+  }
+
+  getPendingReport(runId: string): RunResult | undefined {
+    return this.pendingReports.get(runId);
+  }
+
+  hasPendingReport(runId: string): boolean {
+    return this.pendingReports.has(runId);
+  }
+
+  async updateTestResult(runId: string, testId: string, newResult: TestResult): Promise<boolean> {
+    await this.ensureReady();
+
+    const report = await this.getReport(runId);
+    if (!report) {
+      this.log.warn(`Report not found: ${runId}`);
+      return false;
+    }
+
+    let testFound = false;
+    for (const suite of report.suites) {
+      const testIndex = suite.tests.findIndex(
+        (t) => t.id === testId || (t.file === newResult.file && t.line === newResult.line)
+      );
+      if (testIndex >= 0) {
+        const existingTest = suite.tests[testIndex];
+
+        const historyEntry: TestRunHistory = {
+          timestamp: existingTest.timestamp,
+          status: existingTest.status,
+          duration: existingTest.duration,
+          error: existingTest.error,
+        };
+
+        if (!existingTest.runHistory) {
+          existingTest.runHistory = [];
+        }
+        existingTest.runHistory.push(historyEntry);
+
+        if (!existingTest.manualReruns) {
+          existingTest.manualReruns = 0;
+        }
+        existingTest.manualReruns++;
+
+        suite.tests[testIndex] = {
+          ...newResult,
+          id: existingTest.id,
+          retries: existingTest.retries,
+          manualReruns: existingTest.manualReruns,
+          runHistory: existingTest.runHistory,
+        };
+
+        if (existingTest.status === 'passed') {
+          suite.passed--;
+          report.passed--;
+        } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
+          suite.failed--;
+          report.failed--;
+        } else if (existingTest.status === 'skipped') {
+          suite.skipped--;
+          report.skipped--;
+        }
+
+        if (newResult.status === 'passed') {
+          suite.passed++;
+          report.passed++;
+        } else if (newResult.status === 'failed' || newResult.status === 'timedout') {
+          suite.failed++;
+          report.failed++;
+        } else if (newResult.status === 'skipped') {
+          suite.skipped++;
+          report.skipped++;
+        }
+
+        testFound = true;
+        break;
+      }
+    }
+
+    if (!testFound) {
+      this.log.warn(`Test not found: ${testId} in report ${runId}`);
+      return false;
+    }
+
+    this.addToCache(runId, report);
+
+    const reportPath = path.join(this.outputDir, `${runId}.json`);
+    await this.storage.writeJSON(reportPath, report);
+
+    const html = await this.generateHTMLReport(report);
+    const htmlReportPath = path.join(this.outputDir, `${runId}.html`);
+    await this.storage.writeText(htmlReportPath, html);
+
+    this.log.info(`Updated test result: ${testId} in report ${runId}`);
+    return true;
   }
 }
 

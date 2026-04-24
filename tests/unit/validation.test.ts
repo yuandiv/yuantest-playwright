@@ -15,13 +15,13 @@ describe('Validation Module', () => {
     it('should validate a valid config', () => {
       const config = {
         version: '1.0.0',
-        testDir: './tests',
+        testDir: './',
       };
       const result = TestConfigSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.version).toBe('1.0.0');
-        expect(result.data.testDir).toBe('./tests');
+        expect(result.data.testDir).toBe('./');
         expect(result.data.outputDir).toBe('./test-output');
         expect(result.data.timeout).toBe(30000);
       }
@@ -29,7 +29,7 @@ describe('Validation Module', () => {
 
     it('should reject config without version', () => {
       const config = {
-        testDir: './tests',
+        testDir: './',
       };
       const result = TestConfigSchema.safeParse(config);
       expect(result.success).toBe(false);
@@ -46,7 +46,7 @@ describe('Validation Module', () => {
     it('should reject invalid browser type', () => {
       const config = {
         version: '1.0.0',
-        testDir: './tests',
+        testDir: './',
         browsers: ['invalid-browser'],
       };
       const result = TestConfigSchema.safeParse(config);
@@ -56,7 +56,7 @@ describe('Validation Module', () => {
     it('should reject negative timeout', () => {
       const config = {
         version: '1.0.0',
-        testDir: './tests',
+        testDir: './',
         timeout: -1000,
       };
       const result = TestConfigSchema.safeParse(config);
@@ -66,7 +66,7 @@ describe('Validation Module', () => {
     it('should reject invalid baseURL', () => {
       const config = {
         version: '1.0.0',
-        testDir: './tests',
+        testDir: './',
         baseURL: 'not-a-url',
       };
       const result = TestConfigSchema.safeParse(config);
@@ -76,7 +76,7 @@ describe('Validation Module', () => {
     it('should accept valid browsers', () => {
       const config = {
         version: '1.0.0',
-        testDir: './tests',
+        testDir: './',
         browsers: ['chromium', 'firefox', 'webkit'],
       };
       const result = TestConfigSchema.safeParse(config);
@@ -125,7 +125,7 @@ describe('Validation Module', () => {
 
   describe('SetTestDirRequestSchema', () => {
     it('should validate valid testDir', () => {
-      const result = SetTestDirRequestSchema.safeParse({ testDir: './tests' });
+      const result = SetTestDirRequestSchema.safeParse({ testDir: './' });
       expect(result.success).toBe(true);
     });
 
@@ -145,7 +145,7 @@ describe('Validation Module', () => {
       const result = SavePreferencesRequestSchema.safeParse({
         lang: 'en',
         lastVersion: '1.0.0',
-        testDir: './tests',
+        testDir: './',
       });
       expect(result.success).toBe(true);
     });
@@ -165,7 +165,7 @@ describe('Validation Module', () => {
     it('should return success for valid config', () => {
       const result = validateTestConfig({
         version: '1.0.0',
-        testDir: './tests',
+        testDir: './',
       });
       expect(result.success).toBe(true);
     });
@@ -185,7 +185,7 @@ describe('Validation Module', () => {
 
   describe('validateSetTestDirRequest', () => {
     it('should return success for valid request', () => {
-      const result = validateSetTestDirRequest({ testDir: './tests' });
+      const result = validateSetTestDirRequest({ testDir: './' });
       expect(result.success).toBe(true);
     });
 
