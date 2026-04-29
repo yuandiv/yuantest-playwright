@@ -33,7 +33,7 @@ describe('Constants', () => {
     it('should have correct cache configuration', () => {
       expect(CACHE_CONFIG.MAX_REPORT_CACHE_SIZE).toBe(50);
       expect(CACHE_CONFIG.MAX_COMPLETED_RUNS).toBe(10);
-      expect(CACHE_CONFIG.TEST_DISCOVERY_TTL).toBe(60000);
+      expect(CACHE_CONFIG.TEST_DISCOVERY_TTL).toBe(300000);
       expect(CACHE_CONFIG.SAVE_DELAY_MS).toBe(1000);
       expect(CACHE_CONFIG.FLUSH_INTERVAL_MS).toBe(500);
       expect(CACHE_CONFIG.MAX_QUEUE_SIZE).toBe(500);
