@@ -19,6 +19,7 @@ export interface TestConfig {
   tags?: TagConfig;
   htmlReport?: boolean;
   htmlReportDir?: string;
+  parentRunId?: string;
   testMatch?: string[];
   testIgnore?: string[];
   ignoreDirs?: string[];
@@ -263,6 +264,8 @@ export interface FlakyTest {
   totalRuns: number;
   lastFailure?: number;
   isQuarantined: boolean;
+  quarantinedAt?: number;
+  consecutivePassesSinceQuarantine?: number;
   history: FlakyHistoryEntry[];
 }
 
@@ -277,6 +280,9 @@ export interface QuarantineConfig {
   enabled: boolean;
   threshold: number;
   autoQuarantine: boolean;
+  minimumRuns?: number;
+  autoReleaseAfterPasses?: number;
+  quarantineExpiryDays?: number;
 }
 
 export interface OrchestrationConfig {

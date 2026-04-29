@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Lang, t } from '../i18n';
 import { HealthMetric } from '../types';
 import { TAB_CONFIG, DEFAULT_CONFIG } from '../constants/dashboard';
@@ -11,7 +11,7 @@ import { exportToCSV, exportToJSON, exportToHTML } from '../utils/exportUtils';
 interface HealthDashboardProps {
   lang: Lang;
   data: HealthMetric[];
-  onRefresh: () => void;
+  onRefresh: () => Promise<void>;
 }
 
 /**
@@ -21,6 +21,20 @@ interface HealthDashboardProps {
 export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, onRefresh }) => {
   const { config, setDateRange, setActiveTab } = useDashboardConfig();
   const { chartData, stats, hasData } = useChartData(data);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 1500);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleExportCSV = () => {
     if (stats && chartData.length > 0) {
@@ -48,7 +62,9 @@ export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, on
           config={config}
           stats={stats}
           hasData={hasData && !!stats}
-          onRefresh={onRefresh}
+          isRefreshing={isRefreshing}
+          showSuccess={showSuccess}
+          onRefresh={handleRefresh}
           onDateChange={setDateRange}
           onExportCSV={handleExportCSV}
           onExportHTML={handleExportHTML}
@@ -98,6 +114,8 @@ interface DashboardToolbarProps {
   config: { dateRange: { start: string; end: string } };
   stats: any;
   hasData: boolean;
+  isRefreshing: boolean;
+  showSuccess: boolean;
   onRefresh: () => void;
   onDateChange: (start: string, end: string) => void;
   onExportCSV: () => void;
@@ -114,6 +132,8 @@ const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
   config,
   stats,
   hasData,
+  isRefreshing,
+  showSuccess,
   onRefresh,
   onDateChange,
   onExportCSV,
@@ -145,11 +165,24 @@ const DashboardToolbar: React.FC<DashboardToolbarProps> = ({
 
     <button
       onClick={onRefresh}
-      className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 hover:bg-blue-100 hover:text-blue-700 transition-all cursor-pointer"
-      title={t('refresh', lang) || 'Refresh'}
+      disabled={isRefreshing}
+      className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+        isRefreshing 
+          ? 'text-blue-600 bg-blue-50 border-blue-200 cursor-wait' 
+          : showSuccess 
+            ? 'text-green-600 bg-green-50 border-green-200 hover:bg-green-100' 
+            : 'text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:text-blue-700'
+      }`}
+      title={isRefreshing ? (t('refreshing', lang) || 'Refreshing...') : (t('refresh', lang) || 'Refresh')}
     >
-      <i className="fas fa-sync-alt"></i>
-      <span>{t('refresh', lang) || 'Refresh'}</span>
+      <i className={`fas ${isRefreshing ? 'fa-sync-alt animate-spin' : showSuccess ? 'fa-check' : 'fa-sync-alt'}`}></i>
+      <span>
+        {isRefreshing 
+          ? (t('refreshing', lang) || 'Refreshing...') 
+          : showSuccess 
+            ? (t('refreshSuccess', lang) || 'Refreshed') 
+            : (t('refresh', lang) || 'Refresh')}
+      </span>
     </button>
 
     <ExportButtons

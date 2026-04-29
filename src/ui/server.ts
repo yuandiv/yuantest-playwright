@@ -773,6 +773,7 @@ export class DashboardServer {
     v1Router.delete(
       '/runs/:id',
       asyncHandler(async (req: Request, res: Response) => {
+        const report = await this.reporter.getReport(req.params.id);
         const success = await this.reporter.deleteReport(req.params.id);
         if (!success) {
           res
@@ -780,7 +781,15 @@ export class DashboardServer {
             .json({ error: 'Run not found or could not be deleted' });
           return;
         }
+        if (report) {
+          for (const suite of report.suites) {
+            for (const test of suite.tests) {
+              await this.flakyManager.clearHistory(test.id);
+            }
+          }
+        }
         this.cache.invalidate('runs');
+        this.cache.invalidate('flaky');
         res.json({ success: true, message: `Report ${req.params.id} deleted` });
       })
     );
@@ -833,6 +842,7 @@ export class DashboardServer {
           workers: 1,
           browsers: ['chromium'],
           htmlReport: false,
+          parentRunId: runId,
         });
 
         this.executor = new Executor(config, this.storage, this.flakyManager);
@@ -853,12 +863,32 @@ export class DashboardServer {
         try {
           await this.executor.execute({
             testLocations: [testLocation],
+            parentRunId: runId,
           });
 
           if (testResult) {
             const updated = await this.reporter.updateTestResult(runId, testId, testResult);
             if (updated) {
-              this.realtimeReporter.broadcastTestResult(runId, testResult);
+              const updatedReport = await this.reporter.getReport(runId);
+              if (updatedReport) {
+                const updatedTest = updatedReport.suites
+                  .flatMap((s) => s.tests)
+                  .find((t) => t.id === testId);
+                this.realtimeReporter.broadcastReportUpdated(runId, {
+                  totalTests: updatedReport.totalTests,
+                  passed: updatedReport.passed,
+                  failed: updatedReport.failed,
+                  skipped: updatedReport.skipped,
+                  status: 'completed',
+                  testResult: updatedTest
+                    ? {
+                        ...testResult,
+                        manualReruns: updatedTest.manualReruns,
+                        runHistory: updatedTest.runHistory,
+                      }
+                    : testResult,
+                });
+              }
               this.log.info(`Test rerun completed and report updated: ${testId}`);
             } else {
               this.log.warn(`Failed to update test result in report: ${testId}`);
@@ -882,7 +912,9 @@ export class DashboardServer {
       '/runs',
       asyncHandler(async (req: Request, res: Response) => {
         const count = await this.reporter.deleteAllReports();
+        await this.flakyManager.clearHistory();
         this.cache.invalidate('runs');
+        this.cache.invalidate('flaky');
         res.json({ success: true, message: `Deleted ${count} reports`, count });
       })
     );
@@ -915,8 +947,69 @@ export class DashboardServer {
     v1Router.post(
       '/flaky/:testId/release',
       asyncHandler(async (req: Request, res: Response) => {
-        const success = await this.flakyManager.releaseTest(req.params.testId);
+        const { resetHistory } = req.body || {};
+        const success = await this.flakyManager.releaseTest(req.params.testId, { resetHistory });
         res.json({ success, testId: req.params.testId });
+      })
+    );
+
+    v1Router.post(
+      '/flaky/:testId/validate-release',
+      asyncHandler(async (req: Request, res: Response) => {
+        const testId = req.params.testId;
+        const flakyTest = this.flakyManager.getTestById(testId);
+
+        if (!flakyTest) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Test not found in flaky history' });
+          return;
+        }
+
+        if (!this.flakyManager.isQuarantined(testId)) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Test is not quarantined' });
+          return;
+        }
+
+        if (this.executor?.isCurrentlyRunning()) {
+          res.status(HTTP_STATUS.CONFLICT).json({ error: 'An execution is already in progress' });
+          return;
+        }
+
+        const fileConfig = await loadConfigFile();
+        const config: TestConfig = mergeConfig(fileConfig, {
+          testDir: this.testDir,
+          outputDir: this.outputDir,
+          retries: 0,
+          workers: 1,
+          browsers: ['chromium'],
+          htmlReport: false,
+        });
+
+        this.executor = new Executor(config, this.storage, this.flakyManager);
+
+        const validationState: { result: 'passed' | 'failed' | 'unknown' } = { result: 'unknown' };
+
+        this.executor.on('run_completed', (runResult: RunResult) => {
+          const testResult = runResult.suites.flatMap((s) => s.tests).find((t) => t.id === testId);
+          if (testResult) {
+            validationState.result = testResult.status === 'passed' ? 'passed' : 'failed';
+          }
+        });
+
+        res.json({ status: 'started', message: 'Validation run initiated', testId });
+
+        try {
+          await this.executor.execute();
+          this.cache.invalidate('runs');
+
+          if (validationState.result === 'passed') {
+            await this.flakyManager.releaseTest(testId, { resetHistory: true });
+            this.realtimeReporter.broadcastQuarantineUpdated(testId, 'validated_released', {
+              validationResult: validationState.result,
+            });
+          }
+        } catch (error: unknown) {
+          this.log.error('Validation run failed', error instanceof Error ? error : undefined);
+        }
       })
     );
 
@@ -925,6 +1018,15 @@ export class DashboardServer {
       asyncHandler(async (req: Request, res: Response) => {
         const stats = this.flakyManager.getQuarantineStats();
         res.json(stats);
+      })
+    );
+
+    v1Router.delete(
+      '/flaky/history',
+      asyncHandler(async (req: Request, res: Response) => {
+        await this.flakyManager.clearHistory();
+        this.cache.invalidate('flaky');
+        res.json({ success: true, message: 'Flaky test history cleared' });
       })
     );
 

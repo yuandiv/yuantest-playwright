@@ -1,8 +1,6 @@
 import { RunResult, TestResult, FailureAnalysis, DashboardStats, TestRunHistory } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
-import dayjs from 'dayjs';
-import ejs from 'ejs';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
 import { CACHE_CONFIG, DEFAULTS } from '../constants';
@@ -20,24 +18,6 @@ function resolveTemplatesDir(): string {
 }
 
 const TEMPLATES_DIR = resolveTemplatesDir();
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) {
-    return '0 B';
-  }
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-}
 
 export class Reporter {
   private outputDir: string;
@@ -89,51 +69,20 @@ export class Reporter {
 
     this.addToCache(reportId, runResult);
 
-    const html = await this.generateHTMLReport(runResult);
+    const htmlExists = fs.existsSync(htmlReportPath);
 
-    await Promise.all([
-      this.storage.writeJSON(reportPath, runResult),
-      this.storage.writeText(htmlReportPath, html),
-    ]);
+    const writeOps: Promise<void>[] = [this.storage.writeJSON(reportPath, runResult)];
+
+    if (!htmlExists) {
+      const htmlTemplate = fs.readFileSync(path.join(TEMPLATES_DIR, 'report.html'), 'utf-8');
+      writeOps.push(this.storage.writeText(htmlReportPath, htmlTemplate));
+    }
+
+    await Promise.all(writeOps);
 
     this.emitReportEvent(runResult);
 
     return htmlReportPath;
-  }
-
-  private async generateHTMLReport(runResult: RunResult): Promise<string> {
-    const passRate =
-      runResult.totalTests > 0
-        ? ((runResult.passed / runResult.totalTests) * 100).toFixed(2)
-        : '0.00';
-
-    const duration = runResult.duration ? (runResult.duration / 1000).toFixed(2) : '0.00';
-
-    const statusColor = runResult.status === 'success' ? '#10b981' : '#ef4444';
-
-    const metadata = runResult.metadata || {};
-
-    return ejs.renderFile(path.join(TEMPLATES_DIR, 'report.ejs'), {
-      version: runResult.version,
-      runId: runResult.id,
-      startTime: dayjs(runResult.startTime).format('YYYY-MM-DD HH:mm:ss'),
-      status: runResult.status.toUpperCase(),
-      statusColor,
-      totalTests: runResult.totalTests,
-      passed: runResult.passed,
-      failed: runResult.failed,
-      skipped: runResult.skipped,
-      passRate,
-      duration,
-      suites: runResult.suites,
-      annotations: metadata.annotations || [],
-      tags: metadata.tags || [],
-      traces: metadata.traces || null,
-      artifacts: metadata.artifacts || null,
-      visual: metadata.visualTesting || null,
-      escapeHtml,
-      formatFileSize,
-    });
   }
 
   private emitReportEvent(runResult: RunResult): void {
@@ -528,10 +477,6 @@ export class Reporter {
 
     const reportPath = path.join(this.outputDir, `${runId}.json`);
     await this.storage.writeJSON(reportPath, report);
-
-    const html = await this.generateHTMLReport(report);
-    const htmlReportPath = path.join(this.outputDir, `${runId}.html`);
-    await this.storage.writeText(htmlReportPath, html);
 
     this.log.info(`Updated test result: ${testId} in report ${runId}`);
     return true;

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: white; padding: 24px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .title { font-size: 24px; font-weight: 600; color: #1f2937; margin-bottom: 8px; }
+        .subtitle { color: #6b7280; font-size: 14px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 28px; font-weight: 600; color: #1f2937; margin-top: 4px; }
+        .stat-value.passed { color: #10b981; }
+        .stat-value.failed { color: #ef4444; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; color: white; }
+        .section { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-bottom: 20px; }
+        .section-header { padding: 16px 20px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #1f2937; display: flex; justify-content: space-between; align-items: center; }
+        .section-body { padding: 16px 20px; }
+        .suites { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        .suite { border-bottom: 1px solid #e5e7eb; }
+        .suite:last-child { border-bottom: none; }
+        .suite-header { padding: 16px 20px; background: #f9fafb; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .suite-name { font-weight: 600; color: #1f2937; }
+        .suite-stats { font-size: 14px; color: #6b7280; }
+        .suite-tests { padding: 0; }
+        .test { padding: 12px 20px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; gap: 12px; }
+        .test:last-child { border-bottom: none; }
+        .test-status { width: 8px; height: 8px; border-radius: 50%; }
+        .test-status.passed { background: #10b981; }
+        .test-status.failed { background: #ef4444; }
+        .test-status.skipped { background: #f59e0b; }
+        .test-title { flex: 1; color: #374151; }
+        .test-duration { color: #9ca3af; font-size: 14px; }
+        .error-message { background: #fef2f2; color: #991b1b; padding: 12px; margin-top: 8px; border-radius: 4px; font-size: 14px; white-space: pre-wrap; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 2px; }
+        .tag-smoke { background: #fef3c7; color: #92400e; }
+        .tag-regression { background: #fee2e2; color: #991b1b; }
+        .tag-critical { background: #fecaca; color: #7f1d1d; }
+        .tag-default { background: #e5e7eb; color: #374151; }
+        .annotation { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 2px; }
+        .annotation-skip { background: #fef3c7; color: #92400e; }
+        .annotation-fail { background: #fee2e2; color: #991b1b; }
+        .annotation-slow { background: #dbeafe; color: #1e40af; }
+        .annotation-fixme { background: #fce7f3; color: #9d174d; }
+        .annotation-default { background: #f3f4f6; color: #4b5563; }
+        .artifact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .artifact-card { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+        .artifact-card img { width: 100%; height: 150px; object-fit: cover; }
+        .artifact-card .info { padding: 8px 12px; }
+        .artifact-card .name { font-size: 13px; font-weight: 500; color: #374151; }
+        .artifact-card .meta { font-size: 11px; color: #9ca3af; }
+        .visual-result { display: flex; gap: 16px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+        .visual-result:last-child { border-bottom: none; }
+        .visual-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+        .visual-identical { background: #d1fae5; color: #065f46; }
+        .visual-different { background: #fef3c7; color: #92400e; }
+        .visual-regression { background: #fee2e2; color: #991b1b; }
+        .visual-new { background: #dbeafe; color: #1e40af; }
+        .visual-missing { background: #f3f4f6; color: #6b7280; }
+        .trace-link { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; color: #1d4ed8; text-decoration: none; font-size: 13px; margin: 4px; }
+        .trace-link:hover { background: #dbeafe; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="container" id="app"></div>
+    <script>
+        function escapeHtml(text) {
+            var str = String(text);
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+        }
+
+        function formatDate(timestamp) {
+            var d = new Date(timestamp);
+            var year = d.getFullYear();
+            var month = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            var hours = String(d.getHours()).padStart(2, '0');
+            var minutes = String(d.getMinutes()).padStart(2, '0');
+            var seconds = String(d.getSeconds()).padStart(2, '0');
+            return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+        }
+
+        function renderHeader(data) {
+            var statusColor = data.status === 'success' ? '#10b981' : '#ef4444';
+            return '<div class="header">' +
+                '<h1 class="title">' + escapeHtml(data.version) + '</h1>' +
+                '<p class="subtitle">Run ID: ' + escapeHtml(data.id) + ' &bull; ' + escapeHtml(formatDate(data.startTime)) + '</p>' +
+                '<span class="status-badge" style="background:' + statusColor + '">' + escapeHtml(data.status.toUpperCase()) + '</span>' +
+                '</div>';
+        }
+
+        function renderStats(data) {
+            var passRate = data.totalTests > 0 ? ((data.passed / data.totalTests) * 100).toFixed(2) : '0.00';
+            var duration = data.duration ? (data.duration / 1000).toFixed(2) : '0.00';
+            return '<div class="stats">' +
+                '<div class="stat-card"><div class="stat-label">Total Tests</div><div class="stat-value">' + data.totalTests + '</div></div>' +
+                '<div class="stat-card"><div class="stat-label">Passed</div><div class="stat-value passed">' + data.passed + '</div></div>' +
+                '<div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value failed">' + data.failed + '</div></div>' +
+                '<div class="stat-card"><div class="stat-label">Skipped</div><div class="stat-value">' + data.skipped + '</div></div>' +
+                '<div class="stat-card"><div class="stat-label">Pass Rate</div><div class="stat-value">' + passRate + '%</div></div>' +
+                '<div class="stat-card"><div class="stat-label">Duration</div><div class="stat-value">' + duration + 's</div></div>' +
+                '</div>';
+        }
+
+        function renderAnnotations(metadata) {
+            if (!metadata || !metadata.annotations || metadata.annotations.length === 0) return '';
+            var html = '<div class="section">' +
+                '<div class="section-header">' +
+                '<span>Annotations</span>' +
+                '<span class="badge" style="background:#f3f4f6;color:#4b5563">' + metadata.annotations.length + ' found</span>' +
+                '</div>' +
+                '<div class="section-body">';
+            for (var i = 0; i < metadata.annotations.length; i++) {
+                var a = metadata.annotations[i];
+                html += '<span class="annotation annotation-' + escapeHtml(a.type) + '">@' + escapeHtml(a.type) + '</span>' +
+                    '<span style="font-size:13px;color:#6b7280;margin-right:12px">' + escapeHtml(a.testName) + ' (' + escapeHtml(a.file) + ')</span>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderTags(metadata) {
+            if (!metadata || !metadata.tags || metadata.tags.length === 0) return '';
+            var html = '<div class="section">' +
+                '<div class="section-header">' +
+                '<span>Tags</span>' +
+                '<span class="badge" style="background:#f3f4f6;color:#4b5563">' + metadata.tags.length + ' tags</span>' +
+                '</div>' +
+                '<div class="section-body">';
+            for (var i = 0; i < metadata.tags.length; i++) {
+                var t = metadata.tags[i];
+                html += '<span class="tag tag-' + escapeHtml(t.name) + '">@' + escapeHtml(t.name) + '</span>' +
+                    '<span style="font-size:12px;color:#9ca3af">' + t.count + ' tests</span>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderTraces(metadata) {
+            if (!metadata || !metadata.traces || metadata.traces.total <= 0) return '';
+            var html = '<div class="section">' +
+                '<div class="section-header">' +
+                '<span>Traces</span>' +
+                '<span class="badge" style="background:#f3e8ff;color:#7c3aed">' + metadata.traces.total + ' trace(s)</span>' +
+                '</div>' +
+                '<div class="section-body">';
+            for (var i = 0; i < metadata.traces.files.length; i++) {
+                var t = metadata.traces.files[i];
+                html += '<a class="trace-link" href="#" onclick="return false">' +
+                    '&#128269; ' + escapeHtml(t.testName) +
+                    ' <span style="color:#9ca3af">(' + formatFileSize(t.size) + ')</span>' +
+                    '</a>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderArtifacts(metadata) {
+            if (!metadata || !metadata.artifacts || metadata.artifacts.total <= 0) return '';
+            var typeLabels = {
+                screenshot: 'Screenshots',
+                video: 'Videos',
+                download: 'Downloads',
+                trace: 'Traces',
+                attachment: 'Attachments'
+            };
+            var html = '<div class="section">' +
+                '<div class="section-header">' +
+                '<span>Artifacts</span>' +
+                '<span class="badge" style="background:#dbeafe;color:#1d4ed8">' + metadata.artifacts.total + ' total</span>' +
+                '</div>' +
+                '<div class="section-body">';
+            var types = Object.keys(metadata.artifacts.byType);
+            for (var i = 0; i < types.length; i++) {
+                var type = types[i];
+                var label = typeLabels[type] || type;
+                html += '<span class="badge" style="background:#eff6ff;color:#1d4ed8">' + escapeHtml(label) + ': ' + metadata.artifacts.byType[type] + '</span>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderVisualTesting(metadata) {
+            if (!metadata || !metadata.visualTesting) return '';
+            var v = metadata.visualTesting;
+            var passRateText = v.passRate > 0 ? (v.passRate * 100).toFixed(0) + '% pass' : 'N/A';
+            var html = '<div class="section">' +
+                '<div class="section-header">' +
+                '<span>Visual Testing</span>' +
+                '<span class="badge" style="background:#d1fae5;color:#065f46">' + escapeHtml(passRateText) + '</span>' +
+                '</div>' +
+                '<div class="section-body">' +
+                '<div style="display:flex;gap:16px;margin-bottom:12px">' +
+                '<span class="badge" style="background:#d1fae5;color:#065f46">Identical: ' + (v.identical || 0) + '</span>' +
+                '<span class="badge" style="background:#fef3c7;color:#92400e">Different: ' + (v.different || 0) + '</span>' +
+                '<span class="badge" style="background:#fee2e2;color:#991b1b">Regression: ' + (v.regression || 0) + '</span>' +
+                '<span class="badge" style="background:#dbeafe;color:#1e40af">New: ' + (v.new || 0) + '</span>' +
+                '</div>';
+            var results = v.results || [];
+            for (var i = 0; i < results.length; i++) {
+                var r = results[i];
+                html += '<div class="visual-result">' +
+                    '<span class="visual-status visual-' + escapeHtml(r.status) + '">' + escapeHtml(r.status) + '</span>' +
+                    '<span style="font-size:13px;color:#374151">' + escapeHtml(r.testId) + '</span>';
+                if (r.diffPixelRatio > 0) {
+                    html += '<span style="font-size:12px;color:#9ca3af">diff: ' + (r.diffPixelRatio * 100).toFixed(2) + '%</span>';
+                }
+                html += '</div>';
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderSuites(suites) {
+            var html = '<div class="suites">';
+            for (var i = 0; i < suites.length; i++) {
+                var suite = suites[i];
+                html += '<div class="suite">' +
+                    '<div class="suite-header">' +
+                    '<span class="suite-name">' + escapeHtml(suite.name) + '</span>' +
+                    '<span class="suite-stats">' + suite.passed + ' passed &bull; ' + suite.failed + ' failed &bull; ' + suite.skipped + ' skipped</span>' +
+                    '</div>' +
+                    '<div class="suite-tests">';
+                for (var j = 0; j < suite.tests.length; j++) {
+                    var test = suite.tests[j];
+                    html += '<div class="test">' +
+                        '<div class="test-status ' + test.status + '"></div>' +
+                        '<span class="test-title">' + escapeHtml(test.title) + '</span>' +
+                        '<span class="test-duration">' + (test.duration / 1000).toFixed(2) + 's</span>' +
+                        '</div>';
+                    if (test.error) {
+                        html += '<div class="error-message">' + escapeHtml(test.error) + '</div>';
+                    }
+                    if (test.screenshots && test.screenshots.length > 0) {
+                        html += '<div style="padding: 8px 20px"><span class="badge" style="background:#dbeafe;color:#1d4ed8">' + test.screenshots.length + ' screenshot(s)</span></div>';
+                    }
+                    if (test.traces && test.traces.length > 0) {
+                        html += '<div style="padding: 8px 20px"><span class="badge" style="background:#f3e8ff;color:#7c3aed">' + test.traces.length + ' trace(s)</span></div>';
+                    }
+                }
+                html += '</div></div>';
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function renderReport(data) {
+            var app = document.getElementById('app');
+            var html = renderHeader(data) +
+                renderStats(data) +
+                renderAnnotations(data.metadata) +
+                renderTags(data.metadata) +
+                renderTraces(data.metadata) +
+                renderArtifacts(data.metadata) +
+                renderVisualTesting(data.metadata) +
+                renderSuites(data.suites);
+            app.innerHTML = html;
+            document.title = 'Test Report - ' + data.version;
+        }
+
+        function renderError(message) {
+            var app = document.getElementById('app');
+            app.innerHTML = '<div style="text-align:center;padding:60px 20px;background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1)">' +
+                '<div style="font-size:48px;color:#ef4444;margin-bottom:16px">&#9888;</div>' +
+                '<div style="font-size:18px;color:#1f2937;margin-bottom:8px">Failed to load report</div>' +
+                '<div style="font-size:14px;color:#6b7280">' + escapeHtml(message) + '</div>' +
+                '</div>';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var pathname = window.location.pathname;
+            var filename = pathname.split('/').pop();
+            var runId = filename.replace(/\.html?$/i, '');
+            var jsonUrl = runId + '.json';
+
+            fetch(jsonUrl)
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(function(data) {
+                    renderReport(data);
+                })
+                .catch(function(err) {
+                    renderError(err.message);
+                });
+        });
+    </script>
+</body>
+</html>

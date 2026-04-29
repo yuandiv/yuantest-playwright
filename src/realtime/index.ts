@@ -307,6 +307,20 @@ export class RealtimeReporter extends EventEmitter {
     this.broadcast(message);
   }
 
+  broadcastQuarantineUpdated(
+    testId: string,
+    action: string,
+    details?: Record<string, unknown>
+  ): void {
+    const message: RealTimeMessage = {
+      type: 'quarantine_updated',
+      payload: { testId, action, ...details },
+      timestamp: Date.now(),
+      runId: '',
+    };
+    this.broadcast(message);
+  }
+
   getProgress(runId: string): RunProgress | undefined {
     return this.runProgress.get(runId);
   }

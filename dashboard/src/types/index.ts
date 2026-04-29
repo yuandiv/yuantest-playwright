@@ -75,6 +75,9 @@ export interface QuarantinedTest {
   totalRuns: number;
   failureRate: number;
   testId: string;
+  quarantinedAt?: number;
+  isExpired?: boolean;
+  consecutivePassesSinceQuarantine?: number;
 }
 
 export interface TreeNode {

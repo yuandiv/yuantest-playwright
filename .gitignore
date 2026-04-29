@@ -13,6 +13,8 @@ test-sandbox/
 *.tsbuildinfo
 
 .env
+.trae/
+.traces/
 .env.local
 .env.*.local
 

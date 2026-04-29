@@ -200,6 +200,21 @@ const zh: Record<string, string> = {
   unknownError: '未知错误',
   errorDuringRerun: '重跑时出错',
   testFileOrLineMissing: '测试文件或行信息缺失',
+  rerunTooltip: '重新执行此失败用例',
+  rerunning: '重跑中...',
+  rerunCompleted: '重跑完成',
+  viewAllFlakyTests: '查看全部',
+  flakyTestDetails: '不稳定测试详情',
+  filterByStability: '按稳定性筛选',
+  allLevels: '全部',
+  clearFlakyHistory: '清除历史',
+  confirmClearFlakyHistory: '确定要清除所有不稳定测试历史记录吗？此操作不可恢复！',
+  flakyHistoryCleared: '不稳定测试历史已清除',
+  expired: '已过期',
+  validateReleaseAction: '验证释放',
+  validateReleaseTooltip: '先运行测试验证通过后再释放',
+  releaseTooltip: '直接释放此隔离测试',
+  consecutivePasses: '连续通过',
 };
 
 const en: Record<string, string> = {
@@ -405,6 +420,21 @@ const en: Record<string, string> = {
   unknownError: 'Unknown error',
   errorDuringRerun: 'Error during rerun',
   testFileOrLineMissing: 'Test file or line information is missing',
+  rerunTooltip: 'Rerun this failed test case',
+  rerunning: 'Rerunning...',
+  rerunCompleted: 'Rerun completed',
+  viewAllFlakyTests: 'View All',
+  flakyTestDetails: 'Flaky Test Details',
+  filterByStability: 'Filter by Stability',
+  allLevels: 'All',
+  clearFlakyHistory: 'Clear History',
+  confirmClearFlakyHistory: 'Are you sure you want to clear all flaky test history? This cannot be undone!',
+  flakyHistoryCleared: 'Flaky test history cleared',
+  expired: 'Expired',
+  validateReleaseAction: 'Validate & Release',
+  validateReleaseTooltip: 'Run test first, release only if it passes',
+  releaseTooltip: 'Release this quarantined test directly',
+  consecutivePasses: 'Consecutive passes',
 };
 
 const translations: Record<string, Record<string, string>> = { zh, en };

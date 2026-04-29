@@ -112,9 +112,36 @@ export async function getQuarantinedTests(): Promise<any[] | null> {
   return fetchJSON(`${API_BASE}/flaky/quarantined`);
 }
 
-export async function releaseTest(testId: string): Promise<boolean> {
+export async function releaseTest(testId: string, resetHistory: boolean = true): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/flaky/${encodeURIComponent(testId)}/release`, { method: 'POST' });
+    const res = await fetch(`${API_BASE}/flaky/${encodeURIComponent(testId)}/release`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetHistory }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function validateAndReleaseTest(testId: string): Promise<{ status: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/flaky/${encodeURIComponent(testId)}/validate-release`, {
+      method: 'POST',
+    });
+    if (res.ok) {
+      return res.json();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearFlakyHistory(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/flaky/history`, { method: 'DELETE' });
     return res.ok;
   } catch {
     return false;

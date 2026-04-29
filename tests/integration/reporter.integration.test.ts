@@ -92,8 +92,24 @@ describe('Reporter Integration', () => {
       expect(fs.existsSync(htmlPath)).toBe(true);
 
       const content = fs.readFileSync(htmlPath, 'utf-8');
-      expect(content).toContain('test-project');
-      expect(content).toContain('Example Suite');
+      expect(content).toContain('DOMContentLoaded');
+      expect(content).toContain('fetch(');
+      expect(content).toContain('renderReport');
+    });
+
+    it('should not regenerate HTML on subsequent report generation', async () => {
+      const reporter = new Reporter(outputDir);
+      const runResult = createMockRunResult();
+
+      await reporter.generateReport(runResult);
+
+      const htmlPath = path.join(outputDir, `${runResult.id}.html`);
+      const originalContent = fs.readFileSync(htmlPath, 'utf-8');
+
+      await reporter.generateReport(runResult);
+
+      const newContent = fs.readFileSync(htmlPath, 'utf-8');
+      expect(newContent).toBe(originalContent);
     });
   });
 

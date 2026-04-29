@@ -278,6 +278,16 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
 }) {
   const passRate = report.totalTests > 0 ? ((report.passed / report.totalTests) * 100).toFixed(1) : '0';
   const failedDetails = report.details.filter(d => d.status === 'failed');
+  const [rerunningTestId, setRerunningTestId] = useState<string | null>(null);
+  const [rerunStartManualReruns, setRerunStartManualReruns] = useState<number>(0);
+
+  useEffect(() => {
+    if (!rerunningTestId) return;
+    const targetDetail = report.details.find(d => d.id === rerunningTestId);
+    if (targetDetail && (targetDetail.manualReruns || 0) > rerunStartManualReruns) {
+      setRerunningTestId(null);
+    }
+  }, [report.details, rerunningTestId, rerunStartManualReruns]);
 
   const handleRerun = async (e: React.MouseEvent, test: RunDetail) => {
     e.stopPropagation();
@@ -289,6 +299,8 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
     }
 
     const testLocation = `${test.file}:${test.line}`;
+    setRerunningTestId(test.id);
+    setRerunStartManualReruns(test.manualReruns || 0);
     
     try {
       const result = await api.rerunTest(String(report.id), test.id, testLocation);
@@ -296,10 +308,12 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
         onRerunMessage({ type: 'success', text: `${t('rerunInitiated', lang)}${test.name}` });
       } else {
         onRerunMessage({ type: 'error', text: `${t('failedToInitiateRerun', lang)}${result.error || t('unknownError', lang)}` });
+        setRerunningTestId(null);
       }
       setTimeout(() => onRerunMessage(null), 3000);
     } catch (error) {
       onRerunMessage({ type: 'error', text: t('errorDuringRerun', lang) });
+      setRerunningTestId(null);
       setTimeout(() => onRerunMessage(null), 3000);
     }
   };
@@ -355,10 +369,11 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
               const isFailed = d.status === 'failed';
               const hasRetries = d.retries && d.retries > 0;
               const totalRunCount = 1 + (d.retries || 0) + (d.manualReruns || 0);
+              const isRerunning = rerunningTestId === d.id;
               return (
                 <tr 
                   key={i} 
-                  className={`border-b border-gray-100 ${isFailed ? 'bg-red-50/50' : ''} hover:bg-blue-50 cursor-pointer transition-colors`}
+                  className={`border-b border-gray-100 ${isFailed ? 'bg-red-50/50' : ''} ${isRerunning ? 'bg-blue-50/50' : 'hover:bg-blue-50'} cursor-pointer transition-colors`}
                   onClick={() => onTestClick(d)}
                   title={t('clickToViewDetails', lang) || 'Click to view details'}
                 >
@@ -376,8 +391,12 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
                   <td className="py-1.5 px-2 text-center">{isFailed ? '❌' : '✅'}</td>
                   <td className="py-1.5 px-2 text-center text-gray-600">{d.duration || '-'}</td>
                   <td className="py-1.5 px-2 text-center">
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700">
-                      <i className="fas fa-redo text-[8px]"></i>
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                      isRerunning 
+                        ? 'bg-amber-50 text-amber-700 animate-pulse' 
+                        : 'bg-blue-50 text-blue-700'
+                    }`}>
+                      <i className={`fas fa-redo text-[8px] ${isRerunning ? 'animate-spin' : ''}`}></i>
                       {totalRunCount}
                     </span>
                   </td>
@@ -386,12 +405,18 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
                   </td>
                   <td className="py-1.5 px-2 text-center">
                     <button 
-                      className={`px-2 py-0.5 rounded text-xs transition-colors ${isFailed ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-gray-100 text-gray-400'}`} 
-                      disabled={!isFailed}
+                      className={`px-2 py-0.5 rounded text-xs transition-all ${
+                        isRerunning 
+                          ? 'bg-amber-100 text-amber-700 cursor-wait' 
+                          : isFailed 
+                            ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' 
+                            : 'bg-gray-100 text-gray-400'
+                      }`} 
+                      disabled={!isFailed || !!rerunningTestId}
                       onClick={(e) => handleRerun(e, d)}
-                      title={isFailed ? t('retry', lang) : ''}
+                      title={isRerunning ? t('rerunning', lang) : isFailed ? t('rerunTooltip', lang) : ''}
                     >
-                      <i className="fas fa-redo"></i>
+                      <i className={`fas ${isRerunning ? 'fa-spinner fa-spin' : 'fa-redo'}`}></i>
                     </button>
                   </td>
                 </tr>

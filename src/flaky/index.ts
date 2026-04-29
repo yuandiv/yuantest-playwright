@@ -26,6 +26,9 @@ export class FlakyTestManager extends ManagedManager {
       enabled: true,
       threshold: FLAKY_CONFIG.DEFAULT_THRESHOLD,
       autoQuarantine: false,
+      minimumRuns: FLAKY_CONFIG.MINIMUM_RUNS_FOR_QUARANTINE,
+      autoReleaseAfterPasses: FLAKY_CONFIG.AUTO_RELEASE_AFTER_PASSES,
+      quarantineExpiryDays: FLAKY_CONFIG.QUARANTINE_EXPIRY_DAYS,
       ...config,
     };
     this.storage = storage || getStorage();
@@ -93,6 +96,17 @@ export class FlakyTestManager extends ManagedManager {
       if (result.status === 'failed') {
         existing.lastFailure = result.timestamp;
       }
+
+      if (existing.isQuarantined) {
+        if (result.status === 'passed') {
+          existing.consecutivePassesSinceQuarantine =
+            (existing.consecutivePassesSinceQuarantine || 0) + 1;
+
+          await this.checkAutoRelease(existing);
+        } else {
+          existing.consecutivePassesSinceQuarantine = 0;
+        }
+      }
     } else {
       this.flakyTests.set(result.id, {
         testId: result.id,
@@ -101,6 +115,8 @@ export class FlakyTestManager extends ManagedManager {
         totalRuns: 1,
         lastFailure: result.status === 'failed' ? result.timestamp : undefined,
         isQuarantined: this.quarantine.has(result.id),
+        quarantinedAt: undefined,
+        consecutivePassesSinceQuarantine: 0,
         history: [
           {
             timestamp: result.timestamp,
@@ -134,6 +150,11 @@ export class FlakyTestManager extends ManagedManager {
       return;
     }
 
+    const minimumRuns = this.config.minimumRuns || FLAKY_CONFIG.MINIMUM_RUNS_FOR_QUARANTINE;
+    if (flakyTest.totalRuns < minimumRuns) {
+      return;
+    }
+
     if (flakyTest.failureRate >= this.config.threshold) {
       if (flakyTest.failureRate >= FLAKY_CONFIG.HIGH_THRESHOLD) {
         this.emit('flaky_detected', flakyTest);
@@ -145,6 +166,19 @@ export class FlakyTestManager extends ManagedManager {
     }
   }
 
+  private async checkAutoRelease(flakyTest: FlakyTest): Promise<void> {
+    const requiredPasses =
+      this.config.autoReleaseAfterPasses ?? FLAKY_CONFIG.AUTO_RELEASE_AFTER_PASSES;
+    if ((flakyTest.consecutivePassesSinceQuarantine || 0) >= requiredPasses) {
+      await this.releaseTest(flakyTest.testId, { resetHistory: true });
+      this.emit('auto_released', {
+        testId: flakyTest.testId,
+        title: flakyTest.title,
+        consecutivePasses: flakyTest.consecutivePassesSinceQuarantine,
+      });
+    }
+  }
+
   async quarantineTest(testId: string): Promise<boolean> {
     await this.ensureReady();
     if (!this.flakyTests.has(testId)) {
@@ -153,6 +187,8 @@ export class FlakyTestManager extends ManagedManager {
 
     const flakyTest = this.flakyTests.get(testId)!;
     flakyTest.isQuarantined = true;
+    flakyTest.quarantinedAt = Date.now();
+    flakyTest.consecutivePassesSinceQuarantine = 0;
     this.quarantine.add(testId);
 
     this.emit('quarantine_updated', {
@@ -165,7 +201,7 @@ export class FlakyTestManager extends ManagedManager {
     return true;
   }
 
-  async releaseTest(testId: string): Promise<boolean> {
+  async releaseTest(testId: string, options?: { resetHistory?: boolean }): Promise<boolean> {
     await this.ensureReady();
     if (!this.quarantine.has(testId)) {
       return false;
@@ -174,6 +210,15 @@ export class FlakyTestManager extends ManagedManager {
     const flakyTest = this.flakyTests.get(testId);
     if (flakyTest) {
       flakyTest.isQuarantined = false;
+      flakyTest.quarantinedAt = undefined;
+      flakyTest.consecutivePassesSinceQuarantine = 0;
+
+      if (options?.resetHistory) {
+        flakyTest.history = [];
+        flakyTest.failureRate = 0;
+        flakyTest.totalRuns = 0;
+        flakyTest.lastFailure = undefined;
+      }
     }
     this.quarantine.delete(testId);
 
@@ -191,6 +236,35 @@ export class FlakyTestManager extends ManagedManager {
     return Array.from(this.quarantine)
       .map((id) => this.flakyTests.get(id))
       .filter((t): t is FlakyTest => t !== undefined);
+  }
+
+  getQuarantinedTestTitles(): string[] {
+    return this.getQuarantinedTests()
+      .map((t) => t.title)
+      .filter((title) => title && title.length > 0);
+  }
+
+  buildGrepInvertPattern(): string | null {
+    const titles = this.getQuarantinedTestTitles();
+    if (titles.length === 0) {
+      return null;
+    }
+    const escapedTitles = titles.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    return escapedTitles.join('|');
+  }
+
+  isQuarantineExpired(testId: string): boolean {
+    const flakyTest = this.flakyTests.get(testId);
+    if (!flakyTest || !flakyTest.quarantinedAt) {
+      return false;
+    }
+    const expiryDays = this.config.quarantineExpiryDays ?? FLAKY_CONFIG.QUARANTINE_EXPIRY_DAYS;
+    const expiryMs = expiryDays * 24 * 60 * 60 * 1000;
+    return Date.now() - flakyTest.quarantinedAt > expiryMs;
+  }
+
+  getExpiredQuarantinedTests(): FlakyTest[] {
+    return this.getQuarantinedTests().filter((t) => this.isQuarantineExpired(t.testId));
   }
 
   getFlakyTests(threshold: number = FLAKY_CONFIG.DEFAULT_THRESHOLD): FlakyTest[] {
@@ -218,15 +292,18 @@ export class FlakyTestManager extends ManagedManager {
     quarantined: number;
     flakyRate: number;
     topFlaky: FlakyTest[];
+    expiredQuarantined: number;
   } {
     const allFlaky = this.getAllFlakyTests();
     const quarantinedTests = this.getQuarantinedTests();
+    const expiredTests = this.getExpiredQuarantinedTests();
 
     return {
       totalTests: this.flakyTests.size,
       quarantined: quarantinedTests.length,
       flakyRate: this.flakyTests.size > 0 ? (allFlaky.length / this.flakyTests.size) * 100 : 0,
       topFlaky: allFlaky.slice(0, 10),
+      expiredQuarantined: expiredTests.length,
     };
   }
 

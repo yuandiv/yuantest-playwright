@@ -138,6 +138,7 @@ export class Executor extends EventEmitter {
   private skippedQuarantinedTests: string[] = [];
   private configMerger: PlaywrightConfigMerger;
   private resolvedOutputDir: string = '';
+  private parentRunId: string | null = null;
 
   get currentRun(): RunResult | null {
     return this._currentRun;
@@ -147,21 +148,25 @@ export class Executor extends EventEmitter {
     shardIndex?: number;
     shardTotal?: number;
     grepPattern?: string;
+    grepInvertPattern?: string;
     tagFilter?: string[];
     updateSnapshots?: boolean;
     projectFilter?: string;
     testFiles?: string[];
     testLocations?: string[];
+    parentRunId?: string;
   }): Promise<
     | {
         shardIndex?: number;
         shardTotal?: number;
         grepPattern?: string;
+        grepInvertPattern?: string;
         tagFilter?: string[];
         updateSnapshots?: boolean;
         projectFilter?: string;
         testFiles?: string[];
         testLocations?: string[];
+        parentRunId?: string;
       }
     | undefined
   > {
@@ -169,17 +174,25 @@ export class Executor extends EventEmitter {
       return options;
     }
 
-    const testsToSkip = this.flakyManager.getTestsToSkip();
-    if (testsToSkip.length === 0) {
+    if (options.parentRunId) {
+      this.log.info('Skipping quarantine filter for rerun (parentRunId present)');
       return options;
     }
 
-    const filteredOptions = { ...options };
+    const grepInvertPattern = this.flakyManager.buildGrepInvertPattern();
+    if (!grepInvertPattern) {
+      return options;
+    }
+
+    const filteredOptions = { ...options, grepInvertPattern };
+
+    const quarantinedTests = this.flakyManager.getQuarantinedTests();
+    const quarantinedIds = new Set(quarantinedTests.map((t) => t.testId));
 
     if (filteredOptions.testFiles && filteredOptions.testFiles.length > 0) {
       const originalCount = filteredOptions.testFiles.length;
       filteredOptions.testFiles = filteredOptions.testFiles.filter((file) => {
-        const shouldSkip = testsToSkip.some((skipId) => file.includes(skipId));
+        const shouldSkip = quarantinedIds.has(file);
         if (shouldSkip) {
           this.skippedQuarantinedTests.push(file);
         }
@@ -196,7 +209,7 @@ export class Executor extends EventEmitter {
     if (filteredOptions.testLocations && filteredOptions.testLocations.length > 0) {
       const originalCount = filteredOptions.testLocations.length;
       filteredOptions.testLocations = filteredOptions.testLocations.filter((location) => {
-        const shouldSkip = testsToSkip.some((skipId) => location.includes(skipId));
+        const shouldSkip = quarantinedIds.has(location);
         if (shouldSkip) {
           this.skippedQuarantinedTests.push(location);
         }
@@ -209,6 +222,8 @@ export class Executor extends EventEmitter {
         );
       }
     }
+
+    this.log.info(`Quarantine: excluding ${quarantinedTests.length} tests via --grep-invert`);
 
     return filteredOptions;
   }
@@ -273,6 +288,7 @@ export class Executor extends EventEmitter {
     projectFilter?: string;
     testFiles?: string[];
     testLocations?: string[];
+    parentRunId?: string;
   }): Promise<RunResult> {
     if (this.isRunning) {
       throw new PlaywrightRunnerError('Executor is already running', ErrorCode.ALREADY_RUNNING);
@@ -300,6 +316,7 @@ export class Executor extends EventEmitter {
     this.stderrBuffer = '';
     this.stdoutBuffer = '';
     this.skippedQuarantinedTests = [];
+    this.parentRunId = options?.parentRunId || null;
 
     this.log.info(`Run started: ${runId}`);
     this.emit('run_started', { runId, timestamp: startTime });
@@ -332,6 +349,7 @@ export class Executor extends EventEmitter {
     shardIndex?: number;
     shardTotal?: number;
     grepPattern?: string;
+    grepInvertPattern?: string;
     tagFilter?: string[];
     updateSnapshots?: boolean;
     projectFilter?: string;
@@ -676,6 +694,7 @@ module.exports = ProgressReporter;
     shardIndex?: number;
     shardTotal?: number;
     grepPattern?: string;
+    grepInvertPattern?: string;
     tagFilter?: string[];
     updateSnapshots?: boolean;
     projectFilter?: string;
@@ -761,6 +780,10 @@ module.exports = ProgressReporter;
       args.push(`--grep=${options.grepPattern}`);
     }
 
+    if (options?.grepInvertPattern) {
+      args.push(`--grep-invert=${options.grepInvertPattern}`);
+    }
+
     if (options?.projectFilter) {
       args.push(`--project=${options.projectFilter}`);
     }
@@ -777,7 +800,11 @@ module.exports = ProgressReporter;
       args.push(`--retries=${this.config.retries}`);
     }
 
-    args.push(`--reporter=html,json,${progressReporterPath}`);
+    if (this.config.htmlReport) {
+      args.push(`--reporter=html,blob,json,${progressReporterPath}`);
+    } else {
+      args.push(`--reporter=blob,json,${progressReporterPath}`);
+    }
 
     this.log.info(`Running Playwright tests via CLI`);
     this.log.info(`Command: npx playwright ${args.join(' ')}`);
@@ -802,7 +829,18 @@ module.exports = ProgressReporter;
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: true,
         env: buildSpawnEnv({
-          PLAYWRIGHT_HTML_REPORT: playwrightReportDir,
+          ...(this.config.htmlReport
+            ? {
+                PLAYWRIGHT_HTML_REPORT: playwrightReportDir,
+                PLAYWRIGHT_BLOB_OUTPUT_DIR: path.join(resolvedOutputDir, 'blob-reports', runId),
+              }
+            : {
+                PLAYWRIGHT_BLOB_OUTPUT_DIR: path.join(
+                  resolvedOutputDir,
+                  'blob-reports',
+                  this.parentRunId || runId
+                ),
+              }),
           PLAYWRIGHT_JSON_OUTPUT_FILE: jsonReportPath,
         }),
       });
@@ -1130,48 +1168,10 @@ module.exports = ProgressReporter;
   }
 
   private async postProcessRun(runId: string): Promise<void> {
-    const playwrightReportDir = path.join(this.resolvedOutputDir, 'reports');
-    const targetReportDir = path.join(this.resolvedOutputDir, 'html-reports', runId);
-
-    this.log.info(`Checking for Playwright HTML report at: ${playwrightReportDir}`);
-
-    try {
-      if (await this.storage.exists(playwrightReportDir)) {
-        this.log.info(`Playwright report directory exists: ${playwrightReportDir}`);
-
-        const indexFile = path.join(playwrightReportDir, 'index.html');
-        if (await this.storage.exists(indexFile)) {
-          this.log.info(`Found index.html, moving report to: ${targetReportDir}`);
-
-          const fs = await import('fs/promises');
-
-          if (await this.storage.exists(targetReportDir)) {
-            await fs.rm(targetReportDir, { recursive: true });
-            this.log.info(`Removed existing target directory: ${targetReportDir}`);
-          }
-
-          await fs.mkdir(path.dirname(targetReportDir), { recursive: true });
-          await fs.rename(playwrightReportDir, targetReportDir);
-          this.log.info(
-            `Successfully moved Playwright HTML report from ${playwrightReportDir} to ${targetReportDir}`
-          );
-        } else {
-          this.log.warn(
-            `Playwright report directory exists but index.html not found at: ${indexFile}`
-          );
-          const files = await this.storage.readDir(playwrightReportDir);
-          this.log.warn(`Files in report directory: ${files.join(', ')}`);
-        }
-      } else {
-        this.log.warn(`Playwright report directory not found at: ${playwrightReportDir}`);
-      }
-    } catch (error: unknown) {
-      this.log.error(
-        `Failed to move Playwright HTML report: ${error instanceof Error ? error.message : String(error)}`
-      );
-      if (error instanceof Error && error.stack) {
-        this.log.error(`Stack trace: ${error.stack}`);
-      }
+    if (this.config.htmlReport) {
+      await this.moveHTMLReport(runId);
+    } else if (this.parentRunId) {
+      await this.mergeBlobReport(runId);
     }
 
     if (this.traceManager) {
@@ -1225,6 +1225,171 @@ module.exports = ProgressReporter;
       } catch (error: unknown) {
         this.log.warn(
           `Visual testing failed for run ${runId}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+  }
+
+  private async moveHTMLReport(runId: string): Promise<void> {
+    const playwrightReportDir = path.join(this.resolvedOutputDir, 'reports');
+    const targetReportDir = path.join(this.resolvedOutputDir, 'html-reports', runId);
+
+    this.log.info(`Checking for Playwright HTML report at: ${playwrightReportDir}`);
+
+    try {
+      if (await this.storage.exists(playwrightReportDir)) {
+        this.log.info(`Playwright report directory exists: ${playwrightReportDir}`);
+
+        const indexFile = path.join(playwrightReportDir, 'index.html');
+        if (await this.storage.exists(indexFile)) {
+          this.log.info(`Found index.html, moving report to: ${targetReportDir}`);
+
+          const fs = await import('fs/promises');
+
+          if (await this.storage.exists(targetReportDir)) {
+            await fs.rm(targetReportDir, { recursive: true });
+            this.log.info(`Removed existing target directory: ${targetReportDir}`);
+          }
+
+          await fs.mkdir(path.dirname(targetReportDir), { recursive: true });
+          await fs.rename(playwrightReportDir, targetReportDir);
+          this.log.info(
+            `Successfully moved Playwright HTML report from ${playwrightReportDir} to ${targetReportDir}`
+          );
+        } else {
+          this.log.warn(
+            `Playwright report directory exists but index.html not found at: ${indexFile}`
+          );
+          const files = await this.storage.readDir(playwrightReportDir);
+          this.log.warn(`Files in report directory: ${files.join(', ')}`);
+        }
+      } else {
+        this.log.warn(`Playwright report directory not found at: ${playwrightReportDir}`);
+      }
+    } catch (error: unknown) {
+      this.log.error(
+        `Failed to move Playwright HTML report: ${error instanceof Error ? error.message : String(error)}`
+      );
+      if (error instanceof Error && error.stack) {
+        this.log.error(`Stack trace: ${error.stack}`);
+      }
+    }
+  }
+
+  private async mergeBlobReport(runId: string): Promise<void> {
+    const blobReportDir = path.join(this.resolvedOutputDir, 'blob-reports', this.parentRunId!);
+    const originalHtmlReportDir = path.join(
+      this.resolvedOutputDir,
+      'html-reports',
+      this.parentRunId!
+    );
+
+    this.log.info(
+      `Attempting to merge blob report for rerun: ${runId} into original report: ${this.parentRunId!}`
+    );
+    this.log.info(`Blob report directory: ${blobReportDir}`);
+    this.log.info(`Original HTML report directory: ${originalHtmlReportDir}`);
+
+    try {
+      if (!(await this.storage.exists(blobReportDir))) {
+        this.log.warn(`Blob report directory not found at: ${blobReportDir}, skipping merge`);
+        return;
+      }
+
+      const fs = await import('fs/promises');
+      const blobFiles = (await fs.readdir(blobReportDir)).filter((f: string) => f.endsWith('.zip'));
+      this.log.info(
+        `Found ${blobFiles.length} blob file(s) in ${blobReportDir}: ${blobFiles.join(', ')}`
+      );
+
+      if (blobFiles.length < 2) {
+        this.log.warn(
+          `Only ${blobFiles.length} blob file(s) found. Need at least 2 (original + rerun) to merge. ` +
+            `The original run may not have saved a blob report. Keeping original HTML report unchanged.`
+        );
+        return;
+      }
+
+      const mergedOutputDir = path.join(
+        this.resolvedOutputDir,
+        'html-reports',
+        `${this.parentRunId}-merged`
+      );
+
+      const mergeArgs = ['playwright', 'merge-reports', blobReportDir, '--reporter=html'];
+
+      this.log.info(`Running merge command: npx ${mergeArgs.join(' ')}`);
+
+      const mergeExitCode = await new Promise<number>((resolve, reject) => {
+        const proc = spawn('npx', mergeArgs, {
+          cwd: this.resolvedOutputDir,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: true,
+          env: buildSpawnEnv({
+            PLAYWRIGHT_HTML_REPORT: mergedOutputDir,
+          }),
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        proc.stdout?.on('data', (chunk: Buffer) => {
+          stdout += chunk.toString();
+        });
+
+        proc.stderr?.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
+
+        proc.on('close', (code: number | null) => {
+          if (stdout) {
+            this.log.info(`Merge stdout: ${stdout}`);
+          }
+          if (stderr) {
+            this.log.info(`Merge stderr: ${stderr}`);
+          }
+          resolve(code ?? 1);
+        });
+
+        proc.on('error', (err: Error) => {
+          this.log.error(`Merge process error: ${err.message}`);
+          reject(err);
+        });
+      });
+
+      if (mergeExitCode === 0) {
+        if (await this.storage.exists(originalHtmlReportDir)) {
+          await fs.rm(originalHtmlReportDir, { recursive: true });
+          this.log.info(`Removed original HTML report directory: ${originalHtmlReportDir}`);
+        }
+
+        await fs.rename(mergedOutputDir, originalHtmlReportDir);
+        this.log.info(`Successfully merged blob report into: ${originalHtmlReportDir}`);
+      } else {
+        this.log.error(`Merge reports command failed with exit code: ${mergeExitCode}`);
+      }
+    } catch (error: unknown) {
+      this.log.error(
+        `Failed to merge blob report: ${error instanceof Error ? error.message : String(error)}`
+      );
+      if (error instanceof Error && error.stack) {
+        this.log.error(`Stack trace: ${error.stack}`);
+      }
+    } finally {
+      try {
+        const fs = await import('fs/promises');
+        const mergedOutputDir = path.join(
+          this.resolvedOutputDir,
+          'html-reports',
+          `${this.parentRunId}-merged`
+        );
+        if (await this.storage.exists(mergedOutputDir)) {
+          await fs.rm(mergedOutputDir, { recursive: true });
+          this.log.info(`Cleaned up merged output directory: ${mergedOutputDir}`);
+        }
+      } catch (cleanupError: unknown) {
+        this.log.warn(
+          `Failed to cleanup merged output: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
         );
       }
     }

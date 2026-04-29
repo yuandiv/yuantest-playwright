@@ -2,20 +2,26 @@ import { useEffect, useRef, useCallback } from 'react';
 
 type MessageHandler = (data: any) => void;
 
-export function useWebSocket(url: string | null, onMessage: MessageHandler) {
+interface UseWebSocketOptions {
+  onReconnect?: () => void;
+}
+
+export function useWebSocket(url: string | null, onMessage: MessageHandler, options?: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
-  const maxReconnect = 10;
+  const maxReconnect = 50;
   const baseDelay = 1000;
   const maxDelay = 30000;
   const onMessageRef = useRef(onMessage);
+  const onReconnectRef = useRef(options?.onReconnect);
   const messageQueueRef = useRef<any[]>([]);
   const processingRef = useRef(false);
   const maxQueueSize = 500;
+  const wasConnectedRef = useRef(false);
   
   onMessageRef.current = onMessage;
+  onReconnectRef.current = options?.onReconnect;
 
-  /** 处理消息队列，log 类型消息优先且立即分发 */
   const processQueue = useCallback(() => {
     if (processingRef.current || messageQueueRef.current.length === 0) {
       return;
@@ -60,7 +66,17 @@ export function useWebSocket(url: string | null, onMessage: MessageHandler) {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      const isReconnect = wasConnectedRef.current && reconnectAttemptsRef.current > 0;
       reconnectAttemptsRef.current = 0;
+      wasConnectedRef.current = true;
+      
+      if (isReconnect && onReconnectRef.current) {
+        try {
+          onReconnectRef.current();
+        } catch (e) {
+          console.error('WS onReconnect handler error:', e);
+        }
+      }
     };
 
     ws.onmessage = (event) => {

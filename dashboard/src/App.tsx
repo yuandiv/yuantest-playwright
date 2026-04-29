@@ -54,6 +54,9 @@ function App() {
   const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
   const localStorageTimerRef = useRef<NodeJS.Timeout | null>(null);
   const testCasesRef = useRef<TestCase[]>([]);
+  const hasRestoredFromReportsRef = useRef(false);
+  const lastLoadTestsTimeRef = useRef<number>(0);
+  const LOAD_TESTS_CACHE_TTL = 30000;
 
   const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
@@ -116,6 +119,66 @@ function App() {
       }, STATUS_UPDATE_INTERVAL);
     }
   }, [flushPendingStatusUpdates]);
+
+  const restoreTestCasesFromLocalStorage = useCallback((cases: TestCase[]): TestCase[] => {
+    try {
+      const saved = localStorage.getItem('testCasesStatus');
+      if (!saved) return cases;
+      
+      const savedStatus: TestCase[] = JSON.parse(saved);
+      if (!Array.isArray(savedStatus)) return cases;
+      
+      const statusMap = new Map<string, TestCase>();
+      for (const tc of savedStatus) {
+        if (tc.id && tc.status) {
+          statusMap.set(tc.id, tc);
+        }
+      }
+      
+      return cases.map(tc => {
+        const saved = statusMap.get(tc.id);
+        if (saved && saved.status) {
+          return {
+            ...tc,
+            status: saved.status,
+            lastDuration: saved.lastDuration ?? tc.lastDuration,
+            lastError: saved.lastError ?? tc.lastError,
+          };
+        }
+        return tc;
+      });
+    } catch (e) {
+      console.warn('Failed to restore test cases status from localStorage:', e);
+      return cases;
+    }
+  }, []);
+
+  const restoreTestCasesFromReports = useCallback((cases: TestCase[], reportsList: RunReport[]): TestCase[] => {
+    const completedReport = reportsList.find(r => r.status === 'completed' || !r.status);
+    if (!completedReport || !completedReport.details || completedReport.details.length === 0) {
+      return cases;
+    }
+    
+    const detailMap = new Map<string, RunDetail>();
+    for (const detail of completedReport.details) {
+      if (detail.id) {
+        detailMap.set(detail.id, detail);
+      }
+    }
+    
+    return cases.map(tc => {
+      const detail = detailMap.get(tc.id);
+      if (detail) {
+        return {
+          ...tc,
+          status: detail.status,
+          lastDuration: detail.duration ? parseFloat(detail.duration) * 1000 : null,
+          lastError: detail.error,
+        };
+      }
+      return tc;
+    });
+  }, []);
 
   useEffect(() => {
     api.getPreferences().then(prefs => {
@@ -268,12 +331,13 @@ function App() {
         });
       }
       setReports(prev => {
-        const existingIds = new Set(prev.map(r => r.id));
-        const merged = [...prev];
+        const newReportsMap = new Map(prev.map(r => [r.id, r]));
         for (const r of newReports) {
-          if (!existingIds.has(r.id)) merged.unshift(r);
+          newReportsMap.set(r.id, r);
         }
-        return merged.slice(0, 50);
+        return Array.from(newReportsMap.values())
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .slice(0, 50);
       });
     } catch (error) {
       console.error('Failed to load runs from server:', error);
@@ -325,6 +389,7 @@ function App() {
         const newDetails = [...report.details];
         if (testResult) {
           const existingIndex = newDetails.findIndex(d => d.id === testResult.id);
+          const existingDetail = existingIndex >= 0 ? newDetails[existingIndex] : null;
           const newDetail: RunDetail = {
             id: testResult.id,
             name: testResult.title,
@@ -334,6 +399,7 @@ function App() {
             file: testResult.file,
             line: testResult.line,
             retries: testResult.retries || 0,
+            manualReruns: testResult.manualReruns ?? existingDetail?.manualReruns ?? 0,
           };
           if (existingIndex >= 0) {
             newDetails[existingIndex] = newDetail;
@@ -342,16 +408,26 @@ function App() {
           }
         }
         
+        const startTime = new Date(report.timestamp).getTime();
+        const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
+        
         return {
           ...report,
           totalTests: totalTests ?? report.totalTests,
           passed: passed ?? report.passed,
           failed: failed ?? report.failed,
           skipped: skipped ?? report.skipped,
+          duration: elapsedSeconds,
           status: status || report.status,
           details: newDetails,
         };
       }));
+
+      if (status === 'completed' && testResult?.manualReruns) {
+        setTimeout(() => {
+          loadRunsFromServer();
+        }, 500);
+      }
     } else if (msg.type === 'run_started') {
       setIsExecuting(true);
       logBatchUpdater.current?.add({ msg: `📡 ${t('running', lang)}...`, type: 'info' });
@@ -435,6 +511,7 @@ function App() {
         const newDetails = [...report.details];
         for (const r of results) {
           const existingIndex = newDetails.findIndex(d => d.id === r.id);
+          const existingDetail = existingIndex >= 0 ? newDetails[existingIndex] : null;
           const newDetail: RunDetail = {
             id: r.id,
             name: r.title,
@@ -444,6 +521,7 @@ function App() {
             file: r.file,
             line: r.line,
             retries: r.retries || 0,
+            manualReruns: r.manualReruns ?? existingDetail?.manualReruns ?? 0,
           };
           if (existingIndex >= 0) {
             newDetails[existingIndex] = newDetail;
@@ -452,12 +530,16 @@ function App() {
           }
         }
         
+        const startTime = new Date(report.timestamp).getTime();
+        const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
+        
         return {
           ...report,
           totalTests: currentProgress?.totalTests ?? report.totalTests,
           passed: currentProgress?.passed ?? report.passed,
           failed: currentProgress?.failed ?? report.failed,
           skipped: currentProgress?.skipped ?? report.skipped,
+          duration: elapsedSeconds,
           details: newDetails,
         };
       }));
@@ -485,7 +567,27 @@ function App() {
     testCasesRef.current = testCases;
   }, [testCases]);
 
-  const { isConnected } = useWebSocket(wsUrl, handleWsMessage);
+  const handleWsReconnect = useCallback(() => {
+    console.log('[WebSocket] Reconnected, syncing state...');
+    
+    api.getRunStatus().then(status => {
+      if (status && status.isRunning) {
+        setIsExecuting(true);
+        if (status.currentRun) {
+          setActiveReportId(status.currentRun.id);
+        }
+      } else {
+        setIsExecuting(false);
+      }
+    });
+    
+    loadRunsFromServer();
+    
+    api.getFlakyTests().then(data => data && setFlakyTests(data));
+    api.getQuarantinedTests().then(data => data && setQuarantinedTests(data));
+  }, [loadRunsFromServer]);
+
+  const { isConnected } = useWebSocket(wsUrl, handleWsMessage, { onReconnect: handleWsReconnect });
 
   useEffect(() => {
     setWsConnected(isConnected());
@@ -571,7 +673,8 @@ function App() {
       setTestFiles(files);
       
       const cases = extractAllTests(files);
-      setTestCases(cases);
+      const restoredCases = restoreTestCasesFromLocalStorage(cases);
+      setTestCases(restoredCases);
       setSelectedIds(new Set(cases.map(c => c.id)));
       return { count: cases.length };
     } else if (result && result.tests && result.tests.length > 0) {
@@ -625,7 +728,8 @@ function App() {
       setTestFiles(files);
       
       const cases = extractAllTests(files);
-      setTestCases(cases);
+      const restoredCases = restoreTestCasesFromLocalStorage(cases);
+      setTestCases(restoredCases);
       setSelectedIds(new Set(cases.map(c => c.id)));
       return { count: cases.length };
     } else if (result && result.configValidation && !result.configValidation.valid) {
@@ -654,22 +758,61 @@ function App() {
           }
         }
         if (cases.length > 0) {
-          setTestCases(cases);
+          const restoredCases = restoreTestCasesFromLocalStorage(cases);
+          setTestCases(restoredCases);
           setSelectedIds(new Set(cases.map(c => c.id)));
           return { count: cases.length };
         }
       }
     }
     return { count: 0 };
-  }, [testDir]);
+  }, [testDir, restoreTestCasesFromLocalStorage]);
 
   useEffect(() => {
-    loadTests();
+    const now = Date.now();
+    const timeSinceLastLoad = now - lastLoadTestsTimeRef.current;
+    
+    if (timeSinceLastLoad < LOAD_TESTS_CACHE_TTL && testCases.length > 0) {
+      console.log('[loadTests] Skipping due to recent load, time since last:', timeSinceLastLoad);
+    } else {
+      loadTests().then(() => {
+        lastLoadTestsTimeRef.current = Date.now();
+      });
+    }
+    
     api.getFlakyTests().then(data => data && setFlakyTests(data));
     api.getQuarantinedTests().then(data => data && setQuarantinedTests(data));
     loadRunsFromServer();
     loadHealthMetrics();
-  }, [loadTests, loadRunsFromServer, loadHealthMetrics]);
+    
+    api.getRunStatus().then(status => {
+      if (status && status.isRunning) {
+        setIsExecuting(true);
+        if (status.currentRun) {
+          setActiveReportId(status.currentRun.id);
+        }
+      }
+    });
+  }, [loadTests, loadRunsFromServer, loadHealthMetrics, testCases.length]);
+
+  useEffect(() => {
+    if (hasRestoredFromReportsRef.current) return;
+    if (testCases.length === 0 || reports.length === 0) return;
+    
+    const hasAnyStatus = testCases.some(tc => tc.status && tc.status !== 'idle');
+    if (hasAnyStatus) {
+      hasRestoredFromReportsRef.current = true;
+      return;
+    }
+    
+    const restoredCases = restoreTestCasesFromReports(testCases, reports);
+    const hasChanges = restoredCases.some((tc, i) => tc.status !== testCases[i]?.status);
+    
+    if (hasChanges) {
+      setTestCases(restoredCases);
+    }
+    hasRestoredFromReportsRef.current = true;
+  }, [testCases, reports, restoreTestCasesFromReports]);
 
   const handleTestDirChange = useCallback(async (newTestDir: string) => {
     setIsLoadingTests(true);
@@ -806,12 +949,38 @@ function App() {
     if (data) setQuarantinedTests(data);
   };
 
+  const handleValidateReleaseTest = async (testId: string) => {
+    const result = await api.validateAndReleaseTest(testId);
+    if (result) {
+      const data = await api.getQuarantinedTests();
+      if (data) setQuarantinedTests(data);
+    }
+  };
+
+  const refreshFlakyData = useCallback(async () => {
+    const [flakyData, quarantinedData] = await Promise.all([
+      api.getFlakyTests(),
+      api.getQuarantinedTests(),
+    ]);
+    if (flakyData) setFlakyTests(flakyData);
+    if (quarantinedData) setQuarantinedTests(quarantinedData);
+  }, []);
+
+  const handleClearFlakyHistory = useCallback(async () => {
+    const success = await api.clearFlakyHistory();
+    if (success) {
+      await refreshFlakyData();
+    }
+  }, [refreshFlakyData]);
+
   const handleDeleteReport = (reportId: number) => {
     setReports(prev => prev.filter(r => r.id !== reportId));
+    refreshFlakyData();
   };
 
   const handleDeleteAllReports = () => {
     setReports([]);
+    refreshFlakyData();
   };
 
   const switchLang = (l: Lang) => {
@@ -907,8 +1076,10 @@ function App() {
           flakyTests={flakyTests}
           quarantinedTests={quarantinedTests}
           onReleaseTest={handleReleaseTest}
+          onValidateReleaseTest={handleValidateReleaseTest}
           onRefresh={loadRunsFromServer}
           onModal={setModalContent}
+          onClearFlakyHistory={handleClearFlakyHistory}
         />
       </div>
       <ReporterPanel
