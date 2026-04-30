@@ -225,12 +225,11 @@ export function VersionTrendChart({ lang, data }: VersionTrendChartProps) {
                 width={45}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
-              <Line 
-                type="monotone" 
-                dataKey="passRateNum" 
+              <Line
+                type="monotone"
+                dataKey="passRateNum"
                 name={t('passRate', lang)}
-                stroke="#22c55e" 
+                stroke="#22c55e"
                 strokeWidth={2}
                 dot={{ fill: '#22c55e', strokeWidth: 2, r: 3 }}
                 activeDot={{ r: 5, fill: '#16a34a' }}
@@ -263,9 +262,8 @@ export function VersionTrendChart({ lang, data }: VersionTrendChartProps) {
                 width={45}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
-              <Bar 
-                dataKey="passRateNum" 
+              <Bar
+                dataKey="passRateNum"
                 name={t('passRate', lang)}
                 radius={[4, 4, 0, 0]}
               >
@@ -307,15 +305,14 @@ export function VersionTrendChart({ lang, data }: VersionTrendChartProps) {
                 width={45}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
-              <Area 
-                type="monotone" 
-                dataKey="passRateNum" 
+              <Area
+                type="monotone"
+                dataKey="passRateNum"
                 name={t('passRate', lang)}
-                stroke="#22c55e" 
+                stroke="#22c55e"
                 strokeWidth={2}
-                fillOpacity={1} 
-                fill="url(#colorPassRate)" 
+                fillOpacity={1}
+                fill="url(#colorPassRate)"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -341,9 +338,6 @@ export function VersionTrendChart({ lang, data }: VersionTrendChartProps) {
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
-              />
             </PieChart>
           </ResponsiveContainer>
         );

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Lang } from '../i18n';
 import { t } from '../i18n';
-import { RunDetail, TestAttachment } from '../types';
+import { RunDetail, TestAttachment, AIDiagnosis } from '../types';
 import * as api from '../services/api';
 
 interface TestDetailModalProps {
@@ -15,6 +15,29 @@ interface TestDetailModalProps {
 export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: TestDetailModalProps) {
   const [selectedAttachment, setSelectedAttachment] = useState<TestAttachment | null>(null);
   const [activeTab, setActiveTab] = useState<'error' | 'screenshots' | 'videos' | 'other'>('error');
+  const [llmEnabled, setLlmEnabled] = useState(false);
+  const [diagnosis, setDiagnosis] = useState<AIDiagnosis | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnosisError, setDiagnosisError] = useState<string | null>(null);
+  const [streamingContent, setStreamingContent] = useState<string>('');
+  const diagnosisCache = useRef<Map<string, AIDiagnosis>>(new Map());
+
+  const hasError = test?.status === 'failed' && !!test?.error;
+
+  useEffect(() => {
+    const handleConfigChanged = () => {
+      diagnosisCache.current.clear();
+      setDiagnosis(null);
+      setDiagnosisError(null);
+      api.getLLMConfig().then(config => {
+        setLlmEnabled(config?.enabled === true && !!config.baseUrl && !!config.model);
+      }).catch(() => {
+        setLlmEnabled(false);
+      });
+    };
+    window.addEventListener('llm-config-changed', handleConfigChanged);
+    return () => window.removeEventListener('llm-config-changed', handleConfigChanged);
+  }, []);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -23,6 +46,57 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
+
+  useEffect(() => {
+    api.getLLMConfig().then(config => {
+      setLlmEnabled(config?.enabled === true && !!config.baseUrl && !!config.model);
+    }).catch(() => {
+      setLlmEnabled(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'error' && hasError && llmEnabled && test) {
+      const cached = diagnosisCache.current.get(test.id);
+      if (cached) {
+        setDiagnosis(cached);
+        setDiagnosing(false);
+        setDiagnosisError(null);
+        setStreamingContent('');
+        return;
+      }
+      setDiagnosing(true);
+      setDiagnosis(null);
+      setDiagnosisError(null);
+      setStreamingContent('');
+      
+      api.requestDiagnosisStream({
+        testTitle: test.name,
+        error: test.error || '',
+        file: test.file,
+        line: test.line,
+        testId: test.id,
+        lang,
+      }, {
+        onStart: (testTitle) => {
+          setStreamingContent('');
+        },
+        onChunk: (content) => {
+          setStreamingContent(prev => prev + content);
+        },
+        onComplete: (diagnosisResult) => {
+          setDiagnosis(diagnosisResult);
+          diagnosisCache.current.set(test.id, diagnosisResult);
+          setDiagnosing(false);
+          setStreamingContent('');
+        },
+        onError: (error) => {
+          setDiagnosisError(error);
+          setDiagnosing(false);
+        }
+      });
+    }
+  }, [activeTab, hasError, llmEnabled, test]);
 
   if (!test) return null;
 
@@ -38,10 +112,44 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
     !screenshots.includes(a) && !videos.includes(a)
   ) || [];
 
-  const hasError = test.status === 'failed' && test.error;
   const hasScreenshots = screenshots.length > 0;
   const hasVideos = videos.length > 0;
   const hasOther = otherAttachments.length > 0;
+
+  const handleRetryDiagnosis = () => {
+    if (!test) return;
+    diagnosisCache.current.delete(test.id);
+    setDiagnosis(null);
+    setDiagnosisError(null);
+    setDiagnosing(true);
+    setStreamingContent('');
+    
+    api.requestDiagnosisStream({
+      testTitle: test.name,
+      error: test.error || '',
+      file: test.file,
+      line: test.line,
+      testId: test.id,
+      lang,
+    }, {
+      onStart: (testTitle) => {
+        setStreamingContent('');
+      },
+      onChunk: (content) => {
+        setStreamingContent(prev => prev + content);
+      },
+      onComplete: (diagnosisResult) => {
+        setDiagnosis(diagnosisResult);
+        diagnosisCache.current.set(test.id, diagnosisResult);
+        setDiagnosing(false);
+        setStreamingContent('');
+      },
+      onError: (error) => {
+        setDiagnosisError(error);
+        setDiagnosing(false);
+      }
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -156,19 +264,98 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
                 </div>
               )}
               
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <i className="fas fa-lightbulb text-blue-600"></i>
-                  <span className="font-semibold text-blue-700">{t('suggestions', lang) || 'Suggestions'}</span>
+              {llmEnabled ? (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-robot text-purple-600"></i>
+                      <span className="font-semibold text-purple-700">{t('aiDiagnosis', lang) || 'AI Diagnosis'}</span>
+                    </div>
+                    {diagnosis && (
+                      <button
+                        onClick={handleRetryDiagnosis}
+                        className="text-xs text-purple-500 hover:text-purple-700 flex items-center gap-1"
+                      >
+                        <i className="fas fa-redo"></i>
+                        {t('retryDiagnosis', lang) || 'Retry'}
+                      </button>
+                    )}
+                  </div>
+                  {diagnosing && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-purple-600 text-sm">
+                        <i className="fas fa-spinner fa-spin"></i>
+                        <span>{t('diagnosing', lang) || 'Analyzing...'}</span>
+                      </div>
+                      {streamingContent && (
+                        <div className="mt-2 p-2 bg-white rounded border border-purple-200">
+                          <pre className="text-xs text-purple-700 whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">
+                            {streamingContent}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {diagnosisError && (
+                    <div className="space-y-2">
+                      <div className="text-sm text-red-600 flex items-center gap-1">
+                        <i className="fas fa-exclamation-triangle"></i>
+                        <span>{t('diagnosisUnavailable', lang) || 'AI diagnosis unavailable'}: {diagnosisError}</span>
+                      </div>
+                      <div className="text-sm text-purple-700 space-y-1">
+                        <ul className="space-y-1">
+                          <li>• {t('checkSelector', lang) || 'Check if the selector is correct'}</li>
+                          <li>• {t('checkElement', lang) || 'Verify the element exists in the DOM'}</li>
+                          <li>• {t('checkTimeout', lang) || 'Consider increasing timeout if needed'}</li>
+                          <li>• {t('checkNetwork', lang) || 'Check network connectivity and API responses'}</li>
+                          <li>• {t('viewScreenshots', lang) || 'View screenshots and videos for visual debugging'}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                  {diagnosis && !diagnosing && (
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-xs font-medium text-purple-500 mb-1">{t('summary', lang) || 'Summary'}</div>
+                        <div className="text-sm text-purple-800">{diagnosis.summary}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-purple-500 mb-1">{t('rootCause', lang) || 'Root Cause'}</div>
+                        <div className="text-sm text-purple-800">{diagnosis.rootCause}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-purple-500 mb-1">{t('suggestions', lang) || 'Suggestions'}</div>
+                        <ul className="text-sm text-purple-700 space-y-1">
+                          {diagnosis.suggestions.map((s, i) => (
+                            <li key={i} className="flex items-start gap-1.5">
+                              <span className="text-purple-400 mt-0.5">💡</span>
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-purple-400 pt-1 border-t border-purple-100">
+                        <span>{t('model', lang) || 'Model'}: {diagnosis.model}</span>
+                        <span>{t('confidence', lang) || 'Confidence'}: {Math.round(diagnosis.confidence * 100)}%</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• {t('checkSelector', lang) || 'Check if the selector is correct'}</li>
-                  <li>• {t('checkElement', lang) || 'Verify the element exists in the DOM'}</li>
-                  <li>• {t('checkTimeout', lang) || 'Consider increasing timeout if needed'}</li>
-                  <li>• {t('checkNetwork', lang) || 'Check network connectivity and API responses'}</li>
-                  <li>• {t('viewScreenshots', lang) || 'View screenshots and videos for visual debugging'}</li>
-                </ul>
-              </div>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <i className="fas fa-lightbulb text-blue-600"></i>
+                    <span className="font-semibold text-blue-700">{t('suggestions', lang) || 'Suggestions'}</span>
+                  </div>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• {t('checkSelector', lang) || 'Check if the selector is correct'}</li>
+                    <li>• {t('checkElement', lang) || 'Verify the element exists in the DOM'}</li>
+                    <li>• {t('checkTimeout', lang) || 'Consider increasing timeout if needed'}</li>
+                    <li>• {t('checkNetwork', lang) || 'Check network connectivity and API responses'}</li>
+                    <li>• {t('viewScreenshots', lang) || 'View screenshots and videos for visual debugging'}</li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

@@ -425,6 +425,32 @@ export interface FailureAnalysis {
   suggestions: string[];
   occurrences: number;
   lastOccurrence: number;
+  aiDiagnosis?: AIDiagnosis;
+}
+
+export interface LLMConfig {
+  enabled: boolean;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  remark: string;
+  maxTokens: number;
+  temperature: number;
+}
+
+export interface AIDiagnosis {
+  summary: string;
+  rootCause: string;
+  suggestions: string[];
+  confidence: number;
+  model: string;
+  timestamp: number;
+}
+
+export interface LLMStatus {
+  configured: boolean;
+  connected: boolean;
+  status: 'green' | 'yellow' | 'red';
 }
 
 export enum ErrorCode {

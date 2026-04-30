@@ -59,7 +59,7 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
   };
 
   return (
-    <div className="flex gap-4 h-[420px]">
+    <div className="flex gap-4 h-[500px]">
       <div className="flex-1 min-w-0 h-full overflow-hidden">
         <VersionTrendChart lang={lang} data={trend} />
       </div>
@@ -107,7 +107,7 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
             })}
             {flakyTests.length > 3 && (
               <button
-                className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors"
+                className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors cursor-pointer"
                 onClick={handleViewAllFlakyTests}
               >
                 +{flakyTests.length - 3} {t('items', lang)} · {t('viewAllFlakyTests', lang)}
@@ -115,7 +115,7 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
             )}
             {flakyTests.length > 0 && flakyTests.length <= 3 && (
               <button
-                className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors"
+                className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors cursor-pointer"
                 onClick={handleViewAllFlakyTests}
               >
                 {t('viewAllFlakyTests', lang)}

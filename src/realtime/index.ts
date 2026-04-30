@@ -154,6 +154,28 @@ export class RealtimeReporter extends EventEmitter {
     }
 
     const progress = this.runProgress.get(runId)!;
+
+    const existingBatch = this.testResultBatch.get(runId);
+    const existingInBatch = existingBatch?.findIndex((t) => t.id === result.id);
+
+    if (existingInBatch !== undefined && existingInBatch >= 0) {
+      const oldResult = existingBatch![existingInBatch];
+      if (oldResult.status === 'passed') {
+        progress.passed--;
+      } else if (oldResult.status === 'failed') {
+        progress.failed--;
+      } else if (oldResult.status === 'skipped') {
+        progress.skipped--;
+      }
+
+      existingBatch![existingInBatch] = result;
+    } else {
+      if (!this.testResultBatch.has(runId)) {
+        this.testResultBatch.set(runId, []);
+      }
+      this.testResultBatch.get(runId)!.push(result);
+    }
+
     progress.passed += result.status === 'passed' ? 1 : 0;
     progress.failed += result.status === 'failed' ? 1 : 0;
     progress.skipped += result.status === 'skipped' ? 1 : 0;
@@ -166,13 +188,7 @@ export class RealtimeReporter extends EventEmitter {
       progress.flakyTests.push(result.id);
     }
 
-    if (!this.testResultBatch.has(runId)) {
-      this.testResultBatch.set(runId, []);
-    }
-
     const batch = this.testResultBatch.get(runId)!;
-    batch.push(result);
-
     if (batch.length >= this.BATCH_MAX_SIZE) {
       this.flushTestResultBatch(runId);
     } else if (!this.batchFlushTimer) {

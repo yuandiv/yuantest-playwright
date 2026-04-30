@@ -409,7 +409,7 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
                         isRerunning 
                           ? 'bg-amber-100 text-amber-700 cursor-wait' 
                           : isFailed 
-                            ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' 
+                            ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 cursor-pointer' 
                             : 'bg-gray-100 text-gray-400'
                       }`} 
                       disabled={!isFailed || !!rerunningTestId}

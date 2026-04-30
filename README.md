@@ -10,6 +10,12 @@
 
 强大的 Playwright 测试编排器、执行器和报告器，提供 CLI 命令行工具和 Web Dashboard 可视化界面，帮助团队更高效地管理和分析 E2E 测试。
 
+**强大的 Playwright 测试编排器 · 执行器 · 报告器**
+
+**零学习成本 · 零迁移成本 · 纯 Playwright 生态**
+
+**Playwright 原生集成 · AI 智能分析 · 聚合报告与趋势**
+
 ## ✨ 核心特性
 
 ### 🎯 智能测试编排
@@ -46,6 +52,49 @@
 - **标签管理** - 灵活的测试标签系统
 - **视觉测试** - 集成像素对比的视觉回归测试
 - **配置热加载** - 支持配置文件动态加载
+
+## 🚀 零门槛使用
+
+### 零学习成本
+
+- 所有参数与 Playwright CLI 完全一致，无需学习新命令
+- Web UI 开箱即用，直观的可视化界面
+- 通过 Playwright CLI 执行，与官方行为完全一致
+
+### 零迁移成本
+
+- 纯 Playwright 命令，无专有 API
+- 随时可切换回原生 Playwright，无需修改任何测试代码
+- 不绑定任何私有数据格式
+
+### 纯 Playwright 生态
+
+- 完全开源，MIT 协议，无壁垒
+- 基于 Playwright 原生能力构建，版本升级无兼容性问题
+- 与 Playwright 社区完全兼容
+
+## 💡 核心能力
+
+### Playwright 原生集成
+
+- 通过 Playwright CLI 执行测试，无内部 API 依赖
+- 与 Playwright 版本升级完全兼容
+- 支持所有 Playwright 原生功能：Trace、截图、视频、快照等
+- 自动收集和管理 Playwright 产物
+
+### AI 智能失败分析
+
+- 自动分类失败原因：超时、断言失败、元素未找到、网络错误等
+- 提供针对性的修复建议
+- 支持失败原因趋势分析
+- 帮助快速定位问题根因
+
+### 聚合报告与趋势分析
+
+- 多次测试运行结果聚合展示
+- 历史趋势图表：通过率、执行时间、失败原因分布
+- Flaky 测试趋势追踪
+- 支持数据导出和自定义分析
 
 ## 🌟 核心优势
 
@@ -113,18 +162,23 @@ spawn('npx', ['playwright', 'test', ...args]);
 
 | 维度 | yuantest-playwright | allure-playwright |
 |------|---------------------|-------------------|
+| **学习成本** | ✅ 零学习成本 - 参数与 Playwright CLI 一致 | ⚠️ 需学习 Allure 配置和注解 |
+| **迁移成本** | ✅ 零迁移成本 - 纯 Playwright 命令 | ⚠️ 需配置 Allure Server 和 History |
+| **生态依赖** | ✅ 纯 Playwright 生态 - MIT 协议 | ⚠️ 依赖 Allure 生态 |
 | **定位** | 全栈测试管理平台 | 报告生成器 |
 | **实时性** | ✅ WebSocket 实时推送 | ❌ 测试结束后生成报告 |
 | **Web Dashboard** | ✅ 内置 React Dashboard | ✅ Allure Server (需额外部署) |
 | **Flaky 管理** | ✅ 自动检测+隔离+统计 | ❌ 无 |
 | **测试编排** | ✅ 智能分片+负载均衡 | ❌ 无 |
 | **测试执行** | ✅ 内置 Executor | ❌ 需外部执行 |
-| **历史趋势** | ✅ 内置存储 | ✅ 需配置 History |
+| **Playwright 原生集成** | ✅ 通过 Playwright CLI 执行，无内部 API | ✅ 通过 Reporter API 集成 |
+| **AI 失败分析** | ✅ 自动分类+修复建议 | ❌ 无 |
+| **聚合报告** | ✅ 内置，开箱即用 | ⚠️ 需配置 Allure Server |
+| **历史趋势** | ✅ 内置存储，多维度趋势 | ✅ 需配置 History |
 | **失败分析** | ✅ 自动分类+修复建议 | ⚠️ 需手动分析 |
 | **国际化** | ✅ 中英文 | ⚠️ 需自行配置 |
 | **部署复杂度** | ✅ 单 npm 包 | ⚠️ 需 Allure Server |
 | **报告美观度** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **生态成熟度** | 新兴项目 | 成熟生态 |
 | **CI/CD 集成** | ✅ CLI + API | ✅ 广泛支持 |
 
 ### 核心差异总结
@@ -570,6 +624,23 @@ MIT © [YuanDiv](https://github.com/yuandiv)
 
 - GitHub: [@yuandiv](https://github.com/yuandiv)
 - Issues: [GitHub Issues](https://github.com/yuandiv/yuantest-playwright/issues)
+
+## ❓ 常见误解澄清
+
+### Q: 需要学习新的 CLI 吗？
+**不需要。** yuantest-playwright 的所有参数与 Playwright CLI 完全一致，您已有的 Playwright 知识可以直接复用。同时提供 Web UI，无需命令行即可使用。
+
+### Q: 会锁定在这个工具吗？
+**不会。** yuantest-playwright 使用纯 Playwright 命令执行测试，无专有 API。您可以随时切换回原生 Playwright，无需修改任何测试代码，真正的零迁移成本。
+
+### Q: 项目维护情况如何？
+**完全开源。** MIT 协议，纯 Playwright 生态，无任何壁垒。基于 Playwright 原生能力构建，版本升级无兼容性问题。
+
+### Q: 与 Playwright 原生功能兼容吗？
+**完全兼容。** 通过 Playwright CLI 执行测试，支持所有原生功能：Trace、截图、视频、快照等。自动收集和管理所有 Playwright 产物。
+
+### Q: 如何分析测试失败原因？
+**AI 智能分析。** 自动分类失败原因（超时、断言失败、元素未找到等），提供修复建议，支持失败趋势分析，帮助快速定位问题根因。
 
 ---
 

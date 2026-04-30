@@ -10,6 +10,10 @@
 
 A powerful Playwright test orchestrator, executor, and reporter with CLI tools and Web Dashboard visualization, helping teams manage and analyze E2E tests more efficiently.
 
+**Zero Learning Curve · Zero Migration Cost · Pure Playwright Ecosystem**
+
+**Native Playwright Integration · AI-Powered Analysis · Aggregated Reports & Trends**
+
 ## ✨ Core Features
 
 ### 🎯 Intelligent Test Orchestration
@@ -46,6 +50,49 @@ A powerful Playwright test orchestrator, executor, and reporter with CLI tools a
 - **Tag management** - Flexible test tagging system
 - **Visual testing** - Integrated pixel-comparison visual regression testing
 - **Config hot reload** - Support for dynamic configuration file loading
+
+## 🚀 Zero Barrier to Entry
+
+### Zero Learning Curve
+
+- All parameters are identical to Playwright CLI, no need to learn new commands
+- Web UI works out of the box with intuitive visual interface
+- Executes via Playwright CLI, fully consistent with official behavior
+
+### Zero Migration Cost
+
+- Pure Playwright commands, no proprietary APIs
+- Switch back to native Playwright anytime without modifying any test code
+- No binding to any proprietary data formats
+
+### Pure Playwright Ecosystem
+
+- Fully open source, MIT license, no barriers
+- Built on Playwright native capabilities, no compatibility issues with version upgrades
+- Fully compatible with Playwright community
+
+## 💡 Core Capabilities
+
+### Native Playwright Integration
+
+- Executes tests via Playwright CLI, no internal API dependencies
+- Fully compatible with Playwright version upgrades
+- Supports all Playwright native features: Trace, screenshots, videos, snapshots, etc.
+- Automatically collects and manages Playwright artifacts
+
+### AI-Powered Failure Analysis
+
+- Automatic failure categorization: timeout, assertion failure, element not found, network error, etc.
+- Provides targeted fix suggestions
+- Supports failure reason trend analysis
+- Helps quickly identify root causes
+
+### Aggregated Reports & Trend Analysis
+
+- Aggregated display of multiple test run results
+- Historical trend charts: pass rate, execution time, failure reason distribution
+- Flaky test trend tracking
+- Supports data export and custom analysis
 
 ## 🌟 Core Advantages
 
@@ -113,18 +160,23 @@ This means:
 
 | Dimension | yuantest-playwright | allure-playwright |
 |-----------|---------------------|-------------------|
+| **Learning Curve** | ✅ Zero learning curve - parameters identical to Playwright CLI | ⚠️ Need to learn Allure configuration and annotations |
+| **Migration Cost** | ✅ Zero migration cost - pure Playwright commands | ⚠️ Need to configure Allure Server and History |
+| **Ecosystem Dependency** | ✅ Pure Playwright ecosystem - MIT license | ⚠️ Depends on Allure ecosystem |
 | **Positioning** | Full-stack test management platform | Report generator |
 | **Real-time** | ✅ WebSocket real-time push | ❌ Generate report after test completion |
 | **Web Dashboard** | ✅ Built-in React Dashboard | ✅ Allure Server (requires extra deployment) |
 | **Flaky Management** | ✅ Auto detection + quarantine + statistics | ❌ None |
 | **Test Orchestration** | ✅ Smart sharding + load balancing | ❌ None |
 | **Test Execution** | ✅ Built-in Executor | ❌ Requires external execution |
-| **Historical Trends** | ✅ Built-in storage | ✅ Requires History configuration |
+| **Native Playwright Integration** | ✅ Executes via Playwright CLI, no internal API | ✅ Integrates via Reporter API |
+| **AI Failure Analysis** | ✅ Auto categorization + fix suggestions | ❌ None |
+| **Aggregated Reports** | ✅ Built-in, works out of the box | ⚠️ Requires Allure Server configuration |
+| **Historical Trends** | ✅ Built-in storage, multi-dimensional trends | ✅ Requires History configuration |
 | **Failure Analysis** | ✅ Auto categorization + fix suggestions | ⚠️ Manual analysis required |
 | **Internationalization** | ✅ Chinese/English | ⚠️ Self-configuration required |
 | **Deployment Complexity** | ✅ Single npm package | ⚠️ Requires Allure Server |
 | **Report Aesthetics** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Ecosystem Maturity** | Emerging project | Mature ecosystem |
 | **CI/CD Integration** | ✅ CLI + API | ✅ Wide support |
 
 ### Core Differences Summary
@@ -569,6 +621,23 @@ Thanks to the following open source projects:
 
 - GitHub: [@yuandiv](https://github.com/yuandiv)
 - Issues: [GitHub Issues](https://github.com/yuandiv/yuantest-playwright/issues)
+
+## ❓ Common Misconceptions Clarified
+
+### Q: Do I need to learn a new CLI?
+**No.** All parameters of yuantest-playwright are identical to Playwright CLI, so your existing Playwright knowledge can be reused directly. A Web UI is also provided for use without command line.
+
+### Q: Will I be locked into this tool?
+**No.** yuantest-playwright uses pure Playwright commands to execute tests with no proprietary APIs. You can switch back to native Playwright anytime without modifying any test code - truly zero migration cost.
+
+### Q: How is the project maintained?
+**Fully open source.** MIT license, pure Playwright ecosystem, no barriers. Built on Playwright native capabilities, no compatibility issues with version upgrades.
+
+### Q: Is it compatible with Playwright native features?
+**Fully compatible.** Tests are executed via Playwright CLI, supporting all native features: Trace, screenshots, videos, snapshots, etc. Automatically collects and manages all Playwright artifacts.
+
+### Q: How do I analyze test failures?
+**AI-powered analysis.** Automatically categorizes failure reasons (timeout, assertion failure, element not found, etc.), provides fix suggestions, supports failure trend analysis, and helps quickly identify root causes.
 
 ---
 

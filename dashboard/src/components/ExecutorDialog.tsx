@@ -689,8 +689,19 @@ export function ExecutorDialog({
           </div>
 
           <div className="flex items-center gap-2 mb-3 text-xs text-gray-500 flex-shrink-0">
-            <span className={`px-2 py-0.5 rounded-full font-medium ${isExecuting ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
-              {isExecuting ? t('running', lang) : t('ready', lang)}
+            <span className={`px-2 py-0.5 rounded-full font-medium ${
+              isExecuting 
+                ? 'bg-yellow-100 text-yellow-600' 
+                : testCases.length > 0 
+                  ? 'bg-green-100 text-green-600' 
+                  : 'bg-red-100 text-red-600'
+            }`}>
+              {isExecuting 
+                ? t('running', lang) 
+                : testCases.length > 0 
+                  ? t('executorReady', lang) 
+                  : t('noTestCases', lang)
+              }
             </span>
             <span>{t('selectedCases', lang)}: <strong className="text-indigo-600">{selectedCount}</strong></span>
             <div className="flex-1"></div>
@@ -702,7 +713,11 @@ export function ExecutorDialog({
                 onChange={e => setTempTestDir(e.target.value)}
                 className="bg-transparent text-xs text-gray-700 outline-none w-48"
                 placeholder={t('testDirPlaceholder', lang)}
-                title={t('currentDir', lang) + ': ' + testDir}
+                title={
+                  tempTestDir !== testDir 
+                    ? `${t('inputPath', lang)}: ${tempTestDir}\n${t('currentValidDir', lang)}: ${testDir}`
+                    : `${t('currentDir', lang)}: ${testDir}`
+                }
               />
               <button
                 onClick={async () => {

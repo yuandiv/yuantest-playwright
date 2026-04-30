@@ -132,7 +132,6 @@ export class Executor extends EventEmitter {
   private flakyManager: FlakyTestManager | null = null;
   private log = logger.child('Executor');
   private stderrBuffer = '';
-  private stdoutBuffer = '';
   private realtimeStats = { passed: 0, failed: 0, skipped: 0, totalTests: 0 };
   private storage: StorageProvider;
   private skippedQuarantinedTests: string[] = [];
@@ -314,7 +313,6 @@ export class Executor extends EventEmitter {
 
     this.realtimeStats = { passed: 0, failed: 0, skipped: 0, totalTests: 0 };
     this.stderrBuffer = '';
-    this.stdoutBuffer = '';
     this.skippedQuarantinedTests = [];
     this.parentRunId = options?.parentRunId || null;
 
@@ -422,19 +420,23 @@ class ProgressReporter {
   }
 
   onStdOut(chunk, test, result) {
-    if (test) {
-      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
-      if (text.trim()) {
+    const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
+    if (text.trim()) {
+      if (test) {
         this.emit({ type: 'stdout', test: { title: test.title, fullTitle: this.getFullTitle(test) }, text: text });
+      } else {
+        this.emit({ type: 'stdout', test: null, text: text });
       }
     }
   }
 
   onStdErr(chunk, test, result) {
-    if (test) {
-      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
-      if (text.trim()) {
+    const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
+    if (text.trim()) {
+      if (test) {
         this.emit({ type: 'stderr', test: { title: test.title, fullTitle: this.getFullTitle(test) }, text: text });
+      } else {
+        this.emit({ type: 'stderr', test: null, text: text });
       }
     }
   }
@@ -524,35 +526,6 @@ module.exports = ProgressReporter;
     }
   }
 
-  /** 处理 stdout 输出，逐行过滤 JSON 报告内容后实时广播 */
-  private handleStdoutData(chunk: string): void {
-    this.stdoutBuffer += chunk;
-
-    const lines = this.stdoutBuffer.split('\n');
-    this.stdoutBuffer = lines.pop() || '';
-
-    const runId = this._currentRun?.id || '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        continue;
-      }
-
-      if (
-        trimmed.startsWith('{') &&
-        (trimmed.includes('"config"') || trimmed.includes('"suites"'))
-      ) {
-        continue;
-      }
-      if (trimmed.startsWith('"config"') || trimmed.startsWith('"suites"')) {
-        continue;
-      }
-
-      this.emit('output', { data: stripAnsi(line), timestamp: Date.now(), runId });
-    }
-  }
-
   private processProgressMessage(msg: ProgressMessage): void {
     if (!this._currentRun) {
       return;
@@ -618,7 +591,7 @@ module.exports = ProgressReporter;
         column: test.column,
         status,
         duration: test.duration || 0,
-        error: test.error,
+        error: test.error ? stripAnsi(test.error) : undefined,
         retries: test.retries || 0,
         timestamp: Date.now(),
         browser: (test.browser || 'chromium') as BrowserType,
@@ -653,22 +626,41 @@ module.exports = ProgressReporter;
         this._currentRun.suites.push(suite);
       }
 
-      suite.tests.push(testResult);
-      suite.totalTests++;
-      suite.duration += testResult.duration;
+      const existingTestIndex = suite.tests.findIndex((t) => t.id === testResult.id);
+      if (existingTestIndex >= 0) {
+        const existingTest = suite.tests[existingTestIndex];
+        suite.duration -= existingTest.duration;
+        suite.tests[existingTestIndex] = testResult;
+        suite.duration += testResult.duration;
 
-      if (status === 'passed') {
-        suite.passed++;
-        this.realtimeStats.passed++;
-      } else if (status === 'failed' || status === 'timedout') {
-        suite.failed++;
-        this.realtimeStats.failed++;
-      } else if (status === 'skipped') {
-        suite.skipped++;
-        this.realtimeStats.skipped++;
+        if (existingTest.status === 'passed') {
+          suite.passed--;
+          this.realtimeStats.passed--;
+        } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
+          suite.failed--;
+          this.realtimeStats.failed--;
+        } else if (existingTest.status === 'skipped') {
+          suite.skipped--;
+          this.realtimeStats.skipped--;
+        }
+      } else {
+        suite.tests.push(testResult);
+        suite.totalTests++;
+        suite.duration += testResult.duration;
+
+        if (status === 'passed') {
+          suite.passed++;
+          this.realtimeStats.passed++;
+        } else if (status === 'failed' || status === 'timedout') {
+          suite.failed++;
+          this.realtimeStats.failed++;
+        } else if (status === 'skipped') {
+          suite.skipped++;
+          this.realtimeStats.skipped++;
+        }
+
+        this._currentRun.totalTests++;
       }
-
-      this._currentRun.totalTests++;
       this._currentRun.passed = this.realtimeStats.passed;
       this._currentRun.failed = this.realtimeStats.failed;
       this._currentRun.skipped = this.realtimeStats.skipped;
@@ -847,15 +839,6 @@ module.exports = ProgressReporter;
 
       this.currentProcess = proc;
 
-      proc.stdout?.on('data', (chunk: Buffer) => {
-        try {
-          const text = chunk.toString();
-          this.handleStdoutData(text);
-        } catch (error: unknown) {
-          this.log.error('Error processing stdout:', error instanceof Error ? error : undefined);
-        }
-      });
-
       proc.stderr?.on('data', (chunk: Buffer) => {
         try {
           const text = chunk.toString();
@@ -891,9 +874,6 @@ module.exports = ProgressReporter;
         this.currentProcess = null;
         if (this.stderrBuffer) {
           this.handleProgressData('\n');
-        }
-        if (this.stdoutBuffer) {
-          this.handleStdoutData('\n');
         }
         resolve(code ?? 1);
       });
@@ -1142,7 +1122,10 @@ module.exports = ProgressReporter;
       column: spec.column,
       status,
       duration: result.duration || 0,
-      error: result.error?.message || result.error?.value,
+      error:
+        result.error?.message || result.error?.value
+          ? stripAnsi(result.error?.message || result.error?.value || '')
+          : undefined,
       retries: result.retry || 0,
       timestamp: Date.now(),
       browser: (test.projectName || 'chromium') as BrowserType,

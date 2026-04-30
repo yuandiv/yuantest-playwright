@@ -9,9 +9,10 @@ import { AnnotationManager } from '../annotations';
 import { TagManager } from '../tags';
 import { ArtifactManager } from '../artifacts';
 import { VisualTestingManager } from '../visual';
+import { DiagnosisService } from '../diagnosis';
 import { Executor } from '../executor';
-import { TestDiscovery, DiscoveredTest, DiscoveredDescribe, DiscoveredFile } from '../discovery';
-import { DashboardStats, RunResult, TestConfig, getErrorMessage } from '../types';
+import { TestDiscovery } from '../discovery';
+import { DashboardStats, RunResult, TestConfig, TestResult, getErrorMessage } from '../types';
 import { loadConfigFile, mergeConfig } from '../config/loader';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
@@ -23,7 +24,7 @@ import {
   SavePreferencesRequestSchema,
 } from '../validation';
 import { HTTP_STATUS } from '../constants';
-import { Lang, setLang, getLang } from '../i18n';
+import { Lang, setLang } from '../i18n';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -62,6 +63,7 @@ export class DashboardServer {
   private annotationManager: AnnotationManager;
   private tagManager: TagManager;
   private visualManager: VisualTestingManager;
+  private diagnosisService: DiagnosisService;
   private executor: Executor | null = null;
   private port: number;
   private staticPath: string;
@@ -71,7 +73,7 @@ export class DashboardServer {
   private log = logger.child('DashboardServer');
   private storage: StorageProvider;
   private testDiscovery: TestDiscovery;
-  private cache: LRUCache<any>;
+  private cache: LRUCache<unknown>;
 
   constructor(
     port: number = 5274,
@@ -127,6 +129,13 @@ export class DashboardServer {
       },
       path.join(this.outputDir, '../visual-testing')
     );
+
+    try {
+      this.diagnosisService = new DiagnosisService(dataDir);
+    } catch (error) {
+      this.log.warn(`Failed to initialize DiagnosisService: ${error}`);
+      this.diagnosisService = new DiagnosisService(dataDir);
+    }
 
     this.server = createServer(this.app);
 
@@ -190,9 +199,9 @@ export class DashboardServer {
         if (!forceRefresh) {
           const cached = this.cache.get(cacheKey) as {
             total: number;
-            files?: any;
-            tests: any[];
-            configValidation?: any;
+            files?: unknown;
+            tests: unknown[];
+            configValidation?: unknown;
           } | null;
           if (cached) {
             res.json(cached);
@@ -394,9 +403,28 @@ export class DashboardServer {
         this.executor = new Executor(config, this.storage, this.flakyManager);
 
         this.executor.on('run_started', async (data) => {
-          const report = await this.reporter.createPendingReport(data.runId, config.version);
           this.realtimeReporter.broadcastRunStarted(data.runId, config.version, 0);
-          this.realtimeReporter.broadcastReportCreated(report);
+          try {
+            const report = await this.reporter.createPendingReport(data.runId, config.version);
+            this.realtimeReporter.broadcastReportCreated(report);
+          } catch (error) {
+            this.log.warn(
+              `Failed to create pending report: ${error instanceof Error ? error.message : String(error)}`
+            );
+            this.realtimeReporter.broadcastReportCreated({
+              id: data.runId,
+              version: config.version,
+              status: 'running',
+              startTime: Date.now(),
+              suites: [],
+              totalTests: 0,
+              passed: 0,
+              failed: 0,
+              skipped: 0,
+              flakyTests: [],
+              metadata: {},
+            });
+          }
           this.log.info(`Run started via API: ${data.runId}`);
         });
 
@@ -649,7 +677,7 @@ export class DashboardServer {
       asyncHandler(async (req: Request, res: Response) => {
         const runId = req.params.id;
 
-        let rawReport: any = null;
+        let rawReport: Record<string, unknown> | null = null;
         let htmlReportUrl: string | null = null;
 
         const htmlReportPath = path.resolve(this.outputDir, 'html-reports', runId);
@@ -713,43 +741,52 @@ export class DashboardServer {
         };
 
         if (rawReport.suites && Array.isArray(rawReport.suites)) {
-          const processSuite = (suite: any): any => {
+          const processSuite = (suite: Record<string, unknown>): Record<string, unknown> => {
             const processedSuite = { ...suite };
 
             if (processedSuite.specs && Array.isArray(processedSuite.specs)) {
-              processedSuite.specs = processedSuite.specs.map((spec: any) => {
-                if (spec.tests && Array.isArray(spec.tests)) {
-                  spec.tests = spec.tests.map((test: any) => {
-                    if (test.results && Array.isArray(test.results)) {
-                      test.results = test.results.map((result: any) => {
-                        if (result.attachments && Array.isArray(result.attachments)) {
-                          result.attachments = result.attachments.map((attachment: any) => ({
-                            ...attachment,
-                            path: processAttachmentPath(attachment.path),
-                          }));
+              processedSuite.specs = processedSuite.specs.map((spec: unknown) => {
+                const typedSpec = spec as Record<string, unknown>;
+                if (typedSpec.tests && Array.isArray(typedSpec.tests)) {
+                  typedSpec.tests = typedSpec.tests.map((test: unknown) => {
+                    const typedTest = test as Record<string, unknown>;
+                    if (typedTest.results && Array.isArray(typedTest.results)) {
+                      typedTest.results = typedTest.results.map((result: unknown) => {
+                        const typedResult = result as Record<string, unknown>;
+                        if (typedResult.attachments && Array.isArray(typedResult.attachments)) {
+                          typedResult.attachments = typedResult.attachments.map(
+                            (attachment: unknown) => {
+                              const typedAttachment = attachment as Record<string, unknown>;
+                              return {
+                                ...typedAttachment,
+                                path: processAttachmentPath(typedAttachment.path as string),
+                              };
+                            }
+                          );
                         }
-                        return result;
+                        return typedResult;
                       });
                     }
-                    return test;
+                    return typedTest;
                   });
                 }
-                return spec;
+                return typedSpec;
               });
             }
 
             if (processedSuite.tests && Array.isArray(processedSuite.tests)) {
-              processedSuite.tests = processedSuite.tests.map((test: any) => {
-                if (test.screenshots && Array.isArray(test.screenshots)) {
-                  test.screenshots = test.screenshots.map(processAttachmentPath);
+              processedSuite.tests = processedSuite.tests.map((test: unknown) => {
+                const typedTest = test as Record<string, unknown>;
+                if (typedTest.screenshots && Array.isArray(typedTest.screenshots)) {
+                  typedTest.screenshots = typedTest.screenshots.map(processAttachmentPath);
                 }
-                if (test.videos && Array.isArray(test.videos)) {
-                  test.videos = test.videos.map(processAttachmentPath);
+                if (typedTest.videos && Array.isArray(typedTest.videos)) {
+                  typedTest.videos = typedTest.videos.map(processAttachmentPath);
                 }
-                if (test.traces && Array.isArray(test.traces)) {
-                  test.traces = test.traces.map(processAttachmentPath);
+                if (typedTest.traces && Array.isArray(typedTest.traces)) {
+                  typedTest.traces = typedTest.traces.map(processAttachmentPath);
                 }
-                return test;
+                return typedTest;
               });
             }
 
@@ -847,12 +884,12 @@ export class DashboardServer {
 
         this.executor = new Executor(config, this.storage, this.flakyManager);
 
-        let testResult: any = null;
+        let testResult: TestResult | null = null;
 
         this.executor.on('test_result', (result) => {
           if (
             result.id === testId ||
-            (result.file === testInfo!.file && result.line === testInfo!.line)
+            (testInfo && result.file === testInfo.file && result.line === testInfo.line)
           ) {
             testResult = result;
           }
@@ -874,6 +911,7 @@ export class DashboardServer {
                 const updatedTest = updatedReport.suites
                   .flatMap((s) => s.tests)
                   .find((t) => t.id === testId);
+                const narrowedResult = testResult as TestResult;
                 this.realtimeReporter.broadcastReportUpdated(runId, {
                   totalTests: updatedReport.totalTests,
                   passed: updatedReport.passed,
@@ -882,11 +920,11 @@ export class DashboardServer {
                   status: 'completed',
                   testResult: updatedTest
                     ? {
-                        ...testResult,
+                        ...narrowedResult,
                         manualReruns: updatedTest.manualReruns,
                         runHistory: updatedTest.runHistory,
                       }
-                    : testResult,
+                    : narrowedResult,
                 });
               }
               this.log.info(`Test rerun completed and report updated: ${testId}`);
@@ -1258,6 +1296,7 @@ export class DashboardServer {
         const validationResult = await this.testDiscovery.validateProjectPath(testDir);
 
         if (!validationResult.valid) {
+          this.invalidateAllCache();
           res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: validationResult.error,
             configExists: validationResult.configExists,
@@ -1367,7 +1406,7 @@ export class DashboardServer {
           const flakyRate = totalRuns > 0 ? flakyCount / totalRuns : 0;
 
           const metadata = run.metadata || {};
-          const tags = metadata.tags ? metadata.tags.map((t: any) => t.name) : [];
+          const tags = metadata.tags ? metadata.tags.map((t: { name: string }) => t.name) : [];
           const branch = (metadata.branch as string) || 'main';
 
           const year = date.getFullYear();
@@ -1423,6 +1462,112 @@ export class DashboardServer {
       })
     );
 
+    v1Router.get(
+      '/llm/config',
+      asyncHandler(async (req: Request, res: Response) => {
+        const config = this.diagnosisService.getMaskedConfig();
+        res.json(config);
+      })
+    );
+
+    v1Router.put(
+      '/llm/config',
+      asyncHandler(async (req: Request, res: Response) => {
+        const config = req.body;
+        await this.diagnosisService.saveConfig(config);
+        const maskedConfig = this.diagnosisService.getMaskedConfig();
+        res.json(maskedConfig);
+      })
+    );
+
+    v1Router.get(
+      '/llm/status',
+      asyncHandler(async (req: Request, res: Response) => {
+        const status = await this.diagnosisService.getStatus();
+        res.json(status);
+      })
+    );
+
+    v1Router.post(
+      '/llm/test-connection',
+      asyncHandler(async (req: Request, res: Response) => {
+        const config = req.body;
+        const result = await this.diagnosisService.testConnection(config);
+        res.json(result);
+      })
+    );
+
+    v1Router.post(
+      '/diagnosis',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { testTitle, error, stackTrace, file, line, lang } = req.body;
+
+        const config = this.diagnosisService.getMaskedConfig();
+        if (!config.enabled || !config.baseUrl || !config.model) {
+          res.json({ enabled: false, diagnosis: null });
+          return;
+        }
+
+        try {
+          const diagnosis = await this.diagnosisService.diagnose(
+            {
+              title: testTitle,
+              error,
+              stackTrace,
+              filePath: file,
+              lineNumber: line,
+            },
+            lang || 'zh'
+          );
+          res.json({ enabled: true, diagnosis });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          res.json({ enabled: true, diagnosis: null, error: errorMessage });
+        }
+      })
+    );
+
+    v1Router.post(
+      '/diagnosis/stream',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { testTitle, error, stackTrace, file, line, lang } = req.body;
+
+        const config = this.diagnosisService.getMaskedConfig();
+        if (!config.enabled || !config.baseUrl || !config.model) {
+          res.json({ enabled: false, diagnosis: null });
+          return;
+        }
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+
+        try {
+          const stream = this.diagnosisService.diagnoseStream(
+            {
+              title: testTitle,
+              error,
+              stackTrace,
+              filePath: file,
+              lineNumber: line,
+            },
+            lang || 'zh'
+          );
+
+          for await (const chunk of stream) {
+            res.write(`data: ${chunk}\n\n`);
+          }
+
+          res.end();
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          res.write(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`);
+          res.end();
+        }
+      })
+    );
+
     this.app.use('/api/v1', v1Router);
     this.app.use(errorHandler);
   }
@@ -1433,6 +1578,18 @@ export class DashboardServer {
       return fileConfig.testDir;
     }
     return this.testDir;
+  }
+
+  private invalidateAllCache(): void {
+    const startTime = Date.now();
+    this.cache.invalidate('tests:');
+    this.cache.invalidate('runs');
+    this.cache.invalidate('stats');
+    this.cache.invalidate('traces:');
+    this.cache.invalidate('artifacts:');
+    this.testDiscovery.invalidateCache();
+    const duration = Date.now() - startTime;
+    this.log.debug(`All caches invalidated in ${duration}ms`);
   }
 
   private async updatePathsForTestDir(testDir: string): Promise<void> {
@@ -1489,12 +1646,7 @@ export class DashboardServer {
 
     logger.init(this.dataDir);
 
-    this.cache.invalidate('tests:');
-    this.cache.invalidate('runs');
-    this.cache.invalidate('stats');
-    this.cache.invalidate('traces:');
-    this.cache.invalidate('artifacts:');
-    this.testDiscovery.invalidateCache();
+    this.invalidateAllCache();
 
     this.log.info(
       `Paths updated for test directory: ${absoluteDir}\n` +

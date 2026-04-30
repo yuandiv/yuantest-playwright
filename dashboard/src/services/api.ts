@@ -1,3 +1,5 @@
+import type { LLMConfig, LLMStatus, AIDiagnosis } from '../types';
+
 const API_BASE = '/api/v1';
 
 let currentLang: string = 'zh';
@@ -53,6 +55,146 @@ export async function startRun(options: {
     return { success: false, error: data.error || `HTTP ${res.status}` };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Network error' };
+  }
+}
+
+export async function getLLMConfig(): Promise<LLMConfig | null> {
+  return fetchJSON(`${API_BASE}/llm/config`);
+}
+
+export async function saveLLMConfig(config: Partial<LLMConfig>): Promise<LLMConfig | null> {
+  try {
+    const res = await fetch(`${API_BASE}/llm/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.error('Failed to save LLM config:', e);
+    return null;
+  }
+}
+
+export async function getLLMStatus(): Promise<LLMStatus | null> {
+  return fetchJSON(`${API_BASE}/llm/status`);
+}
+
+export async function requestDiagnosis(params: {
+  testTitle: string;
+  error: string;
+  stackTrace?: string;
+  file?: string;
+  line?: number;
+  testId?: string;
+  lang?: string;
+}): Promise<{ enabled: boolean; diagnosis: AIDiagnosis | null; error?: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/diagnosis`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.error('Failed to request diagnosis:', e);
+    return null;
+  }
+}
+
+export interface StreamDiagnosisCallbacks {
+  onStart?: (testTitle: string) => void;
+  onChunk?: (content: string) => void;
+  onComplete?: (diagnosis: AIDiagnosis) => void;
+  onError?: (error: string) => void;
+}
+
+export async function requestDiagnosisStream(
+  params: {
+    testTitle: string;
+    error: string;
+    stackTrace?: string;
+    file?: string;
+    line?: number;
+    testId?: string;
+    lang?: string;
+  },
+  callbacks: StreamDiagnosisCallbacks
+): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE}/diagnosis/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      callbacks.onError?.(`HTTP ${res.status}`);
+      return;
+    }
+
+    if (!res.body) {
+      callbacks.onError?.('Response body is null');
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine === '' || !trimmedLine.startsWith('data: ')) continue;
+
+        const jsonStr = trimmedLine.slice(6);
+        try {
+          const data = JSON.parse(jsonStr);
+
+          switch (data.type) {
+            case 'start':
+              callbacks.onStart?.(data.testTitle);
+              break;
+            case 'chunk':
+              callbacks.onChunk?.(data.content);
+              break;
+            case 'complete':
+              callbacks.onComplete?.(data.diagnosis);
+              break;
+            case 'error':
+              callbacks.onError?.(data.error);
+              break;
+          }
+        } catch {
+          // Skip invalid JSON
+        }
+      }
+    }
+  } catch (e) {
+    callbacks.onError?.(e instanceof Error ? e.message : 'Unknown error');
+  }
+}
+
+export async function testLLMConnection(config: Partial<LLMConfig>): Promise<{ success: boolean; error?: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/llm/test-connection`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Unknown error' };
   }
 }
 

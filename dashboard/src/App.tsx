@@ -1054,6 +1054,7 @@ function App() {
         lang={lang} 
         wsConnected={wsConnected} 
         hasTestCases={testCases.length > 0}
+        isExecuting={isExecuting}
         onSwitchLang={switchLang} 
         onOpenExecutor={() => setIsExecutorDialogOpen(true)}
         showHealthDashboard={showHealthDashboard}
