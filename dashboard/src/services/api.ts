@@ -81,6 +81,7 @@ export async function getLLMStatus(): Promise<LLMStatus | null> {
   return fetchJSON(`${API_BASE}/llm/status`);
 }
 
+/** 请求AI诊断，支持传递截图、日志、浏览器等额外上下文 */
 export async function requestDiagnosis(params: {
   testTitle: string;
   error: string;
@@ -89,6 +90,10 @@ export async function requestDiagnosis(params: {
   line?: number;
   testId?: string;
   lang?: string;
+  screenshots?: string[];
+  logs?: string[];
+  browser?: string;
+  runId?: string;
 }): Promise<{ enabled: boolean; diagnosis: AIDiagnosis | null; error?: string } | null> {
   try {
     const res = await fetch(`${API_BASE}/diagnosis`, {
@@ -111,6 +116,7 @@ export interface StreamDiagnosisCallbacks {
   onError?: (error: string) => void;
 }
 
+/** 流式请求AI诊断，支持传递截图、日志、浏览器等额外上下文 */
 export async function requestDiagnosisStream(
   params: {
     testTitle: string;
@@ -120,6 +126,10 @@ export async function requestDiagnosisStream(
     line?: number;
     testId?: string;
     lang?: string;
+    screenshots?: string[];
+    logs?: string[];
+    browser?: string;
+    runId?: string;
   },
   callbacks: StreamDiagnosisCallbacks
 ): Promise<void> {
@@ -288,6 +298,19 @@ export async function clearFlakyHistory(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function getRootCauseAnalysis(testId: string): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/flaky/${encodeURIComponent(testId)}/root-cause`);
+}
+
+export async function getCorrelations(): Promise<any[] | null> {
+  return fetchJSON(`${API_BASE}/flaky/correlations`);
+}
+
+export async function getFlakyByClassification(classification?: string): Promise<any | null> {
+  const query = classification ? `?classification=${encodeURIComponent(classification)}` : '';
+  return fetchJSON(`${API_BASE}/flaky/by-classification${query}`);
 }
 
 export async function getAnnotations(testDir: string = './'): Promise<any[] | null> {
@@ -504,4 +527,18 @@ export async function rerunTest(runId: string, testId: string, testLocation: str
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Network error' };
   }
+}
+
+/** 批量聚类诊断，将多个失败测试结果发送到后端进行聚类分析 */
+export async function requestClusterDiagnosis(
+  testResults: Array<{id: string; title: string; name?: string; error?: string; stackTrace?: string; file?: string; line?: number; screenshots?: string[]; logs?: string[]; browser?: string}>,
+  lang: string = 'zh'
+): Promise<{enabled: boolean; clusters: Array<{clusterId: string; category: string; testIds: string[]; similarity: number; diagnosis: any}>}> {
+  const response = await fetch(`${API_BASE}/diagnosis/cluster`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ testResults, lang }),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
 }

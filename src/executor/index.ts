@@ -41,7 +41,7 @@ interface PlaywrightJSONTestResult {
   error?: { message?: string; value?: string; stack?: string };
   errors?: string[];
   stdout?: Array<{ text?: string; buffer?: string }>;
-  stderr?: Array<{ text?: string; buffer?: string }>;
+  stderr?: string[];
   retry: number;
   startTime: string;
   annotations: Array<{ type: string; description?: string }>;
@@ -113,6 +113,7 @@ interface ProgressMessage {
     attachments: PlaywrightJSONAttachment[];
   };
   text?: string;
+  consoleLogs?: string[];
   passed?: number;
   failed?: number;
   skipped?: number;
@@ -411,6 +412,7 @@ class ProgressReporter {
       process.stderr.write(MARKER + JSON.stringify(msg) + '\\n');
     };
     this.emit = emit;
+    this.consoleLogs = new Map();
     emit({ type: 'begin', totalTests: suite.allTests().length });
   }
 
@@ -433,6 +435,13 @@ class ProgressReporter {
   onStdErr(chunk, test, result) {
     const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
     if (text.trim()) {
+      if (test && /error|warn|ERR/i.test(text)) {
+        const testId = test.id;
+        if (!this.consoleLogs.has(testId)) {
+          this.consoleLogs.set(testId, []);
+        }
+        this.consoleLogs.get(testId).push(text.trim());
+      }
       if (test) {
         this.emit({ type: 'stderr', test: { title: test.title, fullTitle: this.getFullTitle(test) }, text: text });
       } else {
@@ -446,10 +455,12 @@ class ProgressReporter {
     const lastResult = result;
     const fullTitle = this.getFullTitle(test);
     const location = test.location || {};
+    const testId = test.id;
+    const consoleLogs = this.consoleLogs.has(testId) ? this.consoleLogs.get(testId) : [];
     this.emit({
       type: 'testEnd',
       test: {
-        id: test.id,
+        id: testId,
         title: test.title,
         fullTitle: fullTitle,
         suiteTitle: suiteTitle,
@@ -464,8 +475,10 @@ class ProgressReporter {
         attachments: (lastResult.attachments || []).map(function(a) {
           return { name: a.name, contentType: a.contentType, path: a.path, body: a.body ? a.body.toString('utf-8') : undefined };
         })
-      }
+      },
+      consoleLogs: consoleLogs
     });
+    this.consoleLogs.delete(testId);
   }
 
   getFullTitle(test) {
@@ -592,6 +605,9 @@ module.exports = ProgressReporter;
         status,
         duration: test.duration || 0,
         error: test.error ? stripAnsi(test.error) : undefined,
+        stackTrace: test.error && test.error.includes('\n    at')
+          ? stripAnsi(test.error.substring(test.error.indexOf('\n    at')))
+          : undefined,
         retries: test.retries || 0,
         timestamp: Date.now(),
         browser: (test.browser || 'chromium') as BrowserType,
@@ -607,7 +623,7 @@ module.exports = ProgressReporter;
           .filter((a) => a.name === 'trace')
           .map((a) => a.path || a.body)
           .filter((p): p is string => !!p),
-        logs: [],
+        logs: msg.consoleLogs || [],
       };
 
       const suiteName = test.suiteTitle || 'Test Suite';
@@ -1126,6 +1142,7 @@ module.exports = ProgressReporter;
         result.error?.message || result.error?.value
           ? stripAnsi(result.error?.message || result.error?.value || '')
           : undefined,
+      stackTrace: result.error?.stack ? stripAnsi(result.error.stack) : undefined,
       retries: result.retry || 0,
       timestamp: Date.now(),
       browser: (test.projectName || 'chromium') as BrowserType,
@@ -1146,7 +1163,7 @@ module.exports = ProgressReporter;
         .filter((a: PlaywrightJSONAttachment) => a.name === 'trace')
         .map((a: PlaywrightJSONAttachment) => a.path || a.body)
         .filter((p): p is string => !!p),
-      logs: [],
+      logs: result.stderr?.map(stripAnsi).filter((l: string) => l.trim()) || [],
     };
   }
 

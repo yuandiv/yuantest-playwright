@@ -176,6 +176,7 @@ export interface TestResult {
   videos?: string[];
   traces?: string[];
   logs?: string[];
+  stackTrace?: string;
 }
 
 export interface SuiteResult {
@@ -257,6 +258,49 @@ export interface RunResult {
   metadata?: RunMetadata;
 }
 
+export type FlakyClassification = 'flaky' | 'broken' | 'regression' | 'stable' | 'insufficient_data';
+
+export type RootCauseType =
+  | 'timing'
+  | 'data_race'
+  | 'environment'
+  | 'external_service'
+  | 'test_order'
+  | 'resource_leak'
+  | 'assertion_flaky'
+  | 'unknown';
+
+export interface RootCauseEvidence {
+  type: RootCauseType;
+  indicators: string[];
+  confidence: number;
+  description: string;
+}
+
+export interface RootCauseAnalysis {
+  testId: string;
+  primaryCause: RootCauseType;
+  confidence: number;
+  evidence: RootCauseEvidence[];
+  suggestedActions: string[];
+  analyzedAt: number;
+}
+
+export type CorrelationType =
+  | 'same_run'
+  | 'same_shard'
+  | 'same_time_window'
+  | 'same_error_pattern'
+  | 'same_file';
+
+export interface CorrelationGroup {
+  groupId: string;
+  testIds: string[];
+  correlationType: CorrelationType;
+  confidence: number;
+  evidence: string;
+}
+
 export interface FlakyTest {
   testId: string;
   title: string;
@@ -267,6 +311,12 @@ export interface FlakyTest {
   quarantinedAt?: number;
   consecutivePassesSinceQuarantine?: number;
   history: FlakyHistoryEntry[];
+  classification: FlakyClassification;
+  weightedFailureRate: number;
+  consecutiveFailures: number;
+  consecutivePasses: number;
+  lastClassifiedAt?: number;
+  rootCause?: RootCauseAnalysis;
 }
 
 export interface FlakyHistoryEntry {
@@ -283,6 +333,12 @@ export interface QuarantineConfig {
   minimumRuns?: number;
   autoReleaseAfterPasses?: number;
   quarantineExpiryDays?: number;
+  decayRate?: number;
+  confidenceLevel?: number;
+  brokenThreshold?: number;
+  regressionWindow?: number;
+  enableRootCauseAnalysis?: boolean;
+  enableCorrelationAnalysis?: boolean;
 }
 
 export interface OrchestrationConfig {
@@ -299,6 +355,9 @@ export interface TestAssignment {
   shardId: number;
   priority: number;
   estimatedDuration?: number;
+  durationConfidence?: number;
+  durationVariance?: number;
+  estimationSource?: 'history' | 'ema' | 'similar' | 'default';
 }
 
 export type RealTimeMessage =
@@ -355,7 +414,15 @@ export type RealTimeMessage =
     }
   | {
       type: 'flaky_detected';
-      payload: { testId: string; title: string; failureRate: number; timestamp: number };
+      payload: {
+        testId: string;
+        title: string;
+        failureRate: number;
+        weightedFailureRate: number;
+        classification: FlakyClassification;
+        rootCause?: RootCauseType;
+        timestamp: number;
+      };
       timestamp: number;
       runId: string;
     }
@@ -438,6 +505,38 @@ export interface LLMConfig {
   temperature: number;
 }
 
+/** 代码差异信息 */
+export interface CodeDiff {
+  filePath: string;
+  unifiedDiff: string;
+  description: string;
+}
+
+/** 文档链接 */
+export interface DocLink {
+  title: string;
+  url: string;
+}
+
+/** AI诊断使用的上下文信息 */
+export interface ContextUsed {
+  sourceCode: boolean;
+  screenshot: boolean;
+  consoleLogs: boolean;
+  stackTrace: boolean;
+  historyData: boolean;
+  environmentInfo: boolean;
+}
+
+/** AI推理步骤 */
+export interface ReasoningStep {
+  step: number;
+  tool?: string;
+  input?: string;
+  output?: string;
+  thought: string;
+}
+
 export interface AIDiagnosis {
   summary: string;
   rootCause: string;
@@ -445,6 +544,14 @@ export interface AIDiagnosis {
   confidence: number;
   model: string;
   timestamp: number;
+  category: 'timeout' | 'selector' | 'assertion' | 'network' | 'frame' | 'auth' | 'unknown';
+  codeDiffs?: CodeDiff[];
+  docLinks?: DocLink[];
+  contextUsed: ContextUsed;
+  reasoningSteps?: ReasoningStep[];
+  calibratedConfidence: number;
+  analysisMode: 'agent' | 'single' | 'fallback';
+  relatedFailures?: string[];
 }
 
 export interface LLMStatus {

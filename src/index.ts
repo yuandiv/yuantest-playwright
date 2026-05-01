@@ -3,6 +3,9 @@ export { Executor, ParallelExecutor } from './executor';
 export { Reporter, JSONReporter } from './reporter';
 export { RealtimeReporter, RealtimeReporterClient } from './realtime';
 export { FlakyTestManager } from './flaky';
+export { classifyTest, calculateWeightedFailureRate, calculateConsecutiveFailures, calculateConsecutivePasses, isStatisticallySignificant, wilsonConfidenceInterval } from './flaky/classifier';
+export { RootCauseAnalyzer } from './flaky/root-cause';
+export { analyzeCorrelations } from './flaky/correlation';
 export { DashboardServer } from './ui/server';
 export { PlaywrightConfigBuilder, PlaywrightConfigOptions } from './config';
 export { loadConfigFile, mergeConfig, getDashboardConfig } from './config/loader';
@@ -83,4 +86,10 @@ export {
   VisualTestStatus,
   VisualTestResult,
   VisualTestComparison,
+  FlakyClassification,
+  RootCauseType,
+  RootCauseAnalysis,
+  RootCauseEvidence,
+  CorrelationType,
+  CorrelationGroup,
 } from './types';

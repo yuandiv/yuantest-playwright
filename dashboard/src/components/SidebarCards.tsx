@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Lang } from '../i18n';
 import { t } from '../i18n';
-import { FlakyTest, QuarantinedTest, RunReport } from '../types';
+import { FlakyTest, QuarantinedTest, RunReport, FlakyClassification, FilterType } from '../types';
 import { VersionTrendChart } from './VersionTrendChart';
 
 interface SidebarCardsProps {
@@ -47,6 +47,21 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
     }
   };
 
+  const getClassificationInfo = (classification?: FlakyClassification) => {
+    switch (classification) {
+      case 'broken':
+        return { label: 'Broken', color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
+      case 'regression':
+        return { label: 'Regression', color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
+      case 'flaky':
+        return { label: 'Flaky', color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
+      case 'stable':
+        return { label: 'Stable', color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
+      default:
+        return null;
+    }
+  };
+
   const handleViewAllFlakyTests = () => {
     onModal(
       <FlakyTestsModal
@@ -83,11 +98,19 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
             ) : flakyTests.slice(0, 3).map(test => {
               const rate = (test.failureRate * 100).toFixed(0);
               const stability = getStabilityInfo(test.failureRate);
+              const classInfo = getClassificationInfo(test.classification);
               return (
                 <div key={test.testId} className="bg-gradient-to-r from-gray-50 to-white border border-gray-100 rounded-lg p-2.5 hover:shadow-md transition-all">
                   <div className="flex justify-between items-start mb-1.5">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-xs text-gray-800 truncate" title={test.title}>{test.title}</p>
+                      <div className="flex items-center gap-1">
+                        <p className="font-medium text-xs text-gray-800 truncate" title={test.title}>{test.title}</p>
+                        {classInfo && (
+                          <span className={`px-1 py-0 rounded text-[8px] font-medium ${classInfo.color} flex-shrink-0`}>
+                            <i className={`${classInfo.icon} mr-0.5`}></i>{classInfo.label}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-gray-400 mt-0.5">{t('runCount', lang)}: {test.totalRuns}</p>
                     </div>
                     <div className="flex flex-col items-end gap-0.5 ml-2">
@@ -209,12 +232,30 @@ function FlakyTestsModal({
   getStabilityInfo: (failureRate: number) => { label: string; color: string; icon: string };
   onClearHistory: () => Promise<void>;
 }) {
-  const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [filter, setFilter] = useState<FilterType>('all');
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
+  const getClassificationInfo = (classification?: FlakyClassification) => {
+    switch (classification) {
+      case 'broken':
+        return { label: 'Broken', color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
+      case 'regression':
+        return { label: 'Regression', color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
+      case 'flaky':
+        return { label: 'Flaky', color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
+      case 'stable':
+        return { label: 'Stable', color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
+      default:
+        return null;
+    }
+  };
+
   const filteredTests = useMemo(() => {
     if (filter === 'all') return flakyTests;
+    if (filter === 'broken') return flakyTests.filter(t => t.classification === 'broken');
+    if (filter === 'regression') return flakyTests.filter(t => t.classification === 'regression');
+    if (filter === 'flaky') return flakyTests.filter(t => t.classification === 'flaky');
     return flakyTests.filter(test => {
       if (filter === 'high') return test.failureRate <= 0.2;
       if (filter === 'medium') return test.failureRate > 0.2 && test.failureRate <= 0.5;
@@ -234,6 +275,9 @@ function FlakyTestsModal({
 
   const filterButtons = [
     { key: 'all' as const, label: t('allLevels', lang) },
+    { key: 'flaky' as const, label: 'Flaky' },
+    { key: 'broken' as const, label: 'Broken' },
+    { key: 'regression' as const, label: 'Regression' },
     { key: 'high' as const, label: t('highStability', lang) },
     { key: 'medium' as const, label: t('mediumStability', lang) },
     { key: 'low' as const, label: t('lowStability', lang) },
@@ -274,11 +318,19 @@ function FlakyTestsModal({
         ) : filteredTests.map(test => {
           const rate = (test.failureRate * 100).toFixed(0);
           const stability = getStabilityInfo(test.failureRate);
+          const classInfo = getClassificationInfo(test.classification);
           return (
             <div key={test.testId} className="bg-gradient-to-r from-gray-50 to-white border border-gray-100 rounded-lg p-3 hover:shadow-md transition-all">
               <div className="flex justify-between items-start mb-2">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-gray-800 truncate" title={test.title}>{test.title}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-medium text-sm text-gray-800 truncate" title={test.title}>{test.title}</p>
+                    {classInfo && (
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${classInfo.color} flex-shrink-0`}>
+                        <i className={`${classInfo.icon} mr-0.5`}></i>{classInfo.label}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400 mt-1">
                     <i className="fas fa-hashtag mr-0.5"></i>{t('runCount', lang)}: {test.totalRuns}
                     {test.lastFailure && (
@@ -288,6 +340,12 @@ function FlakyTestsModal({
                       </>
                     )}
                   </p>
+                  {test.rootCause && (
+                    <p className="text-xs text-blue-500 mt-1">
+                      <i className="fas fa-search mr-0.5"></i>{test.rootCause.primaryCause}
+                      <span className="text-gray-400 ml-1">({(test.rootCause.confidence * 100).toFixed(0)}%)</span>
+                    </p>
+                  )}
                 </div>
                 <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${stability.color} border ml-2 flex-shrink-0`}>
                   <i className={`${stability.icon} mr-0.5`}></i>{stability.label} · {rate}%

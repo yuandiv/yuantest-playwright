@@ -244,6 +244,20 @@ const zh: Record<string, string> = {
   llmConnected: 'LLM 已连接',
   llmNotConfigured: 'LLM 未配置',
   llmConnectionFailed: 'LLM 连接失败',
+  'category.timeout': '超时',
+  'category.selector': '选择器',
+  'category.assertion': '断言',
+  'category.network': '网络',
+  'category.frame': 'Frame',
+  'category.auth': '认证',
+  'category.unknown': '未知',
+  codeDiffs: '代码修复建议',
+  docLinks: '参考文档',
+  reasoningSteps: '推理步骤',
+  analysisMode: '分析模式',
+  lowConfidenceWarning: '低置信度诊断，建议人工确认',
+  contextUsed: '使用上下文',
+  noContextUsed: '无额外上下文',
 };
 
 const en: Record<string, string> = {
@@ -493,6 +507,20 @@ const en: Record<string, string> = {
   llmConnected: 'LLM Connected',
   llmNotConfigured: 'LLM Not Configured',
   llmConnectionFailed: 'LLM Connection Failed',
+  'category.timeout': 'Timeout',
+  'category.selector': 'Selector',
+  'category.assertion': 'Assertion',
+  'category.network': 'Network',
+  'category.frame': 'Frame',
+  'category.auth': 'Auth',
+  'category.unknown': 'Unknown',
+  codeDiffs: 'Code Fix Suggestions',
+  docLinks: 'Reference Docs',
+  reasoningSteps: 'Reasoning Steps',
+  analysisMode: 'Analysis Mode',
+  lowConfidenceWarning: 'Low confidence diagnosis, manual review recommended',
+  contextUsed: 'Context Used',
+  noContextUsed: 'No additional context',
 };
 
 const translations: Record<string, Record<string, string>> = { zh, en };

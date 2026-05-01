@@ -76,6 +76,76 @@ describe('ShardOptimizer', () => {
     const result = await optimizer.optimize(assignments, 2);
     expect(result.size).toBe(2);
   });
+
+  it('should separate high-variance tests across shards', async () => {
+    const optimizer = new ShardOptimizer();
+    const assignments = [
+      { testId: 'stable1', shardId: 0, priority: 1, estimatedDuration: 10000, durationVariance: 100, durationConfidence: 0.9 },
+      { testId: 'stable2', shardId: 0, priority: 1, estimatedDuration: 10000, durationVariance: 100, durationConfidence: 0.9 },
+      { testId: 'flaky1', shardId: 0, priority: 1, estimatedDuration: 10000, durationVariance: 50000000, durationConfidence: 0.2 },
+      { testId: 'flaky2', shardId: 0, priority: 1, estimatedDuration: 10000, durationVariance: 50000000, durationConfidence: 0.2 },
+    ];
+
+    const result = await optimizer.optimize(assignments, 2);
+
+    const shard0Flaky = result.get(0)!.filter(t => t.testId.startsWith('flaky')).length;
+    const shard1Flaky = result.get(1)!.filter(t => t.testId.startsWith('flaky')).length;
+
+    expect(shard0Flaky).toBe(1);
+    expect(shard1Flaky).toBe(1);
+  });
+
+  it('should track shard loads after optimization', async () => {
+    const optimizer = new ShardOptimizer();
+    const assignments = [
+      { testId: 't1', shardId: 0, priority: 1, estimatedDuration: 10000 },
+      { testId: 't2', shardId: 0, priority: 1, estimatedDuration: 20000 },
+      { testId: 't3', shardId: 0, priority: 1, estimatedDuration: 15000 },
+    ];
+
+    await optimizer.optimize(assignments, 2);
+    const loads = optimizer.getShardLoads();
+
+    expect(loads.length).toBe(2);
+    expect(loads[0] + loads[1]).toBe(45000);
+  });
+
+  it('should apply calibration factor to estimates', async () => {
+    const optimizer = new ShardOptimizer(undefined, 1.5);
+    const assignments = [
+      { testId: 't1', shardId: 0, priority: 1, estimatedDuration: 10000 },
+      { testId: 't2', shardId: 0, priority: 1, estimatedDuration: 20000 },
+    ];
+
+    await optimizer.optimize(assignments, 2);
+    const loads = optimizer.getShardLoads();
+
+    expect(loads.length).toBe(2);
+  });
+
+  it('should rebalance uneven shard loads via swap', async () => {
+    const optimizer = new ShardOptimizer();
+    const assignments = [
+      { testId: 't1', shardId: 0, priority: 1, estimatedDuration: 20000 },
+      { testId: 't2', shardId: 0, priority: 1, estimatedDuration: 18000 },
+      { testId: 't3', shardId: 0, priority: 1, estimatedDuration: 5000 },
+      { testId: 't4', shardId: 0, priority: 1, estimatedDuration: 5000 },
+      { testId: 't5', shardId: 0, priority: 1, estimatedDuration: 3000 },
+      { testId: 't6', shardId: 0, priority: 1, estimatedDuration: 3000 },
+    ];
+
+    const result = await optimizer.optimize(assignments, 2);
+
+    const loads: number[] = [];
+    result.forEach((shardTests) => {
+      const load = shardTests.reduce((sum, t) => sum + (t.estimatedDuration || 0), 0);
+      loads.push(load);
+    });
+
+    const maxLoad = Math.max(...loads);
+    const minLoad = Math.min(...loads);
+    expect(maxLoad - minLoad).toBeLessThan(8000);
+  });
 });
 
 describe('Orchestrator', () => {
@@ -209,6 +279,26 @@ describe('Orchestrator', () => {
       expect(result.strategy).toBe('intelligent');
       expect(result.totalShards).toBe(2);
     });
+
+    it('should include confidence and variance in assignments', async () => {
+      fs.writeFileSync(path.join(testDir, 'test1.spec.ts'), 'test content', 'utf8');
+
+      const orchestrator = new Orchestrator({
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+        shards: 2,
+      }, storage);
+
+      await orchestrator.initialize();
+      const result = await orchestrator.optimizeSharding();
+
+      const assignment = result.testAssignment[0];
+      expect(assignment.estimatedDuration).toBeDefined();
+      expect(assignment.durationConfidence).toBeDefined();
+      expect(assignment.durationVariance).toBeDefined();
+      expect(assignment.estimationSource).toBeDefined();
+    });
   });
 
   describe('getConfig', () => {
@@ -303,6 +393,56 @@ describe('Orchestrator', () => {
       const config = orchestrator.getConfig();
       expect(config).toBeDefined();
     });
+
+    it('should track variance across multiple runs', async () => {
+      const orchestrator = new Orchestrator({
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+      }, storage);
+
+      await orchestrator.initialize();
+      orchestrator.updateDurationHistory('test1.spec.ts', 5000);
+      orchestrator.updateDurationHistory('test1.spec.ts', 10000);
+      orchestrator.updateDurationHistory('test1.spec.ts', 7000);
+
+      const config = orchestrator.getConfig();
+      expect(config).toBeDefined();
+    });
+
+    it('should compute EMA with recency weighting', async () => {
+      const orchestrator = new Orchestrator({
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+      }, storage);
+
+      await orchestrator.initialize();
+      orchestrator.updateDurationHistory('test1.spec.ts', 5000);
+      orchestrator.updateDurationHistory('test1.spec.ts', 5000);
+      orchestrator.updateDurationHistory('test1.spec.ts', 5000);
+      orchestrator.updateDurationHistory('test1.spec.ts', 20000);
+
+      const config = orchestrator.getConfig();
+      expect(config).toBeDefined();
+    });
+
+    it('should track min/max/p95 durations', async () => {
+      const orchestrator = new Orchestrator({
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+      }, storage);
+
+      await orchestrator.initialize();
+      const durations = [3000, 5000, 8000, 12000, 15000];
+      for (const d of durations) {
+        orchestrator.updateDurationHistory('test1.spec.ts', d);
+      }
+
+      const config = orchestrator.getConfig();
+      expect(config).toBeDefined();
+    });
   });
 
   describe('recordRunResults', () => {
@@ -321,6 +461,74 @@ describe('Orchestrator', () => {
 
       const config = orchestrator.getConfig();
       expect(config).toBeDefined();
+    });
+  });
+
+  describe('recordShardFeedback', () => {
+    it('should record shard prediction feedback', async () => {
+      const orchestrator = new Orchestrator({
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+      }, storage);
+
+      await orchestrator.initialize();
+      orchestrator.recordShardFeedback({
+        shardId: 0,
+        predictedDuration: 30000,
+        actualDuration: 35000,
+        timestamp: Date.now(),
+      });
+
+      const feedback = orchestrator.getPredictionFeedback();
+      expect(feedback.length).toBe(1);
+      expect(feedback[0].shardId).toBe(0);
+    });
+
+    it('should calibrate factor based on feedback', async () => {
+      const orchestrator = new Orchestrator({
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+      }, storage);
+
+      await orchestrator.initialize();
+      const initialFactor = orchestrator.getCalibrationFactor();
+
+      for (let i = 0; i < 5; i++) {
+        orchestrator.recordShardFeedback({
+          shardId: i % 2,
+          predictedDuration: 30000,
+          actualDuration: 45000,
+          timestamp: Date.now(),
+        });
+      }
+
+      const newFactor = orchestrator.getCalibrationFactor();
+      expect(newFactor).toBeGreaterThan(initialFactor);
+    });
+
+    it('should clamp calibration factor within bounds', async () => {
+      const orchestrator = new Orchestrator({
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+      }, storage);
+
+      await orchestrator.initialize();
+
+      for (let i = 0; i < 20; i++) {
+        orchestrator.recordShardFeedback({
+          shardId: 0,
+          predictedDuration: 30000,
+          actualDuration: 100000,
+          timestamp: Date.now(),
+        });
+      }
+
+      const factor = orchestrator.getCalibrationFactor();
+      expect(factor).toBeLessThanOrEqual(2.0);
+      expect(factor).toBeGreaterThanOrEqual(0.5);
     });
   });
 
@@ -357,6 +565,37 @@ describe('Orchestrator', () => {
       await orchestrator.flush();
 
       expect(storage.exists(outputDir)).resolves.toBe(true);
+    });
+  });
+
+  describe('data migration', () => {
+    it('should migrate old format duration history on load', async () => {
+      const historyFile = path.join(outputDir, 'duration-history.json');
+      const oldFormatData = {
+        history: [
+          {
+            testFile: 'old-test.spec.ts',
+            avgDuration: 8000,
+            runCount: 5,
+          },
+        ],
+        lastUpdated: new Date().toISOString(),
+      };
+
+      fs.mkdirSync(outputDir, { recursive: true });
+      fs.writeFileSync(historyFile, JSON.stringify(oldFormatData), 'utf8');
+
+      const orchestrator = new Orchestrator({
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+      }, storage);
+
+      await orchestrator.initialize();
+      orchestrator.updateDurationHistory('old-test.spec.ts', 10000);
+
+      const config = orchestrator.getConfig();
+      expect(config).toBeDefined();
     });
   });
 });

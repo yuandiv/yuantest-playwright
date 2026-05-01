@@ -61,6 +61,42 @@ export interface RunDetail {
   retries?: number;
   manualReruns?: number;
   aiDiagnosis?: AIDiagnosis | null;
+  screenshots?: string[];
+  logs?: string[];
+  browser?: string;
+  stackTrace?: string;
+}
+
+export type FlakyClassification = 'flaky' | 'broken' | 'regression' | 'stable' | 'insufficient_data';
+
+/** 不稳定测试筛选类型 */
+export type FilterType = 'all' | 'high' | 'medium' | 'low' | 'broken' | 'regression' | 'flaky';
+
+export type RootCauseType =
+  | 'timing'
+  | 'data_race'
+  | 'environment'
+  | 'external_service'
+  | 'test_order'
+  | 'resource_leak'
+  | 'assertion_flaky'
+  | 'unknown';
+
+export interface RootCauseAnalysis {
+  testId: string;
+  primaryCause: RootCauseType;
+  confidence: number;
+  evidence: { type: RootCauseType; indicators: string[]; confidence: number; description: string }[];
+  suggestedActions: string[];
+  analyzedAt: number;
+}
+
+export interface CorrelationGroup {
+  groupId: string;
+  testIds: string[];
+  correlationType: 'same_run' | 'same_shard' | 'same_time_window' | 'same_error_pattern' | 'same_file';
+  confidence: number;
+  evidence: string;
 }
 
 export interface FlakyTest {
@@ -69,6 +105,11 @@ export interface FlakyTest {
   totalRuns: number;
   lastFailure?: string;
   testId: string;
+  classification?: FlakyClassification;
+  weightedFailureRate?: number;
+  consecutiveFailures?: number;
+  consecutivePasses?: number;
+  rootCause?: RootCauseAnalysis;
 }
 
 export interface QuarantinedTest {
@@ -193,6 +234,38 @@ export interface EnhancedChartStats {
   };
 }
 
+/** 代码差异信息 */
+export interface CodeDiff {
+  filePath: string;
+  unifiedDiff: string;
+  description: string;
+}
+
+/** 文档链接 */
+export interface DocLink {
+  title: string;
+  url: string;
+}
+
+/** AI诊断使用的上下文信息 */
+export interface ContextUsed {
+  sourceCode: boolean;
+  screenshot: boolean;
+  consoleLogs: boolean;
+  stackTrace: boolean;
+  historyData: boolean;
+  environmentInfo: boolean;
+}
+
+/** AI推理步骤 */
+export interface ReasoningStep {
+  step: number;
+  tool?: string;
+  input?: string;
+  output?: string;
+  thought: string;
+}
+
 export interface AIDiagnosis {
   summary: string;
   rootCause: string;
@@ -200,6 +273,14 @@ export interface AIDiagnosis {
   confidence: number;
   model: string;
   timestamp: number;
+  category: 'timeout' | 'selector' | 'assertion' | 'network' | 'frame' | 'auth' | 'unknown';
+  codeDiffs?: CodeDiff[];
+  docLinks?: DocLink[];
+  contextUsed: ContextUsed;
+  reasoningSteps?: ReasoningStep[];
+  calibratedConfidence: number;
+  analysisMode: 'agent' | 'single' | 'fallback';
+  relatedFailures?: string[];
 }
 
 export interface LLMConfig {
@@ -217,3 +298,38 @@ export interface LLMStatus {
   connected: boolean;
   status: 'green' | 'yellow' | 'red';
 }
+
+/** 测试结果 */
+export interface TestResult {
+  id: string;
+  title: string;
+  fullTitle?: string;
+  file?: string;
+  line?: number;
+  column?: number;
+  status: 'passed' | 'failed' | 'skipped' | 'timedout';
+  duration: number;
+  error?: string;
+  retries: number;
+  manualReruns?: number;
+  runHistory?: TestRunHistory[];
+  timestamp: number;
+  browser: BrowserType;
+  shard?: number;
+  screenshots?: string[];
+  videos?: string[];
+  traces?: string[];
+  logs?: string[];
+  stackTrace?: string;
+}
+
+/** 测试运行历史记录 */
+export interface TestRunHistory {
+  timestamp: number;
+  status: 'passed' | 'failed' | 'skipped' | 'timedout';
+  duration: number;
+  error?: string;
+}
+
+/** 浏览器类型 */
+export type BrowserType = 'chromium' | 'firefox' | 'webkit';

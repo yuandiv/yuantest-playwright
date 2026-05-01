@@ -1069,6 +1069,40 @@ export class DashboardServer {
     );
 
     v1Router.get(
+      '/flaky/:testId/root-cause',
+      asyncHandler(async (req: Request, res: Response) => {
+        const analysis = await this.flakyManager.analyzeRootCause(req.params.testId);
+        if (!analysis) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Test not found or no history available' });
+          return;
+        }
+        res.json(analysis);
+      })
+    );
+
+    v1Router.get(
+      '/flaky/correlations',
+      asyncHandler(async (req: Request, res: Response) => {
+        const groups = this.flakyManager.analyzeCorrelations();
+        res.json(groups);
+      })
+    );
+
+    v1Router.get(
+      '/flaky/by-classification',
+      asyncHandler(async (req: Request, res: Response) => {
+        const classification = req.query.classification as string;
+        if (!classification) {
+          const stats = this.flakyManager.getQuarantineStats();
+          res.json(stats.classificationBreakdown);
+          return;
+        }
+        const tests = this.flakyManager.getTestsByClassification(classification as any);
+        res.json(tests);
+      })
+    );
+
+    v1Router.get(
       '/analysis/:runId',
       asyncHandler(async (req: Request, res: Response) => {
         const run = await this.reporter.getReport(req.params.runId);
@@ -1500,7 +1534,18 @@ export class DashboardServer {
     v1Router.post(
       '/diagnosis',
       asyncHandler(async (req: Request, res: Response) => {
-        const { testTitle, error, stackTrace, file, line, lang } = req.body;
+        const {
+          testTitle,
+          error,
+          stackTrace,
+          file,
+          line,
+          lang,
+          screenshots,
+          logs,
+          browser,
+          runId,
+        } = req.body;
 
         const config = this.diagnosisService.getMaskedConfig();
         if (!config.enabled || !config.baseUrl || !config.model) {
@@ -1508,14 +1553,32 @@ export class DashboardServer {
           return;
         }
 
+        let enrichedScreenshots = screenshots as string[] | undefined;
+        let enrichedLogs = logs as string[] | undefined;
+        let enrichedStackTrace = stackTrace as string | undefined;
+        let enrichedBrowser = browser as string | undefined;
+
+        if (runId) {
+          const historicalTest = await this.findTestInfoByRunId(runId, testTitle, file, line);
+          if (historicalTest) {
+            enrichedScreenshots = enrichedScreenshots || historicalTest.screenshots;
+            enrichedLogs = enrichedLogs || historicalTest.logs;
+            enrichedStackTrace = enrichedStackTrace || historicalTest.stackTrace;
+            enrichedBrowser = enrichedBrowser || historicalTest.browser;
+          }
+        }
+
         try {
           const diagnosis = await this.diagnosisService.diagnose(
             {
               title: testTitle,
               error,
-              stackTrace,
+              stackTrace: enrichedStackTrace,
               filePath: file,
               lineNumber: line,
+              screenshots: enrichedScreenshots,
+              logs: enrichedLogs,
+              browser: enrichedBrowser,
             },
             lang || 'zh'
           );
@@ -1530,12 +1593,38 @@ export class DashboardServer {
     v1Router.post(
       '/diagnosis/stream',
       asyncHandler(async (req: Request, res: Response) => {
-        const { testTitle, error, stackTrace, file, line, lang } = req.body;
+        const {
+          testTitle,
+          error,
+          stackTrace,
+          file,
+          line,
+          lang,
+          screenshots,
+          logs,
+          browser,
+          runId,
+        } = req.body;
 
         const config = this.diagnosisService.getMaskedConfig();
         if (!config.enabled || !config.baseUrl || !config.model) {
           res.json({ enabled: false, diagnosis: null });
           return;
+        }
+
+        let enrichedScreenshots = screenshots as string[] | undefined;
+        let enrichedLogs = logs as string[] | undefined;
+        let enrichedStackTrace = stackTrace as string | undefined;
+        let enrichedBrowser = browser as string | undefined;
+
+        if (runId) {
+          const historicalTest = await this.findTestInfoByRunId(runId, testTitle, file, line);
+          if (historicalTest) {
+            enrichedScreenshots = enrichedScreenshots || historicalTest.screenshots;
+            enrichedLogs = enrichedLogs || historicalTest.logs;
+            enrichedStackTrace = enrichedStackTrace || historicalTest.stackTrace;
+            enrichedBrowser = enrichedBrowser || historicalTest.browser;
+          }
         }
 
         res.setHeader('Content-Type', 'text/event-stream');
@@ -1548,9 +1637,12 @@ export class DashboardServer {
             {
               title: testTitle,
               error,
-              stackTrace,
+              stackTrace: enrichedStackTrace,
               filePath: file,
               lineNumber: line,
+              screenshots: enrichedScreenshots,
+              logs: enrichedLogs,
+              browser: enrichedBrowser,
             },
             lang || 'zh'
           );
@@ -1568,8 +1660,118 @@ export class DashboardServer {
       })
     );
 
+    /**
+     * 批量聚类诊断端点
+     * 接收多个测试结果，基于错误相似度进行聚类，然后对每个聚类的代表测试执行 AI 诊断
+     * 返回聚类结果及每个聚类的诊断信息
+     */
+    v1Router.post(
+      '/diagnosis/cluster',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { testResults, lang } = req.body;
+
+        if (!Array.isArray(testResults)) {
+          res.status(400).json({ error: 'testResults must be an array' });
+          return;
+        }
+
+        const config = this.diagnosisService.getMaskedConfig();
+        if (!config.enabled || !config.baseUrl || !config.model) {
+          res.json({ enabled: false, clusters: [] });
+          return;
+        }
+
+        try {
+          const { clusterFailures } = await import('../diagnosis/cluster');
+          const clusters = clusterFailures(testResults);
+
+          const diagnoses = [];
+          for (const cluster of clusters) {
+            const representative = testResults.find(
+              (t: any) => t.id === cluster.representativeTestId
+            );
+            if (representative) {
+              const diagnosis = await this.diagnosisService.diagnose(
+                {
+                  title: representative.title || representative.name || '',
+                  error: representative.error,
+                  stackTrace: representative.stackTrace,
+                  filePath: representative.file,
+                  lineNumber: representative.line,
+                  screenshots: representative.screenshots,
+                  logs: representative.logs,
+                  browser: representative.browser,
+                },
+                lang || 'zh'
+              );
+              diagnoses.push({
+                clusterId: cluster.clusterId,
+                category: cluster.category,
+                testIds: cluster.testIds,
+                similarity: cluster.similarity,
+                diagnosis: {
+                  ...diagnosis,
+                  relatedFailures: cluster.testIds.filter(
+                    (id: string) => id !== cluster.representativeTestId
+                  ),
+                },
+              });
+            }
+          }
+
+          res.json({ enabled: true, clusters: diagnoses });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          res.status(500).json({ error: errorMessage });
+        }
+      })
+    );
+
     this.app.use('/api/v1', v1Router);
     this.app.use(errorHandler);
+  }
+
+  /**
+   * 根据 runId 和测试标识从历史运行结果中查找匹配的测试信息
+   * 用于在诊断请求中补充更完整的测试上下文（如 screenshots、logs、stackTrace 等）
+   * @param runId - 运行 ID
+   * @param testTitle - 测试标题（优先匹配）
+   * @param file - 测试文件路径
+   * @param line - 测试行号
+   * @returns 匹配到的 TestResult 或 null
+   */
+  private async findTestInfoByRunId(
+    runId: string,
+    testTitle?: string,
+    file?: string,
+    line?: number
+  ): Promise<TestResult | null> {
+    try {
+      const run = await this.reporter.getReport(runId);
+      if (!run) {
+        return null;
+      }
+
+      for (const suite of run.suites) {
+        const matched = suite.tests.find((t) => {
+          if (testTitle && (t.title === testTitle || t.fullTitle === testTitle)) {
+            return true;
+          }
+          if (file && line && t.file === file && t.line === line) {
+            return true;
+          }
+          return false;
+        });
+        if (matched) {
+          return matched;
+        }
+      }
+    } catch (error) {
+      this.log.warn(
+        `Failed to load run result for runId=${runId}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    return null;
   }
 
   private async resolveTestDirFromPlaywrightConfig(): Promise<string> {

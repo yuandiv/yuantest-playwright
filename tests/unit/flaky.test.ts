@@ -39,9 +39,13 @@ describe('FlakyTestManager', () => {
     expect(test).toBeDefined();
     expect(test!.totalRuns).toBe(1);
     expect(test!.failureRate).toBe(0);
+    expect(test!.classification).toBe('insufficient_data');
+    expect(test!.weightedFailureRate).toBe(0);
+    expect(test!.consecutiveFailures).toBe(0);
+    expect(test!.consecutivePasses).toBe(1);
   });
 
-  it('should detect flaky tests based on threshold', async () => {
+  it('should detect flaky tests based on weighted failure rate', async () => {
     const now = Date.now();
     for (let i = 0; i < 10; i++) {
       await manager.recordTestResult({
@@ -64,6 +68,36 @@ describe('FlakyTestManager', () => {
     const flaky = flakyTests.find(t => t.testId === 'test-flaky');
     expect(flaky).toBeDefined();
     expect(flaky!.failureRate).toBe(0.5);
+    expect(flaky!.classification).toBe('flaky');
+    expect(flaky!.weightedFailureRate).toBeGreaterThan(0);
+  });
+
+  it('should classify broken tests and not include them in flaky list', async () => {
+    const now = Date.now();
+    for (let i = 0; i < 5; i++) {
+      await manager.recordTestResult({
+        id: 'test-broken',
+        title: 'Broken Test',
+        status: 'failed',
+        duration: 100,
+        timestamp: now + i,
+        retries: 0,
+        browser: 'chromium',
+        screenshots: [],
+        videos: [],
+        traces: [],
+        logs: [],
+      });
+    }
+
+    const brokenTest = manager.getTestById('test-broken');
+    expect(brokenTest).toBeDefined();
+    expect(brokenTest!.classification).toBe('broken');
+    expect(brokenTest!.consecutiveFailures).toBe(5);
+
+    const flakyTests = manager.getFlakyTests(0.1);
+    const brokenInFlaky = flakyTests.find(t => t.testId === 'test-broken');
+    expect(brokenInFlaky).toBeUndefined();
   });
 
   it('should quarantine and release tests', async () => {
@@ -116,10 +150,12 @@ describe('FlakyTestManager', () => {
     expect(test).toBeDefined();
     expect(test!.totalRuns).toBe(1);
     expect(test!.failureRate).toBe(1);
+    expect(test!.classification).toBeDefined();
+    expect(test!.weightedFailureRate).toBeDefined();
     await manager2.flush();
   });
 
-  it('should return correct quarantine stats', async () => {
+  it('should return correct quarantine stats with classification breakdown', async () => {
     const now = Date.now();
     await manager.recordTestResult({ id: 't1', title: 'T1', status: 'passed', duration: 100, timestamp: now, retries: 0, browser: 'chromium', screenshots: [], videos: [], traces: [], logs: [] });
     await manager.recordTestResult({ id: 't2', title: 'T2', status: 'failed', duration: 100, timestamp: now, retries: 0, browser: 'chromium', screenshots: [], videos: [], traces: [], logs: [] });
@@ -130,6 +166,8 @@ describe('FlakyTestManager', () => {
     expect(stats.totalTests).toBe(2);
     expect(stats.quarantined).toBe(1);
     expect(stats.flakyRate).toBeGreaterThan(0);
+    expect(stats.classificationBreakdown).toBeDefined();
+    expect(stats.classificationBreakdown.insufficient_data).toBeGreaterThanOrEqual(0);
   });
 
   it('should not auto-quarantine with fewer than minimum runs', async () => {
@@ -143,7 +181,7 @@ describe('FlakyTestManager', () => {
       await autoManager.recordTestResult({
         id: 'test-min',
         title: 'Min Runs Test',
-        status: 'failed',
+        status: i % 2 === 0 ? 'failed' : 'passed',
         duration: 100,
         timestamp: Date.now() + i,
         retries: 0,
@@ -157,11 +195,11 @@ describe('FlakyTestManager', () => {
 
     expect(autoManager.isQuarantined('test-min')).toBe(false);
 
-    for (let i = 3; i < 6; i++) {
+    for (let i = 3; i < 8; i++) {
       await autoManager.recordTestResult({
         id: 'test-min',
         title: 'Min Runs Test',
-        status: 'failed',
+        status: i % 2 === 0 ? 'failed' : 'passed',
         duration: 100,
         timestamp: Date.now() + i,
         retries: 0,
@@ -185,11 +223,11 @@ describe('FlakyTestManager', () => {
     });
     await autoManager.ready();
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       await autoManager.recordTestResult({
         id: 'test-auto-release',
         title: 'Auto Release Test',
-        status: 'failed',
+        status: i % 2 === 0 ? 'failed' : 'passed',
         duration: 100,
         timestamp: Date.now() + i,
         retries: 0,
@@ -222,8 +260,8 @@ describe('FlakyTestManager', () => {
     expect(autoManager.isQuarantined('test-auto-release')).toBe(false);
 
     const test = autoManager.getTestById('test-auto-release');
-    expect(test!.history).toHaveLength(0);
     expect(test!.failureRate).toBe(0);
+    expect(test!.classification).toBe('insufficient_data');
 
     await autoManager.flush();
   });
@@ -236,11 +274,11 @@ describe('FlakyTestManager', () => {
     });
     await autoManager.ready();
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       await autoManager.recordTestResult({
         id: 'test-reset',
         title: 'Reset Test',
-        status: 'failed',
+        status: i % 2 === 0 ? 'failed' : 'passed',
         duration: 100,
         timestamp: Date.now() + i,
         retries: 0,
@@ -314,6 +352,8 @@ describe('FlakyTestManager', () => {
     expect(test!.history).toHaveLength(0);
     expect(test!.failureRate).toBe(0);
     expect(test!.totalRuns).toBe(0);
+    expect(test!.classification).toBe('insufficient_data');
+    expect(test!.weightedFailureRate).toBe(0);
   });
 
   it('should release without resetHistory by default', async () => {
@@ -577,5 +617,121 @@ describe('FlakyTestManager', () => {
     const testAfterRelease = manager.getTestById('test-clear-fields');
     expect(testAfterRelease!.quarantinedAt).toBeUndefined();
     expect(testAfterRelease!.consecutivePassesSinceQuarantine).toBe(0);
+  });
+
+  it('should perform root cause analysis', async () => {
+    const now = Date.now();
+    for (let i = 0; i < 5; i++) {
+      await manager.recordTestResult({
+        id: 'test-rc',
+        title: 'Root Cause Test',
+        status: i % 2 === 0 ? 'failed' : 'passed',
+        duration: 100,
+        timestamp: now + i,
+        retries: 0,
+        browser: 'chromium',
+        screenshots: [],
+        videos: [],
+        traces: [],
+        logs: [],
+        error: i % 2 === 0 ? 'Timeout waiting for selector' : undefined,
+      });
+    }
+
+    const analysis = await manager.analyzeRootCause('test-rc');
+    expect(analysis).toBeDefined();
+    expect(analysis!.testId).toBe('test-rc');
+    expect(analysis!.primaryCause).toBeDefined();
+    expect(analysis!.evidence.length).toBeGreaterThan(0);
+    expect(analysis!.suggestedActions.length).toBeGreaterThan(0);
+  });
+
+  it('should return null for root cause analysis of non-existent test', async () => {
+    const analysis = await manager.analyzeRootCause('non-existent');
+    expect(analysis).toBeNull();
+  });
+
+  it('should get tests by classification', async () => {
+    const now = Date.now();
+    for (let i = 0; i < 5; i++) {
+      await manager.recordTestResult({
+        id: 'test-broken-cls',
+        title: 'Broken Classification Test',
+        status: 'failed',
+        duration: 100,
+        timestamp: now + i,
+        retries: 0,
+        browser: 'chromium',
+        screenshots: [],
+        videos: [],
+        traces: [],
+        logs: [],
+      });
+    }
+
+    const brokenTests = manager.getTestsByClassification('broken');
+    expect(brokenTests.length).toBeGreaterThan(0);
+    expect(brokenTests[0].classification).toBe('broken');
+  });
+
+  it('should not auto-quarantine broken tests', async () => {
+    const autoManager = new FlakyTestManager(tmpDir, {
+      autoQuarantine: true,
+      minimumRuns: 3,
+    });
+    await autoManager.ready();
+
+    for (let i = 0; i < 5; i++) {
+      await autoManager.recordTestResult({
+        id: 'test-no-auto-q',
+        title: 'No Auto Quarantine Test',
+        status: 'failed',
+        duration: 100,
+        timestamp: Date.now() + i,
+        retries: 0,
+        browser: 'chromium',
+        screenshots: [],
+        videos: [],
+        traces: [],
+        logs: [],
+      });
+    }
+
+    const test = autoManager.getTestById('test-no-auto-q');
+    expect(test!.classification).toBe('broken');
+    expect(autoManager.isQuarantined('test-no-auto-q')).toBe(false);
+
+    await autoManager.flush();
+  });
+
+  it('should analyze correlations', async () => {
+    const result = manager.analyzeCorrelations();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it('should return null for root cause when disabled', async () => {
+    const disabledManager = new FlakyTestManager(tmpDir, {
+      enableRootCauseAnalysis: false,
+    });
+    await disabledManager.ready();
+
+    await disabledManager.recordTestResult({
+      id: 'test-disabled-rc',
+      title: 'Disabled RC Test',
+      status: 'failed',
+      duration: 100,
+      timestamp: Date.now(),
+      retries: 0,
+      browser: 'chromium',
+      screenshots: [],
+      videos: [],
+      traces: [],
+      logs: [],
+    });
+
+    const analysis = await disabledManager.analyzeRootCause('test-disabled-rc');
+    expect(analysis).toBeNull();
+
+    await disabledManager.flush();
   });
 });

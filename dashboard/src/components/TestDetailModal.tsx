@@ -77,6 +77,10 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
         line: test.line,
         testId: test.id,
         lang,
+        screenshots: test.screenshots,
+        logs: test.logs,
+        browser: test.browser,
+        stackTrace: test.stackTrace,
       }, {
         onStart: (testTitle) => {
           setStreamingContent('');
@@ -131,6 +135,10 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
       line: test.line,
       testId: test.id,
       lang,
+      screenshots: test.screenshots,
+      logs: test.logs,
+      browser: test.browser,
+      stackTrace: test.stackTrace,
     }, {
       onStart: (testTitle) => {
         setStreamingContent('');
@@ -315,6 +323,19 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
                   )}
                   {diagnosis && !diagnosing && (
                     <div className="space-y-3">
+                      {diagnosis.category && (
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                          diagnosis.category === 'timeout' ? 'bg-orange-100 text-orange-800' :
+                          diagnosis.category === 'selector' ? 'bg-purple-100 text-purple-800' :
+                          diagnosis.category === 'assertion' ? 'bg-blue-100 text-blue-800' :
+                          diagnosis.category === 'network' ? 'bg-red-100 text-red-800' :
+                          diagnosis.category === 'frame' ? 'bg-yellow-100 text-yellow-800' :
+                          diagnosis.category === 'auth' ? 'bg-pink-100 text-pink-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {t(`category.${diagnosis.category}`, lang) || diagnosis.category}
+                        </span>
+                      )}
                       <div>
                         <div className="text-xs font-medium text-purple-500 mb-1">{t('summary', lang) || 'Summary'}</div>
                         <div className="text-sm text-purple-800">{diagnosis.summary}</div>
@@ -334,9 +355,79 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
                           ))}
                         </ul>
                       </div>
+                      {diagnosis.codeDiffs && diagnosis.codeDiffs.length > 0 && (
+                        <div className="mt-3">
+                          <h5 className="text-sm font-medium mb-1">{t('codeDiffs', lang) || '代码修复建议'}</h5>
+                          {diagnosis.codeDiffs.map((diff, i) => (
+                            <div key={i} className="mb-2">
+                              <div className="text-xs text-gray-500 mb-1">{diff.filePath}</div>
+                              <div className="text-xs text-gray-600 mb-1">{diff.description}</div>
+                              <pre className="bg-gray-900 text-green-400 p-2 rounded text-xs overflow-x-auto font-mono whitespace-pre">
+                                {diff.unifiedDiff}
+                              </pre>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {diagnosis.docLinks && diagnosis.docLinks.length > 0 && (
+                        <div className="mt-3">
+                          <h5 className="text-sm font-medium mb-1">{t('docLinks', lang) || '参考文档'}</h5>
+                          <ul className="text-xs space-y-1">
+                            {diagnosis.docLinks.map((link, i) => (
+                              <li key={i}>
+                                <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                  {link.title}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {diagnosis.reasoningSteps && diagnosis.reasoningSteps.length > 0 && (
+                        <div className="mt-3">
+                          <h5 className="text-sm font-medium mb-1">{t('reasoningSteps', lang) || '推理步骤'}</h5>
+                          <div className="space-y-1">
+                            {diagnosis.reasoningSteps.map((step, i) => (
+                              <div key={i} className="text-xs bg-gray-50 p-2 rounded">
+                                <span className="font-medium">Step {step.step}:</span>{' '}
+                                {step.tool ? (
+                                  <span>调用 <code className="bg-gray-200 px-1 rounded">{step.tool}</code></span>
+                                ) : null}
+                                {' '}{step.thought}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {diagnosis.analysisMode && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          {t('analysisMode', lang) || '分析模式'}: {diagnosis.analysisMode === 'agent' ? '🤖 Agent 多轮推理' : diagnosis.analysisMode === 'single' ? '📊 单次分析' : '⚡ 简化模式'}
+                        </div>
+                      )}
+                      {diagnosis.calibratedConfidence !== undefined && diagnosis.calibratedConfidence < 0.5 && (
+                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                          ⚠️ {t('lowConfidenceWarning', lang) || '低置信度诊断，建议人工确认'}
+                        </div>
+                      )}
+                      {diagnosis.contextUsed && (
+                        <div className="mt-2 text-xs text-gray-400">
+                          {t('contextUsed', lang) || '使用上下文'}: {
+                            [
+                              diagnosis.contextUsed.sourceCode && '源代码',
+                              diagnosis.contextUsed.screenshot && '截图',
+                              diagnosis.contextUsed.consoleLogs && '控制台日志',
+                              diagnosis.contextUsed.stackTrace && '堆栈跟踪',
+                              diagnosis.contextUsed.historyData && '历史数据',
+                              diagnosis.contextUsed.environmentInfo && '环境信息',
+                            ].filter(Boolean).join(' · ') || t('noContextUsed', lang) || '无额外上下文'
+                          }
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-xs text-purple-400 pt-1 border-t border-purple-100">
                         <span>{t('model', lang) || 'Model'}: {diagnosis.model}</span>
-                        <span>{t('confidence', lang) || 'Confidence'}: {Math.round(diagnosis.confidence * 100)}%</span>
+                        {(diagnosis.calibratedConfidence ?? diagnosis.confidence) > 0 && (
+                          <span>{t('confidence', lang) || 'Confidence'}: {Math.round((diagnosis.calibratedConfidence ?? diagnosis.confidence) * 100)}%</span>
+                        )}
                       </div>
                     </div>
                   )}
