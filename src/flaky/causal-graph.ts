@@ -58,7 +58,9 @@ function inferInfrastructureNodes(
   const testMap = new Map(tests.map((t) => [t.testId, t]));
 
   for (const group of correlationGroups) {
-    if (group.testIds.length < 2) continue;
+    if (group.testIds.length < 2) {
+      continue;
+    }
 
     const rootCauses = group.testIds
       .map((id) => testMap.get(id)?.rootCause?.primaryCause)
@@ -107,7 +109,10 @@ function inferInfrastructureNodes(
         from: infraNodeId,
         to: testId,
         weight: group.confidence,
-        type: group.correlationType === 'same_error_pattern' ? 'correlated_failure' : 'same_environment',
+        type:
+          group.correlationType === 'same_error_pattern'
+            ? 'correlated_failure'
+            : 'same_environment',
         confidence: group.confidence,
       });
     }
@@ -132,7 +137,9 @@ function inferDependencyEdges(
   const edges: CausalEdge[] = [];
   const testIds = new Set(tests.map((t) => t.testId));
 
-  if (recentRuns.length < 2) return edges;
+  if (recentRuns.length < 2) {
+    return edges;
+  }
 
   const coFailure = new Map<string, Map<string, { both: number; either: number }>>();
 
@@ -147,14 +154,22 @@ function inferDependencyEdges(
         const idA = failedInRun[i].id;
         const idB = failedInRun[j].id;
 
-        if (!coFailure.has(idA)) coFailure.set(idA, new Map());
-        if (!coFailure.has(idB)) coFailure.set(idB, new Map());
+        if (!coFailure.has(idA)) {
+          coFailure.set(idA, new Map());
+        }
+        if (!coFailure.has(idB)) {
+          coFailure.set(idB, new Map());
+        }
 
         const pairA = coFailure.get(idA)!;
         const pairB = coFailure.get(idB)!;
 
-        if (!pairA.has(idB)) pairA.set(idB, { both: 0, either: 0 });
-        if (!pairB.has(idA)) pairB.set(idA, { both: 0, either: 0 });
+        if (!pairA.has(idB)) {
+          pairA.set(idB, { both: 0, either: 0 });
+        }
+        if (!pairB.has(idA)) {
+          pairB.set(idA, { both: 0, either: 0 });
+        }
 
         pairA.get(idB)!.both++;
         pairA.get(idB)!.either++;
@@ -180,7 +195,9 @@ function inferDependencyEdges(
   for (const [idA, pairs] of coFailure) {
     for (const [idB, stats] of pairs) {
       const key = [idA, idB].sort().join('::');
-      if (processed.has(key)) continue;
+      if (processed.has(key)) {
+        continue;
+      }
       processed.add(key);
 
       const correlation = stats.either > 0 ? stats.both / stats.either : 0;
@@ -248,7 +265,9 @@ function buildImpactMap(graph: CausalGraph, maxDepth: number): Map<string, strin
   const adjacency = new Map<string, string[]>();
 
   for (const edge of graph.edges) {
-    if (!adjacency.has(edge.from)) adjacency.set(edge.from, []);
+    if (!adjacency.has(edge.from)) {
+      adjacency.set(edge.from, []);
+    }
     adjacency.get(edge.from)!.push(edge.to);
   }
 
@@ -260,7 +279,9 @@ function buildImpactMap(graph: CausalGraph, maxDepth: number): Map<string, strin
 
     while (queue.length > 0) {
       const current = queue.shift()!;
-      if (visited.has(current.id) || current.depth > maxDepth) continue;
+      if (visited.has(current.id) || current.depth > maxDepth) {
+        continue;
+      }
       visited.add(current.id);
 
       const neighbors = adjacency.get(current.id) || [];
@@ -307,11 +328,7 @@ export class CausalGraphBuilder {
       correlationGroups,
       tests
     );
-    const dependencyEdges = inferDependencyEdges(
-      tests,
-      recentRuns,
-      this.config.minCorrelation
-    );
+    const dependencyEdges = inferDependencyEdges(tests, recentRuns, this.config.minCorrelation);
 
     const allNodes = [...testNodes, ...infraNodes];
     const allEdges = [...infraEdges, ...dependencyEdges];
@@ -337,19 +354,21 @@ export class CausalGraphBuilder {
    * @returns 影响分析结果
    */
   analyzeImpact(testId: string, graph: CausalGraph): ImpactAnalysis {
-    const directlyAffected = graph.edges
-      .filter((e) => e.from === testId)
-      .map((e) => e.to);
+    const directlyAffected = graph.edges.filter((e) => e.from === testId).map((e) => e.to);
 
     const allAffected = graph.impactMap.get(testId) || [];
     const indirectlyAffected = allAffected.filter((id) => !directlyAffected.includes(id));
 
     const totalImpact = directlyAffected.length * 2 + indirectlyAffected.length;
 
-    const riskLevel = totalImpact >= 10 ? 'critical'
-      : totalImpact >= 5 ? 'high'
-      : totalImpact >= 2 ? 'medium'
-      : 'low';
+    const riskLevel =
+      totalImpact >= 10
+        ? 'critical'
+        : totalImpact >= 5
+          ? 'high'
+          : totalImpact >= 2
+            ? 'medium'
+            : 'low';
 
     const recommendations: Record<string, string> = {
       critical: '影响范围极大，修复此测试可解决多个关联问题，建议最高优先级处理',

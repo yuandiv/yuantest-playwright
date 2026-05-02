@@ -258,7 +258,12 @@ export interface RunResult {
   metadata?: RunMetadata;
 }
 
-export type FlakyClassification = 'flaky' | 'broken' | 'regression' | 'stable' | 'insufficient_data';
+export type FlakyClassification =
+  | 'flaky'
+  | 'broken'
+  | 'regression'
+  | 'stable'
+  | 'insufficient_data';
 
 export type RootCauseType =
   | 'timing'
@@ -432,7 +437,12 @@ export interface PredictionResult {
 }
 
 export interface PredictionSignal {
-  type: 'duration_anomaly' | 'failure_pattern' | 'environment_shift' | 'code_change' | 'resource_pressure';
+  type:
+    | 'duration_anomaly'
+    | 'failure_pattern'
+    | 'environment_shift'
+    | 'code_change'
+    | 'resource_pressure';
   strength: number;
   description: string;
   data: Record<string, unknown>;

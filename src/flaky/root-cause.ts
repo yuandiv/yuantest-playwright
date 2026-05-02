@@ -91,7 +91,9 @@ function detectTimingIssue(test: FlakyTest): RootCauseEvidence | null {
   let keywordHits = 0;
 
   for (const entry of test.history) {
-    if (!entry.error) continue;
+    if (!entry.error) {
+      continue;
+    }
     const lower = entry.error.toLowerCase();
     for (const kw of TIMING_KEYWORDS) {
       if (lower.includes(kw)) {
@@ -117,8 +119,7 @@ function detectTimingIssue(test: FlakyTest): RootCauseEvidence | null {
 
   const confidence = Math.min(
     1,
-    (keywordHits / Math.max(test.history.length, 1)) * 0.7 +
-      (cv > DURATION_CV_THRESHOLD ? 0.3 : 0)
+    (keywordHits / Math.max(test.history.length, 1)) * 0.7 + (cv > DURATION_CV_THRESHOLD ? 0.3 : 0)
   );
 
   return {
@@ -136,10 +137,7 @@ function detectTimingIssue(test: FlakyTest): RootCauseEvidence | null {
  * @param context - 分析上下文
  * @returns 根因证据，未检测到则返回 null
  */
-function detectDataRace(
-  test: FlakyTest,
-  context: AnalysisContext
-): RootCauseEvidence | null {
+function detectDataRace(test: FlakyTest, context: AnalysisContext): RootCauseEvidence | null {
   if (!context.shardMap || context.recentRuns.length === 0) {
     return null;
   }
@@ -155,14 +153,19 @@ function detectDataRace(
             shardResults.set(shard, { passed: 0, failed: 0 });
           }
           const results = shardResults.get(shard)!;
-          if (t.status === 'passed') results.passed++;
-          else if (t.status === 'failed' || t.status === 'timedout') results.failed++;
+          if (t.status === 'passed') {
+            results.passed++;
+          } else if (t.status === 'failed' || t.status === 'timedout') {
+            results.failed++;
+          }
         }
       }
     }
   }
 
-  if (shardResults.size < 2) return null;
+  if (shardResults.size < 2) {
+    return null;
+  }
 
   const shardPassRates: number[] = [];
   for (const [, results] of shardResults) {
@@ -172,13 +175,17 @@ function detectDataRace(
     }
   }
 
-  if (shardPassRates.length < 2) return null;
+  if (shardPassRates.length < 2) {
+    return null;
+  }
 
   const maxRate = Math.max(...shardPassRates);
   const minRate = Math.min(...shardPassRates);
   const divergence = maxRate - minRate;
 
-  if (divergence < 0.3) return null;
+  if (divergence < 0.3) {
+    return null;
+  }
 
   const indicators = [
     `分片间通过率差异: ${(minRate * 100).toFixed(0)}% ~ ${(maxRate * 100).toFixed(0)}%`,
@@ -189,7 +196,7 @@ function detectDataRace(
     type: 'data_race',
     indicators,
     confidence: Math.min(1, divergence + 0.2),
-    description: `数据竞争：不同分片间结果不一致，通过率差异 ${((divergence) * 100).toFixed(0)}%`,
+    description: `数据竞争：不同分片间结果不一致，通过率差异 ${(divergence * 100).toFixed(0)}%`,
   };
 }
 
@@ -209,7 +216,9 @@ function detectEnvironmentDependency(
     .map((h) => h.timestamp)
     .sort((a, b) => a - b);
 
-  if (failedTimestamps.length < 2) return null;
+  if (failedTimestamps.length < 2) {
+    return null;
+  }
 
   const timeClustered = isTimeClustered(failedTimestamps);
 
@@ -237,15 +246,19 @@ function detectEnvironmentDependency(
       const total = nodeTotalCount.get(node) || 0;
       if (total >= 2 && failCount / total >= 0.5) {
         nodeClustered = true;
-        nodeIndicators.push(`节点 ${node} 失败率 ${(failCount / total * 100).toFixed(0)}%`);
+        nodeIndicators.push(`节点 ${node} 失败率 ${((failCount / total) * 100).toFixed(0)}%`);
       }
     }
   }
 
-  if (!timeClustered && !nodeClustered) return null;
+  if (!timeClustered && !nodeClustered) {
+    return null;
+  }
 
   const indicators: string[] = [];
-  if (timeClustered) indicators.push('失败时间呈聚集模式');
+  if (timeClustered) {
+    indicators.push('失败时间呈聚集模式');
+  }
   indicators.push(...nodeIndicators);
 
   const confidence = (timeClustered ? 0.4 : 0) + (nodeClustered ? 0.5 : 0);
@@ -269,7 +282,9 @@ function detectExternalService(test: FlakyTest): RootCauseEvidence | null {
   let keywordHits = 0;
 
   for (const entry of test.history) {
-    if (!entry.error) continue;
+    if (!entry.error) {
+      continue;
+    }
     const lower = entry.error.toLowerCase();
     for (const kw of EXTERNAL_SERVICE_KEYWORDS) {
       if (lower.includes(kw)) {
@@ -282,9 +297,11 @@ function detectExternalService(test: FlakyTest): RootCauseEvidence | null {
     }
   }
 
-  if (keywordHits === 0) return null;
+  if (keywordHits === 0) {
+    return null;
+  }
 
-  const confidence = Math.min(1, keywordHits / Math.max(test.history.length, 1) * 0.8 + 0.2);
+  const confidence = Math.min(1, (keywordHits / Math.max(test.history.length, 1)) * 0.8 + 0.2);
 
   return {
     type: 'external_service',
@@ -305,7 +322,9 @@ function detectTestOrderDependency(
   test: FlakyTest,
   context: AnalysisContext
 ): RootCauseEvidence | null {
-  if (context.recentRuns.length < 2) return null;
+  if (context.recentRuns.length < 2) {
+    return null;
+  }
 
   const precedingTestsOnFail = new Map<string, number>();
   let failCount = 0;
@@ -313,22 +332,25 @@ function detectTestOrderDependency(
   for (const run of context.recentRuns) {
     const allTests = run.suites.flatMap((s) => s.tests);
     const targetIndex = allTests.findIndex((t) => t.id === test.testId);
-    if (targetIndex <= 0) continue;
+    if (targetIndex <= 0) {
+      continue;
+    }
 
     const target = allTests[targetIndex];
-    if (target.status !== 'failed' && target.status !== 'timedout') continue;
+    if (target.status !== 'failed' && target.status !== 'timedout') {
+      continue;
+    }
 
     failCount++;
     const preceding = allTests[targetIndex - 1];
     if (preceding) {
-      precedingTestsOnFail.set(
-        preceding.id,
-        (precedingTestsOnFail.get(preceding.id) || 0) + 1
-      );
+      precedingTestsOnFail.set(preceding.id, (precedingTestsOnFail.get(preceding.id) || 0) + 1);
     }
   }
 
-  if (failCount < 2) return null;
+  if (failCount < 2) {
+    return null;
+  }
 
   let maxPrecedingId = '';
   let maxPrecedingCount = 0;
@@ -339,12 +361,14 @@ function detectTestOrderDependency(
     }
   }
 
-  if (maxPrecedingCount < 2 || maxPrecedingCount / failCount < 0.5) return null;
+  if (maxPrecedingCount < 2 || maxPrecedingCount / failCount < 0.5) {
+    return null;
+  }
 
   return {
     type: 'test_order',
     indicators: [`前置测试 ${maxPrecedingId} 出现在 ${maxPrecedingCount}/${failCount} 次失败中`],
-    confidence: Math.min(1, maxPrecedingCount / failCount * 0.7 + 0.2),
+    confidence: Math.min(1, (maxPrecedingCount / failCount) * 0.7 + 0.2),
     description: `测试顺序依赖：失败前经常运行测试 ${maxPrecedingId}`,
   };
 }
@@ -360,7 +384,9 @@ function detectResourceLeak(test: FlakyTest): RootCauseEvidence | null {
 
   let keywordHits = 0;
   for (const entry of test.history) {
-    if (!entry.error) continue;
+    if (!entry.error) {
+      continue;
+    }
     const lower = entry.error.toLowerCase();
     for (const kw of RESOURCE_LEAK_KEYWORDS) {
       if (lower.includes(kw)) {
@@ -380,7 +406,9 @@ function detectResourceLeak(test: FlakyTest): RootCauseEvidence | null {
     indicators.push(`持续时间呈上升趋势(slope=${trendSlope.toFixed(3)})`);
   }
 
-  if (keywordHits === 0 && trendSlope <= DURATION_TREND_THRESHOLD) return null;
+  if (keywordHits === 0 && trendSlope <= DURATION_TREND_THRESHOLD) {
+    return null;
+  }
 
   const confidence = Math.min(
     1,
@@ -406,7 +434,9 @@ function detectAssertionFlaky(test: FlakyTest): RootCauseEvidence | null {
   let keywordHits = 0;
 
   for (const entry of test.history) {
-    if (!entry.error) continue;
+    if (!entry.error) {
+      continue;
+    }
     const lower = entry.error.toLowerCase();
     for (const kw of ASSERTION_KEYWORDS) {
       if (lower.includes(kw)) {
@@ -419,17 +449,23 @@ function detectAssertionFlaky(test: FlakyTest): RootCauseEvidence | null {
     }
   }
 
-  if (keywordHits === 0) return null;
+  if (keywordHits === 0) {
+    return null;
+  }
 
   const timingErrors = test.history.filter((h) => {
-    if (!h.error) return false;
+    if (!h.error) {
+      return false;
+    }
     const lower = h.error.toLowerCase();
     return TIMING_KEYWORDS.some((kw) => lower.includes(kw));
   }).length;
 
-  if (timingErrors > keywordHits) return null;
+  if (timingErrors > keywordHits) {
+    return null;
+  }
 
-  const confidence = Math.min(1, keywordHits / Math.max(test.history.length, 1) * 0.6 + 0.3);
+  const confidence = Math.min(1, (keywordHits / Math.max(test.history.length, 1)) * 0.6 + 0.3);
 
   return {
     type: 'assertion_flaky',
@@ -446,10 +482,14 @@ function detectAssertionFlaky(test: FlakyTest): RootCauseEvidence | null {
  * @returns 变异系数，数据不足时返回 0
  */
 function calculateCoefficientOfVariation(values: number[]): number {
-  if (values.length < 2) return 0;
+  if (values.length < 2) {
+    return 0;
+  }
 
   const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-  if (mean === 0) return 0;
+  if (mean === 0) {
+    return 0;
+  }
 
   const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
   return Math.sqrt(variance) / mean;
@@ -462,7 +502,9 @@ function calculateCoefficientOfVariation(values: number[]): number {
  * @returns 归一化斜率，数据不足时返回 0
  */
 function calculateTrendSlope(values: number[]): number {
-  if (values.length < 3) return 0;
+  if (values.length < 3) {
+    return 0;
+  }
 
   const n = values.length;
   const meanX = (n - 1) / 2;
@@ -476,7 +518,9 @@ function calculateTrendSlope(values: number[]): number {
     denominator += (i - meanX) ** 2;
   }
 
-  if (denominator === 0) return 0;
+  if (denominator === 0) {
+    return 0;
+  }
 
   const slope = numerator / denominator;
   return meanY > 0 ? slope / meanY : 0;
@@ -490,7 +534,9 @@ function calculateTrendSlope(values: number[]): number {
  * @returns 是否呈聚集模式
  */
 function isTimeClustered(timestamps: number[]): boolean {
-  if (timestamps.length < 3) return false;
+  if (timestamps.length < 3) {
+    return false;
+  }
 
   const intervals: number[] = [];
   for (let i = 1; i < timestamps.length; i++) {
@@ -500,7 +546,9 @@ function isTimeClustered(timestamps: number[]): boolean {
   const meanInterval = intervals.reduce((sum, v) => sum + v, 0) / intervals.length;
   const minInterval = Math.min(...intervals);
 
-  if (meanInterval === 0) return false;
+  if (meanInterval === 0) {
+    return false;
+  }
 
   const shortIntervals = intervals.filter((v) => v < meanInterval * 0.3).length;
   return shortIntervals >= intervals.length * 0.5;
@@ -581,25 +629,39 @@ export class RootCauseAnalyzer {
     const evidenceList: RootCauseEvidence[] = [];
 
     const timing = detectTimingIssue(test);
-    if (timing) evidenceList.push(timing);
+    if (timing) {
+      evidenceList.push(timing);
+    }
 
     const dataRace = detectDataRace(test, context);
-    if (dataRace) evidenceList.push(dataRace);
+    if (dataRace) {
+      evidenceList.push(dataRace);
+    }
 
     const environment = detectEnvironmentDependency(test, context);
-    if (environment) evidenceList.push(environment);
+    if (environment) {
+      evidenceList.push(environment);
+    }
 
     const externalService = detectExternalService(test);
-    if (externalService) evidenceList.push(externalService);
+    if (externalService) {
+      evidenceList.push(externalService);
+    }
 
     const testOrder = detectTestOrderDependency(test, context);
-    if (testOrder) evidenceList.push(testOrder);
+    if (testOrder) {
+      evidenceList.push(testOrder);
+    }
 
     const resourceLeak = detectResourceLeak(test);
-    if (resourceLeak) evidenceList.push(resourceLeak);
+    if (resourceLeak) {
+      evidenceList.push(resourceLeak);
+    }
 
     const assertionFlaky = detectAssertionFlaky(test);
-    if (assertionFlaky) evidenceList.push(assertionFlaky);
+    if (assertionFlaky) {
+      evidenceList.push(assertionFlaky);
+    }
 
     evidenceList.sort((a, b) => b.confidence - a.confidence);
 

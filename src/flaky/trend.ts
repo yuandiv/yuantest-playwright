@@ -41,14 +41,19 @@ export function aggregateTimeSeries(
   history: FlakyHistoryEntry[],
   windowDays: number = FLAKY_CONFIG.TREND_AGGREGATION_WINDOW_DAYS
 ): TrendDataPoint[] {
-  if (history.length === 0) return [];
+  if (history.length === 0) {
+    return [];
+  }
 
   const MS_PER_DAY = 24 * 60 * 60 * 1000;
   const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
   const earliest = sorted[0].timestamp;
   const latest = sorted[sorted.length - 1].timestamp;
 
-  const buckets = new Map<string, { passed: number; failed: number; durations: number[]; total: number }>();
+  const buckets = new Map<
+    string,
+    { passed: number; failed: number; durations: number[]; total: number }
+  >();
 
   for (const entry of sorted) {
     const bucketKey = new Date(entry.timestamp).toISOString().split('T')[0];
@@ -70,9 +75,10 @@ export function aggregateTimeSeries(
 
   for (const key of bucketKeys) {
     const bucket = buckets.get(key)!;
-    const avgDuration = bucket.durations.length > 0
-      ? bucket.durations.reduce((s, d) => s + d, 0) / bucket.durations.length
-      : 0;
+    const avgDuration =
+      bucket.durations.length > 0
+        ? bucket.durations.reduce((s, d) => s + d, 0) / bucket.durations.length
+        : 0;
 
     dataPoints.push({
       timestamp: new Date(key).getTime(),
@@ -119,8 +125,14 @@ function applyMovingAverage(dataPoints: TrendDataPoint[], windowSize: number): T
  * @param values - 数值数组
  * @returns 斜率、截距和 R² 决定系数
  */
-export function linearRegression(values: number[]): { slope: number; intercept: number; r2: number } {
-  if (values.length < 2) return { slope: 0, intercept: 0, r2: 0 };
+export function linearRegression(values: number[]): {
+  slope: number;
+  intercept: number;
+  r2: number;
+} {
+  if (values.length < 2) {
+    return { slope: 0, intercept: 0, r2: 0 };
+  }
 
   const n = values.length;
   const xMean = (n - 1) / 2;
@@ -136,7 +148,9 @@ export function linearRegression(values: number[]): { slope: number; intercept: 
     ssTot += (values[i] - yMean) ** 2;
   }
 
-  if (ssXX === 0 || ssTot === 0) return { slope: 0, intercept: yMean, r2: 0 };
+  if (ssXX === 0 || ssTot === 0) {
+    return { slope: 0, intercept: yMean, r2: 0 };
+  }
 
   const slope = ssXY / ssXX;
   const intercept = yMean - slope * xMean;
@@ -158,17 +172,25 @@ export function linearRegression(values: number[]): { slope: number; intercept: 
  * @returns 趋势方向
  */
 export function detectTrendDirection(dataPoints: TrendDataPoint[]): TrendDirection {
-  if (dataPoints.length < 3) return 'stable';
+  if (dataPoints.length < 3) {
+    return 'stable';
+  }
 
   const failRates = dataPoints.map((dp) => dp.failRate);
   const { slope, r2 } = linearRegression(failRates);
 
-  if (r2 < 0.3) return 'volatile';
+  if (r2 < 0.3) {
+    return 'volatile';
+  }
 
   const normalizedSlope = slope;
 
-  if (normalizedSlope < -0.02) return 'improving';
-  if (normalizedSlope > 0.02) return 'degrading';
+  if (normalizedSlope < -0.02) {
+    return 'improving';
+  }
+  if (normalizedSlope > 0.02) {
+    return 'degrading';
+  }
   return 'stable';
 }
 
@@ -183,13 +205,17 @@ export function detectChangePoints(
   dataPoints: TrendDataPoint[],
   threshold: number = FLAKY_CONFIG.TREND_CHANGE_POINT_THRESHOLD
 ): ChangePoint[] {
-  if (dataPoints.length < 4) return [];
+  if (dataPoints.length < 4) {
+    return [];
+  }
 
   const failRates = dataPoints.map((dp) => dp.failRate);
   const mean = failRates.reduce((s, v) => s + v, 0) / failRates.length;
   const std = Math.sqrt(failRates.reduce((s, v) => s + (v - mean) ** 2, 0) / failRates.length);
 
-  if (std === 0) return [];
+  if (std === 0) {
+    return [];
+  }
 
   const changePoints: ChangePoint[] = [];
   let cusumPos = 0;
@@ -204,8 +230,10 @@ export function detectChangePoints(
       const beforeWindow = failRates.slice(Math.max(0, i - 3), i);
       const afterWindow = failRates.slice(i, Math.min(failRates.length, i + 3));
 
-      const beforeRate = beforeWindow.length > 0 ? beforeWindow.reduce((s, v) => s + v, 0) / beforeWindow.length : 0;
-      const afterRate = afterWindow.length > 0 ? afterWindow.reduce((s, v) => s + v, 0) / afterWindow.length : 0;
+      const beforeRate =
+        beforeWindow.length > 0 ? beforeWindow.reduce((s, v) => s + v, 0) / beforeWindow.length : 0;
+      const afterRate =
+        afterWindow.length > 0 ? afterWindow.reduce((s, v) => s + v, 0) / afterWindow.length : 0;
       const magnitude = Math.abs(afterRate - beforeRate);
 
       if (magnitude >= threshold) {
@@ -238,7 +266,9 @@ export function detectSeasonalPattern(
   minCycles: number = FLAKY_CONFIG.TREND_SEASONAL_MIN_CYCLES
 ): SeasonalPattern | null {
   const failures = history.filter((h) => h.status === 'failed' || h.status === 'timedout');
-  if (failures.length < minCycles * 2) return null;
+  if (failures.length < minCycles * 2) {
+    return null;
+  }
 
   const hourCounts = new Map<number, { total: number; failed: number }>();
   const dayCounts = new Map<number, { total: number; failed: number }>();
@@ -248,8 +278,12 @@ export function detectSeasonalPattern(
     const hour = date.getHours();
     const day = date.getDay();
 
-    if (!hourCounts.has(hour)) hourCounts.set(hour, { total: 0, failed: 0 });
-    if (!dayCounts.has(day)) dayCounts.set(day, { total: 0, failed: 0 });
+    if (!hourCounts.has(hour)) {
+      hourCounts.set(hour, { total: 0, failed: 0 });
+    }
+    if (!dayCounts.has(day)) {
+      dayCounts.set(day, { total: 0, failed: 0 });
+    }
 
     hourCounts.get(hour)!.total++;
     dayCounts.get(day)!.total++;
@@ -303,10 +337,12 @@ export function detectSeasonalPattern(
     }
   }
 
-  if (peakHours.length === 0 && peakDays.length === 0) return null;
+  if (peakHours.length === 0 && peakDays.length === 0) {
+    return null;
+  }
 
   const period = peakDays.length > 0 ? 'weekly' : peakHours.length > 0 ? 'daily' : 'hourly';
-  const confidence = Math.min(1, amplitude / Math.max(overallRate, 0.01) * 0.5);
+  const confidence = Math.min(1, (amplitude / Math.max(overallRate, 0.01)) * 0.5);
 
   return {
     period,
@@ -328,7 +364,9 @@ export function correlateCodeChanges(
   changePoints: ChangePoint[],
   codeChanges: CodeChangeCorrelation[]
 ): CodeChangeCorrelation[] {
-  if (changePoints.length === 0 || codeChanges.length === 0) return [];
+  if (changePoints.length === 0 || codeChanges.length === 0) {
+    return [];
+  }
 
   const MS_PER_DAY = 24 * 60 * 60 * 1000;
   const correlated: CodeChangeCorrelation[] = [];
@@ -336,7 +374,9 @@ export function correlateCodeChanges(
   for (const cp of changePoints) {
     for (const change of codeChanges) {
       const timeDiff = Math.abs(cp.timestamp - change.timestamp);
-      if (timeDiff > 3 * MS_PER_DAY) continue;
+      if (timeDiff > 3 * MS_PER_DAY) {
+        continue;
+      }
 
       const temporalProximity = 1 - timeDiff / (3 * MS_PER_DAY);
       const magnitudeFactor = Math.min(1, cp.magnitude * 2);
@@ -386,7 +426,10 @@ export function generateForecast(
   const next7Days: TrendDataPoint[] = [];
   for (let d = 1; d <= 7; d++) {
     const timestamp = lastTimestamp + d * MS_PER_DAY;
-    const projectedFailRate = Math.max(0, Math.min(1, slope * (failRates.length + d - 1) + intercept));
+    const projectedFailRate = Math.max(
+      0,
+      Math.min(1, slope * (failRates.length + d - 1) + intercept)
+    );
 
     let seasonalAdjustment = 0;
     if (seasonalPattern) {
@@ -415,7 +458,10 @@ export function generateForecast(
 
   return {
     next7Days,
-    confidence: Math.round(Math.min(1, r2 * 0.8 + (seasonalPattern ? seasonalPattern.confidence * 0.2 : 0)) * 100) / 100,
+    confidence:
+      Math.round(
+        Math.min(1, r2 * 0.8 + (seasonalPattern ? seasonalPattern.confidence * 0.2 : 0)) * 100
+      ) / 100,
     projectedDirection,
   };
 }
@@ -447,16 +493,26 @@ export function calculateHealthScore(
 
   const totalRuns = test.totalRuns;
   const passes = test.history.filter((h) => h.status === 'passed').length;
-  const recoverability = totalRuns > 0 ? Math.min(1, passes / totalRuns * 1.5) : 0;
+  const recoverability = totalRuns > 0 ? Math.min(1, (passes / totalRuns) * 1.5) : 0;
 
   const predictability = trendR2;
 
-  const overall = stability * weights.stability
-    + trend * weights.trend
-    + recoverability * weights.recoverability
-    + predictability * weights.predictability;
+  const overall =
+    stability * weights.stability +
+    trend * weights.trend +
+    recoverability * weights.recoverability +
+    predictability * weights.predictability;
 
-  const grade = overall >= 0.9 ? 'A' : overall >= 0.75 ? 'B' : overall >= 0.6 ? 'C' : overall >= 0.4 ? 'D' : 'F';
+  const grade =
+    overall >= 0.9
+      ? 'A'
+      : overall >= 0.75
+        ? 'B'
+        : overall >= 0.6
+          ? 'C'
+          : overall >= 0.4
+            ? 'D'
+            : 'F';
 
   const labels: Record<string, string> = {
     A: '非常健康',

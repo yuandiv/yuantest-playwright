@@ -214,9 +214,7 @@ const ASSERTION_PATTERNS: ErrorPattern[] = [
         'Use regex matching: toHaveText(/pattern/)',
       ],
     },
-    docLinks: [
-      { title: 'Test Assertions', url: 'https://playwright.dev/docs/test-assertions' },
-    ],
+    docLinks: [{ title: 'Test Assertions', url: 'https://playwright.dev/docs/test-assertions' }],
   },
   {
     id: 'assertion-visibility',
@@ -242,9 +240,7 @@ const ASSERTION_PATTERNS: ErrorPattern[] = [
         'Use toBeAttached() to check if the element is in the DOM without requiring visibility',
       ],
     },
-    docLinks: [
-      { title: 'Test Assertions', url: 'https://playwright.dev/docs/test-assertions' },
-    ],
+    docLinks: [{ title: 'Test Assertions', url: 'https://playwright.dev/docs/test-assertions' }],
   },
   {
     id: 'assertion-attribute',
@@ -270,9 +266,7 @@ const ASSERTION_PATTERNS: ErrorPattern[] = [
         'Verify the correct element is targeted; the attribute may belong to a different element',
       ],
     },
-    docLinks: [
-      { title: 'Test Assertions', url: 'https://playwright.dev/docs/test-assertions' },
-    ],
+    docLinks: [{ title: 'Test Assertions', url: 'https://playwright.dev/docs/test-assertions' }],
   },
 ];
 
@@ -301,9 +295,7 @@ const NETWORK_PATTERNS: ErrorPattern[] = [
         'Check SSL certificate configuration; set ignoreHTTPSErrors: true if necessary',
       ],
     },
-    docLinks: [
-      { title: 'Network', url: 'https://playwright.dev/docs/network' },
-    ],
+    docLinks: [{ title: 'Network', url: 'https://playwright.dev/docs/network' }],
   },
   {
     id: 'network-cors',
@@ -329,9 +321,7 @@ const NETWORK_PATTERNS: ErrorPattern[] = [
         'Check if the request method and custom headers are in the server allowlist',
       ],
     },
-    docLinks: [
-      { title: 'Network', url: 'https://playwright.dev/docs/network' },
-    ],
+    docLinks: [{ title: 'Network', url: 'https://playwright.dev/docs/network' }],
   },
   {
     id: 'network-dns',
@@ -357,9 +347,7 @@ const NETWORK_PATTERNS: ErrorPattern[] = [
         'Verify DNS configuration and network policies in CI environment',
       ],
     },
-    docLinks: [
-      { title: 'Network', url: 'https://playwright.dev/docs/network' },
-    ],
+    docLinks: [{ title: 'Network', url: 'https://playwright.dev/docs/network' }],
   },
 ];
 
@@ -388,9 +376,7 @@ const FRAME_PATTERNS: ErrorPattern[] = [
         'Check if JavaScript code is dynamically removing the iframe',
       ],
     },
-    docLinks: [
-      { title: 'Frames', url: 'https://playwright.dev/docs/frames' },
-    ],
+    docLinks: [{ title: 'Frames', url: 'https://playwright.dev/docs/frames' }],
   },
   {
     id: 'frame-cross-origin',
@@ -448,9 +434,7 @@ const AUTH_PATTERNS: ErrorPattern[] = [
         'Use Playwright storageState to save and reuse login state',
       ],
     },
-    docLinks: [
-      { title: 'Auth', url: 'https://playwright.dev/docs/auth' },
-    ],
+    docLinks: [{ title: 'Auth', url: 'https://playwright.dev/docs/auth' }],
   },
   {
     id: 'auth-redirect-login',
@@ -476,9 +460,7 @@ const AUTH_PATTERNS: ErrorPattern[] = [
         'Use Playwright projects configuration to share storageState',
       ],
     },
-    docLinks: [
-      { title: 'Auth', url: 'https://playwright.dev/docs/auth' },
-    ],
+    docLinks: [{ title: 'Auth', url: 'https://playwright.dev/docs/auth' }],
   },
 ];
 
@@ -497,9 +479,7 @@ const ALL_PATTERNS: ErrorPattern[] = [
  * @returns 匹配到的 ErrorPattern 列表
  */
 export function matchPatterns(error: string): ErrorPattern[] {
-  return ALL_PATTERNS.filter((pattern) =>
-    pattern.regex.some((re) => re.test(error))
-  );
+  return ALL_PATTERNS.filter((pattern) => pattern.regex.some((re) => re.test(error)));
 }
 
 /**
@@ -519,9 +499,7 @@ export function buildFewShotExamples(patterns: ErrorPattern[], lang: string): st
   for (const pattern of patterns) {
     const rootCause = isZh ? pattern.rootCauseTemplate.zh : pattern.rootCauseTemplate.en;
     const suggestions = isZh ? pattern.suggestionsTemplate.zh : pattern.suggestionsTemplate.en;
-    const docLinks = pattern.docLinks
-      .map((link) => `${link.title}: ${link.url}`)
-      .join('; ');
+    const docLinks = pattern.docLinks.map((link) => `${link.title}: ${link.url}`).join('; ');
 
     lines.push(`- ${isZh ? '模式' : 'Pattern'}：${pattern.name}`);
     lines.push(`  ${isZh ? '典型根因' : 'Root cause'}：${rootCause}`);

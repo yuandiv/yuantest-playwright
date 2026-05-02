@@ -113,12 +113,22 @@ export function determineIsolationLevel(
 ): IsolationLevel {
   const cfg = { ...DEFAULT_STRATEGY_CONFIG, ...config };
 
-  if (classification === 'broken') return 'hard_quarantine';
-  if (classification === 'stable' || classification === 'insufficient_data') return 'none';
+  if (classification === 'broken') {
+    return 'hard_quarantine';
+  }
+  if (classification === 'stable' || classification === 'insufficient_data') {
+    return 'none';
+  }
 
-  if (weightedFailureRate >= cfg.hardThreshold) return 'hard_quarantine';
-  if (weightedFailureRate >= cfg.softThreshold) return 'soft_quarantine';
-  if (weightedFailureRate > 0) return 'monitor';
+  if (weightedFailureRate >= cfg.hardThreshold) {
+    return 'hard_quarantine';
+  }
+  if (weightedFailureRate >= cfg.softThreshold) {
+    return 'soft_quarantine';
+  }
+  if (weightedFailureRate > 0) {
+    return 'monitor';
+  }
 
   return 'none';
 }
@@ -128,7 +138,9 @@ export function determineIsolationLevel(
  * @param isolationLevel - 隔离级别
  * @returns 策略类型
  */
-export function getStrategyForIsolationLevel(isolationLevel: IsolationLevel): QuarantineStrategyType {
+export function getStrategyForIsolationLevel(
+  isolationLevel: IsolationLevel
+): QuarantineStrategyType {
   const strategyMap: Record<IsolationLevel, QuarantineStrategyType> = {
     none: 'skip',
     monitor: 'retry_only',
@@ -157,20 +169,19 @@ export function generateQuarantineStrategy(
     cfg
   );
 
-  const strategy = cfg.defaultStrategy === 'graduated'
-    ? getStrategyForIsolationLevel(isolationLevel)
-    : cfg.defaultStrategy;
+  const strategy =
+    cfg.defaultStrategy === 'graduated'
+      ? getStrategyForIsolationLevel(isolationLevel)
+      : cfg.defaultStrategy;
 
-  const retryPolicy = getRetryPolicyForRootCause(
-    test.rootCause?.primaryCause,
-    cfg
-  );
+  const retryPolicy = getRetryPolicyForRootCause(test.rootCause?.primaryCause, cfg);
 
   const reason = buildQuarantineReason(test, isolationLevel);
 
-  const expiresAt = isolationLevel !== 'none'
-    ? Date.now() + FLAKY_CONFIG.QUARANTINE_EXPIRY_DAYS * 24 * 60 * 60 * 1000
-    : undefined;
+  const expiresAt =
+    isolationLevel !== 'none'
+      ? Date.now() + FLAKY_CONFIG.QUARANTINE_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+      : undefined;
 
   return {
     testId: test.testId,
@@ -256,7 +267,9 @@ export function prioritizeForQuarantine(tests: FlakyTest[]): FlakyTest[] {
     const levelA = a.isolationLevel || 'none';
     const levelB = b.isolationLevel || 'none';
     const levelDiff = levelOrder[levelB] - levelOrder[levelA];
-    if (levelDiff !== 0) return levelDiff;
+    if (levelDiff !== 0) {
+      return levelDiff;
+    }
 
     return b.weightedFailureRate - a.weightedFailureRate;
   });
@@ -301,7 +314,10 @@ export class QuarantineStrategyManager {
 
       const strategy = this.generateStrategy(test);
 
-      if (strategy.isolationLevel === 'hard_quarantine' || strategy.isolationLevel === 'soft_quarantine') {
+      if (
+        strategy.isolationLevel === 'hard_quarantine' ||
+        strategy.isolationLevel === 'soft_quarantine'
+      ) {
         if (!budget.allowed && !test.isQuarantined) {
           strategy.isolationLevel = 'monitor';
           strategy.strategy = 'retry_only';

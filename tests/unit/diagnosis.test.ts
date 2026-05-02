@@ -1058,14 +1058,24 @@ describe('DiagnosisService', () => {
       const chunk1 = JSON.stringify({ choices: [{ delta: { content: '{"sum' } }] });
       const chunk2 = JSON.stringify({ choices: [{ delta: { content: 'mary": "ok"}' } }] });
 
-      const mockStream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(`data: ${chunk1}\n\n`));
-          controller.enqueue(encoder.encode(`data: ${chunk2}\n\n`));
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
+      const chunks = [
+        encoder.encode(`data: ${chunk1}\n\n`),
+        encoder.encode(`data: ${chunk2}\n\n`),
+        encoder.encode('data: [DONE]\n\n'),
+      ];
+      let index = 0;
+      const mockStream = {
+        getReader() {
+          return {
+            async read() {
+              if (index < chunks.length) {
+                return { done: false, value: chunks[index++] };
+              }
+              return { done: true, value: undefined };
+            },
+          };
         },
-      });
+      };
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,

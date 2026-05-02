@@ -34,8 +34,13 @@ function calculateDurationBaseline(
   history: FlakyHistoryEntry[],
   windowSize: number
 ): { mean: number; std: number } {
-  const durations = history.slice(-windowSize).map((h) => h.duration).filter((d) => d > 0);
-  if (durations.length < 2) return { mean: 0, std: 0 };
+  const durations = history
+    .slice(-windowSize)
+    .map((h) => h.duration)
+    .filter((d) => d > 0);
+  if (durations.length < 2) {
+    return { mean: 0, std: 0 };
+  }
 
   const mean = durations.reduce((s, d) => s + d, 0) / durations.length;
   const variance = durations.reduce((s, d) => s + (d - mean) ** 2, 0) / durations.length;
@@ -57,16 +62,22 @@ export function detectDurationAnomaly(
 ): DurationAnomaly | null {
   const cfg = { ...DEFAULT_PREDICTOR_CONFIG, ...config };
 
-  if (test.history.length < cfg.minHistory) return null;
+  if (test.history.length < cfg.minHistory) {
+    return null;
+  }
 
   const baseline = calculateDurationBaseline(test.history, cfg.windowRuns);
-  if (baseline.mean === 0 || baseline.std === 0) return null;
+  if (baseline.mean === 0 || baseline.std === 0) {
+    return null;
+  }
 
   const latest = test.history[test.history.length - 1];
   const zScore = (latest.duration - baseline.mean) / baseline.std;
   const isAnomaly = Math.abs(zScore) > cfg.durationAnomalyZScore;
 
-  if (!isAnomaly) return null;
+  if (!isAnomaly) {
+    return null;
+  }
 
   return {
     testId: test.testId,
@@ -90,23 +101,29 @@ function detectFailurePatternSignal(
   test: FlakyTest,
   config: PredictorConfig
 ): PredictionSignal | null {
-  if (test.history.length < config.minHistory) return null;
+  if (test.history.length < config.minHistory) {
+    return null;
+  }
 
   const recentWindow = test.history.slice(-config.windowRuns);
-  const recentFailRate = recentWindow.filter(
-    (h) => h.status === 'failed' || h.status === 'timedout'
-  ).length / recentWindow.length;
+  const recentFailRate =
+    recentWindow.filter((h) => h.status === 'failed' || h.status === 'timedout').length /
+    recentWindow.length;
 
   const olderWindow = test.history.slice(0, Math.max(0, test.history.length - config.windowRuns));
-  if (olderWindow.length === 0) return null;
+  if (olderWindow.length === 0) {
+    return null;
+  }
 
-  const olderFailRate = olderWindow.filter(
-    (h) => h.status === 'failed' || h.status === 'timedout'
-  ).length / olderWindow.length;
+  const olderFailRate =
+    olderWindow.filter((h) => h.status === 'failed' || h.status === 'timedout').length /
+    olderWindow.length;
 
   const rateIncrease = recentFailRate - olderFailRate;
 
-  if (rateIncrease <= 0.1) return null;
+  if (rateIncrease <= 0.1) {
+    return null;
+  }
 
   const strength = Math.min(1, rateIncrease * 2);
 
@@ -133,7 +150,9 @@ function detectEnvironmentShiftSignal(
   test: FlakyTest,
   config: PredictorConfig
 ): PredictionSignal | null {
-  if (test.history.length < config.minHistory * 2) return null;
+  if (test.history.length < config.minHistory * 2) {
+    return null;
+  }
 
   const half = Math.floor(test.history.length / 2);
   const firstHalf = test.history.slice(0, half);
@@ -142,16 +161,22 @@ function detectEnvironmentShiftSignal(
   const durations1 = firstHalf.map((h) => h.duration).filter((d) => d > 0);
   const durations2 = secondHalf.map((h) => h.duration).filter((d) => d > 0);
 
-  if (durations1.length < 3 || durations2.length < 3) return null;
+  if (durations1.length < 3 || durations2.length < 3) {
+    return null;
+  }
 
   const mean1 = durations1.reduce((s, d) => s + d, 0) / durations1.length;
   const mean2 = durations2.reduce((s, d) => s + d, 0) / durations2.length;
 
-  if (mean1 === 0) return null;
+  if (mean1 === 0) {
+    return null;
+  }
 
   const shift = Math.abs(mean2 - mean1) / mean1;
 
-  if (shift < 0.3) return null;
+  if (shift < 0.3) {
+    return null;
+  }
 
   const strength = Math.min(1, shift);
 
@@ -178,10 +203,17 @@ function detectResourcePressureSignal(
   test: FlakyTest,
   config: PredictorConfig
 ): PredictionSignal | null {
-  if (test.history.length < config.minHistory) return null;
+  if (test.history.length < config.minHistory) {
+    return null;
+  }
 
-  const durations = test.history.slice(-config.windowRuns).map((h) => h.duration).filter((d) => d > 0);
-  if (durations.length < 5) return null;
+  const durations = test.history
+    .slice(-config.windowRuns)
+    .map((h) => h.duration)
+    .filter((d) => d > 0);
+  if (durations.length < 5) {
+    return null;
+  }
 
   const n = durations.length;
   const meanX = (n - 1) / 2;
@@ -194,12 +226,16 @@ function detectResourcePressureSignal(
     denominator += (i - meanX) ** 2;
   }
 
-  if (denominator === 0 || meanY === 0) return null;
+  if (denominator === 0 || meanY === 0) {
+    return null;
+  }
 
   const slope = numerator / denominator;
   const normalizedSlope = slope / meanY;
 
-  if (normalizedSlope <= 0.05) return null;
+  if (normalizedSlope <= 0.05) {
+    return null;
+  }
 
   const strength = Math.min(1, normalizedSlope * 5);
 
@@ -239,13 +275,19 @@ export function predictFailure(
   }
 
   const failurePattern = detectFailurePatternSignal(test, cfg);
-  if (failurePattern) signals.push(failurePattern);
+  if (failurePattern) {
+    signals.push(failurePattern);
+  }
 
   const envShift = detectEnvironmentShiftSignal(test, cfg);
-  if (envShift) signals.push(envShift);
+  if (envShift) {
+    signals.push(envShift);
+  }
 
   const resourcePressure = detectResourcePressureSignal(test, cfg);
-  if (resourcePressure) signals.push(resourcePressure);
+  if (resourcePressure) {
+    signals.push(resourcePressure);
+  }
 
   if (signals.length === 0) {
     return {
@@ -260,11 +302,17 @@ export function predictFailure(
   }
 
   const weightedProbability = signals.reduce((sum, sig) => sum + sig.strength, 0) / signals.length;
-  const adjustedProbability = Math.min(1, weightedProbability + (test.weightedFailureRate * cfg.sensitivity));
+  const adjustedProbability = Math.min(
+    1,
+    weightedProbability + test.weightedFailureRate * cfg.sensitivity
+  );
 
   const willFail = adjustedProbability >= 0.5;
 
-  const confidence = Math.min(1, signals.length * 0.25 + Math.max(...signals.map((s) => s.strength)) * 0.5);
+  const confidence = Math.min(
+    1,
+    signals.length * 0.25 + Math.max(...signals.map((s) => s.strength)) * 0.5
+  );
 
   let recommendedAction: string;
   if (adjustedProbability >= 0.7) {
@@ -317,7 +365,9 @@ export class FlakyPredictor {
     const anomalies: DurationAnomaly[] = [];
     for (const test of tests) {
       const anomaly = detectDurationAnomaly(test, this.config);
-      if (anomaly) anomalies.push(anomaly);
+      if (anomaly) {
+        anomalies.push(anomaly);
+      }
     }
     return anomalies.sort((a, b) => Math.abs(b.zScore) - Math.abs(a.zScore));
   }

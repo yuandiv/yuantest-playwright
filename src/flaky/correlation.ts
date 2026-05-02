@@ -50,7 +50,9 @@ class UnionFind {
     const rootX = this.find(x);
     const rootY = this.find(y);
 
-    if (rootX === rootY) return;
+    if (rootX === rootY) {
+      return;
+    }
 
     const rankX = this.rank.get(rootX) ?? 0;
     const rankY = this.rank.get(rootY) ?? 0;
@@ -106,11 +108,15 @@ function buildRunFailureMap(
  * @returns Jaccard 系数，范围 [0, 1]
  */
 function jaccardCoOccurrence(setA: Set<string>, setB: Set<string>): number {
-  if (setA.size === 0 && setB.size === 0) return 0;
+  if (setA.size === 0 && setB.size === 0) {
+    return 0;
+  }
 
   let intersection = 0;
   for (const item of setA) {
-    if (setB.has(item)) intersection++;
+    if (setB.has(item)) {
+      intersection++;
+    }
   }
 
   const union = setA.size + setB.size - intersection;
@@ -126,7 +132,9 @@ function jaccardCoOccurrence(setA: Set<string>, setB: Set<string>): number {
 function isSameFile(testA: FlakyTest, testB: FlakyTest): boolean {
   const fileA = testA.history.find((h) => h.error)?.error;
   const fileB = testB.history.find((h) => h.error)?.error;
-  if (!fileA || !fileB) return false;
+  if (!fileA || !fileB) {
+    return false;
+  }
 
   const fileMatchA = fileA.match(/(?:at\s+)?(.+?\.(?:spec|test)\.(?:ts|tsx|js|jsx))/);
   const fileMatchB = fileB.match(/(?:at\s+)?(.+?\.(?:spec|test)\.(?:ts|tsx|js|jsx))/);
@@ -153,35 +161,59 @@ function hasSameErrorPattern(testA: FlakyTest, testB: FlakyTest): boolean {
     .filter((h) => h.error && (h.status === 'failed' || h.status === 'timedout'))
     .map((h) => h.error!.toLowerCase());
 
-  if (errorsA.length === 0 || errorsB.length === 0) return false;
+  if (errorsA.length === 0 || errorsB.length === 0) {
+    return false;
+  }
 
   const keywordsA = new Set<string>();
   const keywordsB = new Set<string>();
 
   const significantKeywords = [
-    'timeout', 'selector', 'element', 'network', 'fetch',
-    'assertion', 'expect', 'navigation', 'waiting',
-    'econnrefused', 'cors', '500', '502', '503',
+    'timeout',
+    'selector',
+    'element',
+    'network',
+    'fetch',
+    'assertion',
+    'expect',
+    'navigation',
+    'waiting',
+    'econnrefused',
+    'cors',
+    '500',
+    '502',
+    '503',
   ];
 
   for (const error of errorsA) {
     for (const kw of significantKeywords) {
-      if (error.includes(kw)) keywordsA.add(kw);
+      if (error.includes(kw)) {
+        keywordsA.add(kw);
+      }
     }
   }
 
   for (const error of errorsB) {
     for (const kw of significantKeywords) {
-      if (error.includes(kw)) keywordsB.add(kw);
+      if (error.includes(kw)) {
+        keywordsB.add(kw);
+      }
     }
   }
 
   let shared = 0;
   for (const kw of keywordsA) {
-    if (keywordsB.has(kw)) shared++;
+    if (keywordsB.has(kw)) {
+      shared++;
+    }
   }
 
-  return shared >= 2 && keywordsA.size > 0 && keywordsB.size > 0 && shared / Math.max(keywordsA.size, keywordsB.size) >= 0.5;
+  return (
+    shared >= 2 &&
+    keywordsA.size > 0 &&
+    keywordsB.size > 0 &&
+    shared / Math.max(keywordsA.size, keywordsB.size) >= 0.5
+  );
 }
 
 /**
@@ -197,9 +229,15 @@ function determineCorrelationType(
   testB: FlakyTest,
   coOccurrence: number
 ): CorrelationType {
-  if (hasSameErrorPattern(testA, testB)) return 'same_error_pattern';
-  if (isSameFile(testA, testB)) return 'same_file';
-  if (coOccurrence >= 0.8) return 'same_run';
+  if (hasSameErrorPattern(testA, testB)) {
+    return 'same_error_pattern';
+  }
+  if (isSameFile(testA, testB)) {
+    return 'same_file';
+  }
+  if (coOccurrence >= 0.8) {
+    return 'same_run';
+  }
   return 'same_time_window';
 }
 
@@ -219,7 +257,9 @@ export function analyzeCorrelations(
   const cfg = { ...DEFAULT_CORRELATION_CONFIG, ...config };
 
   const eligibleTests = allFlakyTests.filter((t) => t.totalRuns >= cfg.minRuns);
-  if (eligibleTests.length < 2) return [];
+  if (eligibleTests.length < 2) {
+    return [];
+  }
 
   const failureMap = buildRunFailureMap(eligibleTests, recentRunResults);
 
@@ -234,7 +274,9 @@ export function analyzeCorrelations(
       const failedRunsA = failureMap.get(testA.testId) || new Set();
       const failedRunsB = failureMap.get(testB.testId) || new Set();
 
-      if (failedRunsA.size === 0 || failedRunsB.size === 0) continue;
+      if (failedRunsA.size === 0 || failedRunsB.size === 0) {
+        continue;
+      }
 
       const coOccurrence = jaccardCoOccurrence(failedRunsA, failedRunsB);
 
@@ -268,7 +310,9 @@ export function analyzeCorrelations(
   let groupIndex = 0;
 
   for (const [root, testIds] of groups) {
-    if (testIds.length < 2) continue;
+    if (testIds.length < 2) {
+      continue;
+    }
 
     let totalCoOccurrence = 0;
     let pairCount = 0;
@@ -297,9 +341,7 @@ export function analyzeCorrelations(
 
     const avgCoOccurrence = pairCount > 0 ? totalCoOccurrence / pairCount : 0;
 
-    const testTitles = testIds
-      .map((id) => testMap.get(id)?.title || id)
-      .join(', ');
+    const testTitles = testIds.map((id) => testMap.get(id)?.title || id).join(', ');
 
     const evidence = `${testIds.length} 个测试频繁同时失败（平均共现系数 ${avgCoOccurrence.toFixed(2)}）：${testTitles}`;
 

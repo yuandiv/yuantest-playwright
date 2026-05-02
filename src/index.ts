@@ -3,12 +3,35 @@ export { Executor, ParallelExecutor } from './executor';
 export { Reporter, JSONReporter } from './reporter';
 export { RealtimeReporter, RealtimeReporterClient } from './realtime';
 export { FlakyTestManager } from './flaky';
-export { classifyTest, calculateWeightedFailureRate, calculateConsecutiveFailures, calculateConsecutivePasses, isStatisticallySignificant, wilsonConfidenceInterval } from './flaky/classifier';
+export {
+  classifyTest,
+  calculateWeightedFailureRate,
+  calculateConsecutiveFailures,
+  calculateConsecutivePasses,
+  isStatisticallySignificant,
+  wilsonConfidenceInterval,
+} from './flaky/classifier';
 export { RootCauseAnalyzer } from './flaky/root-cause';
 export { analyzeCorrelations } from './flaky/correlation';
-export { TrendAnalyzer, calculateHealthScore, aggregateTimeSeries, detectTrendDirection, detectChangePoints, detectSeasonalPattern, correlateCodeChanges, generateForecast, linearRegression } from './flaky/trend';
+export {
+  TrendAnalyzer,
+  calculateHealthScore,
+  aggregateTimeSeries,
+  detectTrendDirection,
+  detectChangePoints,
+  detectSeasonalPattern,
+  correlateCodeChanges,
+  generateForecast,
+  linearRegression,
+} from './flaky/trend';
 export { FlakyPredictor, detectDurationAnomaly, predictFailure } from './flaky/predictor';
-export { QuarantineStrategyManager, generateQuarantineStrategy, checkQuarantineBudget, determineIsolationLevel, getRetryPolicyForRootCause } from './flaky/quarantine-strategy';
+export {
+  QuarantineStrategyManager,
+  generateQuarantineStrategy,
+  checkQuarantineBudget,
+  determineIsolationLevel,
+  getRetryPolicyForRootCause,
+} from './flaky/quarantine-strategy';
 export { CausalGraphBuilder } from './flaky/causal-graph';
 export { DashboardServer } from './ui/server';
 export { PlaywrightConfigBuilder, PlaywrightConfigOptions } from './config';

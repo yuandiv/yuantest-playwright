@@ -35,7 +35,9 @@ export function calculateWeightedFailureRate(
   history: FlakyHistoryEntry[],
   decayRate: number = FLAKY_CONFIG.DECAY_RATE
 ): number {
-  if (history.length === 0) return 0;
+  if (history.length === 0) {
+    return 0;
+  }
 
   const now = Date.now();
   const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -70,10 +72,12 @@ export function wilsonConfidenceInterval(
   total: number,
   confidence: number = 0.95
 ): { lower: number; upper: number } {
-  if (total === 0) return { lower: 0, upper: 0 };
+  if (total === 0) {
+    return { lower: 0, upper: 0 };
+  }
 
   const zScores: Record<number, number> = {
-    0.90: 1.645,
+    0.9: 1.645,
     0.95: 1.96,
     0.99: 2.576,
   };
@@ -106,7 +110,9 @@ export function isStatisticallySignificant(
   minRuns: number,
   confidence: number = 0.95
 ): boolean {
-  if (test.totalRuns < minRuns) return false;
+  if (test.totalRuns < minRuns) {
+    return false;
+  }
 
   const failures = test.history.filter(
     (h) => h.status === 'failed' || h.status === 'timedout'
@@ -160,20 +166,24 @@ export function calculateConsecutivePasses(history: FlakyHistoryEntry[]): number
  * @returns 是否为回归模式
  */
 function isRegression(history: FlakyHistoryEntry[], window: number): boolean {
-  if (history.length < window) return false;
+  if (history.length < window) {
+    return false;
+  }
 
   const recentWindow = history.slice(-window);
   const olderHistory = history.slice(0, -window);
 
-  if (olderHistory.length === 0) return false;
+  if (olderHistory.length === 0) {
+    return false;
+  }
 
-  const recentFailRate = recentWindow.filter(
-    (h) => h.status === 'failed' || h.status === 'timedout'
-  ).length / recentWindow.length;
+  const recentFailRate =
+    recentWindow.filter((h) => h.status === 'failed' || h.status === 'timedout').length /
+    recentWindow.length;
 
-  const olderFailRate = olderHistory.filter(
-    (h) => h.status === 'failed' || h.status === 'timedout'
-  ).length / olderHistory.length;
+  const olderFailRate =
+    olderHistory.filter((h) => h.status === 'failed' || h.status === 'timedout').length /
+    olderHistory.length;
 
   return recentFailRate >= 0.6 && olderFailRate <= 0.2;
 }

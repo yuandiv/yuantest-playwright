@@ -34,7 +34,11 @@ import { RootCauseAnalyzer, AnalysisContext } from './root-cause';
 import { analyzeCorrelations, CorrelationConfig } from './correlation';
 import { TrendAnalyzer, calculateHealthScore } from './trend';
 import { FlakyPredictor, detectDurationAnomaly } from './predictor';
-import { QuarantineStrategyManager, generateQuarantineStrategy, checkQuarantineBudget } from './quarantine-strategy';
+import {
+  QuarantineStrategyManager,
+  generateQuarantineStrategy,
+  checkQuarantineBudget,
+} from './quarantine-strategy';
 import { CausalGraphBuilder } from './causal-graph';
 
 export class FlakyTestManager extends ManagedManager {
@@ -210,7 +214,10 @@ export class FlakyTestManager extends ManagedManager {
 
       this.updateTestClassification(existing);
 
-      if (this.config.enablePrediction && existing.history.length >= FLAKY_CONFIG.PREDICTION_MIN_HISTORY) {
+      if (
+        this.config.enablePrediction &&
+        existing.history.length >= FLAKY_CONFIG.PREDICTION_MIN_HISTORY
+      ) {
         const anomaly = detectDurationAnomaly(existing);
         if (anomaly) {
           existing.durationAnomaly = anomaly;
@@ -358,9 +365,10 @@ export class FlakyTestManager extends ManagedManager {
 
     if (this.config.quarantineStrategy === 'graduated') {
       const strategy = this.strategyManager.generateStrategy(flakyTest);
-      flakyTest.isolationLevel = strategy.isolationLevel === 'none' || strategy.isolationLevel === 'monitor'
-        ? 'soft_quarantine'
-        : strategy.isolationLevel;
+      flakyTest.isolationLevel =
+        strategy.isolationLevel === 'none' || strategy.isolationLevel === 'monitor'
+          ? 'soft_quarantine'
+          : strategy.isolationLevel;
       flakyTest.quarantineStrategy = { ...strategy, isolationLevel: flakyTest.isolationLevel };
     } else {
       flakyTest.isolationLevel = 'hard_quarantine';
@@ -434,7 +442,9 @@ export class FlakyTestManager extends ManagedManager {
 
   buildGrepInvertPattern(): string | null {
     const quarantinedTitles = this.getQuarantinedTests()
-      .filter((t) => t.isolationLevel === 'hard_quarantine' || t.isolationLevel === 'soft_quarantine')
+      .filter(
+        (t) => t.isolationLevel === 'hard_quarantine' || t.isolationLevel === 'soft_quarantine'
+      )
       .map((t) => t.title)
       .filter((title) => title && title.length > 0);
 
@@ -528,7 +538,9 @@ export class FlakyTestManager extends ManagedManager {
 
   getTestsToSkip(): string[] {
     return this.getQuarantinedTests()
-      .filter((t) => t.isolationLevel === 'hard_quarantine' || t.isolationLevel === 'soft_quarantine')
+      .filter(
+        (t) => t.isolationLevel === 'hard_quarantine' || t.isolationLevel === 'soft_quarantine'
+      )
       .map((t) => t.testId);
   }
 
@@ -616,11 +628,7 @@ export class FlakyTestManager extends ManagedManager {
     const analysis = this.trendAnalyzer.analyze(flakyTest, codeChanges);
     flakyTest.trendAnalysis = analysis;
 
-    flakyTest.healthScore = calculateHealthScore(
-      flakyTest,
-      analysis.direction,
-      analysis.r2
-    );
+    flakyTest.healthScore = calculateHealthScore(flakyTest, analysis.direction, analysis.r2);
 
     this.scheduleSaveHistory();
     return analysis;
@@ -729,11 +737,7 @@ export class FlakyTestManager extends ManagedManager {
     const allFlaky = this.getAllFlakyTests();
     const correlations = this.analyzeCorrelations();
 
-    this.cachedCausalGraph = this.causalGraphBuilder.build(
-      allFlaky,
-      correlations,
-      this.recentRuns
-    );
+    this.cachedCausalGraph = this.causalGraphBuilder.build(allFlaky, correlations, this.recentRuns);
 
     return this.cachedCausalGraph;
   }
@@ -772,7 +776,9 @@ export class FlakyTestManager extends ManagedManager {
     await this.ensureReady();
 
     const flakyTest = this.flakyTests.get(testId);
-    if (!flakyTest) return null;
+    if (!flakyTest) {
+      return null;
+    }
 
     if (flakyTest.quarantineStrategy) {
       return flakyTest.quarantineStrategy;
@@ -860,12 +866,22 @@ export class FlakyTestManager extends ManagedManager {
     const overallPredictability = analyzedCount > 0 ? totalPredictability / analyzedCount : 0;
 
     const weights = FLAKY_CONFIG.HEALTH_SCORE_WEIGHTS;
-    const overall = overallStability * weights.stability
-      + overallTrend * weights.trend
-      + overallRecoverability * weights.recoverability
-      + overallPredictability * weights.predictability;
+    const overall =
+      overallStability * weights.stability +
+      overallTrend * weights.trend +
+      overallRecoverability * weights.recoverability +
+      overallPredictability * weights.predictability;
 
-    const grade = overall >= 0.9 ? 'A' : overall >= 0.75 ? 'B' : overall >= 0.6 ? 'C' : overall >= 0.4 ? 'D' : 'F';
+    const grade =
+      overall >= 0.9
+        ? 'A'
+        : overall >= 0.75
+          ? 'B'
+          : overall >= 0.6
+            ? 'C'
+            : overall >= 0.4
+              ? 'D'
+              : 'F';
     const labels: Record<string, string> = {
       A: '非常健康',
       B: '基本健康',

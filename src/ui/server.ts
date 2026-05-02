@@ -1073,7 +1073,9 @@ export class DashboardServer {
       asyncHandler(async (req: Request, res: Response) => {
         const analysis = await this.flakyManager.analyzeRootCause(req.params.testId);
         if (!analysis) {
-          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Test not found or no history available' });
+          res
+            .status(HTTP_STATUS.NOT_FOUND)
+            .json({ error: 'Test not found or no history available' });
           return;
         }
         res.json(analysis);

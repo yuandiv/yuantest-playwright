@@ -54,9 +54,7 @@ export async function readSourceCode(
     }
 
     const limitedLines = allLines.slice(0, MAX_SOURCE_LINES);
-    return limitedLines
-      .map((line, index) => `    ${index + 1} | ${line}`)
-      .join('\n');
+    return limitedLines.map((line, index) => `    ${index + 1} | ${line}`).join('\n');
   } catch {
     return undefined;
   }
@@ -68,9 +66,7 @@ export async function readSourceCode(
  * @param screenshots - 截图文件路径数组
  * @returns base64 编码字符串，文件不存在或读取失败时返回 undefined
  */
-export async function encodeScreenshot(
-  screenshots: string[]
-): Promise<string | undefined> {
+export async function encodeScreenshot(screenshots: string[]): Promise<string | undefined> {
   if (!screenshots || screenshots.length === 0) {
     return undefined;
   }
@@ -95,12 +91,7 @@ export function buildEnvironmentInfo(testInfo: { browser?: string }): string {
   const nodeVersion = process.version;
   const cwd = process.cwd();
 
-  return [
-    `Browser: ${browser}`,
-    `OS: ${os}`,
-    `Node.js: ${nodeVersion}`,
-    `CWD: ${cwd}`,
-  ].join('\n');
+  return [`Browser: ${browser}`, `OS: ${os}`, `Node.js: ${nodeVersion}`, `CWD: ${cwd}`].join('\n');
 }
 
 /**
@@ -134,15 +125,12 @@ export async function buildHistoryContext(
       return undefined;
     }
 
-    const passCount = testRecords.filter(
-      (record) => record.status === 'passed'
-    ).length;
+    const passCount = testRecords.filter((record) => record.status === 'passed').length;
     const failCount = testRecords.filter(
       (record) => record.status === 'failed' || record.status === 'timedout'
     ).length;
-    const failureRate = testRecords.length > 0
-      ? Math.round((failCount / testRecords.length) * 100)
-      : 0;
+    const failureRate =
+      testRecords.length > 0 ? Math.round((failCount / testRecords.length) * 100) : 0;
 
     const lastFailure = testRecords.find(
       (record) => record.status === 'failed' || record.status === 'timedout'
@@ -197,9 +185,7 @@ export async function enrichContext(
   contextUsed.sourceCode = sourceCode !== undefined;
 
   const screenshotBase64 =
-    testInfo.screenshots !== undefined
-      ? await encodeScreenshot(testInfo.screenshots)
-      : undefined;
+    testInfo.screenshots !== undefined ? await encodeScreenshot(testInfo.screenshots) : undefined;
   contextUsed.screenshot = screenshotBase64 !== undefined;
 
   const consoleLogs = testInfo.logs ?? [];

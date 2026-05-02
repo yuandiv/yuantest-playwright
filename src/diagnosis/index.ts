@@ -1,9 +1,22 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
-import { LLMConfig, AIDiagnosis, LLMStatus, ReasoningStep, ContextUsed, CodeDiff, DocLink } from '../types';
+import {
+  LLMConfig,
+  AIDiagnosis,
+  LLMStatus,
+  ReasoningStep,
+  ContextUsed,
+  CodeDiff,
+  DocLink,
+} from '../types';
 import { matchPatterns, buildFewShotExamples, ErrorPattern } from './knowledge-base';
-import { enrichContext, EnrichedContext, readSourceCode, encodeScreenshot } from './context-enricher';
+import {
+  enrichContext,
+  EnrichedContext,
+  readSourceCode,
+  encodeScreenshot,
+} from './context-enricher';
 import { clusterFailures, FailureCluster } from './cluster';
 
 /** 缓存条目接口 */
@@ -413,22 +426,32 @@ export class DiagnosisService {
           const results: string[] = [];
 
           const searchDir = (dir: string, depth: number = 0) => {
-            if (depth > 8 || results.length >= 20) return;
+            if (depth > 8 || results.length >= 20) {
+              return;
+            }
             try {
               const entries = fs.readdirSync(dir, { withFileTypes: true });
               for (const entry of entries) {
-                if (results.length >= 20) break;
-                if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+                if (results.length >= 20) {
+                  break;
+                }
+                if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+                  continue;
+                }
                 const fullPath = path.join(dir, entry.name);
                 if (entry.isDirectory()) {
                   searchDir(fullPath, depth + 1);
                 } else if (entry.isFile()) {
-                  if (filePattern && !entry.name.match(filePattern.replace(/\*/g, '.*'))) continue;
+                  if (filePattern && !entry.name.match(filePattern.replace(/\*/g, '.*'))) {
+                    continue;
+                  }
                   try {
                     const content = fs.readFileSync(fullPath, 'utf-8');
                     const lines = content.split('\n');
                     for (let i = 0; i < lines.length; i++) {
-                      if (results.length >= 20) break;
+                      if (results.length >= 20) {
+                        break;
+                      }
                       if (lines[i].includes(pattern)) {
                         results.push(`${fullPath}:${i + 1}: ${lines[i].trim()}`);
                       }
@@ -652,11 +675,21 @@ export class DiagnosisService {
     historyConsistent: boolean
   ): number {
     let calibrated = rawConfidence * 0.6;
-    if (patternMatched) calibrated += 0.2;
-    if (contextUsed.screenshot) calibrated += 0.1;
-    if (contextUsed.sourceCode) calibrated += 0.1;
-    if (contextUsed.consoleLogs) calibrated += 0.05;
-    if (historyConsistent) calibrated += 0.1;
+    if (patternMatched) {
+      calibrated += 0.2;
+    }
+    if (contextUsed.screenshot) {
+      calibrated += 0.1;
+    }
+    if (contextUsed.sourceCode) {
+      calibrated += 0.1;
+    }
+    if (contextUsed.consoleLogs) {
+      calibrated += 0.05;
+    }
+    if (historyConsistent) {
+      calibrated += 0.1;
+    }
     return Math.min(1, Math.max(0, calibrated));
   }
 
@@ -733,9 +766,7 @@ export class DiagnosisService {
         : `\nEnvironment:\n${context.environmentInfo}\n`;
     }
     if (context.historyData) {
-      user += isChinese
-        ? `\n${context.historyData}\n`
-        : `\n${context.historyData}\n`;
+      user += isChinese ? `\n${context.historyData}\n` : `\n${context.historyData}\n`;
     }
     if (context.screenshotBase64) {
       user += isChinese
@@ -780,26 +811,27 @@ export class DiagnosisService {
       const parsed = JSON.parse(text);
 
       const category =
-        (parsed.category as AIDiagnosis['category']) ||
-        patterns[0]?.category ||
-        'unknown';
+        (parsed.category as AIDiagnosis['category']) || patterns[0]?.category || 'unknown';
 
       const codeDiffs: CodeDiff[] = Array.isArray(parsed.codeDiffs)
         ? parsed.codeDiffs.filter(
-            (d: unknown) => typeof d === 'object' && d !== null && 'filePath' in (d as Record<string, unknown>)
+            (d: unknown) =>
+              typeof d === 'object' && d !== null && 'filePath' in (d as Record<string, unknown>)
           )
         : [];
 
       const parsedDocLinks: DocLink[] = Array.isArray(parsed.docLinks)
         ? parsed.docLinks.filter(
-            (d: unknown) => typeof d === 'object' && d !== null && 'title' in (d as Record<string, unknown>) && 'url' in (d as Record<string, unknown>)
+            (d: unknown) =>
+              typeof d === 'object' &&
+              d !== null &&
+              'title' in (d as Record<string, unknown>) &&
+              'url' in (d as Record<string, unknown>)
           )
         : [];
 
       const docLinks: DocLink[] =
-        parsedDocLinks.length > 0
-          ? parsedDocLinks
-          : patterns.flatMap((p) => p.docLinks);
+        parsedDocLinks.length > 0 ? parsedDocLinks : patterns.flatMap((p) => p.docLinks);
 
       const rawConfidence =
         typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0.5;
@@ -827,26 +859,29 @@ export class DiagnosisService {
           const parsed = JSON.parse(jsonMatch[0]);
 
           const category =
-            (parsed.category as AIDiagnosis['category']) ||
-            patterns[0]?.category ||
-            'unknown';
+            (parsed.category as AIDiagnosis['category']) || patterns[0]?.category || 'unknown';
 
           const codeDiffs: CodeDiff[] = Array.isArray(parsed.codeDiffs)
             ? parsed.codeDiffs.filter(
-                (d: unknown) => typeof d === 'object' && d !== null && 'filePath' in (d as Record<string, unknown>)
+                (d: unknown) =>
+                  typeof d === 'object' &&
+                  d !== null &&
+                  'filePath' in (d as Record<string, unknown>)
               )
             : [];
 
           const parsedDocLinks: DocLink[] = Array.isArray(parsed.docLinks)
             ? parsed.docLinks.filter(
-                (d: unknown) => typeof d === 'object' && d !== null && 'title' in (d as Record<string, unknown>) && 'url' in (d as Record<string, unknown>)
+                (d: unknown) =>
+                  typeof d === 'object' &&
+                  d !== null &&
+                  'title' in (d as Record<string, unknown>) &&
+                  'url' in (d as Record<string, unknown>)
               )
             : [];
 
           const docLinks: DocLink[] =
-            parsedDocLinks.length > 0
-              ? parsedDocLinks
-              : patterns.flatMap((p) => p.docLinks);
+            parsedDocLinks.length > 0 ? parsedDocLinks : patterns.flatMap((p) => p.docLinks);
 
           const rawConfidence =
             typeof parsed.confidence === 'number'
@@ -1017,7 +1052,8 @@ export class DiagnosisService {
       );
 
       diagnosis.contextUsed = context.contextUsed;
-      diagnosis.reasoningSteps = reasoningSteps.length > 0 ? reasoningSteps : diagnosis.reasoningSteps;
+      diagnosis.reasoningSteps =
+        reasoningSteps.length > 0 ? reasoningSteps : diagnosis.reasoningSteps;
       diagnosis.analysisMode = analysisMode;
       diagnosis.calibratedConfidence = calibratedConfidence;
 

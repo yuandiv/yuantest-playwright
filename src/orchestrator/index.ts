@@ -161,8 +161,8 @@ export class Orchestrator extends ManagedManager {
     const shardLoads = optimizer.getShardLoads();
     this.log.info(
       `Optimized sharding: ${testFiles.length} tests across ${this.config.shards || 1} shards (intelligent strategy), ` +
-      `loads: [${shardLoads.map((l: number) => `${(l / 1000).toFixed(1)}s`).join(', ')}], ` +
-      `calibration: ${this.calibrationFactor.toFixed(3)}`
+        `loads: [${shardLoads.map((l: number) => `${(l / 1000).toFixed(1)}s`).join(', ')}], ` +
+        `calibration: ${this.calibrationFactor.toFixed(3)}`
     );
     return {
       totalShards: this.config.shards || 1,
@@ -269,10 +269,8 @@ export class Orchestrator extends ManagedManager {
         blended = history.avgDuration * historyWeight + similarEstimate.estimated * similarWeight;
       }
 
-      const cv = history.avgDuration > 0
-        ? Math.sqrt(history.variance) / history.avgDuration
-        : 1.0;
-      const confidence = Math.min(0.5, history.runCount / MIN_RUNS_FOR_CONFIDENCE * (1 - cv));
+      const cv = history.avgDuration > 0 ? Math.sqrt(history.variance) / history.avgDuration : 1.0;
+      const confidence = Math.min(0.5, (history.runCount / MIN_RUNS_FOR_CONFIDENCE) * (1 - cv));
 
       return {
         estimated: blended * this.calibrationFactor,
@@ -282,9 +280,7 @@ export class Orchestrator extends ManagedManager {
       };
     }
 
-    const cv = history.emaDuration > 0
-      ? Math.sqrt(history.variance) / history.emaDuration
-      : 1.0;
+    const cv = history.emaDuration > 0 ? Math.sqrt(history.variance) / history.emaDuration : 1.0;
     const confidence = Math.min(1.0, (1 - cv * 0.5) * Math.min(1, history.runCount / 10));
 
     return {
@@ -304,7 +300,9 @@ export class Orchestrator extends ManagedManager {
     const dirDurations: number[] = [];
 
     for (const [testFile, history] of this.durationHistory) {
-      if (testFile === file) continue;
+      if (testFile === file) {
+        continue;
+      }
       if (path.dirname(testFile) === dir && history.runCount >= MIN_RUNS_FOR_CONFIDENCE) {
         dirDurations.push(history.emaDuration);
       }
@@ -407,7 +405,8 @@ export class Orchestrator extends ManagedManager {
 
       if (totalPredicted > 0) {
         const observedRatio = totalActual / totalPredicted;
-        this.calibrationFactor = this.calibrationFactor * (1 - CALIBRATION_LEARNING_RATE) +
+        this.calibrationFactor =
+          this.calibrationFactor * (1 - CALIBRATION_LEARNING_RATE) +
           observedRatio * CALIBRATION_LEARNING_RATE;
         this.calibrationFactor = Math.max(
           MIN_CALIBRATION_FACTOR,
@@ -555,7 +554,11 @@ export class ShardOptimizer {
 
     for (const test of highRisk) {
       const bestShard = this.findBestShardForHighRisk(
-        test, currentLoad, shardVarianceSums, totalShards, optimized
+        test,
+        currentLoad,
+        shardVarianceSums,
+        totalShards,
+        optimized
       );
       optimized.get(bestShard)!.push(test);
       currentLoad[bestShard] += test.duration;
@@ -563,8 +566,8 @@ export class ShardOptimizer {
     }
 
     for (const test of stable) {
-      const effectiveLoad = currentLoad.map((load, i) =>
-        load + this.riskPenalty * Math.sqrt(shardVarianceSums[i])
+      const effectiveLoad = currentLoad.map(
+        (load, i) => load + this.riskPenalty * Math.sqrt(shardVarianceSums[i])
       );
       const minLoadShard = effectiveLoad.indexOf(Math.min(...effectiveLoad));
 
@@ -612,9 +615,9 @@ export class ShardOptimizer {
       const newVarianceSum = shardVarianceSums[i] + test.variance;
       const riskComponent = Math.sqrt(newVarianceSum);
       const loadComponent = currentLoad[i] + test.duration;
-      const hasSimilarRisk = optimized.get(i)!.some(
-        (existing) => this.computeRiskScore(existing) > HIGH_VARIANCE_THRESHOLD
-      );
+      const hasSimilarRisk = optimized
+        .get(i)!
+        .some((existing) => this.computeRiskScore(existing) > HIGH_VARIANCE_THRESHOLD);
       const diversityPenalty = hasSimilarRisk ? test.duration * 0.3 : 0;
 
       const score = loadComponent + this.riskPenalty * riskComponent + diversityPenalty;
@@ -646,7 +649,9 @@ export class ShardOptimizer {
       const minLoad = Math.min(...currentLoad);
       const avgLoad = currentLoad.reduce((s, l) => s + l, 0) / totalShards;
 
-      if (maxLoad - minLoad <= avgLoad * improvementThreshold) break;
+      if (maxLoad - minLoad <= avgLoad * improvementThreshold) {
+        break;
+      }
 
       const heaviestShard = currentLoad.indexOf(maxLoad);
       const lightestShard = currentLoad.indexOf(minLoad);
@@ -667,9 +672,11 @@ export class ShardOptimizer {
 
           const newHeavyLoad = maxLoad - fromDuration + toDuration;
           const newLightLoad = minLoad - toDuration + fromDuration;
-          const newMax = Math.max(newHeavyLoad, newLightLoad, ...currentLoad.filter(
-            (_, i) => i !== heaviestShard && i !== lightestShard
-          ));
+          const newMax = Math.max(
+            newHeavyLoad,
+            newLightLoad,
+            ...currentLoad.filter((_, i) => i !== heaviestShard && i !== lightestShard)
+          );
           const improvement = maxLoad - newMax;
 
           if (improvement > bestImprovement) {
@@ -681,9 +688,11 @@ export class ShardOptimizer {
         if (!bestSwap) {
           const newHeavyLoad = maxLoad - fromDuration;
           const newLightLoad = minLoad + fromDuration;
-          const newMax = Math.max(newHeavyLoad, newLightLoad, ...currentLoad.filter(
-            (_, i) => i !== heaviestShard && i !== lightestShard
-          ));
+          const newMax = Math.max(
+            newHeavyLoad,
+            newLightLoad,
+            ...currentLoad.filter((_, i) => i !== heaviestShard && i !== lightestShard)
+          );
           const improvement = maxLoad - newMax;
 
           if (improvement > bestImprovement) {
@@ -693,7 +702,9 @@ export class ShardOptimizer {
         }
       }
 
-      if (!bestSwap || bestSwap.improvement <= 0) break;
+      if (!bestSwap || bestSwap.improvement <= 0) {
+        break;
+      }
 
       const fromTest = heavyTests[bestSwap.fromIdx];
       const fromDuration = fromTest.estimatedDuration || DEFAULTS.TEST_TIMEOUT;
@@ -709,8 +720,10 @@ export class ShardOptimizer {
 
         currentLoad[heaviestShard] = currentLoad[heaviestShard] - fromDuration + toDuration;
         currentLoad[lightestShard] = currentLoad[lightestShard] - toDuration + fromDuration;
-        shardVarianceSums[heaviestShard] = shardVarianceSums[heaviestShard] - fromVariance + toVariance;
-        shardVarianceSums[lightestShard] = shardVarianceSums[lightestShard] - toVariance + fromVariance;
+        shardVarianceSums[heaviestShard] =
+          shardVarianceSums[heaviestShard] - fromVariance + toVariance;
+        shardVarianceSums[lightestShard] =
+          shardVarianceSums[lightestShard] - toVariance + fromVariance;
       } else {
         heavyTests.splice(bestSwap.fromIdx, 1);
         lightTests.push(fromTest);

@@ -605,9 +605,10 @@ module.exports = ProgressReporter;
         status,
         duration: test.duration || 0,
         error: test.error ? stripAnsi(test.error) : undefined,
-        stackTrace: test.error && test.error.includes('\n    at')
-          ? stripAnsi(test.error.substring(test.error.indexOf('\n    at')))
-          : undefined,
+        stackTrace:
+          test.error && test.error.includes('\n    at')
+            ? stripAnsi(test.error.substring(test.error.indexOf('\n    at')))
+            : undefined,
         retries: test.retries || 0,
         timestamp: Date.now(),
         browser: (test.browser || 'chromium') as BrowserType,

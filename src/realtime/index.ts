@@ -256,7 +256,11 @@ export class RealtimeReporter extends EventEmitter {
     this.log.info(`Broadcast run_completed: ${runId}`);
   }
 
-  broadcastFlakyDetected(runId: string, test: TestResult, extra?: { weightedFailureRate?: number; classification?: string; rootCause?: string }): void {
+  broadcastFlakyDetected(
+    runId: string,
+    test: TestResult,
+    extra?: { weightedFailureRate?: number; classification?: string; rootCause?: string }
+  ): void {
     const message: RealTimeMessage = {
       type: 'flaky_detected',
       payload: {

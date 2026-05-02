@@ -100,19 +100,34 @@ function extractKeywords(error: string): string[] {
 function categorizeError(error: string): FailureCluster['category'] {
   const lower = error.toLowerCase();
 
-  if (lower.includes('timeout')) return 'timeout';
-  if (lower.includes('selector') || lower.includes('element')) return 'selector';
-  if (lower.includes('assertion') || lower.includes('expect')) return 'assertion';
+  if (lower.includes('timeout')) {
+    return 'timeout';
+  }
+  if (lower.includes('selector') || lower.includes('element')) {
+    return 'selector';
+  }
+  if (lower.includes('assertion') || lower.includes('expect')) {
+    return 'assertion';
+  }
   if (
     lower.includes('network') ||
     lower.includes('fetch') ||
     lower.includes('err_connection') ||
     lower.includes('cors')
-  )
+  ) {
     return 'network';
-  if (lower.includes('frame') || lower.includes('iframe')) return 'frame';
-  if (lower.includes('401') || lower.includes('403') || lower.includes('unauthorized') || lower.includes('auth'))
+  }
+  if (lower.includes('frame') || lower.includes('iframe')) {
+    return 'frame';
+  }
+  if (
+    lower.includes('401') ||
+    lower.includes('403') ||
+    lower.includes('unauthorized') ||
+    lower.includes('auth')
+  ) {
     return 'auth';
+  }
 
   return 'unknown';
 }
@@ -125,7 +140,9 @@ function categorizeError(error: string): FailureCluster['category'] {
  * @returns Jaccard 相似度，范围 [0, 1]
  */
 function jaccardSimilarity(a: string[], b: string[]): number {
-  if (a.length === 0 && b.length === 0) return 0;
+  if (a.length === 0 && b.length === 0) {
+    return 0;
+  }
 
   const setA = new Set(a);
   const setB = new Set(b);
@@ -139,7 +156,9 @@ function jaccardSimilarity(a: string[], b: string[]): number {
   }
 
   const union = setA.size + setB.size - intersection;
-  if (union === 0) return 0;
+  if (union === 0) {
+    return 0;
+  }
 
   return intersection / union;
 }
@@ -170,7 +189,9 @@ class UnionFind {
     const rootX = this.find(x);
     const rootY = this.find(y);
 
-    if (rootX === rootY) return;
+    if (rootX === rootY) {
+      return;
+    }
 
     const rankX = this.rank.get(rootX) ?? 0;
     const rankY = this.rank.get(rootY) ?? 0;
@@ -241,7 +262,9 @@ export function clusterFailures(testResults: TestResult[]): FailureCluster[] {
   for (const entry of Array.from(groups.entries())) {
     const root = entry[0];
     const ids = entry[1];
-    if (ids.length < MIN_CLUSTER_SIZE) continue;
+    if (ids.length < MIN_CLUSTER_SIZE) {
+      continue;
+    }
 
     const representative = testMap.get(root)!;
     const error = representative.error || representative.stackTrace || '';
@@ -250,10 +273,7 @@ export function clusterFailures(testResults: TestResult[]): FailureCluster[] {
     let pairCount = 0;
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {
-        totalSimilarity += jaccardSimilarity(
-          keywordMap.get(ids[i])!,
-          keywordMap.get(ids[j])!
-        );
+        totalSimilarity += jaccardSimilarity(keywordMap.get(ids[i])!, keywordMap.get(ids[j])!);
         pairCount++;
       }
     }
