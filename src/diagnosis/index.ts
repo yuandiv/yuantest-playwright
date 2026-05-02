@@ -563,7 +563,7 @@ export class DiagnosisService {
         if (!content && !firstResponse.toolCalls) {
           this.log.info('LLM does not support tool_calling, falling back to single call mode');
           const fallbackText = await this.callLLM(prompt, config);
-          return { responseText: fallbackText, reasoningSteps: [], analysisMode: 'fallback' };
+          return { responseText: fallbackText, reasoningSteps: [], analysisMode: 'single' };
         }
         return { responseText: content, reasoningSteps: [], analysisMode: 'single' };
       }
@@ -631,7 +631,7 @@ export class DiagnosisService {
         `Agent loop failed, falling back to single call: ${error instanceof Error ? error.message : String(error)}`
       );
       const fallbackText = await this.callLLM(prompt, config);
-      return { responseText: fallbackText, reasoningSteps: [], analysisMode: 'fallback' };
+      return { responseText: fallbackText, reasoningSteps: [], analysisMode: 'single' };
     }
   }
 

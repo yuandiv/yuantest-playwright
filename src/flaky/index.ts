@@ -1,4 +1,22 @@
-import { FlakyTest, FlakyHistoryEntry, QuarantineConfig, FlakyClassification, RootCauseAnalysis, CorrelationGroup, RunResult, TestResult } from '../types';
+import {
+  FlakyTest,
+  FlakyHistoryEntry,
+  QuarantineConfig,
+  FlakyClassification,
+  RootCauseAnalysis,
+  CorrelationGroup,
+  RunResult,
+  TestResult,
+  TrendAnalysis,
+  FlakyHealthScore,
+  PredictionResult,
+  DurationAnomaly,
+  CausalGraph,
+  ImpactAnalysis,
+  QuarantineStrategy,
+  IsolationLevel,
+  CodeChangeCorrelation,
+} from '../types';
 import * as path from 'path';
 import dayjs from 'dayjs';
 import { ManagedManager } from '../base';
@@ -14,6 +32,10 @@ import {
 } from './classifier';
 import { RootCauseAnalyzer, AnalysisContext } from './root-cause';
 import { analyzeCorrelations, CorrelationConfig } from './correlation';
+import { TrendAnalyzer, calculateHealthScore } from './trend';
+import { FlakyPredictor, detectDurationAnomaly } from './predictor';
+import { QuarantineStrategyManager, generateQuarantineStrategy, checkQuarantineBudget } from './quarantine-strategy';
+import { CausalGraphBuilder } from './causal-graph';
 
 export class FlakyTestManager extends ManagedManager {
   private flakyTests: Map<string, FlakyTest> = new Map();
@@ -23,7 +45,12 @@ export class FlakyTestManager extends ManagedManager {
   private historyFile: string;
   private storage: StorageProvider;
   private rootCauseAnalyzer: RootCauseAnalyzer;
+  private trendAnalyzer: TrendAnalyzer;
+  private predictor: FlakyPredictor;
+  private strategyManager: QuarantineStrategyManager;
+  private causalGraphBuilder: CausalGraphBuilder;
   private recentRuns: RunResult[] = [];
+  private cachedCausalGraph: CausalGraph | null = null;
   private readonly MAX_RECENT_RUNS = 20;
 
   constructor(
@@ -47,11 +74,21 @@ export class FlakyTestManager extends ManagedManager {
       regressionWindow: FLAKY_CONFIG.REGRESSION_WINDOW,
       enableRootCauseAnalysis: true,
       enableCorrelationAnalysis: true,
+      enableTrendTracking: true,
+      enablePrediction: true,
+      enableCausalGraph: true,
+      quarantineStrategy: 'graduated',
+      maxQuarantineRatio: FLAKY_CONFIG.QUARANTINE_MAX_RATIO,
+      predictionSensitivity: FLAKY_CONFIG.PREDICTION_SENSITIVITY,
       ...config,
     };
     this.storage = storage || getStorage();
     this.setSaveDelay(CACHE_CONFIG.SAVE_DELAY_MS);
     this.rootCauseAnalyzer = new RootCauseAnalyzer();
+    this.trendAnalyzer = new TrendAnalyzer();
+    this.predictor = new FlakyPredictor({ sensitivity: this.config.predictionSensitivity });
+    this.strategyManager = new QuarantineStrategyManager();
+    this.causalGraphBuilder = new CausalGraphBuilder();
   }
 
   protected async doInitialize(): Promise<void> {
@@ -76,6 +113,9 @@ export class FlakyTestManager extends ManagedManager {
           }
           if (flakyTest.consecutivePasses === undefined) {
             flakyTest.consecutivePasses = 0;
+          }
+          if (!flakyTest.isolationLevel) {
+            flakyTest.isolationLevel = 'none';
           }
           this.flakyTests.set(id, flakyTest);
         });
@@ -122,7 +162,7 @@ export class FlakyTestManager extends ManagedManager {
 
   /**
    * 更新测试的分类和统计信息
-   * 包括加权失败率、连续失败/通过次数、分类判定
+   * 包括加权失败率、连续失败/通过次数、分类判定、隔离级别、健康评分
    */
   private updateTestClassification(flakyTest: FlakyTest): void {
     flakyTest.weightedFailureRate = calculateWeightedFailureRate(
@@ -133,6 +173,12 @@ export class FlakyTestManager extends ManagedManager {
     flakyTest.consecutivePasses = calculateConsecutivePasses(flakyTest.history);
     flakyTest.classification = classifyTest(flakyTest, this.getClassifyConfig());
     flakyTest.lastClassifiedAt = Date.now();
+
+    if (this.config.quarantineStrategy === 'graduated') {
+      const strategy = this.strategyManager.generateStrategy(flakyTest);
+      flakyTest.isolationLevel = strategy.isolationLevel;
+      flakyTest.quarantineStrategy = strategy;
+    }
   }
 
   async recordTestResult(result: TestResult): Promise<void> {
@@ -163,6 +209,13 @@ export class FlakyTestManager extends ManagedManager {
       }
 
       this.updateTestClassification(existing);
+
+      if (this.config.enablePrediction && existing.history.length >= FLAKY_CONFIG.PREDICTION_MIN_HISTORY) {
+        const anomaly = detectDurationAnomaly(existing);
+        if (anomaly) {
+          existing.durationAnomaly = anomaly;
+        }
+      }
 
       if (existing.isQuarantined) {
         if (result.status === 'passed') {
@@ -198,6 +251,7 @@ export class FlakyTestManager extends ManagedManager {
         consecutiveFailures: isFailed ? 1 : 0,
         consecutivePasses: isFailed ? 0 : 1,
         lastClassifiedAt: Date.now(),
+        isolationLevel: 'none',
       };
       this.flakyTests.set(result.id, newTest);
     }
@@ -206,6 +260,7 @@ export class FlakyTestManager extends ManagedManager {
       await this.detectFlaky(result);
     }
 
+    this.cachedCausalGraph = null;
     this.scheduleSaveHistory();
   }
 
@@ -258,6 +313,7 @@ export class FlakyTestManager extends ManagedManager {
           weightedFailureRate: flakyTest.weightedFailureRate,
           classification: flakyTest.classification,
           rootCause: flakyTest.rootCause?.primaryCause,
+          isolationLevel: flakyTest.isolationLevel,
           timestamp: Date.now(),
         });
 
@@ -287,10 +343,29 @@ export class FlakyTestManager extends ManagedManager {
       return false;
     }
 
+    const totalTests = this.flakyTests.size;
+    const currentQuarantined = this.quarantine.size;
+    const budget = checkQuarantineBudget(totalTests, currentQuarantined);
+
+    if (!budget.allowed && !this.quarantine.has(testId)) {
+      return false;
+    }
+
     const flakyTest = this.flakyTests.get(testId)!;
     flakyTest.isQuarantined = true;
     flakyTest.quarantinedAt = Date.now();
     flakyTest.consecutivePassesSinceQuarantine = 0;
+
+    if (this.config.quarantineStrategy === 'graduated') {
+      const strategy = this.strategyManager.generateStrategy(flakyTest);
+      flakyTest.isolationLevel = strategy.isolationLevel === 'none' || strategy.isolationLevel === 'monitor'
+        ? 'soft_quarantine'
+        : strategy.isolationLevel;
+      flakyTest.quarantineStrategy = { ...strategy, isolationLevel: flakyTest.isolationLevel };
+    } else {
+      flakyTest.isolationLevel = 'hard_quarantine';
+    }
+
     this.quarantine.add(testId);
 
     this.emit('quarantine_updated', {
@@ -314,6 +389,8 @@ export class FlakyTestManager extends ManagedManager {
       flakyTest.isQuarantined = false;
       flakyTest.quarantinedAt = undefined;
       flakyTest.consecutivePassesSinceQuarantine = 0;
+      flakyTest.isolationLevel = 'none';
+      flakyTest.quarantineStrategy = undefined;
 
       if (options?.resetHistory) {
         flakyTest.history = [];
@@ -325,6 +402,10 @@ export class FlakyTestManager extends ManagedManager {
         flakyTest.consecutivePasses = 0;
         flakyTest.classification = 'insufficient_data';
         flakyTest.rootCause = undefined;
+        flakyTest.trendAnalysis = undefined;
+        flakyTest.healthScore = undefined;
+        flakyTest.durationAnomaly = undefined;
+        flakyTest.lastPrediction = undefined;
       }
     }
     this.quarantine.delete(testId);
@@ -352,11 +433,15 @@ export class FlakyTestManager extends ManagedManager {
   }
 
   buildGrepInvertPattern(): string | null {
-    const titles = this.getQuarantinedTestTitles();
-    if (titles.length === 0) {
+    const quarantinedTitles = this.getQuarantinedTests()
+      .filter((t) => t.isolationLevel === 'hard_quarantine' || t.isolationLevel === 'soft_quarantine')
+      .map((t) => t.title)
+      .filter((title) => title && title.length > 0);
+
+    if (quarantinedTitles.length === 0) {
       return null;
     }
-    const escapedTitles = titles.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const escapedTitles = quarantinedTitles.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     return escapedTitles.join('|');
   }
 
@@ -401,6 +486,8 @@ export class FlakyTestManager extends ManagedManager {
     topFlaky: FlakyTest[];
     expiredQuarantined: number;
     classificationBreakdown: Record<FlakyClassification, number>;
+    budgetUtilization: number;
+    avgHealthScore: number;
   } {
     const allFlaky = this.getAllFlakyTests();
     const quarantinedTests = this.getQuarantinedTests();
@@ -414,9 +501,18 @@ export class FlakyTestManager extends ManagedManager {
       insufficient_data: 0,
     };
 
+    let totalHealth = 0;
+    let healthCount = 0;
+
     for (const test of this.flakyTests.values()) {
       classificationBreakdown[test.classification]++;
+      if (test.healthScore) {
+        totalHealth += test.healthScore.overall;
+        healthCount++;
+      }
     }
+
+    const budget = checkQuarantineBudget(this.flakyTests.size, quarantinedTests.length);
 
     return {
       totalTests: this.flakyTests.size,
@@ -425,11 +521,15 @@ export class FlakyTestManager extends ManagedManager {
       topFlaky: allFlaky.slice(0, 10),
       expiredQuarantined: expiredTests.length,
       classificationBreakdown,
+      budgetUtilization: budget.utilization,
+      avgHealthScore: healthCount > 0 ? Math.round((totalHealth / healthCount) * 100) / 100 : 0,
     };
   }
 
   getTestsToSkip(): string[] {
-    return Array.from(this.quarantine);
+    return this.getQuarantinedTests()
+      .filter((t) => t.isolationLevel === 'hard_quarantine' || t.isolationLevel === 'soft_quarantine')
+      .map((t) => t.testId);
   }
 
   /**
@@ -491,6 +591,302 @@ export class FlakyTestManager extends ManagedManager {
       .sort((a, b) => b.weightedFailureRate - a.weightedFailureRate);
   }
 
+  /**
+   * 对指定测试进行趋势分析
+   * 包括时间序列聚合、趋势方向、变点检测、季节模式、预测
+   * @param testId - 测试 ID
+   * @param codeChanges - 代码变更记录（可选，用于关联分析）
+   * @returns 趋势分析结果，测试不存在时返回 null
+   */
+  async analyzeTrend(
+    testId: string,
+    codeChanges?: CodeChangeCorrelation[]
+  ): Promise<TrendAnalysis | null> {
+    await this.ensureReady();
+
+    if (!this.config.enableTrendTracking) {
+      return null;
+    }
+
+    const flakyTest = this.flakyTests.get(testId);
+    if (!flakyTest || flakyTest.history.length < FLAKY_CONFIG.TREND_MIN_DATA_POINTS) {
+      return null;
+    }
+
+    const analysis = this.trendAnalyzer.analyze(flakyTest, codeChanges);
+    flakyTest.trendAnalysis = analysis;
+
+    flakyTest.healthScore = calculateHealthScore(
+      flakyTest,
+      analysis.direction,
+      analysis.r2
+    );
+
+    this.scheduleSaveHistory();
+    return analysis;
+  }
+
+  /**
+   * 对所有 Flaky 测试进行批量趋势分析
+   * @param codeChanges - 代码变更记录（可选）
+   * @returns 趋势分析结果映射
+   */
+  async analyzeAllTrends(
+    codeChanges?: CodeChangeCorrelation[]
+  ): Promise<Map<string, TrendAnalysis>> {
+    await this.ensureReady();
+
+    const results = new Map<string, TrendAnalysis>();
+    const tests = this.getAllFlakyTests();
+
+    for (const test of tests) {
+      if (test.history.length >= FLAKY_CONFIG.TREND_MIN_DATA_POINTS) {
+        const analysis = this.trendAnalyzer.analyze(test, codeChanges);
+        test.trendAnalysis = analysis;
+        test.healthScore = calculateHealthScore(test, analysis.direction, analysis.r2);
+        results.set(test.testId, analysis);
+      }
+    }
+
+    this.scheduleSaveHistory();
+    return results;
+  }
+
+  /**
+   * 对指定测试进行失败预测
+   * 基于持续时间异常、失败模式、环境偏移、资源压力等信号
+   * @param testId - 测试 ID
+   * @returns 预测结果，测试不存在时返回 null
+   */
+  async predictTestFailure(testId: string): Promise<PredictionResult | null> {
+    await this.ensureReady();
+
+    if (!this.config.enablePrediction) {
+      return null;
+    }
+
+    const flakyTest = this.flakyTests.get(testId);
+    if (!flakyTest || flakyTest.history.length < FLAKY_CONFIG.PREDICTION_MIN_HISTORY) {
+      return null;
+    }
+
+    const prediction = this.predictor.predict(flakyTest);
+    flakyTest.lastPrediction = prediction;
+
+    const anomaly = detectDurationAnomaly(flakyTest);
+    if (anomaly) {
+      flakyTest.durationAnomaly = anomaly;
+    }
+
+    this.scheduleSaveHistory();
+    return prediction;
+  }
+
+  /**
+   * 批量获取高风险测试预测
+   * @returns 预测将失败的测试列表
+   */
+  async getHighRiskTests(): Promise<PredictionResult[]> {
+    await this.ensureReady();
+
+    if (!this.config.enablePrediction) {
+      return [];
+    }
+
+    return this.predictor.getHighRiskTests(this.getAllFlakyTests());
+  }
+
+  /**
+   * 获取所有持续时间异常的测试
+   * @returns 异常列表
+   */
+  async getDurationAnomalies(): Promise<DurationAnomaly[]> {
+    await this.ensureReady();
+
+    if (!this.config.enablePrediction) {
+      return [];
+    }
+
+    return this.predictor.detectAnomalies(this.getAllFlakyTests());
+  }
+
+  /**
+   * 构建因果依赖图
+   * 综合测试数据、关联组和运行结果构建因果图
+   * @returns 因果图
+   */
+  async buildCausalGraph(): Promise<CausalGraph> {
+    await this.ensureReady();
+
+    if (!this.config.enableCausalGraph) {
+      return { nodes: [], edges: [], rootCauses: [], impactMap: new Map(), builtAt: Date.now() };
+    }
+
+    if (this.cachedCausalGraph) {
+      return this.cachedCausalGraph;
+    }
+
+    const allFlaky = this.getAllFlakyTests();
+    const correlations = this.analyzeCorrelations();
+
+    this.cachedCausalGraph = this.causalGraphBuilder.build(
+      allFlaky,
+      correlations,
+      this.recentRuns
+    );
+
+    return this.cachedCausalGraph;
+  }
+
+  /**
+   * 分析指定测试的影响范围
+   * @param testId - 测试 ID
+   * @returns 影响分析结果
+   */
+  async analyzeImpact(testId: string): Promise<ImpactAnalysis | null> {
+    await this.ensureReady();
+
+    if (!this.config.enableCausalGraph) {
+      return null;
+    }
+
+    const graph = await this.buildCausalGraph();
+    return this.causalGraphBuilder.analyzeImpact(testId, graph);
+  }
+
+  /**
+   * 获取因果图的根因节点
+   * @returns 根因节点列表
+   */
+  async getRootCauses() {
+    const graph = await this.buildCausalGraph();
+    return this.causalGraphBuilder.getRootCauses(graph);
+  }
+
+  /**
+   * 获取指定测试的隔离策略
+   * @param testId - 测试 ID
+   * @returns 隔离策略，测试不存在时返回 null
+   */
+  async getQuarantineStrategy(testId: string): Promise<QuarantineStrategy | null> {
+    await this.ensureReady();
+
+    const flakyTest = this.flakyTests.get(testId);
+    if (!flakyTest) return null;
+
+    if (flakyTest.quarantineStrategy) {
+      return flakyTest.quarantineStrategy;
+    }
+
+    return generateQuarantineStrategy(flakyTest);
+  }
+
+  /**
+   * 获取隔离预算使用情况
+   * @returns 预算状态
+   */
+  getQuarantineBudget() {
+    return checkQuarantineBudget(this.flakyTests.size, this.quarantine.size);
+  }
+
+  /**
+   * 获取按隔离级别分组的测试
+   * @returns 隔离级别到测试列表的映射
+   */
+  getTestsByIsolationLevel(): Record<IsolationLevel, FlakyTest[]> {
+    const result: Record<IsolationLevel, FlakyTest[]> = {
+      none: [],
+      monitor: [],
+      soft_quarantine: [],
+      hard_quarantine: [],
+    };
+
+    for (const test of this.flakyTests.values()) {
+      const level = test.isolationLevel || 'none';
+      result[level].push(test);
+    }
+
+    return result;
+  }
+
+  /**
+   * 获取项目整体健康评分
+   * 综合所有测试的健康评分计算项目级评分
+   * @returns 健康评分
+   */
+  async getOverallHealthScore(): Promise<FlakyHealthScore> {
+    await this.ensureReady();
+
+    const tests = Array.from(this.flakyTests.values());
+    if (tests.length === 0) {
+      return {
+        overall: 1,
+        breakdown: { stability: 1, trend: 0.7, recoverability: 1, predictability: 0.5 },
+        grade: 'A',
+        label: '无测试数据',
+      };
+    }
+
+    let totalStability = 0;
+    let totalTrend = 0;
+    let totalRecoverability = 0;
+    let totalPredictability = 0;
+    let analyzedCount = 0;
+
+    for (const test of tests) {
+      if (!test.healthScore && test.history.length >= FLAKY_CONFIG.TREND_MIN_DATA_POINTS) {
+        const analysis = this.trendAnalyzer.analyze(test);
+        test.trendAnalysis = analysis;
+        test.healthScore = calculateHealthScore(test, analysis.direction, analysis.r2);
+      }
+
+      if (test.healthScore) {
+        totalStability += test.healthScore.breakdown.stability;
+        totalTrend += test.healthScore.breakdown.trend;
+        totalRecoverability += test.healthScore.breakdown.recoverability;
+        totalPredictability += test.healthScore.breakdown.predictability;
+        analyzedCount++;
+      } else {
+        const stability = 1 - test.weightedFailureRate;
+        totalStability += stability;
+        totalRecoverability += test.totalRuns > 0 ? Math.min(1, (1 - test.failureRate) * 1.5) : 0;
+        analyzedCount++;
+      }
+    }
+
+    const overallStability = analyzedCount > 0 ? totalStability / analyzedCount : 0;
+    const overallTrend = analyzedCount > 0 ? totalTrend / analyzedCount : 0.7;
+    const overallRecoverability = analyzedCount > 0 ? totalRecoverability / analyzedCount : 0;
+    const overallPredictability = analyzedCount > 0 ? totalPredictability / analyzedCount : 0;
+
+    const weights = FLAKY_CONFIG.HEALTH_SCORE_WEIGHTS;
+    const overall = overallStability * weights.stability
+      + overallTrend * weights.trend
+      + overallRecoverability * weights.recoverability
+      + overallPredictability * weights.predictability;
+
+    const grade = overall >= 0.9 ? 'A' : overall >= 0.75 ? 'B' : overall >= 0.6 ? 'C' : overall >= 0.4 ? 'D' : 'F';
+    const labels: Record<string, string> = {
+      A: '非常健康',
+      B: '基本健康',
+      C: '需要关注',
+      D: '不健康',
+      F: '严重不健康',
+    };
+
+    return {
+      overall: Math.round(overall * 100) / 100,
+      breakdown: {
+        stability: Math.round(overallStability * 100) / 100,
+        trend: Math.round(overallTrend * 100) / 100,
+        recoverability: Math.round(overallRecoverability * 100) / 100,
+        predictability: Math.round(overallPredictability * 100) / 100,
+      },
+      grade,
+      label: labels[grade],
+    };
+  }
+
   async clearHistory(testId?: string): Promise<void> {
     await this.ensureReady();
     if (testId) {
@@ -500,6 +896,7 @@ export class FlakyTestManager extends ManagedManager {
       this.flakyTests.clear();
       this.quarantine.clear();
     }
+    this.cachedCausalGraph = null;
     await this.saveHistory();
   }
 

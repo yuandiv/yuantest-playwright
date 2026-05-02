@@ -317,6 +317,12 @@ export interface FlakyTest {
   consecutivePasses: number;
   lastClassifiedAt?: number;
   rootCause?: RootCauseAnalysis;
+  isolationLevel?: IsolationLevel;
+  quarantineStrategy?: QuarantineStrategy;
+  trendAnalysis?: TrendAnalysis;
+  healthScore?: FlakyHealthScore;
+  durationAnomaly?: DurationAnomaly;
+  lastPrediction?: PredictionResult;
 }
 
 export interface FlakyHistoryEntry {
@@ -324,6 +330,154 @@ export interface FlakyHistoryEntry {
   status: 'passed' | 'failed' | 'skipped' | 'timedout';
   duration: number;
   error?: string;
+}
+
+export type QuarantineStrategyType = 'skip' | 'retry_only' | 'soft' | 'hard' | 'graduated';
+
+export type IsolationLevel = 'none' | 'monitor' | 'soft_quarantine' | 'hard_quarantine';
+
+export interface QuarantineStrategy {
+  testId: string;
+  strategy: QuarantineStrategyType;
+  isolationLevel: IsolationLevel;
+  retryPolicy: RetryPolicy;
+  reason: string;
+  expiresAt?: number;
+}
+
+export interface RetryPolicy {
+  maxRetries: number;
+  retryDelay: number;
+  backoffMultiplier: number;
+  retryOnPassOnly: boolean;
+}
+
+export interface TrendDataPoint {
+  timestamp: number;
+  passRate: number;
+  failRate: number;
+  avgDuration: number;
+  flakyCount: number;
+  totalRuns: number;
+}
+
+export type TrendDirection = 'improving' | 'stable' | 'degrading' | 'volatile';
+
+export interface TrendAnalysis {
+  testId: string;
+  direction: TrendDirection;
+  slope: number;
+  r2: number;
+  dataPoints: TrendDataPoint[];
+  changePoints: ChangePoint[];
+  seasonalPattern: SeasonalPattern | null;
+  codeChangeCorrelations: CodeChangeCorrelation[];
+  forecast: TrendForecast;
+  analyzedAt: number;
+}
+
+export interface ChangePoint {
+  timestamp: number;
+  beforeRate: number;
+  afterRate: number;
+  magnitude: number;
+  confidence: number;
+}
+
+export interface SeasonalPattern {
+  period: 'hourly' | 'daily' | 'weekly';
+  peakHours: number[];
+  peakDays: number[];
+  amplitude: number;
+  confidence: number;
+}
+
+export interface CodeChangeCorrelation {
+  commitHash: string;
+  commitMessage: string;
+  timestamp: number;
+  author: string;
+  affectedFiles: string[];
+  correlationScore: number;
+  flakyRateBefore: number;
+  flakyRateAfter: number;
+}
+
+export interface TrendForecast {
+  next7Days: TrendDataPoint[];
+  confidence: number;
+  projectedDirection: TrendDirection;
+}
+
+export interface FlakyHealthScore {
+  overall: number;
+  breakdown: {
+    stability: number;
+    trend: number;
+    recoverability: number;
+    predictability: number;
+  };
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  label: string;
+}
+
+export interface PredictionResult {
+  testId: string;
+  willFail: boolean;
+  probability: number;
+  confidence: number;
+  signals: PredictionSignal[];
+  recommendedAction: string;
+  predictedAt: number;
+}
+
+export interface PredictionSignal {
+  type: 'duration_anomaly' | 'failure_pattern' | 'environment_shift' | 'code_change' | 'resource_pressure';
+  strength: number;
+  description: string;
+  data: Record<string, unknown>;
+}
+
+export interface DurationAnomaly {
+  testId: string;
+  baseline: number;
+  current: number;
+  deviation: number;
+  isAnomaly: boolean;
+  zScore: number;
+  detectedAt: number;
+}
+
+export interface CausalNode {
+  id: string;
+  type: 'test' | 'infrastructure' | 'external_service' | 'shared_state';
+  label: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface CausalEdge {
+  from: string;
+  to: string;
+  weight: number;
+  type: 'depends_on' | 'shares_resource' | 'same_environment' | 'sequential' | 'correlated_failure';
+  confidence: number;
+}
+
+export interface CausalGraph {
+  nodes: CausalNode[];
+  edges: CausalEdge[];
+  rootCauses: CausalNode[];
+  impactMap: Map<string, string[]>;
+  builtAt: number;
+}
+
+export interface ImpactAnalysis {
+  testId: string;
+  directlyAffected: string[];
+  indirectlyAffected: string[];
+  totalImpact: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  recommendation: string;
 }
 
 export interface QuarantineConfig {
@@ -339,6 +493,12 @@ export interface QuarantineConfig {
   regressionWindow?: number;
   enableRootCauseAnalysis?: boolean;
   enableCorrelationAnalysis?: boolean;
+  enableTrendTracking?: boolean;
+  enablePrediction?: boolean;
+  enableCausalGraph?: boolean;
+  quarantineStrategy?: QuarantineStrategyType;
+  maxQuarantineRatio?: number;
+  predictionSensitivity?: number;
 }
 
 export interface OrchestrationConfig {
