@@ -5,6 +5,230 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
 本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [1.0.8] - 2026-05-06
+
+### 新增
+
+#### AI 智能诊断
+
+- **Diagnosis 模块** - 完整的 AI 智能诊断功能模块
+  - `cluster.ts` - 失败测试聚类分析
+  - `context-enricher.ts` - 测试上下文信息增强
+  - `knowledge-base.ts` - 知识库管理
+  - 智能失败原因分析和修复建议
+  - 支持多维度失败模式识别
+
+#### Flaky 测试智能分析
+
+- **Flaky 分析增强** - Flaky 测试智能分析系统优化
+  - `causal-graph.ts` - 因果关系图分析
+  - `predictor.ts` - Flaky 测试预测器
+  - `quarantine-strategy.ts` - 隔离策略管理
+  - `trend.ts` - 趋势分析
+  - `classifier.ts` - Flaky 测试分类器
+  - `correlation.ts` - 相关性分析
+  - `root-cause.ts` - 根本原因分析
+
+#### 前端增强
+
+- **LLMConfigDialog** - 新增 LLM 配置对话框组件
+  - 支持 AI 模型配置管理
+  - API 密钥和端点配置
+  - 模型参数调整
+
+- **TestDetailModal** - 增强测试详情模态框
+  - 集成 AI 诊断结果展示
+  - 智能修复建议显示
+  - 失败原因可视化
+
+#### API 扩展
+
+- **API 服务** - 新增 AI 诊断相关 API
+  - LLM 配置管理接口
+  - 智能诊断请求接口
+  - 失败分析接口
+
+### 变更
+
+#### Orchestrator 优化
+
+- **Orchestrator** - 增强测试编排功能
+  - 改进测试分配策略
+  - 优化负载均衡算法
+  - 增强失败处理机制
+
+#### 实时通信
+
+- **Realtime** - 改进实时通信模块
+  - 优化 WebSocket 消息处理
+  - 增强事件推送机制
+
+### 修复
+
+- **异常处理** - 修复部分异常处理逻辑
+  - 改进错误边界处理
+  - 增强异常捕获机制
+
+### 文档
+
+- **README** - 更新中英文文档
+  - 添加 AI 诊断功能说明
+  - 更新使用示例
+
+### 测试
+
+- **单元测试** - 新增大量单元测试
+  - `diagnosis.test.ts` - 诊断模块测试
+  - `flaky-*.test.ts` - Flaky 分析相关测试
+  - `cluster.test.ts` - 聚类分析测试
+  - `knowledge-base.test.ts` - 知识库测试
+  - `orchestrator.test.ts` - 编排器测试
+
+---
+
+## [1.0.7] - 2026-04-29
+
+### 新增
+
+#### Flaky 测试管理增强
+
+- **Flaky 模块** - 增强 Flaky 测试管理功能
+  - 改进不稳定测试检测算法
+  - 优化隔离策略
+  - 增强历史数据追踪
+
+#### 前端优化
+
+- **Dashboard UI** - 多项前端优化
+  - `App.tsx` - 优化主应用组件逻辑
+  - `HealthDashboard.tsx` - 改进健康状态面板
+  - `SidebarCards.tsx` - 增强侧边栏卡片组件
+  - `ReporterPanel.tsx` - 改进报告面板
+
+#### 国际化
+
+- **i18n** - 新增翻译键
+  - 添加 Flaky 管理相关翻译
+  - 改进错误提示本地化
+
+### 变更
+
+#### 执行器优化
+
+- **Executor** - 大幅优化执行器逻辑
+  - 改进测试执行流程
+  - 优化并发控制
+  - 增强错误处理和重试机制
+  - 改进进度追踪
+
+#### 报告器改进
+
+- **Reporter** - 重构报告生成模块
+  - 移除 EJS 模板，改用静态 HTML
+  - 优化报告生成性能
+  - 简化报告结构
+
+#### 实时通信
+
+- **Realtime** - 增强实时通信功能
+  - 优化事件推送
+  - 改进连接管理
+
+### 修复
+
+- **CI 修复** - 修复 CI 构建错误
+  - 修正 constants.test.ts 测试用例
+
+### 测试
+
+- **单元测试** - 新增 Flaky 模块单元测试
+  - `flaky.test.ts` - 完整的 Flaky 管理测试套件
+
+---
+
+## [1.0.6] - 2026-04-24
+
+### 新增
+
+#### 实时报告
+
+- **Realtime 模块** - 新增实时报告功能
+  - 实时测试进度推送
+  - WebSocket 连接管理
+  - 事件广播机制
+
+#### 文档
+
+- **USAGE.md** - 新增详细使用文档
+  - 完整的 CLI 使用指南
+  - API 编程示例
+  - 配置说明
+
+#### 工具函数
+
+- **Utils** - 新增工具模块
+  - `filesystem.ts` - 文件系统操作工具
+  - `strings.ts` - 字符串处理工具
+
+### 变更
+
+#### 执行器优化
+
+- **Executor** - 优化执行器相关逻辑
+  - 改进测试执行流程
+  - 优化进程管理
+  - 增强错误处理
+
+#### 报告器增强
+
+- **Reporter** - 优化报告实时展示
+  - 改进报告生成逻辑
+  - 增强实时更新机制
+  - 优化数据结构
+
+#### 测试发现
+
+- **Discovery** - 改进测试发现模块
+  - 优化测试文件扫描
+  - 改进测试用例收集
+  - 增强性能
+
+#### 前端改进
+
+- **Dashboard UI** - 多项前端改进
+  - `App.tsx` - 优化主应用组件
+  - `HealthDashboard.tsx` - 改进健康状态面板
+  - 增强实时数据展示
+
+#### 配置优化
+
+- **Config** - 改进配置加载和合并
+  - `loader.ts` - 优化配置加载逻辑
+  - `merger.ts` - 改进配置合并策略
+
+### 修复
+
+- **测试修复** - 修复单元测试问题
+  - 更新测试断言
+  - 修正测试用例
+
+### 移除
+
+- **示例测试** - 移除示例测试文件
+  - 删除 `api-tests.spec.ts`
+  - 删除 `dashboard.spec.ts`
+  - 删除 `login.spec.ts`
+  - 删除 `shopping-cart.spec.ts`
+  - 删除 `user-management.spec.ts`
+
+### 文档
+
+- **README** - 更新中英文文档
+  - 添加实时报告功能说明
+  - 更新使用示例
+
+---
+
 ## [1.0.5] - 2026-04-21
 
 ### 修复
@@ -350,6 +574,9 @@
 
 ---
 
+[1.0.8]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.8
+[1.0.7]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.7
+[1.0.6]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.6
 [1.0.5]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.5
 [1.0.4]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.4
 [1.0.3]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.3

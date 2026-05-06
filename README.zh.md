@@ -1,0 +1,647 @@
+# yuantest-playwright
+
+[![npm version](https://badge.fury.io/js/yuantest-playwright.svg)](https://badge.fury.io/js/yuantest-playwright)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![CI](https://github.com/yuandiv/yuantest-playwright/actions/workflows/ci.yml/badge.svg)](https://github.com/yuandiv/yuantest-playwright/actions/workflows/ci.yml)
+
+[English](README.md) | 中文
+
+强大的 Playwright 测试编排器、执行器和报告器，提供 CLI 命令行工具和 Web Dashboard 可视化界面，帮助团队更高效地管理和分析 E2E 测试。
+
+**强大的 Playwright 测试编排器 · 执行器 · 报告器**
+
+**零学习成本 · 零迁移成本 · 纯 Playwright 生态**
+
+**Playwright 原生集成 · AI 智能分析 · 聚合报告与趋势**
+
+## ✨ 核心特性
+
+### 🎯 智能测试编排
+- **自动发现测试文件** - 智能扫描测试目录，支持多种文件格式
+- **智能分片策略** - 基于历史执行时间优化分片分配，实现负载均衡
+- **并行执行优化** - 自动计算最优并行度，最大化测试效率
+
+### 🚀 灵活的测试执行
+- **多浏览器支持** - 一键在 Chromium、Firefox、WebKit 上运行测试
+- **失败重试机制** - 自动重试失败测试，提高测试稳定性
+- **快照更新** - 支持自动更新视觉测试快照
+- **无内部API依赖** - 通过 Playwright CLI 执行，升级兼容性强
+
+### 📊 实时报告与可视化
+- **WebSocket 实时推送** - 实时查看测试进度和结果
+- **Web Dashboard** - 现代化可视化界面，直观展示测试数据
+- **HTML 报告** - 自动生成详细的测试报告
+- **历史趋势分析** - 追踪测试通过率和执行时间趋势
+
+### 🔍 Flaky 测试管理
+- **自动检测** - 基于历史数据自动识别不稳定测试
+- **智能隔离** - 一键隔离 Flaky 测试，避免影响 CI/CD
+- **统计分析** - 提供详细的 Flaky 测试统计和趋势
+- **自定义阈值** - 灵活配置 Flaky 检测标准
+
+### 🛠️ 失败分析与调试
+- **自动分类失败原因** - 智能识别超时、断言失败、元素未找到等
+- **修复建议** - 提供针对性的失败修复建议
+- **Trace 管理** - 自动收集和管理 Playwright Trace 文件
+- **产物管理** - 统一管理测试截图、视频等产物
+
+### 🏷️ 高级功能
+- **注解支持** - 支持 `@slow`, `@flaky`, `@skip` 等测试注解
+- **标签管理** - 灵活的测试标签系统
+- **视觉测试** - 集成像素对比的视觉回归测试
+- **配置热加载** - 支持配置文件动态加载
+
+## 🚀 零门槛使用
+
+### 零学习成本
+
+- 所有参数与 Playwright CLI 完全一致，无需学习新命令
+- Web UI 开箱即用，直观的可视化界面
+- 通过 Playwright CLI 执行，与官方行为完全一致
+
+### 零迁移成本
+
+- 纯 Playwright 命令，无专有 API
+- 随时可切换回原生 Playwright，无需修改任何测试代码
+- 不绑定任何私有数据格式
+
+### 纯 Playwright 生态
+
+- 完全开源，MIT 协议，无壁垒
+- 基于 Playwright 原生能力构建，版本升级无兼容性问题
+- 与 Playwright 社区完全兼容
+
+## 💡 核心能力
+
+### Playwright 原生集成
+
+- 通过 Playwright CLI 执行测试，无内部 API 依赖
+- 与 Playwright 版本升级完全兼容
+- 支持所有 Playwright 原生功能：Trace、截图、视频、快照等
+- 自动收集和管理 Playwright 产物
+
+### AI 智能失败分析
+
+- 自动分类失败原因：超时、断言失败、元素未找到、网络错误等
+- 提供针对性的修复建议
+- 支持失败原因趋势分析
+- 帮助快速定位问题根因
+
+### 聚合报告与趋势分析
+
+- 多次测试运行结果聚合展示
+- 历史趋势图表：通过率、执行时间、失败原因分布
+- Flaky 测试趋势追踪
+- 支持数据导出和自定义分析
+
+## 🌟 核心优势
+
+### 1. 一体化解决方案
+
+yuantest-playwright 提供完整的测试生命周期管理，无需组合多个工具：
+
+| 功能模块 | 说明 |
+|---------|------|
+| **Orchestrator** | 智能测试分片、负载均衡、基于历史时间的优化分配 |
+| **Executor** | 通过 Playwright CLI 执行，无内部 API 依赖，升级兼容性强 |
+| **RealtimeReporter** | WebSocket 实时推送测试进度 |
+| **DashboardServer** | 完整的 Web UI + REST API |
+| **FlakyTestManager** | 自动检测、隔离、统计不稳定测试 |
+| **ArtifactManager** | 统一管理截图、视频、Trace 文件 |
+
+### 2. Flaky 测试智能管理
+
+这是项目的**核心差异化价值**，市场上稀缺的能力：
+
+```typescript
+// 自动记录测试历史，计算失败率
+existing.failureRate = failures / totalRuns;
+
+// 支持一键隔离
+yuantest flaky --quarantine <test-id>
+```
+
+- 基于历史数据自动识别 Flaky 测试
+- 支持自定义阈值 (`threshold`)
+- 自动隔离机制避免影响 CI/CD
+- 提供详细的失败趋势分析
+
+### 3. 实时可视化 Dashboard
+
+- **WebSocket 实时推送** - 测试执行过程实时可见，无需等待测试结束
+- **React + Tailwind 现代前端** - 响应式设计，支持中英文切换
+- **性能优化** - 批量更新、消息限流、状态缓存，流畅处理大规模测试
+- **国际化支持** - 中英文一键切换
+
+### 4. 智能测试编排
+
+```typescript
+// ShardOptimizer - 基于历史执行时间优化分片
+const optimizedAssignments = await optimizer.optimize(tests, shards);
+```
+
+- 自动发现测试文件，支持多种文件格式
+- 基于历史执行时间的智能分片，实现负载均衡
+- 支持多浏览器、多项目并行执行
+
+### 5. 无内部 API 依赖
+
+```typescript
+// 通过 Playwright CLI 执行，而非内部 API
+spawn('npx', ['playwright', 'test', ...args]);
+```
+
+这意味着：
+- Playwright 版本升级无兼容性问题
+- 与官方 CLI 行为完全一致
+- 长期维护成本低
+
+## 🔄 与 allure-playwright 对比
+
+| 维度 | yuantest-playwright | allure-playwright |
+|------|---------------------|-------------------|
+| **学习成本** | ✅ 零学习成本 - 参数与 Playwright CLI 一致 | ⚠️ 需学习 Allure 配置和注解 |
+| **迁移成本** | ✅ 零迁移成本 - 纯 Playwright 命令 | ⚠️ 需配置 Allure Server 和 History |
+| **生态依赖** | ✅ 纯 Playwright 生态 - MIT 协议 | ⚠️ 依赖 Allure 生态 |
+| **定位** | 全栈测试管理平台 | 报告生成器 |
+| **实时性** | ✅ WebSocket 实时推送 | ❌ 测试结束后生成报告 |
+| **Web Dashboard** | ✅ 内置 React Dashboard | ✅ Allure Server (需额外部署) |
+| **Flaky 管理** | ✅ 自动检测+隔离+统计 | ❌ 无 |
+| **测试编排** | ✅ 智能分片+负载均衡 | ❌ 无 |
+| **测试执行** | ✅ 内置 Executor | ❌ 需外部执行 |
+| **Playwright 原生集成** | ✅ 通过 Playwright CLI 执行，无内部 API | ✅ 通过 Reporter API 集成 |
+| **AI 失败分析** | ✅ 自动分类+修复建议 | ❌ 无 |
+| **聚合报告** | ✅ 内置，开箱即用 | ⚠️ 需配置 Allure Server |
+| **历史趋势** | ✅ 内置存储，多维度趋势 | ✅ 需配置 History |
+| **失败分析** | ✅ 自动分类+修复建议 | ⚠️ 需手动分析 |
+| **国际化** | ✅ 中英文 | ⚠️ 需自行配置 |
+| **部署复杂度** | ✅ 单 npm 包 | ⚠️ 需 Allure Server |
+| **报告美观度** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **CI/CD 集成** | ✅ CLI + API | ✅ 广泛支持 |
+
+### 核心差异总结
+
+| yuantest-playwright 优势 | allure-playwright 优势 |
+|-------------------------|----------------------|
+| 一体化解决方案 | 报告视觉效果更精美 |
+| 实时监控测试进度 | 生态成熟、社区大 |
+| Flaky 测试管理 | 支持多种测试框架 |
+| 智能测试编排 | 历史趋势图表丰富 |
+| 部署简单 | 插件扩展性强 |
+
+### 最佳实践：两者互补
+
+使用 yuantest-playwright 进行日常测试管理和实时监控，同时集成 allure-playwright 生成精美的最终报告：
+
+```bash
+# 日常开发：使用 yuantest 实时监控
+yuantest run --test-dir ./
+
+# CI/CD：生成 Allure 报告归档
+npx playwright test --reporter=allure-playwright
+```
+
+## 📦 安装
+
+### 通过 npm 安装（推荐）
+
+```bash
+# 全局安装
+npm install -g yuantest-playwright
+
+# 或作为项目依赖
+npm install --save-dev yuantest-playwright
+```
+
+### 从源码安装
+
+```bash
+git clone https://github.com/yuandiv/yuantest-playwright.git
+cd yuantest-playwright
+npm install
+npm run build
+npm link
+```
+
+## 🚀 快速开始
+
+### 1. 运行测试
+
+```bash
+# 基本用法
+yuantest run --test-dir ./
+
+# 指定项目名称和输出目录
+yuantest run --project my-app --test-dir ./e2e --output ./reports
+
+# 使用 4 个分片并行执行
+yuantest run --test-dir ./ --shards 4
+
+# 指定多个浏览器
+yuantest run --test-dir ./ --browsers chromium,firefox
+
+# 设置超时和重试
+yuantest run --test-dir ./ --timeout 60000 --retries 2
+```
+
+### 2. 启动 Web Dashboard
+
+```bash
+# 默认端口 5274
+yuantest ui
+
+# 自定义端口
+yuantest ui --port 8080
+
+# 自定义报告和数据目录
+yuantest ui --port 5274 --output ./reports --data ./test-data
+```
+
+然后在浏览器打开 **http://localhost:5274** 查看可视化界面。
+
+## 📖 CLI 命令详解
+
+### 查看帮助
+
+```bash
+yuantest --help
+yuantest run --help
+yuantest ui --help
+```
+
+### 运行测试参数
+
+| 参数 | 简写 | 说明 | 默认值 |
+|------|------|------|--------|
+| `--project` | `-p` | 项目名称 | test-project |
+| `--test-dir` | `-t` | 测试文件目录 | ./ |
+| `--output` | `-o` | 输出目录 | ./test-output |
+| `--shards` | `-s` | 分片数量 | 1 |
+| `--workers` | `-w` | Worker 数量 | 1 |
+| `--browsers` | `-b` | 浏览器列表(逗号分隔) | chromium |
+| `--base-url` | | 基础 URL | |
+| `--timeout` | | 超时时间(ms) | 30000 |
+| `--retries` | | 重试次数 | 0 |
+| `--grep` | | 运行匹配的测试 | |
+| `--update-snapshots` | | 更新快照 | false |
+
+### 编排预览（不执行）
+
+```bash
+# 查看测试分片分配方案
+yuantest orchestrate --test-dir ./ --shards 4
+```
+
+### 查看报告
+
+```bash
+# 查看最近 10 条报告
+yuantest report --limit 10
+
+# 查看指定报告
+yuentest report --id run_20240101_120000_abc123
+```
+
+### Flaky 测试管理
+
+```bash
+# 查看 Flaky 统计
+yuantest flaky
+
+# 列出所有 Flaky 测试
+yuantest flaky --list
+
+# 列出已隔离的测试
+yuantest flaky --quarantined
+
+# 隔离指定测试
+yuantest flaky --quarantine <test-id>
+
+# 释放指定测试
+yuantest flaky --release <test-id>
+
+# 自定义阈值
+yuantest flaky --list --threshold 0.5
+```
+
+### 失败分析
+
+```bash
+# 分析指定 Run 的失败原因
+yuantest analyze --id run_20240101_120000_abc123
+```
+
+## 🖥️ Web Dashboard
+
+启动后访问 `http://localhost:<port>`，包含以下功能模块：
+
+### 主要页面
+
+- **概览** - 测试运行总数、通过率、Flaky 统计、执行趋势图表
+- **Test Runs** - 历史测试运行记录，支持筛选和搜索
+- **Flaky Tests** - 不稳定测试列表，支持一键隔离/释放
+- **Failure Analysis** - 失败原因分类和修复建议
+- **实时进度** - 测试运行时显示实时进度条和日志
+
+### REST API
+
+Dashboard 提供 RESTful API，方便集成到其他系统：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/stats` | 总体统计 |
+| GET | `/api/runs` | 运行列表 |
+| GET | `/api/runs/:id` | 运行详情 |
+| GET | `/api/flaky` | Flaky 测试列表 |
+| GET | `/api/flaky/quarantined` | 已隔离测试 |
+| POST | `/api/flaky/:id/quarantine` | 隔离测试 |
+| POST | `/api/flaky/:id/release` | 释放测试 |
+| GET | `/api/flaky/stats` | Flaky 统计 |
+| GET | `/api/analysis/:runId` | 失败分析 |
+| GET | `/api/progress` | 实时进度 |
+
+## 💻 编程 API 使用
+
+### 基础示例
+
+```typescript
+import {
+  Orchestrator,
+  Executor,
+  Reporter,
+  FlakyTestManager,
+  DashboardServer,
+} from 'yuantest-playwright';
+
+async function main() {
+  // 1. 编排测试
+  const orchestrator = new Orchestrator({
+    projectName: 'my-app',
+    testDir: './e2e',
+    outputDir: './reports',
+    shards: 4,
+    browsers: ['chromium', 'firefox'],
+  });
+  await orchestrator.initialize();
+  const plan = await orchestrator.orchestrate();
+
+  // 2. 执行测试
+  const executor = new Executor(orchestrator.getConfig());
+
+  // 监听事件
+  executor.on('run_started', (data) => {
+    console.log(`Run started: ${data.runId}`);
+  });
+
+  executor.on('test_result', (result) => {
+    console.log(`[${result.status}] ${result.title} (${result.duration}ms)`);
+  });
+
+  executor.on('run_progress', (progress) => {
+    console.log(`Progress: ${progress.passed}/${progress.totalTests} passed`);
+  });
+
+  executor.on('output', (data) => {
+    process.stdout.write(data.data);
+  });
+
+  executor.on('run_completed', async (result) => {
+    // 3. 生成报告
+    const reporter = new Reporter('./reports');
+    const reportPath = await reporter.generateReport(result);
+    console.log(`Report: ${reportPath}`);
+
+    // 4. 分析失败
+    const analysis = await reporter.analyzeFailures(result);
+    console.log(`Failures: ${analysis.length}`);
+  });
+
+  const result = await executor.execute({
+    grepPattern: 'smoke',
+    projectFilter: 'chromium',
+    updateSnapshots: false,
+  });
+  console.log(`Final: ${result.passed}/${result.totalTests} passed`);
+
+  // 5. 启动 Dashboard
+  const server = new DashboardServer(5274, './reports', './test-data');
+  await server.start();
+}
+
+main();
+```
+
+### 高级用法
+
+```typescript
+import { FlakyTestManager, AnnotationManager } from 'yuantest-playwright';
+
+// Flaky 测试管理
+const flakyManager = new FlakyTestManager('./test-data');
+await flakyManager.initialize();
+
+// 获取 Flaky 测试
+const flakyTests = await flakyManager.getFlakyTests(0.3);
+console.log(`Found ${flakyTests.length} flaky tests`);
+
+// 隔离测试
+await flakyManager.quarantineTest('test-id-123');
+
+// 注解管理
+const annotationManager = new AnnotationManager('./');
+const annotations = await annotationManager.scanAnnotations();
+console.log(`Found ${annotations.length} annotated tests`);
+```
+
+## 📁 项目结构
+
+```
+yuantest-playwright/
+├── bin/
+│   ├── cli.js              # CLI 入口
+│   └── start-ui.js         # Dashboard 启动脚本
+├── dashboard/              # Web Dashboard 前端源码
+│   ├── src/
+│   │   ├── components/     # React 组件
+│   │   ├── hooks/          # 自定义 Hooks
+│   │   ├── services/       # API 服务
+│   │   └── types/          # TypeScript 类型
+│   └── index.html
+├── src/
+│   ├── index.ts            # 主入口
+│   ├── types/              # 类型定义
+│   ├── orchestrator/       # 测试编排器
+│   ├── executor/           # 测试执行器
+│   ├── reporter/           # 报告生成器
+│   ├── realtime/           # 实时报告
+│   ├── flaky/              # Flaky 管理
+│   ├── config/             # 配置管理
+│   ├── trace/              # Trace 管理
+│   ├── annotations/        # 注解扫描
+│   ├── tags/               # 标签管理
+│   ├── artifacts/          # 产物管理
+│   ├── visual/             # 视觉测试
+│   ├── logger/             # 日志模块
+│   ├── cli/                # CLI 命令
+│   └── ui/                 # Dashboard 服务器
+├── tests/                  # 测试文件
+├── docs/                   # 文档
+└── package.json
+```
+
+## 🎯 使用场景
+
+### CI/CD 集成
+
+```yaml
+# GitHub Actions 示例
+name: E2E Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run E2E tests
+        run: |
+          npm install -g yuantest-playwright
+          yuantest run --test-dir ./e2e --shards 4 --output ./reports
+      
+      - name: Upload reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-reports
+          path: reports/
+```
+
+### 大型测试套件优化
+
+```bash
+# 使用智能分片加速大型测试套件
+yuantest run --test-dir ./e2e --shards 8 --workers 4
+
+# 隔离 Flaky 测试避免阻塞 CI
+yuantest flaky --quarantine-all
+yuantest run --test-dir ./e2e
+```
+
+### 多浏览器测试
+
+```bash
+# 在所有浏览器上运行测试
+yuantest run --test-dir ./e2e --browsers chromium,firefox,webkit
+
+# 仅在特定浏览器上运行
+yuantest run --test-dir ./e2e --browsers chromium
+```
+
+## ⚙️ 配置文件
+
+支持通过配置文件自定义行为：
+
+```typescript
+// yuantest.config.ts
+import { defineConfig } from 'yuantest-playwright';
+
+export default defineConfig({
+  project: 'my-app',
+  testDir: './e2e',
+  outputDir: './reports',
+  shards: 4,
+  browsers: ['chromium', 'firefox'],
+  timeout: 60000,
+  retries: 2,
+  flaky: {
+    threshold: 0.3,
+    autoQuarantine: false,
+  },
+  dashboard: {
+    port: 5274,
+    open: true,
+  },
+});
+```
+
+## 📊 性能特性
+
+- **智能分片** - 基于历史执行时间优化分片，提升 30-50% 执行效率
+- **并行执行** - 支持多 Worker 并行，充分利用多核 CPU
+- **增量测试** - 支持仅运行变更相关的测试
+- **缓存优化** - 智能缓存测试发现结果，减少重复计算
+- **内存优化** - 流式处理大型测试结果，降低内存占用
+
+## 🔧 环境要求
+
+- Node.js >= 16.0.0
+- npm >= 7.0.0
+- Playwright >= 1.40.0
+
+## 📚 文档
+
+- [API 文档](https://yuandiv.github.io/yuantest-playwright/)
+- [使用指南](USAGE.md) - Web UI 和外部工具执行测试使用指南
+- [更新日志](CHANGELOG.md)
+- [贡献指南](CONTRIBUTING.md)
+- [行为准则](CODE_OF_CONDUCT.md)
+
+## 🤝 贡献
+
+欢迎贡献代码、报告问题或提出建议！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'Add amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 创建 Pull Request
+
+查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详情。
+
+## 📝 License
+
+MIT © [YuanDiv](https://github.com/yuandiv)
+
+## 🙏 致谢
+
+感谢以下开源项目：
+
+- [Playwright](https://playwright.dev/) - 强大的端到端测试框架
+- [React](https://react.dev/) - Dashboard 前端框架
+- [Express](https://expressjs.com/) - Dashboard 服务器框架
+- [TypeScript](https://www.typescriptlang.org/) - 类型安全的开发体验
+
+## 📮 联系方式
+
+- GitHub: [@yuandiv](https://github.com/yuandiv)
+- Issues: [GitHub Issues](https://github.com/yuandiv/yuantest-playwright/issues)
+
+## ❓ 常见误解澄清
+
+### Q: 需要学习新的 CLI 吗？
+**不需要。** yuantest-playwright 的所有参数与 Playwright CLI 完全一致，您已有的 Playwright 知识可以直接复用。同时提供 Web UI，无需命令行即可使用。
+
+### Q: 会锁定在这个工具吗？
+**不会。** yuantest-playwright 使用纯 Playwright 命令执行测试，无专有 API。您可以随时切换回原生 Playwright，无需修改任何测试代码，真正的零迁移成本。
+
+### Q: 项目维护情况如何？
+**完全开源。** MIT 协议，纯 Playwright 生态，无任何壁垒。基于 Playwright 原生能力构建，版本升级无兼容性问题。
+
+### Q: 与 Playwright 原生功能兼容吗？
+**完全兼容。** 通过 Playwright CLI 执行测试，支持所有原生功能：Trace、截图、视频、快照等。自动收集和管理所有 Playwright 产物。
+
+### Q: 如何分析测试失败原因？
+**AI 智能分析。** 自动分类失败原因（超时、断言失败、元素未找到等），提供修复建议，支持失败趋势分析，帮助快速定位问题根因。
+
+---
+
+如果这个项目对你有帮助，请给一个 ⭐️ Star！
