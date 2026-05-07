@@ -41,6 +41,7 @@ function App() {
   const [versionInput, setVersionInput] = useState('1.0.0');
   const [modalContent, setModalContent] = useState<React.ReactNode | null>(null);
   const [isExecutorDialogOpen, setIsExecutorDialogOpen] = useState(false);
+  const [fileOrder, setFileOrder] = useState<string[]>([]);
   const [testDir, setTestDir] = useState<string>('./');
   const [isLoadingTests, setIsLoadingTests] = useState(false);
   const originalTestFilesRef = useRef<TestFile[]>([]);
@@ -658,6 +659,7 @@ function App() {
       setTestFiles([]);
       setTestCases([]);
       setSelectedIds(new Set());
+      setFileOrder([]);
       return { count: 0, error: result.error, rawOutput: result.rawOutput };
     }
     
@@ -671,6 +673,7 @@ function App() {
       
       originalTestFilesRef.current = files;
       setTestFiles(files);
+      setFileOrder(files.map(f => f.file));
       
       const cases = extractAllTests(files);
       const restoredCases = restoreTestCasesFromLocalStorage(cases);
@@ -726,6 +729,7 @@ function App() {
       const files = Array.from(fileMap.values());
       originalTestFilesRef.current = files;
       setTestFiles(files);
+      setFileOrder(files.map(f => f.file));
       
       const cases = extractAllTests(files);
       const restoredCases = restoreTestCasesFromLocalStorage(cases);
@@ -736,6 +740,7 @@ function App() {
       setTestFiles([]);
       setTestCases([]);
       setSelectedIds(new Set());
+      setFileOrder([]);
       return { count: 0 };
     } else {
       const annotations = await api.getAnnotations(dirToUse);
@@ -819,6 +824,7 @@ function App() {
     setTestFiles([]);
     setTestCases([]);
     setSelectedIds(new Set());
+    setFileOrder([]);
     localStorage.removeItem('testCasesStatus');
     addLog(`📁 ${t('selectTestDir', lang)}: ${newTestDir}`, 'info');
     try {
@@ -920,6 +926,17 @@ function App() {
       const tc = testCases.find(c => c.id === id);
       return tc ? `${tc.file}:${tc.line}` : null;
     }).filter((loc): loc is string => loc !== null);
+
+    if (fileOrder.length > 0) {
+      const fileOrderMap = new Map(fileOrder.map((f, i) => [f, i]));
+      testLocations.sort((a, b) => {
+        const fileA = a.split(':').slice(0, -1).join(':');
+        const fileB = b.split(':').slice(0, -1).join(':');
+        const orderA = fileOrderMap.get(fileA) ?? Infinity;
+        const orderB = fileOrderMap.get(fileB) ?? Infinity;
+        return orderA - orderB;
+      });
+    }
     
     const result = await api.startRun({
       version: versionInput,
@@ -1119,6 +1136,8 @@ function App() {
         onExpandAll={() => setExpandedPaths(collectAllPaths())}
         onCollapseAll={() => setExpandedPaths(new Set())}
         onModal={setModalContent}
+        fileOrder={fileOrder}
+        onFileOrderChange={setFileOrder}
       />
       <Modal content={modalContent} onClose={() => setModalContent(null)} />
     </div>

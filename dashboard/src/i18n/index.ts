@@ -258,6 +258,10 @@ const zh: Record<string, string> = {
   lowConfidenceWarning: '低置信度诊断，建议人工确认',
   contextUsed: '使用上下文',
   noContextUsed: '无额外上下文',
+  moveUp: '上移',
+  moveDown: '下移',
+  dragToReorder: '拖拽调整顺序',
+  executionOrder: '执行顺序',
 };
 
 const en: Record<string, string> = {
@@ -521,6 +525,10 @@ const en: Record<string, string> = {
   lowConfidenceWarning: 'Low confidence diagnosis, manual review recommended',
   contextUsed: 'Context Used',
   noContextUsed: 'No additional context',
+  moveUp: 'Move Up',
+  moveDown: 'Move Down',
+  dragToReorder: 'Drag to reorder',
+  executionOrder: 'Execution Order',
 };
 
 const translations: Record<string, Record<string, string>> = { zh, en };

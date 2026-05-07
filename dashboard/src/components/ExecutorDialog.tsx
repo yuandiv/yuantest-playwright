@@ -28,6 +28,8 @@ interface ExecutorDialogProps {
   onExpandAll: () => void;
   onCollapseAll: () => void;
   onModal: (content: React.ReactNode) => void;
+  fileOrder: string[];
+  onFileOrderChange: (order: string[]) => void;
 }
 
 function countTestsInDescribe(describe: TestDescribe): number {
@@ -316,7 +318,7 @@ const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, 
   );
 });
 
-const FileView = memo(function FileView({ file, selectedIds, expandedPaths, testCaseStatusMap, onSelectedIdsChange, onExpandedPathsChange, onRunFile, onRunDescribe, onRunTest }: {
+const FileView = memo(function FileView({ file, selectedIds, expandedPaths, testCaseStatusMap, onSelectedIdsChange, onExpandedPathsChange, onRunFile, onRunDescribe, onRunTest, fileIndex, totalFiles, isExecuting, onMoveUp, onMoveDown, onDragStart, onDragOver, onDrop, lang }: {
   file: TestFile;
   selectedIds: Set<string>;
   expandedPaths: Set<string>;
@@ -326,9 +328,19 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
   onRunFile: (file: TestFile) => void;
   onRunDescribe: (describe: TestDescribe) => void;
   onRunTest: (test: TestCase) => void;
+  fileIndex: number;
+  totalFiles: number;
+  isExecuting: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+  lang: Lang;
 }) {
   const path = file.file;
   const isExpanded = expandedPaths.has(path);
+  const [dragOver, setDragOver] = useState(false);
   
   const total = useMemo(() => countTestsInFile(file), [file]);
   const selected = useMemo(() => countSelectedInFile(file, selectedIds), [file, selectedIds]);
@@ -414,9 +426,16 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
   return (
     <div>
       <div
-        className="flex items-center gap-1.5 py-1 px-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-xs group"
+        className={`flex items-center gap-1.5 py-1 px-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-xs group ${dragOver ? 'border-t-2 border-indigo-400' : ''}`}
         onClick={toggleExpand}
+        draggable={!isExecuting}
+        onDragStart={onDragStart}
+        onDragOver={(e) => { onDragOver(e); setDragOver(true); }}
+        onDragEnter={() => setDragOver(true)}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { onDrop(e); setDragOver(false); }}
       >
+        <i className={`fas fa-grip-vertical text-gray-300 ${isExecuting ? '' : 'cursor-grab'}`}></i>
         <input
           type="checkbox"
           checked={allSelected}
@@ -439,6 +458,22 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
           title="Run this file"
         >
           <i className="fas fa-play mr-0.5"></i>Run
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+          disabled={fileIndex === 0 || isExecuting}
+          className={`opacity-0 group-hover:opacity-100 px-1.5 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded text-[10px] transition-opacity ${fileIndex === 0 || isExecuting ? 'opacity-0 !cursor-not-allowed' : ''}`}
+          title="Move up"
+        >
+          <i className="fas fa-arrow-up"></i>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+          disabled={fileIndex === totalFiles - 1 || isExecuting}
+          className={`opacity-0 group-hover:opacity-100 px-1.5 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded text-[10px] transition-opacity ${fileIndex === totalFiles - 1 || isExecuting ? 'opacity-0 !cursor-not-allowed' : ''}`}
+          title="Move down"
+        >
+          <i className="fas fa-arrow-down"></i>
         </button>
       </div>
       {isExpanded && (
@@ -480,12 +515,61 @@ export function ExecutorDialog({
   isOpen, onClose, lang, testFiles, testCases, selectedIds, expandedPaths, isExecuting, isLoadingTests, logs, versionInput, testDir,
   onSelectedIdsChange, onExpandedPathsChange, onRun, onStop, onClearLogs,
   onVersionChange, onTestDirChange, onSelectAll, onClearAll, onExpandAll, onCollapseAll, onModal,
+  fileOrder, onFileOrderChange,
 }: ExecutorDialogProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [tempTestDir, setTempTestDir] = useState(testDir);
   const [isValidating, setIsValidating] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const selectedCount = selectedIds.size;
+
+  const orderedTestFiles = useMemo(() => {
+    if (!fileOrder || fileOrder.length === 0) return testFiles;
+    const orderMap = new Map(fileOrder.map((f, i) => [f, i]));
+    return [...testFiles].sort((a, b) => {
+      const aIdx = orderMap.get(a.file) ?? testFiles.indexOf(a);
+      const bIdx = orderMap.get(b.file) ?? testFiles.indexOf(b);
+      return aIdx - bIdx;
+    });
+  }, [testFiles, fileOrder]);
+
+  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (dropIndex: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === dropIndex) return;
+    const currentOrder = orderedTestFiles.map(f => f.file);
+    const newOrder = [...currentOrder];
+    const [moved] = newOrder.splice(dragIndex, 1);
+    newOrder.splice(dropIndex, 0, moved);
+    onFileOrderChange(newOrder);
+    setDragIndex(null);
+  };
+
+  const handleMoveUp = (index: number) => () => {
+    if (index === 0) return;
+    const currentOrder = orderedTestFiles.map(f => f.file);
+    const newOrder = [...currentOrder];
+    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+    onFileOrderChange(newOrder);
+  };
+
+  const handleMoveDown = (index: number) => () => {
+    if (index === orderedTestFiles.length - 1) return;
+    const currentOrder = orderedTestFiles.map(f => f.file);
+    const newOrder = [...currentOrder];
+    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    onFileOrderChange(newOrder);
+  };
   
   const testCaseStatusMap = useMemo(() => {
     const map = new Map<string, { status?: string; lastDuration: number | null; lastError: string | null }>();
@@ -760,7 +844,7 @@ export function ExecutorDialog({
               )}
               {testFiles.length === 0 ? (
                 <p className="text-gray-400 text-xs p-4 text-center">{t('noTestCases', lang)}</p>
-              ) : testFiles.map(file => (
+              ) : orderedTestFiles.map((file, index) => (
                 <FileView
                   key={file.file}
                   file={file}
@@ -772,6 +856,15 @@ export function ExecutorDialog({
                   onRunFile={handleRunFile}
                   onRunDescribe={handleRunDescribe}
                   onRunTest={handleRunTest}
+                  fileIndex={index}
+                  totalFiles={orderedTestFiles.length}
+                  isExecuting={isExecuting}
+                  onMoveUp={handleMoveUp(index)}
+                  onMoveDown={handleMoveDown(index)}
+                  onDragStart={handleDragStart(index)}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop(index)}
+                  lang={lang}
                 />
               ))}
             </div>

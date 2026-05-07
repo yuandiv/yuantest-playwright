@@ -580,7 +580,7 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
             </div>
             {htmlReportUrl && (
               <a
-                href={htmlReportUrl}
+                href={`${htmlReportUrl}#?testId=${test.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
