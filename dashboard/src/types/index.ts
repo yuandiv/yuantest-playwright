@@ -100,6 +100,40 @@ export interface CorrelationGroup {
   evidence: string;
 }
 
+export interface TrendAnalysis {
+  direction: 'improving' | 'stable' | 'degrading' | 'volatile';
+  slope: number;
+  r2: number;
+  changePoints: { index: number; timestamp: number; from: number; to: number }[];
+  seasonalPattern: { period: string; strength: number; peakHours?: number[] } | null;
+  forecast: { timestamp: number; predicted: number; lower: number; upper: number }[];
+}
+
+export interface FlakyHealthScore {
+  overall: number;
+  stability: number;
+  trend: number;
+  recoverability: number;
+  predictability: number;
+}
+
+export interface PredictionResult {
+  testId: string;
+  willFail: boolean;
+  confidence: number;
+  signals: { type: string; value: number; threshold: number; triggered: boolean }[];
+  predictedAt: number;
+}
+
+export interface DurationAnomaly {
+  testId: string;
+  title: string;
+  zScore: number;
+  meanDuration: number;
+  lastDuration: number;
+  isAnomaly: boolean;
+}
+
 export interface FlakyTest {
   title: string;
   failureRate: number;
@@ -111,6 +145,10 @@ export interface FlakyTest {
   consecutiveFailures?: number;
   consecutivePasses?: number;
   rootCause?: RootCauseAnalysis;
+  trendAnalysis?: TrendAnalysis;
+  healthScore?: FlakyHealthScore;
+  durationAnomaly?: DurationAnomaly;
+  lastPrediction?: PredictionResult;
 }
 
 export interface QuarantinedTest {

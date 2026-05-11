@@ -9,6 +9,7 @@ import {
   ContextUsed,
   CodeDiff,
   DocLink,
+  RootCauseAnalysis,
 } from '../types';
 import { matchPatterns, buildFewShotExamples, ErrorPattern } from './knowledge-base';
 import {
@@ -414,11 +415,51 @@ export class DiagnosisService {
    * @param args - 工具调用参数
    * @returns 工具执行结果的字符串表示
    */
+  private static readonly SENSITIVE_PATTERNS = [
+    /\.env/i,
+    /\.pem$/i,
+    /\.key$/i,
+    /\.p12$/i,
+    /\.pfx$/i,
+    /id_rsa/i,
+    /id_ed25519/i,
+    /credentials/i,
+    /\.npmrc$/i,
+    /ssh\/config/i,
+    /\.gitconfig/i,
+    /htpasswd/i,
+  ];
+
+  private static readonly BLOCKED_DIRS = [
+    'node_modules',
+    '.git',
+    '__pycache__',
+    '.venv',
+    'venv',
+  ];
+
+  private isPathAllowed(filePath: string): boolean {
+    const resolved = path.resolve(filePath);
+    const cwd = process.cwd();
+    if (!resolved.startsWith(cwd)) {
+      return false;
+    }
+    for (const pattern of DiagnosisService.SENSITIVE_PATTERNS) {
+      if (pattern.test(resolved)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private async executeToolCall(toolName: string, args: Record<string, unknown>): Promise<string> {
     try {
       switch (toolName) {
         case 'read_source_file': {
           const filePath = args.path as string;
+          if (!this.isPathAllowed(filePath)) {
+            return `Access denied: path outside project directory or sensitive file: ${filePath}`;
+          }
           const startLine = args.startLine as number | undefined;
           const result = await readSourceCode(filePath, startLine);
           return result ?? `File not found or unable to read: ${filePath}`;
@@ -439,7 +480,7 @@ export class DiagnosisService {
                 if (results.length >= 20) {
                   break;
                 }
-                if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+                if (entry.name.startsWith('.') || DiagnosisService.BLOCKED_DIRS.includes(entry.name)) {
                   continue;
                 }
                 const fullPath = path.join(dir, entry.name);
@@ -447,6 +488,9 @@ export class DiagnosisService {
                   searchDir(fullPath, depth + 1);
                 } else if (entry.isFile()) {
                   if (filePattern && !entry.name.match(filePattern.replace(/\*/g, '.*'))) {
+                    continue;
+                  }
+                  if (!this.isPathAllowed(fullPath)) {
                     continue;
                   }
                   try {
@@ -996,7 +1040,8 @@ export class DiagnosisService {
     },
     lang: string = 'zh',
     runId?: string,
-    testId?: string
+    testId?: string,
+    rootCause?: RootCauseAnalysis
   ): Promise<AIDiagnosis> {
     if (!this.config.enabled) {
       return {
@@ -1043,11 +1088,15 @@ export class DiagnosisService {
     }
 
     try {
-      const context = await enrichContext(testInfo, this.dataDir);
+      const context = await enrichContext(testInfo, this.dataDir, rootCause);
 
       const patterns = matchPatterns(testInfo.error || '');
 
       const prompt = this.buildEnrichedPrompt(context, patterns, testInfo, lang);
+
+      if (rootCause) {
+        prompt.system += `\n\n## Root Cause Analysis Findings\n- Primary Cause: ${rootCause.primaryCause}\n- Confidence: ${(rootCause.confidence * 100).toFixed(0)}%\n- Suggested Actions: ${rootCause.suggestedActions.join(', ')}\n- Evidence: ${rootCause.evidence.map(e => e.description).join('; ')}`;
+      }
 
       const { responseText, reasoningSteps, analysisMode } = await this.agentLoop(
         prompt,

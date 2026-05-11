@@ -35,18 +35,27 @@ function calculateTrend(current: number, previous: number, isLowerBetter: boolea
  * @param data - 原始健康指标数据数组
  * @returns 图表数据、统计信息和趋势数据
  */
+function safeNumber(value: any, defaultValue: number = 0): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return defaultValue;
+  }
+  return value;
+}
+
 export function useChartData(data: HealthMetric[]) {
   const chartData: HealthTrendData[] = useMemo(() => {
+    if (!Array.isArray(data) || data.length === 0) return [];
+    
     return data.map(d => ({
-      date: d.date,
-      passed: d.runStatus.passed,
-      failed: d.runStatus.failed,
-      passRate: d.runStatus.passRate,
-      duration: d.runDuration,
-      suiteSize: d.testSuiteSize.total,
-      flakyRate: d.testFlakiness.flakyRate * 100,
-      flakyCount: d.testFlakiness.flakyCount,
-    }));
+      date: d.date || '',
+      passed: safeNumber(d?.runStatus?.passed, 0),
+      failed: safeNumber(d?.runStatus?.failed, 0),
+      passRate: safeNumber(d?.runStatus?.passRate, 0),
+      duration: safeNumber(d?.runDuration, 0),
+      suiteSize: safeNumber(d?.testSuiteSize?.total, 0),
+      flakyRate: safeNumber(d?.testFlakiness?.flakyRate, 0) * 100,
+      flakyCount: safeNumber(d?.testFlakiness?.flakyCount, 0),
+    })).filter(d => d.date);
   }, [data]);
 
   const stats: EnhancedChartStats | null = useMemo(() => {
@@ -55,17 +64,17 @@ export function useChartData(data: HealthMetric[]) {
     const latest = chartData[chartData.length - 1];
     const previous = chartData.length > 1 ? chartData[chartData.length - 2] : latest;
     
-    const avgPassRate = chartData.reduce((sum, d) => sum + d.passRate, 0) / chartData.length;
-    const avgDuration = chartData.reduce((sum, d) => sum + d.duration, 0) / chartData.length;
-    const avgFlakyRate = chartData.reduce((sum, d) => sum + d.flakyRate, 0) / chartData.length;
-    const totalTests = chartData.reduce((sum, d) => sum + (d.passed + d.failed), 0);
-    const totalFlaky = chartData.reduce((sum, d) => sum + d.flakyCount, 0);
+    const avgPassRate = safeNumber(chartData.reduce((sum, d) => sum + safeNumber(d.passRate, 0), 0) / chartData.length, 0);
+    const avgDuration = safeNumber(chartData.reduce((sum, d) => sum + safeNumber(d.duration, 0), 0) / chartData.length, 0);
+    const avgFlakyRate = safeNumber(chartData.reduce((sum, d) => sum + safeNumber(d.flakyRate, 0), 0) / chartData.length, 0);
+    const totalTests = chartData.reduce((sum, d) => sum + (safeNumber(d.passed, 0) + safeNumber(d.failed, 0)), 0);
+    const totalFlaky = chartData.reduce((sum, d) => sum + safeNumber(d.flakyCount, 0), 0);
 
     const sparklineLength = Math.min(7, chartData.length);
     const recentData = chartData.slice(-sparklineLength);
 
     return {
-      latestPassRate: latest.passRate,
+      latestPassRate: safeNumber(latest?.passRate, 0),
       avgPassRate,
       avgDuration,
       avgFlakyRate,
@@ -73,16 +82,16 @@ export function useChartData(data: HealthMetric[]) {
       totalFlaky,
       dataPoints: chartData.length,
       trends: {
-        passRate: calculateTrend(latest.passRate, previous.passRate, false),
-        duration: calculateTrend(latest.duration, previous.duration, true),
-        totalTests: calculateTrend(latest.suiteSize, previous.suiteSize, false),
-        flakyCount: calculateTrend(latest.flakyCount, previous.flakyCount, true),
+        passRate: calculateTrend(safeNumber(latest?.passRate, 0), safeNumber(previous?.passRate, 0), false),
+        duration: calculateTrend(safeNumber(latest?.duration, 0), safeNumber(previous?.duration, 0), true),
+        totalTests: calculateTrend(safeNumber(latest?.suiteSize, 0), safeNumber(previous?.suiteSize, 0), false),
+        flakyCount: calculateTrend(safeNumber(latest?.flakyCount, 0), safeNumber(previous?.flakyCount, 0), true),
       },
       sparkline: {
-        passRate: recentData.map(d => d.passRate),
-        duration: recentData.map(d => d.duration / 1000),
-        totalTests: recentData.map(d => d.suiteSize),
-        flakyCount: recentData.map(d => d.flakyCount),
+        passRate: recentData.map(d => safeNumber(d.passRate, 0)),
+        duration: recentData.map(d => safeNumber(d.duration, 0) / 1000),
+        totalTests: recentData.map(d => safeNumber(d.suiteSize, 0)),
+        flakyCount: recentData.map(d => safeNumber(d.flakyCount, 0)),
       },
     };
   }, [chartData]);

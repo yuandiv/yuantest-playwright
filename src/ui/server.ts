@@ -10,6 +10,13 @@ import { TagManager } from '../tags';
 import { ArtifactManager } from '../artifacts';
 import { VisualTestingManager } from '../visual';
 import { DiagnosisService } from '../diagnosis';
+import {
+  registerPattern,
+  unregisterPattern,
+  getCustomPatterns,
+  getAllPatterns,
+  loadPatternsFromConfig,
+} from '../diagnosis/knowledge-base';
 import { Executor } from '../executor';
 import { TestDiscovery } from '../discovery';
 import {
@@ -19,7 +26,13 @@ import {
   TestConfig,
   TestResult,
   getErrorMessage,
+  RootCauseAnalysis,
+  FailureAnalysisSummary,
+  ReportFailureSummary,
+  ReportFailureItem,
+  ReportFailureResult,
 } from '../types';
+import { categorizeError, generateSuggestions } from '../diagnosis/categorizer';
 import { loadConfigFile, mergeConfig } from '../config/loader';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
@@ -103,8 +116,16 @@ export class DashboardServer {
     this.app.use(express.json());
 
     this.realtimeReporter = new RealtimeReporter();
-    this.reporter = new Reporter(outputDir, this.storage);
+
+    try {
+      this.diagnosisService = new DiagnosisService(dataDir);
+    } catch (error) {
+      this.log.warn(`Failed to initialize DiagnosisService: ${error}`);
+      this.diagnosisService = new DiagnosisService(dataDir);
+    }
+
     this.flakyManager = new FlakyTestManager(dataDir, {}, this.storage);
+    this.reporter = new Reporter(outputDir, this.storage, this.diagnosisService, this.flakyManager);
 
     this.traceManager = new TraceManager(
       {
@@ -136,13 +157,6 @@ export class DashboardServer {
       },
       path.join(this.outputDir, '../visual-testing')
     );
-
-    try {
-      this.diagnosisService = new DiagnosisService(dataDir);
-    } catch (error) {
-      this.log.warn(`Failed to initialize DiagnosisService: ${error}`);
-      this.diagnosisService = new DiagnosisService(dataDir);
-    }
 
     this.server = createServer(this.app);
 
@@ -458,13 +472,14 @@ export class DashboardServer {
           this.realtimeReporter.broadcastTestResult(runId, result);
 
           const pendingReport = this.reporter.getPendingReport(runId);
+          const isStillRunning = this.executor?.isCurrentlyRunning() ?? false;
           if (pendingReport) {
             this.realtimeReporter.broadcastReportUpdated(runId, {
               totalTests: pendingReport.totalTests,
               passed: pendingReport.passed,
               failed: pendingReport.failed,
               skipped: pendingReport.skipped,
-              status: 'running',
+              status: isStillRunning ? 'running' : 'completed',
               testResult: result,
             });
           }
@@ -1475,11 +1490,154 @@ export class DashboardServer {
     );
 
     v1Router.get(
+      '/flaky/trend/:testId',
+      asyncHandler(async (req: Request, res: Response) => {
+        const trend = await this.flakyManager.analyzeTrend(req.params.testId);
+        if (!trend) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Test not found or no trend data' });
+          return;
+        }
+        res.json(trend);
+      })
+    );
+
+    v1Router.get(
+      '/flaky/trends',
+      asyncHandler(async (_req: Request, res: Response) => {
+        const trends = await this.flakyManager.analyzeAllTrends();
+        res.json(Object.fromEntries(trends));
+      })
+    );
+
+    v1Router.get(
+      '/flaky/health',
+      asyncHandler(async (_req: Request, res: Response) => {
+        const health = this.flakyManager.getOverallHealthScore();
+        res.json(health);
+      })
+    );
+
+    v1Router.get(
+      '/flaky/prediction/:testId',
+      asyncHandler(async (req: Request, res: Response) => {
+        const prediction = await this.flakyManager.predictTestFailure(req.params.testId);
+        if (!prediction) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Test not found or no prediction data' });
+          return;
+        }
+        res.json(prediction);
+      })
+    );
+
+    v1Router.get(
+      '/flaky/predictions/high-risk',
+      asyncHandler(async (_req: Request, res: Response) => {
+        const predictions = this.flakyManager.getHighRiskTests();
+        res.json(predictions);
+      })
+    );
+
+    v1Router.get(
+      '/flaky/duration-anomalies',
+      asyncHandler(async (_req: Request, res: Response) => {
+        const anomalies = this.flakyManager.getDurationAnomalies();
+        res.json(anomalies);
+      })
+    );
+
+    v1Router.get(
       '/failures/analysis',
       asyncHandler(async (req: Request, res: Response) => {
-        const filter = req.query.filter as 'persistent' | 'emerging' | undefined;
-        const analysis = this.flakyManager.getFailureAnalysis(filter);
-        res.json(analysis);
+        const filter = req.query.filter as 'persistent' | 'emerging' | 'immediate' | undefined;
+
+        const allReports = await this.reporter.getAllReports();
+
+        const failedTestMap = new Map<
+          string,
+          {
+            count: number;
+            error: string;
+            title: string;
+            lastFailureTime: number;
+            firstFailureTime: number;
+            filePath?: string;
+            lineNumber?: number;
+          }
+        >();
+
+        for (const report of allReports) {
+          for (const suite of report.suites) {
+            for (const test of suite.tests) {
+              if (test.status === 'failed' || test.status === 'timedout') {
+                const existing = failedTestMap.get(test.id);
+                if (existing) {
+                  existing.count++;
+                  if (test.timestamp > existing.lastFailureTime) {
+                    existing.lastFailureTime = test.timestamp;
+                  }
+                  if (test.timestamp < existing.firstFailureTime) {
+                    existing.firstFailureTime = test.timestamp;
+                  }
+                } else {
+                  failedTestMap.set(test.id, {
+                    count: 1,
+                    error: test.error || '',
+                    title: test.title,
+                    lastFailureTime: test.timestamp,
+                    firstFailureTime: test.timestamp,
+                    filePath: test.file,
+                    lineNumber: test.line,
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (!filter) {
+          const byCategory: Record<string, number> = {};
+          for (const [, info] of failedTestMap) {
+            const cat = categorizeError(info.error);
+            byCategory[cat] = (byCategory[cat] || 0) + 1;
+          }
+
+          const summary: ReportFailureSummary = {
+            total: failedTestMap.size,
+            persistent: Array.from(failedTestMap.values()).filter((t) => t.count >= 3).length,
+            emerging: Array.from(failedTestMap.values()).filter((t) => t.count >= 2).length,
+            firstTimeFailures: Array.from(failedTestMap.values()).filter((t) => t.count === 1)
+              .length,
+            byCategory,
+          };
+          res.json(summary);
+          return;
+        }
+
+        let filteredEntries: Array<[string, typeof failedTestMap extends Map<string, infer V> ? V : never]>;
+        if (filter === 'persistent') {
+          filteredEntries = Array.from(failedTestMap.entries()).filter(([, v]) => v.count >= 3);
+        } else if (filter === 'emerging') {
+          filteredEntries = Array.from(failedTestMap.entries()).filter(([, v]) => v.count >= 2);
+        } else if (filter === 'immediate') {
+          filteredEntries = Array.from(failedTestMap.entries()).filter(([, v]) => v.count === 1);
+        } else {
+          filteredEntries = [];
+        }
+
+        const items: ReportFailureItem[] = filteredEntries.map(([testId, info]) => ({
+          testId,
+          title: info.title,
+          error: info.error,
+          category: categorizeError(info.error),
+          failureCount: info.count,
+          lastFailureTime: info.lastFailureTime,
+          firstFailureTime: info.firstFailureTime,
+          filePath: info.filePath,
+          lineNumber: info.lineNumber,
+          suggestions: generateSuggestions(info.error, 'zh'),
+        }));
+
+        res.json(items);
       })
     );
 
@@ -1493,6 +1651,104 @@ export class DashboardServer {
         }
         const analysis = await this.reporter.analyzeFailures(run);
         res.json(analysis);
+      })
+    );
+
+    v1Router.get(
+      '/causal-graph',
+      asyncHandler(async (_req: Request, res: Response) => {
+        const graph = await this.flakyManager.buildCausalGraph();
+        const serialized = {
+          nodes: graph.nodes,
+          edges: graph.edges,
+          rootCauses: graph.rootCauses,
+          impactMap: Object.fromEntries(graph.impactMap),
+          builtAt: graph.builtAt,
+        };
+        res.json(serialized);
+      })
+    );
+
+    v1Router.get(
+      '/impact-analysis/:testId',
+      asyncHandler(async (req: Request, res: Response) => {
+        const impact = await this.flakyManager.analyzeImpact(req.params.testId);
+        if (!impact) {
+          res
+            .status(HTTP_STATUS.NOT_FOUND)
+            .json({ error: 'Test not found or no causal graph data' });
+          return;
+        }
+        res.json(impact);
+      })
+    );
+
+    v1Router.get(
+      '/error-patterns',
+      asyncHandler(async (_req: Request, res: Response) => {
+        const all = getAllPatterns().map((p) => ({
+          ...p,
+          regex: p.regex.map((r) => r.source),
+          isCustom: !p.id.match(/^(timeout|selector|assertion|network|frame|auth)-/),
+        }));
+        res.json(all);
+      })
+    );
+
+    v1Router.get(
+      '/error-patterns/custom',
+      asyncHandler(async (_req: Request, res: Response) => {
+        const custom = getCustomPatterns().map((p) => ({
+          ...p,
+          regex: p.regex.map((r) => r.source),
+        }));
+        res.json(custom);
+      })
+    );
+
+    v1Router.post(
+      '/error-patterns',
+      asyncHandler(async (req: Request, res: Response) => {
+        const {
+          id,
+          category,
+          name,
+          description,
+          regex,
+          rootCauseTemplate,
+          suggestionsTemplate,
+          docLinks,
+        } = req.body;
+        if (!id || !category || !name || !regex || !rootCauseTemplate || !suggestionsTemplate) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({
+            error:
+              'Missing required fields: id, category, name, regex, rootCauseTemplate, suggestionsTemplate',
+          });
+          return;
+        }
+        registerPattern({
+          id,
+          category,
+          name,
+          description: description || '',
+          regex: regex.map((r: string) => new RegExp(r, 'i')),
+          rootCauseTemplate,
+          suggestionsTemplate,
+          docLinks: docLinks || [],
+        });
+        res.json({ success: true, id });
+      })
+    );
+
+    v1Router.delete(
+      '/error-patterns/:patternId',
+      asyncHandler(async (req: Request, res: Response) => {
+        const removed = unregisterPattern(req.params.patternId);
+        if (!removed) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Pattern not found' });
+          return;
+        }
+        res.json({ success: true });
       })
     );
 
@@ -2000,6 +2256,15 @@ export class DashboardServer {
         }
 
         try {
+          let rootCauseData: RootCauseAnalysis | undefined;
+          try {
+            const flakyTests = this.flakyManager.getFlakyTests();
+            const flakyTest = flakyTests.find((ft) => ft.testId === testId);
+            if (flakyTest?.rootCause) {
+              rootCauseData = flakyTest.rootCause;
+            }
+          } catch {}
+
           const diagnosis = await this.diagnosisService.diagnose(
             {
               title: testTitle,
@@ -2013,7 +2278,8 @@ export class DashboardServer {
             },
             lang || 'zh',
             runId,
-            testId
+            testId,
+            rootCauseData
           );
           res.json({ enabled: true, diagnosis });
         } catch (error: unknown) {
@@ -2134,22 +2400,41 @@ export class DashboardServer {
           return;
         }
 
-        const config = this.diagnosisService.getMaskedConfig();
-        if (!config.enabled || !config.baseUrl || !config.model) {
-          res.json({ enabled: false, clusters: [] });
-          return;
-        }
-
         try {
           const { clusterFailures } = await import('../diagnosis/cluster');
           const clusters = clusterFailures(testResults);
 
-          const diagnoses = [];
-          for (const cluster of clusters) {
+          const config = this.diagnosisService.getMaskedConfig();
+          const llmEnabled = config.enabled && !!config.baseUrl && !!config.model;
+
+          if (!llmEnabled) {
+            const clusterResults = clusters.map((cluster) => ({
+              clusterId: cluster.clusterId,
+              category: cluster.category,
+              testIds: cluster.testIds,
+              similarity: cluster.similarity,
+              errorMessage: cluster.errorMessage,
+              diagnosis: null,
+            }));
+            res.json({ enabled: false, clusters: clusterResults });
+            return;
+          }
+
+          const diagnosisPromises = clusters.map(async (cluster) => {
             const representative = testResults.find(
               (t: any) => t.id === cluster.representativeTestId
             );
-            if (representative) {
+            if (!representative) {
+              return {
+                clusterId: cluster.clusterId,
+                category: cluster.category,
+                testIds: cluster.testIds,
+                similarity: cluster.similarity,
+                errorMessage: cluster.errorMessage,
+                diagnosis: null,
+              };
+            }
+            try {
               const diagnosis = await this.diagnosisService.diagnose(
                 {
                   title: representative.title || representative.name || '',
@@ -2163,20 +2448,34 @@ export class DashboardServer {
                 },
                 lang || 'zh'
               );
-              diagnoses.push({
+              return {
                 clusterId: cluster.clusterId,
                 category: cluster.category,
                 testIds: cluster.testIds,
                 similarity: cluster.similarity,
+                errorMessage: cluster.errorMessage,
                 diagnosis: {
                   ...diagnosis,
                   relatedFailures: cluster.testIds.filter(
                     (id: string) => id !== cluster.representativeTestId
                   ),
                 },
-              });
+              };
+            } catch {
+              return {
+                clusterId: cluster.clusterId,
+                category: cluster.category,
+                testIds: cluster.testIds,
+                similarity: cluster.similarity,
+                errorMessage: cluster.errorMessage,
+                diagnosis: null,
+              };
             }
-          }
+          });
+
+          const diagnoses = (await Promise.allSettled(diagnosisPromises))
+            .map((result) => (result.status === 'fulfilled' ? result.value : null))
+            .filter((r): r is NonNullable<typeof r> => r !== null);
 
           res.json({ enabled: true, clusters: diagnoses });
         } catch (error: unknown) {
@@ -2275,8 +2574,13 @@ export class DashboardServer {
       );
     }
 
-    this.reporter = new Reporter(this.outputDir, this.storage);
     this.flakyManager = new FlakyTestManager(this.dataDir, {}, this.storage);
+    this.reporter = new Reporter(
+      this.outputDir,
+      this.storage,
+      this.diagnosisService,
+      this.flakyManager
+    );
 
     this.traceManager = new TraceManager(
       {
@@ -2360,6 +2664,20 @@ export class DashboardServer {
     } catch (e) {
       this.log.warn(
         `Failed to restore testDir from preferences: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+
+    try {
+      const fileConfig = await loadConfigFile();
+      if (fileConfig?.customErrorPatterns && fileConfig.customErrorPatterns.length > 0) {
+        loadPatternsFromConfig(fileConfig.customErrorPatterns);
+        this.log.info(
+          `Loaded ${fileConfig.customErrorPatterns.length} custom error patterns from config`
+        );
+      }
+    } catch (e) {
+      this.log.warn(
+        `Failed to load custom error patterns from config: ${e instanceof Error ? e.message : String(e)}`
       );
     }
 

@@ -16,6 +16,9 @@ import {
   QuarantineStrategy,
   IsolationLevel,
   CodeChangeCorrelation,
+  FailureAnalysisSummary,
+  FailureAnalysisResult,
+  ImmediateFailure,
 } from '../types';
 import * as path from 'path';
 import dayjs from 'dayjs';
@@ -654,32 +657,75 @@ export class FlakyTestManager extends ManagedManager {
       .sort((a, b) => b.weightedFailureRate - a.weightedFailureRate);
   }
 
-  getFailureAnalysis(filter?: 'persistent' | 'emerging'): any {
+  async getImmediateFailures(): Promise<ImmediateFailure[]> {
+    await this.ensureReady();
+    if (this.recentRuns.length === 0) {
+      return [];
+    }
+
+    const latestRun = this.recentRuns[this.recentRuns.length - 1];
+    const immediateFailures: ImmediateFailure[] = [];
+
+    for (const suite of latestRun.suites) {
+      for (const test of suite.tests) {
+        if (test.status !== 'failed' && test.status !== 'timedout') {
+          continue;
+        }
+        const existing = this.flakyTests.get(test.id);
+        const hasHistory = existing && existing.history.length > 1;
+        if (!hasHistory) {
+          immediateFailures.push({
+            testId: test.id,
+            title: test.title,
+            error: test.error,
+            status: test.status,
+            timestamp: test.timestamp,
+            duration: test.duration,
+          });
+        }
+      }
+    }
+
+    return immediateFailures;
+  }
+
+  async getFailureAnalysis(
+    filter?: 'persistent' | 'emerging' | 'immediate'
+  ): Promise<FailureAnalysisResult> {
+    await this.ensureReady();
     const allTests = Array.from(this.flakyTests.values());
-    
+    const immediateFailures = await this.getImmediateFailures();
+
     if (!filter) {
-      return {
+      const summary: FailureAnalysisSummary = {
         total: allTests.length,
-        persistent: allTests.filter(t => t.classification === 'broken').length,
-        emerging: allTests.filter(t => t.consecutiveFailures && t.consecutiveFailures >= 2).length,
+        persistent: allTests.filter((t) => t.classification === 'broken').length,
+        emerging: allTests.filter((t) => t.consecutiveFailures && t.consecutiveFailures >= 2)
+          .length,
+        firstTimeFailures: immediateFailures.length,
         byClassification: {
-          broken: allTests.filter(t => t.classification === 'broken').length,
-          flaky: allTests.filter(t => t.classification === 'flaky').length,
-          regression: allTests.filter(t => t.classification === 'regression').length,
-          monitor: allTests.filter(t => t.classification === 'monitor').length,
-          stable: allTests.filter(t => t.classification === 'stable').length,
+          broken: allTests.filter((t) => t.classification === 'broken').length,
+          flaky: allTests.filter((t) => t.classification === 'flaky').length,
+          regression: allTests.filter((t) => t.classification === 'regression').length,
+          monitor: allTests.filter((t) => t.classification === 'monitor').length,
+          stable: allTests.filter((t) => t.classification === 'stable').length,
         },
       };
+      return summary;
     }
-    
+
     if (filter === 'persistent') {
-      return allTests.filter(t => t.classification === 'broken');
+      return allTests.filter((t) => t.classification === 'broken');
     }
-    
+
     if (filter === 'emerging') {
-      return allTests.filter(t => t.consecutiveFailures && t.consecutiveFailures >= 2);
+      return allTests.filter((t) => t.consecutiveFailures && t.consecutiveFailures >= 2);
     }
-    
+
+    if (filter === 'immediate') {
+      return immediateFailures;
+    }
+
     return [];
   }
 

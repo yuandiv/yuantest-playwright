@@ -270,6 +270,166 @@ const ASSERTION_PATTERNS: ErrorPattern[] = [
   },
 ];
 
+const DATA_VALIDATION_PATTERN: ErrorPattern = {
+  id: 'assertion-data-validation',
+  category: 'assertion',
+  name: 'Data Validation Error',
+  description: 'Test failed due to data validation or schema mismatch',
+  regex: [
+    /data.*invalid/i,
+    /validation.*fail/i,
+    /schema.*error/i,
+    /数据.*无效/i,
+    /验证.*失败/i,
+    /expected.*to\s+(match|contain|equal).*data/i,
+    /invalid.*format/i,
+    /type.*mismatch/i,
+  ],
+  rootCauseTemplate: {
+    zh: '数据验证失败：测试数据不符合预期的格式或约束',
+    en: 'Data validation failure: test data does not match expected format or constraints',
+  },
+  suggestionsTemplate: {
+    zh: [
+      '检查测试数据的格式和类型是否与预期一致',
+      '验证数据 Schema 定义是否正确',
+      '确保 Mock 数据与实际 API 响应格式一致',
+      '使用 zod 或 joi 等库进行运行时数据校验',
+      '检查数据转换逻辑是否正确处理了边界情况',
+    ],
+    en: [
+      'Verify test data format and type match expectations',
+      'Validate the data Schema definition is correct',
+      'Ensure Mock data is consistent with actual API response format',
+      'Use runtime data validation libraries like zod or joi',
+      'Check data transformation logic handles edge cases correctly',
+    ],
+  },
+  docLinks: [
+    { title: 'Playwright Assertions', url: 'https://playwright.dev/docs/test-assertions' },
+  ],
+};
+
+const STATE_INCONSISTENCY_PATTERN: ErrorPattern = {
+  id: 'assertion-state-inconsistency',
+  category: 'assertion',
+  name: 'State Inconsistency Error',
+  description: 'Test failed due to application state being inconsistent or stale',
+  regex: [
+    /state.*mismatch/i,
+    /inconsistent.*state/i,
+    /stale.*data/i,
+    /状态.*不一致/i,
+    /out.*of.*sync/i,
+    /unexpected.*state/i,
+    /stale.*element/i,
+  ],
+  rootCauseTemplate: {
+    zh: '状态不一致：应用状态与测试预期不同步，可能由异步更新或竞态条件导致',
+    en: 'State inconsistency: application state is out of sync with test expectations, possibly caused by async updates or race conditions',
+  },
+  suggestionsTemplate: {
+    zh: [
+      '使用 page.waitForFunction() 等待状态更新完成',
+      '在断言前刷新页面或重新获取元素',
+      '检查异步操作是否已完成再进行断言',
+      '使用 toHaveText() 等自动重试的断言方法',
+      '避免在并行测试中共享可变状态',
+    ],
+    en: [
+      'Use page.waitForFunction() to wait for state updates to complete',
+      'Refresh the page or re-query elements before asserting',
+      'Ensure async operations have completed before asserting',
+      'Use auto-retrying assertions like toHaveText()',
+      'Avoid sharing mutable state across parallel tests',
+    ],
+  },
+  docLinks: [
+    {
+      title: 'Playwright Auto-retrying Assertions',
+      url: 'https://playwright.dev/docs/test-assertions',
+    },
+  ],
+};
+
+const RACE_CONDITION_PATTERN: ErrorPattern = {
+  id: 'timeout-race-condition',
+  category: 'timeout',
+  name: 'Race Condition Timeout',
+  description: 'Test timed out due to race conditions or concurrent access issues',
+  regex: [
+    /race.*condition/i,
+    /concurrent.*error/i,
+    /deadlock/i,
+    /竞争.*条件/i,
+    /并发.*错误/i,
+    /intermittent.*timeout/i,
+    /flaky.*timeout/i,
+  ],
+  rootCauseTemplate: {
+    zh: '并发竞争导致超时：多个操作同时访问共享资源，产生竞态条件',
+    en: 'Race condition timeout: multiple operations accessing shared resources concurrently, causing race conditions',
+  },
+  suggestionsTemplate: {
+    zh: [
+      '添加适当的同步机制（如锁、信号量）',
+      '避免并行操作共享资源，使用串行执行',
+      '增加 waitFor 调用确保前置操作完成',
+      '使用 test.step() 组织测试步骤，确保执行顺序',
+      '检查是否有多个测试同时修改同一数据',
+    ],
+    en: [
+      'Add proper synchronization mechanisms (e.g., locks, semaphores)',
+      'Avoid parallel operations on shared resources, use serial execution',
+      'Add waitFor calls to ensure prerequisite operations complete',
+      'Use test.step() to organize test steps and ensure execution order',
+      'Check if multiple tests are modifying the same data simultaneously',
+    ],
+  },
+  docLinks: [{ title: 'Playwright Parallelism', url: 'https://playwright.dev/docs/test-parallel' }],
+};
+
+const ENV_CONFIG_PATTERN: ErrorPattern = {
+  id: 'network-env-config',
+  category: 'network',
+  name: 'Environment Configuration Error',
+  description: 'Test failed due to missing or incorrect environment configuration',
+  regex: [
+    /config.*error/i,
+    /env.*missing/i,
+    /variable.*undefined/i,
+    /环境.*配置/i,
+    /配置.*错误/i,
+    /ECONNREFUSED/i,
+    /connection.*refused/i,
+    /host.*not.*found/i,
+    /getaddrinfo/i,
+  ],
+  rootCauseTemplate: {
+    zh: '环境配置错误：缺少必要的环境变量或配置项，导致网络请求无法完成',
+    en: 'Environment configuration error: missing required environment variables or config, causing network requests to fail',
+  },
+  suggestionsTemplate: {
+    zh: [
+      '检查 .env 文件是否包含所有必要的环境变量',
+      '验证配置文件中的 API 地址和端口是否正确',
+      '确保测试环境的服务已启动并可访问',
+      '使用 playwright.config.ts 的 env 配置管理环境变量',
+      '在 CI 环境中检查环境变量是否正确注入',
+    ],
+    en: [
+      'Check .env file contains all required environment variables',
+      'Verify API URLs and ports in config files are correct',
+      'Ensure test environment services are running and accessible',
+      'Use playwright.config.ts env configuration to manage environment variables',
+      'Check environment variables are properly injected in CI environment',
+    ],
+  },
+  docLinks: [
+    { title: 'Playwright Configuration', url: 'https://playwright.dev/docs/test-configuration' },
+  ],
+};
+
 const NETWORK_PATTERNS: ErrorPattern[] = [
   {
     id: 'network-request-failed',
@@ -464,22 +624,229 @@ const AUTH_PATTERNS: ErrorPattern[] = [
   },
 ];
 
-const ALL_PATTERNS: ErrorPattern[] = [
+const MEMORY_PATTERN: ErrorPattern = {
+  id: 'timeout-memory-overflow',
+  category: 'timeout',
+  name: '内存溢出',
+  description: 'Test failed due to JavaScript heap out of memory',
+  regex: [
+    /heap.*out.*of.*memory/i,
+    /OOM/i,
+    /allocation.*failed/i,
+    /内存.*溢出/i,
+    /FATAL ERROR.*heap/i,
+    /CALL_AND_RETRY_LAST.*allocation/i,
+    /JavaScript heap out of memory/i,
+  ],
+  rootCauseTemplate: {
+    zh: '内存溢出：Node.js 进程超出 JavaScript 堆内存限制，可能因为测试产生大量数据、内存泄漏或默认堆内存不足',
+    en: 'Memory overflow: Node.js process exceeded JavaScript heap memory limit, possibly due to large test data, memory leaks, or insufficient default heap size',
+  },
+  suggestionsTemplate: {
+    zh: [
+      '增加 Node.js 堆内存：NODE_OPTIONS="--max-old-space-size=4096" npx playwright test',
+      '检查测试中是否存在内存泄漏（如未关闭的页面、未清理的事件监听器）',
+      '减少单次测试的数据量，分批处理大数据集',
+      '使用 page.close() 及时关闭不再需要的页面',
+      '检查是否有循环引用或大量 DOM 节点未释放',
+    ],
+    en: [
+      'Increase Node.js heap: NODE_OPTIONS="--max-old-space-size=4096" npx playwright test',
+      'Check for memory leaks (unclosed pages, uncleaned event listeners)',
+      'Reduce data volume per test, process large datasets in batches',
+      'Use page.close() to promptly close unneeded pages',
+      'Check for circular references or large numbers of unreleased DOM nodes',
+    ],
+  },
+  docLinks: [
+    { title: 'Playwright Best Practices', url: 'https://playwright.dev/docs/best-practices' },
+  ],
+};
+
+const DEPENDENCY_PATTERN: ErrorPattern = {
+  id: 'network-dependency-missing',
+  category: 'network',
+  name: '依赖缺失',
+  description: 'Test failed due to missing module or dependency',
+  regex: [
+    /Cannot find module/i,
+    /MODULE_NOT_FOUND/i,
+    /module.*not.*found/i,
+    /依赖.*缺失/i,
+    /模块.*未找到/i,
+    /ERR_MODULE_NOT_FOUND/i,
+    /require\).*not.*found/i,
+  ],
+  rootCauseTemplate: {
+    zh: '依赖缺失：测试所需的模块或包未安装或路径错误，可能因为未执行 npm install 或包版本不兼容',
+    en: 'Missing dependency: required module or package is not installed or path is incorrect, possibly because npm install was not run or package version is incompatible',
+  },
+  suggestionsTemplate: {
+    zh: [
+      '运行 npm install 确保所有依赖已安装',
+      '检查 import/require 路径是否正确',
+      '确认 package.json 中的依赖版本是否兼容',
+      '清除 node_modules 后重新安装：rm -rf node_modules && npm install',
+      '检查 TypeScript 路径别名配置是否正确',
+    ],
+    en: [
+      'Run npm install to ensure all dependencies are installed',
+      'Verify import/require paths are correct',
+      'Confirm dependency versions in package.json are compatible',
+      'Clean install: rm -rf node_modules && npm install',
+      'Check TypeScript path alias configuration is correct',
+    ],
+  },
+  docLinks: [{ title: 'Playwright Installation', url: 'https://playwright.dev/docs/intro' }],
+};
+
+const CONCURRENT_PATTERN: ErrorPattern = {
+  id: 'timeout-concurrent-conflict',
+  category: 'timeout',
+  name: '并发冲突',
+  description: 'Test failed due to concurrent access conflicts or port collisions',
+  regex: [
+    /port.*already.*in.*use/i,
+    /EADDRINUSE/i,
+    /browser.*context.*leak/i,
+    /max.*browser.*instances/i,
+    /并发.*冲突/i,
+    /端口.*占用/i,
+    /too many.*contexts/i,
+  ],
+  rootCauseTemplate: {
+    zh: '并发冲突：多个测试或工作进程争用同一资源（端口、浏览器实例），导致冲突',
+    en: 'Concurrent conflict: multiple tests or workers competing for the same resource (port, browser instance), causing conflicts',
+  },
+  suggestionsTemplate: {
+    zh: [
+      '减少并行工作进程数：npx playwright test --workers=2',
+      '确保每个测试使用独立的端口或资源',
+      '在 afterEach 中正确清理浏览器上下文和页面',
+      '使用 test.beforeAll/afterAll 管理共享资源生命周期',
+      '检查是否有测试未正确关闭 browser context',
+    ],
+    en: [
+      'Reduce parallel workers: npx playwright test --workers=2',
+      'Ensure each test uses independent ports or resources',
+      'Properly clean up browser contexts and pages in afterEach',
+      'Use test.beforeAll/afterAll to manage shared resource lifecycle',
+      'Check if any tests are not properly closing browser contexts',
+    ],
+  },
+  docLinks: [{ title: 'Playwright Parallelism', url: 'https://playwright.dev/docs/test-parallel' }],
+};
+
+const HEADLESS_PATTERN: ErrorPattern = {
+  id: 'selector-headless-difference',
+  category: 'selector',
+  name: 'Headless 环境差异',
+  description: 'Test behaves differently in headless vs headed mode',
+  regex: [
+    /headless.*mode.*fail/i,
+    /headed.*pass.*headless.*fail/i,
+    /only.*fail.*headless/i,
+    /无头.*模式.*失败/i,
+    /headless.*difference/i,
+    /render.*differ.*headless/i,
+  ],
+  rootCauseTemplate: {
+    zh: 'Headless 环境差异：测试在 headed 模式下通过但在 headless 模式下失败，可能因为字体渲染、动画速度或视口大小不同',
+    en: 'Headless environment difference: test passes in headed mode but fails in headless, possibly due to different font rendering, animation speed, or viewport size',
+  },
+  suggestionsTemplate: {
+    zh: [
+      '确保 headless 和 headed 模式使用相同的视口大小',
+      '在 playwright.config.ts 中设置稳定的视口：viewport: { width: 1280, height: 720 }',
+      '禁用动画：在 context 选项中设置 reducedMotion: "reduce"',
+      '使用截图对比排查 headless 模式下的渲染差异',
+      '尝试在 CI 中使用 xvfb-run 模拟显示环境',
+    ],
+    en: [
+      'Ensure headless and headed modes use the same viewport size',
+      'Set a stable viewport in playwright.config.ts: viewport: { width: 1280, height: 720 }',
+      'Disable animations: set reducedMotion: "reduce" in context options',
+      'Use screenshot comparison to debug rendering differences in headless mode',
+      'Try using xvfb-run in CI to simulate a display environment',
+    ],
+  },
+  docLinks: [{ title: 'Playwright Browsers', url: 'https://playwright.dev/docs/browsers' }],
+};
+
+const BUILTIN_PATTERNS: ErrorPattern[] = [
   ...TIMEOUT_PATTERNS,
   ...SELECTOR_PATTERNS,
   ...ASSERTION_PATTERNS,
+  DATA_VALIDATION_PATTERN,
+  STATE_INCONSISTENCY_PATTERN,
+  RACE_CONDITION_PATTERN,
+  ENV_CONFIG_PATTERN,
+  MEMORY_PATTERN,
+  DEPENDENCY_PATTERN,
+  CONCURRENT_PATTERN,
+  HEADLESS_PATTERN,
   ...NETWORK_PATTERNS,
   ...FRAME_PATTERNS,
   ...AUTH_PATTERNS,
 ];
 
-/**
- * 根据错误消息匹配所有符合的错误模式
- * @param error - 错误消息字符串
- * @returns 匹配到的 ErrorPattern 列表
- */
+const customPatterns: ErrorPattern[] = [];
+
+export function registerPattern(pattern: ErrorPattern): void {
+  const existingIdx = customPatterns.findIndex((p) => p.id === pattern.id);
+  if (existingIdx >= 0) {
+    customPatterns[existingIdx] = pattern;
+  } else {
+    customPatterns.push(pattern);
+  }
+}
+
+export function unregisterPattern(patternId: string): boolean {
+  const idx = customPatterns.findIndex((p) => p.id === patternId);
+  if (idx >= 0) {
+    customPatterns.splice(idx, 1);
+    return true;
+  }
+  return false;
+}
+
+export function getCustomPatterns(): ErrorPattern[] {
+  return [...customPatterns];
+}
+
+export function getAllPatterns(): ErrorPattern[] {
+  return [...BUILTIN_PATTERNS, ...customPatterns];
+}
+
+export function loadPatternsFromConfig(
+  configPatterns: Array<{
+    id: string;
+    category: ErrorPattern['category'];
+    name: string;
+    description: string;
+    regex: string[];
+    rootCauseTemplate: { zh: string; en: string };
+    suggestionsTemplate: { zh: string[]; en: string[] };
+    docLinks?: { title: string; url: string }[];
+  }>
+): void {
+  for (const cp of configPatterns) {
+    registerPattern({
+      id: cp.id,
+      category: cp.category,
+      name: cp.name,
+      description: cp.description,
+      regex: cp.regex.map((r) => new RegExp(r, 'i')),
+      rootCauseTemplate: cp.rootCauseTemplate,
+      suggestionsTemplate: cp.suggestionsTemplate,
+      docLinks: cp.docLinks || [],
+    });
+  }
+}
+
 export function matchPatterns(error: string): ErrorPattern[] {
-  return ALL_PATTERNS.filter((pattern) => pattern.regex.some((re) => re.test(error)));
+  const allPatterns = getAllPatterns();
+  return allPatterns.filter((pattern) => pattern.regex.some((re) => re.test(error)));
 }
 
 /**

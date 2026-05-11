@@ -13,6 +13,7 @@ interface ExecutorDialogProps {
   selectedIds: Set<string>;
   expandedPaths: Set<string>;
   isExecuting: boolean;
+  currentTest: string | null;
   isLoadingTests: boolean;
   logs: Array<{ msg: string; type: string }>;
   versionInput: string;
@@ -540,7 +541,7 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
 });
 
 export function ExecutorDialog({
-  isOpen, onClose, lang, testFiles, testCases, selectedIds, expandedPaths, isExecuting, isLoadingTests, logs, versionInput, testDir,
+  isOpen, onClose, lang, testFiles, testCases, selectedIds, expandedPaths, isExecuting, currentTest, isLoadingTests, logs, versionInput, testDir,
   onSelectedIdsChange, onExpandedPathsChange, onRun, onStop, onClearLogs,
   onVersionChange, onTestDirChange, onSelectAll, onClearAll, onExpandAll, onCollapseAll, onModal,
   fileOrder, onFileOrderChange, onViewTestHistory,
@@ -849,7 +850,15 @@ export function ExecutorDialog({
                   : t('noTestCases', lang)
               }
             </span>
-            <span>{t('selectedCases', lang)}: <strong className="text-indigo-600">{selectedCount}</strong></span>
+            {isExecuting && currentTest && (
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 max-w-[300px]">
+                <i className="fas fa-spinner fa-spin text-[10px]"></i>
+                <span className="truncate" title={currentTest}>{currentTest}</span>
+              </span>
+            )}
+            {isExecuting && (
+              <span>{t('executionProgress', lang)}: <strong className="text-indigo-600">{testCases.filter(tc => selectedIds.has(tc.id) && (tc.status === 'passed' || tc.status === 'failed')).length}/{selectedCount}</strong></span>
+            )}
             <div className="flex-1"></div>
             <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-1.5">
               <i className="fas fa-folder-open text-indigo-400"></i>

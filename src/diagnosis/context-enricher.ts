@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ContextUsed } from '../types';
+import { ContextUsed, RootCauseAnalysis } from '../types';
 
 /** 富集后的上下文信息接口 */
 export interface EnrichedContext {
@@ -11,6 +11,16 @@ export interface EnrichedContext {
   environmentInfo: string;
   historyData?: string;
   contextUsed: ContextUsed;
+  rootCauseContext?: {
+    primaryCause: RootCauseAnalysis['primaryCause'];
+    confidence: number;
+    evidence: Array<{
+      indicators: string[];
+      confidence: number;
+      description: string;
+    }>;
+    suggestedActions: string[];
+  };
 }
 
 /** 源代码读取时的最大上下文行数 */
@@ -167,7 +177,8 @@ export async function enrichContext(
     logs?: string[];
     browser?: string;
   },
-  dataDir: string
+  dataDir: string,
+  rootCause?: RootCauseAnalysis
 ): Promise<EnrichedContext> {
   const contextUsed: ContextUsed = {
     sourceCode: false,
@@ -196,7 +207,7 @@ export async function enrichContext(
   const historyData = await buildHistoryContext(testInfo.title, dataDir);
   contextUsed.historyData = historyData !== undefined;
 
-  return {
+  const enrichedContext: EnrichedContext = {
     sourceCode,
     screenshotBase64,
     consoleLogs,
@@ -205,4 +216,19 @@ export async function enrichContext(
     historyData,
     contextUsed,
   };
+
+  if (rootCause) {
+    enrichedContext.rootCauseContext = {
+      primaryCause: rootCause.primaryCause,
+      confidence: rootCause.confidence,
+      evidence: rootCause.evidence.map(e => ({
+        indicators: e.indicators,
+        confidence: e.confidence,
+        description: e.description,
+      })),
+      suggestedActions: rootCause.suggestedActions,
+    };
+  }
+
+  return enrichedContext;
 }

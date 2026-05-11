@@ -95,7 +95,7 @@ interface PlaywrightJSONReport {
 }
 
 interface ProgressMessage {
-  type: 'begin' | 'testBegin' | 'testEnd' | 'stdout' | 'stderr' | 'end';
+  type: 'begin' | 'testBegin' | 'testEnd' | 'stdout' | 'stderr' | 'end' | 'globalError';
   totalTests?: number;
   test?: {
     id: string;
@@ -118,6 +118,8 @@ interface ProgressMessage {
   failed?: number;
   skipped?: number;
   unexpected?: number;
+  message?: string;
+  stack?: string;
 }
 
 export class Executor extends EventEmitter {
@@ -499,7 +501,7 @@ class ProgressReporter {
   }
 
   onError(error) {
-    this.emit({ type: 'testEnd', test: { id: 'error', title: 'Error', suiteTitle: '', status: 'failed', duration: 0, error: error.message || String(error), retries: 0, browser: 'chromium', attachments: [] } });
+    this.emit({ type: 'globalError', message: error.message || String(error), stack: error.stack || '' });
   }
 
   printsToStdio() {
@@ -546,6 +548,7 @@ module.exports = ProgressReporter;
 
     if (msg.type === 'begin' && msg.totalTests !== undefined) {
       this.realtimeStats.totalTests = msg.totalTests;
+      this._currentRun.totalTests = msg.totalTests;
       this.emit('run_progress', {
         runId: this._currentRun.id,
         status: 'running',
@@ -584,6 +587,25 @@ module.exports = ProgressReporter;
         runId: this._currentRun.id,
         type: 'stderr',
       });
+    } else if (msg.type === 'globalError' && msg.message) {
+      if (!this._currentRun.metadata) {
+        this._currentRun.metadata = {};
+      }
+      if (!this._currentRun.metadata.globalErrors) {
+        this._currentRun.metadata.globalErrors = [];
+      }
+      this._currentRun.metadata.globalErrors.push({
+        message: msg.message,
+        stack: msg.stack || '',
+        timestamp: Date.now(),
+      });
+      this.emit('output', {
+        data: `⚠️ Global Error: ${msg.message}`,
+        timestamp: Date.now(),
+        runId: this._currentRun.id,
+        type: 'stderr',
+      });
+      this._currentRun.status = 'failed';
     } else if (msg.type === 'testEnd' && msg.test) {
       const test = msg.test;
       const status: TestResult['status'] =
@@ -676,7 +698,10 @@ module.exports = ProgressReporter;
           this.realtimeStats.skipped++;
         }
 
-        this._currentRun.totalTests++;
+        if (this.realtimeStats.totalTests === 0) {
+          this._currentRun.totalTests++;
+          this.realtimeStats.totalTests = this._currentRun.totalTests;
+        }
       }
       this._currentRun.passed = this.realtimeStats.passed;
       this._currentRun.failed = this.realtimeStats.failed;

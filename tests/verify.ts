@@ -329,7 +329,7 @@ async function testReporter() {
   assert(analysis.length > 0, `Should analyze failures (found: ${analysis.length})`);
   if (analysis.length > 0) {
     const first = analysis[0];
-    assert(['assertion', 'timeout', 'network', 'selector', 'unknown'].includes(first.category),
+    assert(['assertion', 'timeout', 'network', 'selector', 'frame', 'auth', 'unknown'].includes(first.category),
       `Failure category should be valid (got: ${first.category})`);
     assert(first.suggestions.length > 0, 'Failure analysis should have suggestions');
     assert(typeof first.lastOccurrence === 'number', 'Failure analysis should have lastOccurrence');

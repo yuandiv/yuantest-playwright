@@ -238,6 +238,12 @@ export interface RunMetadataVisualTesting {
   results: RunMetadataVisualResult[];
 }
 
+export interface RunMetadataGlobalError {
+  message: string;
+  stack: string;
+  timestamp: number;
+}
+
 export interface RunMetadata {
   annotations?: RunMetadataAnnotation[];
   tags?: RunMetadataTag[];
@@ -245,6 +251,7 @@ export interface RunMetadata {
   artifacts?: RunMetadataArtifacts;
   visualTesting?: RunMetadataVisualTesting;
   skippedQuarantinedTests?: string[];
+  globalErrors?: RunMetadataGlobalError[];
   [key: string]: unknown;
 }
 
@@ -335,6 +342,7 @@ export interface FlakyTest {
   healthScore?: FlakyHealthScore;
   durationAnomaly?: DurationAnomaly;
   lastPrediction?: PredictionResult;
+  aiDiagnosis?: AIDiagnosis;
 }
 
 export interface FlakyHistoryEntry {
@@ -665,12 +673,58 @@ export interface FailureAnalysis {
   testId: string;
   title: string;
   failureReason: string;
-  category: 'assertion' | 'timeout' | 'network' | 'selector' | 'unknown';
+  category: 'assertion' | 'timeout' | 'network' | 'selector' | 'frame' | 'auth' | 'unknown';
   suggestions: string[];
   occurrences: number;
   lastOccurrence: number;
+  firstOccurrence?: number;
+  filePath?: string;
+  lineNumber?: number;
+  stackTrace?: string;
+  browser?: string;
   aiDiagnosis?: AIDiagnosis;
 }
+
+export interface ImmediateFailure {
+  testId: string;
+  title: string;
+  error?: string;
+  status: string;
+  timestamp: number;
+  duration?: number;
+}
+
+export interface FailureAnalysisSummary {
+  total: number;
+  persistent: number;
+  emerging: number;
+  firstTimeFailures: number;
+  byClassification: Record<string, number>;
+}
+
+export interface ReportFailureSummary {
+  total: number;
+  persistent: number;
+  emerging: number;
+  firstTimeFailures: number;
+  byCategory: Record<string, number>;
+}
+
+export interface ReportFailureItem {
+  testId: string;
+  title: string;
+  error: string;
+  category: string;
+  failureCount: number;
+  lastFailureTime: number;
+  firstFailureTime: number;
+  filePath?: string;
+  lineNumber?: number;
+  suggestions: string[];
+}
+
+export type FailureAnalysisResult = FailureAnalysisSummary | FlakyTest[] | ImmediateFailure[];
+export type ReportFailureResult = ReportFailureSummary | ReportFailureItem[];
 
 export interface LLMConfig {
   enabled: boolean;

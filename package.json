@@ -30,6 +30,12 @@
     "typecheck": "tsc --noEmit",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
+    "docs:mkdocs": "node scripts/generate-docs.js && mkdocs build",
+    "docs:mkdocs:serve": "node scripts/generate-docs.js && mkdocs serve",
+    "release": "standard-version",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major",
+    "release:first": "standard-version --first-release",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -110,6 +116,7 @@
     "prettier": "^3.8.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "standard-version": "^9.5.0",
     "supertest": "^7.2.2",
     "tailwindcss": "^4.2.2",
     "ts-jest": "^29.4.6",

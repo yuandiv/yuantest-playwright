@@ -8,9 +8,11 @@ import { Header } from './components/Header';
 import { KPICards } from './components/KPICards';
 import { ExecutorDialog } from './components/ExecutorDialog';
 import { SidebarCards } from './components/SidebarCards';
+import { FlakyTestsPanel } from './components/FlakyTestsPanel';
 import { ReporterPanel } from './components/ReporterPanel';
 import { Modal } from './components/Modal';
 import { HealthDashboard } from './components/HealthDashboard';
+import { FailureAnalysisPanel } from './components/FailureAnalysisPanel';
 import { TestHistoryDialog } from './components/TestHistoryDialog';
 import { BatchUpdater, MessageRateLimiter } from './utils/performance';
 
@@ -37,6 +39,7 @@ function App() {
   const [flakyTests, setFlakyTests] = useState<FlakyTest[]>([]);
   const [quarantinedTests, setQuarantinedTests] = useState<QuarantinedTest[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [currentTest, setCurrentTest] = useState<string | null>(null);
   const [logs, setLogs] = useState<Array<{ msg: string; type: string }>>([]);
   const [activeReportId, setActiveReportId] = useState<number | null>(null);
   const [versionInput, setVersionInput] = useState('1.0.0');
@@ -49,6 +52,7 @@ function App() {
   const originalTestFilesRef = useRef<TestFile[]>([]);
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
   const [showHealthDashboard, setShowHealthDashboard] = useState(false);
+  const [showFailureAnalysis, setShowFailureAnalysis] = useState(false);
   const [, startTransition] = useTransition();
   
   const messageRateLimiter = useRef(new MessageRateLimiter(20, 1000));
@@ -351,7 +355,7 @@ function App() {
           details,
           htmlReportUrl: rawReport?.htmlReportUrl || null,
           skippedQuarantinedTests: run.metadata?.skippedQuarantinedTests || [],
-          status: run.status,
+          status: run.status === 'success' ? 'completed' : run.status,
         });
       }
       setReports(prev => {
@@ -436,6 +440,10 @@ function App() {
         const startTime = new Date(report.timestamp).getTime();
         const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
         
+        const terminalStatuses = ['completed', 'failed', 'cancelled'];
+        const isTerminal = terminalStatuses.includes(report.status);
+        const effectiveStatus = (isTerminal && status === 'running') ? report.status : (status || report.status);
+        
         return {
           ...report,
           totalTests: totalTests ?? report.totalTests,
@@ -443,7 +451,7 @@ function App() {
           failed: failed ?? report.failed,
           skipped: skipped ?? report.skipped,
           duration: elapsedSeconds,
-          status: status || report.status,
+          status: effectiveStatus,
           details: newDetails,
         };
       }));
@@ -456,6 +464,7 @@ function App() {
       }
     } else if (msg.type === 'run_started') {
       setIsExecuting(true);
+      setCurrentTest(null);
       logBatchUpdater.current?.add({ msg: `📡 ${t('running', lang)}...`, type: 'info' });
       
       const selectedArr = Array.from(selectedIds);
@@ -465,7 +474,10 @@ function App() {
         ));
       });
     } else if (msg.type === 'run_progress') {
-      // 由test_result消息处理状态更新
+      const progress = msg.payload;
+      if (progress?.currentTest) {
+        setCurrentTest(progress.currentTest);
+      }
     } else if (msg.type === 'log') {
       const logMsg = msg.payload?.message || '';
       const logType = msg.payload?.logType || 'info';
@@ -482,6 +494,7 @@ function App() {
       }
     } else if (msg.type === 'run_completed') {
       setIsExecuting(false);
+      setCurrentTest(null);
       const result = msg.payload;
       
       setReports(prev => prev.map(report => {
@@ -502,7 +515,7 @@ function App() {
       
       startTransition(() => {
         setTestCases(prev => prev.map(tc => 
-          tc.status === 'running' ? { ...tc, status: 'idle' as const } : tc
+          (tc.status === 'running' || tc.status === 'pending') ? { ...tc, status: 'idle' as const } : tc
         ));
       });
       
@@ -1102,10 +1115,13 @@ function App() {
         lang={lang}
         hasTestCases={testCases.length > 0}
         isExecuting={isExecuting}
+        currentTest={currentTest}
         onSwitchLang={switchLang}
         onOpenExecutor={() => setIsExecutorDialogOpen(true)}
         showHealthDashboard={showHealthDashboard}
-        onToggleHealthDashboard={() => setShowHealthDashboard(!showHealthDashboard)}
+        onToggleHealthDashboard={() => { setShowHealthDashboard(!showHealthDashboard); setShowFailureAnalysis(false); }}
+        showFailureAnalysis={showFailureAnalysis}
+        onToggleFailureAnalysis={() => { setShowFailureAnalysis(!showFailureAnalysis); setShowHealthDashboard(false); }}
       />
       
       {showHealthDashboard ? (
@@ -1114,11 +1130,18 @@ function App() {
           data={healthMetrics}
           onRefresh={loadHealthMetrics}
         />
+      ) : showFailureAnalysis ? (
+        <FailureAnalysisPanel
+          lang={lang}
+          reports={reports}
+          onRefresh={loadRunsFromServer}
+          onNavigateToFlakyTests={() => setShowFailureAnalysis(false)}
+        />
       ) : (
         <>
           <KPICards lang={lang} total={total} passed={passed} failed={failed} pending={pending} />
           <div className="mb-5">
-        <SidebarCards
+        <FlakyTestsPanel
           lang={lang}
           reports={reports}
           flakyTests={flakyTests}
@@ -1126,8 +1149,8 @@ function App() {
           onReleaseTest={handleReleaseTest}
           onValidateReleaseTest={handleValidateReleaseTest}
           onRefresh={loadRunsFromServer}
-          onModal={setModalContent}
           onClearFlakyHistory={handleClearFlakyHistory}
+          onNavigateToFailureAnalysis={() => setShowFailureAnalysis(true)}
         />
       </div>
       <ReporterPanel
@@ -1150,6 +1173,7 @@ function App() {
         selectedIds={selectedIds}
         expandedPaths={expandedPaths}
         isExecuting={isExecuting}
+        currentTest={currentTest}
         isLoadingTests={isLoadingTests}
         logs={logs}
         versionInput={versionInput}

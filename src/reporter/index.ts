@@ -1,9 +1,12 @@
-import { RunResult, TestResult, FailureAnalysis, DashboardStats, TestRunHistory } from '../types';
+import { RunResult, TestResult, FailureAnalysis, DashboardStats, TestRunHistory, RootCauseAnalysis } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
 import { CACHE_CONFIG, DEFAULTS } from '../constants';
+import { categorizeError, generateSuggestions } from '../diagnosis/categorizer';
+import type { DiagnosisService } from '../diagnosis';
+import type { FlakyTestManager } from '../flaky';
 
 function resolveTemplatesDir(): string {
   const distDir = path.join(__dirname, 'templates');
@@ -28,10 +31,14 @@ export class Reporter {
   private storage: StorageProvider;
   private initialized: Promise<void>;
   private pendingReports: Map<string, RunResult> = new Map();
+  private diagnosisService: DiagnosisService | null = null;
+  private flakyManager?: FlakyTestManager;
 
-  constructor(outputDir: string = DEFAULTS.REPORTS_DIR, storage?: StorageProvider) {
+  constructor(outputDir: string = DEFAULTS.REPORTS_DIR, storage?: StorageProvider, diagnosisService?: DiagnosisService, flakyManager?: FlakyTestManager) {
     this.outputDir = outputDir;
     this.storage = storage || getStorage();
+    this.diagnosisService = diagnosisService ?? null;
+    this.flakyManager = flakyManager;
     this.initialized = this.storage.mkdir(this.outputDir);
   }
 
@@ -123,57 +130,60 @@ export class Reporter {
             testId: test.id,
             title: test.title,
             failureReason: test.error || 'Unknown error',
-            category: this.categorizeError(test.error || ''),
-            suggestions: this.generateSuggestions(test.error || ''),
+            category: categorizeError(test.error || ''),
+            suggestions: generateSuggestions(test.error || '', 'zh'),
             occurrences: 1,
             lastOccurrence: test.timestamp,
+            firstOccurrence: test.timestamp,
+            filePath: test.file,
+            lineNumber: test.line,
+            stackTrace: test.stackTrace,
+            browser: test.browser,
           });
         }
       }
     }
 
+    if (this.diagnosisService) {
+      const config = this.diagnosisService.getMaskedConfig();
+      if (config.enabled) {
+        for (const analysis of analyses) {
+          try {
+            const testInfo = {
+              title: analysis.title,
+              error: analysis.failureReason,
+            };
+            let rootCauseData: RootCauseAnalysis | undefined;
+            if (this.flakyManager) {
+              try {
+                const flakyTests = this.flakyManager.getFlakyTests();
+                const flakyTest = flakyTests.find(ft => ft.testId === analysis.testId);
+                if (flakyTest?.rootCause) {
+                  rootCauseData = flakyTest.rootCause;
+                }
+              } catch {}
+            }
+            const diagnosis = await this.diagnosisService.diagnose(testInfo, 'zh', String(runResult.id), analysis.testId, rootCauseData);
+            if (diagnosis && diagnosis.analysisMode !== 'fallback') {
+              analysis.aiDiagnosis = diagnosis;
+              if (this.flakyManager) {
+                try {
+                  const flakyTests = this.flakyManager.getFlakyTests();
+                  const flakyTest = flakyTests.find(ft => ft.testId === analysis.testId);
+                  if (flakyTest) {
+                    flakyTest.aiDiagnosis = diagnosis;
+                  }
+                } catch {}
+              }
+            }
+          } catch (e) {
+            this.log.warn(`AI diagnosis failed for test ${analysis.testId}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+      }
+    }
+
     return analyses;
-  }
-
-  private categorizeError(error: string): FailureAnalysis['category'] {
-    const errorLower = error.toLowerCase();
-    if (errorLower.includes('timeout')) {
-      return 'timeout';
-    }
-    if (errorLower.includes('selector') || errorLower.includes('element')) {
-      return 'selector';
-    }
-    if (errorLower.includes('network') || errorLower.includes('fetch')) {
-      return 'network';
-    }
-    if (errorLower.includes('assertion') || errorLower.includes('expect')) {
-      return 'assertion';
-    }
-    return 'unknown';
-  }
-
-  private generateSuggestions(error: string): string[] {
-    const suggestions: string[] = [];
-    const errorLower = error.toLowerCase();
-
-    if (errorLower.includes('timeout')) {
-      suggestions.push('Consider increasing the timeout value');
-      suggestions.push('Check if the element is taking too long to load');
-    }
-    if (errorLower.includes('selector')) {
-      suggestions.push('Verify the selector is correct');
-      suggestions.push('Check if the element exists in the DOM');
-    }
-    if (errorLower.includes('network')) {
-      suggestions.push('Check network connectivity');
-      suggestions.push('Verify API endpoints are accessible');
-    }
-    if (suggestions.length === 0) {
-      suggestions.push('Review the error message and stack trace');
-      suggestions.push('Check recent code changes that may have caused this failure');
-    }
-
-    return suggestions;
   }
 
   async getReport(reportId: string): Promise<RunResult | null> {

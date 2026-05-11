@@ -193,6 +193,9 @@ export class RealtimeReporter extends EventEmitter {
     progress.skipped += result.status === 'skipped' ? 1 : 0;
 
     const total = progress.passed + progress.failed + progress.skipped;
+    if (total > progress.totalTests) {
+      progress.totalTests = total;
+    }
     progress.progress =
       progress.totalTests > 0 ? Math.min((total / progress.totalTests) * 100, 100) : 0;
 

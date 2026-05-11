@@ -1,4 +1,5 @@
 import { TestResult } from '../types';
+import { categorizeError, FailureCategory } from './categorizer';
 
 /** 错误聚类结果接口 */
 export interface FailureCluster {
@@ -6,7 +7,7 @@ export interface FailureCluster {
   representativeTestId: string;
   testIds: string[];
   errorMessage: string;
-  category: 'timeout' | 'selector' | 'assertion' | 'network' | 'frame' | 'auth' | 'unknown';
+  category: FailureCategory;
   similarity: number;
 }
 
@@ -93,46 +94,6 @@ function extractKeywords(error: string): string[] {
 }
 
 /**
- * 根据错误消息内容对错误进行分类
- * @param error - 错误消息字符串
- * @returns 错误类别
- */
-function categorizeError(error: string): FailureCluster['category'] {
-  const lower = error.toLowerCase();
-
-  if (lower.includes('timeout')) {
-    return 'timeout';
-  }
-  if (lower.includes('selector') || lower.includes('element')) {
-    return 'selector';
-  }
-  if (lower.includes('assertion') || lower.includes('expect')) {
-    return 'assertion';
-  }
-  if (
-    lower.includes('network') ||
-    lower.includes('fetch') ||
-    lower.includes('err_connection') ||
-    lower.includes('cors')
-  ) {
-    return 'network';
-  }
-  if (lower.includes('frame') || lower.includes('iframe')) {
-    return 'frame';
-  }
-  if (
-    lower.includes('401') ||
-    lower.includes('403') ||
-    lower.includes('unauthorized') ||
-    lower.includes('auth')
-  ) {
-    return 'auth';
-  }
-
-  return 'unknown';
-}
-
-/**
  * 计算两个关键词集合之间的 Jaccard 相似度
  * Jaccard(A, B) = |A ∩ B| / |A ∪ B|
  * @param a - 第一个关键词数组
@@ -213,9 +174,18 @@ class UnionFind {
  * @param testResults - 测试结果数组
  * @returns 聚类结果数组，仅包含满足最小聚类大小的组
  */
-export function clusterFailures(testResults: TestResult[]): FailureCluster[] {
-  const failedTests = testResults.filter((t) => t.status === 'failed');
+export interface ClusterOptions {
+  similarityThreshold?: number;
+  testFilePaths?: Map<string, string>;
+  testSuites?: Map<string, string>;
+}
 
+export type FailedTestInput = TestResult;
+
+export function clusterFailures(
+  failedTests: FailedTestInput[],
+  options?: ClusterOptions
+): FailureCluster[] {
   if (failedTests.length < MIN_CLUSTER_SIZE) {
     return [];
   }
@@ -227,6 +197,8 @@ export function clusterFailures(testResults: TestResult[]): FailureCluster[] {
   }
 
   const uf = new UnionFind();
+  const threshold = options?.similarityThreshold ?? SIMILARITY_THRESHOLD;
+  const similarityMatrix = new Map<string, number>();
 
   for (let i = 0; i < failedTests.length; i++) {
     for (let j = i + 1; j < failedTests.length; j++) {
@@ -236,7 +208,26 @@ export function clusterFailures(testResults: TestResult[]): FailureCluster[] {
       const sharedCount = keywordsA.filter((k) => keywordsB.includes(k)).length;
       const similarity = jaccardSimilarity(keywordsA, keywordsB);
 
-      if (sharedCount >= 2 && similarity >= SIMILARITY_THRESHOLD) {
+      let finalSimilarity = similarity;
+
+      if (options?.testFilePaths) {
+        const fileA = options.testFilePaths.get(failedTests[i].id) || '';
+        const fileB = options.testFilePaths.get(failedTests[j].id) || '';
+        const fileMatch = fileA && fileB && fileA === fileB ? 1 : 0;
+
+        if (options?.testSuites) {
+          const suiteA = options.testSuites.get(failedTests[i].id) || '';
+          const suiteB = options.testSuites.get(failedTests[j].id) || '';
+          const suiteMatch = suiteA && suiteB && suiteA === suiteB ? 1 : 0;
+          finalSimilarity = similarity * 0.6 + fileMatch * 0.2 + suiteMatch * 0.2;
+        } else {
+          finalSimilarity = similarity * 0.7 + fileMatch * 0.3;
+        }
+      }
+
+      similarityMatrix.set(`${failedTests[i].id}::${failedTests[j].id}`, finalSimilarity);
+
+      if (sharedCount >= 2 && finalSimilarity >= threshold) {
         uf.union(failedTests[i].id, failedTests[j].id);
       }
     }
@@ -273,7 +264,8 @@ export function clusterFailures(testResults: TestResult[]): FailureCluster[] {
     let pairCount = 0;
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {
-        totalSimilarity += jaccardSimilarity(keywordMap.get(ids[i])!, keywordMap.get(ids[j])!);
+        const key = `${ids[i]}::${ids[j]}`;
+        totalSimilarity += similarityMatrix.get(key) ?? 0;
         pairCount++;
       }
     }

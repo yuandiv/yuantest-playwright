@@ -66,11 +66,12 @@ const TrendBadge: React.FC<TrendBadgeProps> = ({ trend }) => {
   const icon = trend.direction === 'up' ? 'fa-arrow-up' : 'fa-arrow-down';
   const colorClass = trend.isPositive ? 'text-green-500' : 'text-red-500';
   const bgClass = trend.isPositive ? 'bg-green-50' : 'bg-red-50';
+  const value = typeof trend.value === 'number' && Number.isFinite(trend.value) ? trend.value : 0;
 
   return (
     <span className={`text-xs ${colorClass} ${bgClass} px-1.5 py-0.5 rounded flex items-center gap-0.5`}>
-      <i className={`fas ${icon} text-[10px]`}></i>
-      <span>{trend.value.toFixed(1)}</span>
+      <i className={`fas ${icon} text-[10px]}`}></i>
+      <span>{value.toFixed(1)}</span>
     </span>
   );
 };
@@ -177,10 +178,16 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
   trends,
   sparkline,
 }) => {
+  const safeLatestPassRate = typeof latestPassRate === 'number' && Number.isFinite(latestPassRate) ? latestPassRate : 0;
+  const safeAvgPassRate = typeof avgPassRate === 'number' && Number.isFinite(avgPassRate) ? avgPassRate : 0;
+  const safeAvgDuration = typeof avgDuration === 'number' && Number.isFinite(avgDuration) ? avgDuration : 0;
+  const safeTotalTests = typeof totalTests === 'number' && Number.isFinite(totalTests) ? totalTests : 0;
+  const safeTotalFlaky = typeof totalFlaky === 'number' && Number.isFinite(totalFlaky) ? totalFlaky : 0;
+
   const cards = [
     {
       label: t('latestPassRate', lang) || 'Latest Pass Rate',
-      value: `${latestPassRate.toFixed(1)}%`,
+      value: `${safeLatestPassRate.toFixed(1)}%`,
       icon: 'fas fa-check-circle',
       gradient: 'from-green-50 to-emerald-50',
       borderColor: 'border-green-100',
@@ -191,7 +198,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
     },
     {
       label: t('avgPassRate', lang) || 'Avg Pass Rate',
-      value: `${avgPassRate.toFixed(1)}%`,
+      value: `${safeAvgPassRate.toFixed(1)}%`,
       icon: 'fas fa-chart-line',
       gradient: 'from-blue-50 to-cyan-50',
       borderColor: 'border-blue-100',
@@ -202,7 +209,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
     },
     {
       label: t('avgDuration', lang) || 'Avg Duration',
-      value: `${(avgDuration / 1000).toFixed(1)}s`,
+      value: `${(safeAvgDuration / 1000).toFixed(1)}s`,
       icon: 'fas fa-clock',
       gradient: 'from-purple-50 to-violet-50',
       borderColor: 'border-purple-100',
@@ -213,7 +220,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
     },
     {
       label: t('totalTests', lang) || 'Total Tests',
-      value: totalTests.toLocaleString(),
+      value: safeTotalTests.toLocaleString(),
       icon: 'fas fa-layer-group',
       gradient: 'from-amber-50 to-orange-50',
       borderColor: 'border-amber-100',
@@ -224,7 +231,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
     },
     {
       label: t('totalFlaky', lang) || 'Total Flaky',
-      value: totalFlaky,
+      value: safeTotalFlaky,
       icon: 'fas fa-bug',
       gradient: 'from-pink-50 to-rose-50',
       borderColor: 'border-pink-100',

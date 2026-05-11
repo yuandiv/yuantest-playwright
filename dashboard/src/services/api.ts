@@ -12,12 +12,14 @@ export function getApiLang(): string {
   return currentLang;
 }
 
-export async function fetchJSON<T>(url: string): Promise<T | null> {
+export async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
     const urlObj = new URL(url, 'http://localhost');
-    urlObj.searchParams.set('lang', currentLang);
+    if (!options?.method || options.method === 'GET') {
+      urlObj.searchParams.set('lang', currentLang);
+    }
     const urlWithLang = urlObj.pathname + urlObj.search;
-    const res = await fetch(urlWithLang);
+    const res = await fetch(urlWithLang, options);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (e) {
@@ -329,6 +331,30 @@ export async function getFlakyByClassification(classification?: string): Promise
   return fetchJSON(`${API_BASE}/flaky/by-classification${query}`);
 }
 
+export async function getFlakyTrend(testId: string): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/flaky/trend/${encodeURIComponent(testId)}`);
+}
+
+export async function getFlakyTrends(): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/flaky/trends`);
+}
+
+export async function getFlakyHealth(): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/flaky/health`);
+}
+
+export async function getFlakyPrediction(testId: string): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/flaky/prediction/${encodeURIComponent(testId)}`);
+}
+
+export async function getHighRiskPredictions(): Promise<any[] | null> {
+  return fetchJSON(`${API_BASE}/flaky/predictions/high-risk`);
+}
+
+export async function getDurationAnomalies(): Promise<any[] | null> {
+  return fetchJSON(`${API_BASE}/flaky/duration-anomalies`);
+}
+
 export async function getAnnotations(testDir: string = './'): Promise<any[] | null> {
   return fetchJSON(`${API_BASE}/annotations?testDir=${encodeURIComponent(testDir)}`);
 }
@@ -614,10 +640,53 @@ export async function getTestHistory(testId: string, limit: number = 50): Promis
   return fetchJSON(`${API_BASE}/tests/${encodeURIComponent(testId)}/history?limit=${limit}`);
 }
 
-export async function getFailureAnalysis(filter?: 'persistent' | 'emerging'): Promise<any[] | null> {
+export async function getFailureAnalysis(filter?: 'persistent' | 'emerging' | 'immediate'): Promise<any[] | null> {
   let url = `${API_BASE}/failures/analysis`;
   if (filter) {
     url += `?filter=${encodeURIComponent(filter)}`;
   }
   return fetchJSON(url);
+}
+
+export async function getRunAnalysis(runId: string | number): Promise<any[] | null> {
+  return fetchJSON(`${API_BASE}/analysis/${encodeURIComponent(String(runId))}`);
+}
+
+export async function getCausalGraph(): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/causal-graph`);
+}
+
+export async function getImpactAnalysis(testId: string): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/impact-analysis/${encodeURIComponent(testId)}`);
+}
+
+export async function getErrorPatterns(): Promise<any[] | null> {
+  return fetchJSON(`${API_BASE}/error-patterns`);
+}
+
+export async function getCustomErrorPatterns(): Promise<any[] | null> {
+  return fetchJSON(`${API_BASE}/error-patterns/custom`);
+}
+
+export async function addErrorPattern(pattern: {
+  id: string;
+  category: string;
+  name: string;
+  description?: string;
+  regex: string[];
+  rootCauseTemplate: { zh: string; en: string };
+  suggestionsTemplate: { zh: string[]; en: string[] };
+  docLinks?: { title: string; url: string }[];
+}): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/error-patterns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(pattern),
+  });
+}
+
+export async function deleteErrorPattern(patternId: string): Promise<any | null> {
+  return fetchJSON(`${API_BASE}/error-patterns/${encodeURIComponent(patternId)}`, {
+    method: 'DELETE',
+  });
 }

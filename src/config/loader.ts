@@ -60,6 +60,16 @@ export interface YuanTestConfigFile {
     outputDir?: string;
     dataDir?: string;
   };
+  customErrorPatterns?: Array<{
+    id: string;
+    category: 'timeout' | 'selector' | 'assertion' | 'network' | 'frame' | 'auth' | 'unknown';
+    name: string;
+    description: string;
+    regex: string[];
+    rootCauseTemplate: { zh: string; en: string };
+    suggestionsTemplate: { zh: string[]; en: string[] };
+    docLinks?: { title: string; url: string }[];
+  }>;
 }
 
 async function findConfigFile(startDir: string, storage: StorageProvider): Promise<string | null> {

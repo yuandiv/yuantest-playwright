@@ -9,13 +9,16 @@ interface HeaderProps {
   lang: Lang;
   hasTestCases: boolean;
   isExecuting: boolean;
+  currentTest: string | null;
   onSwitchLang: (lang: Lang) => void;
   onOpenExecutor: () => void;
   showHealthDashboard?: boolean;
   onToggleHealthDashboard?: () => void;
+  showFailureAnalysis?: boolean;
+  onToggleFailureAnalysis?: () => void;
 }
 
-export function Header({ lang, hasTestCases, isExecuting, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard }: HeaderProps) {
+export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, showFailureAnalysis, onToggleFailureAnalysis }: HeaderProps) {
   const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
   const [showLLMConfig, setShowLLMConfig] = useState(false);
 
@@ -49,7 +52,18 @@ export function Header({ lang, hasTestCases, isExecuting, onSwitchLang, onOpenEx
           <h1 className="text-2xl font-extrabold text-gray-800">
             Yuantest<span className="text-indigo-600">·Playwright</span>
           </h1>
-          <p className="text-xs text-gray-500">{t('subtitle', lang)}</p>
+          {isExecuting && currentTest ? (
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              </span>
+              <span className="text-xs text-indigo-600 font-medium">{t('executing', lang)}:</span>
+              <span className="text-xs text-gray-600 truncate max-w-[280px]" title={currentTest}>{currentTest}</span>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">{t('subtitle', lang)}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -64,6 +78,19 @@ export function Header({ lang, hasTestCases, isExecuting, onSwitchLang, onOpenEx
           >
             <i className="fas fa-heartbeat"></i>
             <span>{t('healthDashboard', lang) || 'Dashboard'}</span>
+          </button>
+        )}
+        {onToggleFailureAnalysis && (
+          <button
+            onClick={onToggleFailureAnalysis}
+            className={`flex items-center gap-2 text-xs px-3 py-2 rounded-full shadow-sm border transition-colors cursor-pointer ${
+              showFailureAnalysis
+                ? 'bg-amber-100 text-amber-700 border-amber-200'
+                : 'text-gray-500 bg-white border-gray-100 hover:bg-gray-50'
+            }`}
+          >
+            <i className="fas fa-magnifying-glass-chart"></i>
+            <span>{t('failureAnalysisPanel', lang)}</span>
           </button>
         )}
         <button

@@ -230,7 +230,7 @@ describe('classifyTest', () => {
       history: makeHistory(statuses),
     });
     const result = classifyTest(test, { minimumRuns: 5, stableThreshold: 0.05 });
-    expect(['stable', 'flaky']).toContain(result);
+    expect(['stable', 'monitor']).toContain(result);
   });
 
   it('should classify as flaky for alternating results', () => {
