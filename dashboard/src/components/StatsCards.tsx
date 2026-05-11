@@ -85,6 +85,7 @@ interface StatCardProps {
   iconBg: string;
   trend?: TrendIndicator;
   sparkline?: { data: number[]; color: string };
+  tooltip?: React.ReactNode;
 }
 
 /**
@@ -109,6 +110,7 @@ const StatCard: React.FC<StatCardProps> = ({
   iconBg,
   trend,
   sparkline,
+  tooltip,
 }) => (
   <div
     className={`bg-gradient-to-br ${gradient} rounded-xl p-4 border ${borderColor} hover:-translate-y-0.5 hover:shadow-md transition-all duration-200`}
@@ -119,7 +121,18 @@ const StatCard: React.FC<StatCardProps> = ({
       </div>
       {trend && <TrendBadge trend={trend} />}
     </div>
-    <div className="text-xs text-gray-600 mb-1">{label}</div>
+    <div className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+      {label}
+      {tooltip && (
+        <div className="relative group inline-flex">
+          <i className="fas fa-circle-question text-[10px] text-gray-400 cursor-help hover:text-amber-500 transition-colors"></i>
+          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 w-72 bg-gray-800 text-white text-[11px] rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
+            {tooltip}
+          </div>
+        </div>
+      )}
+    </div>
     <div className="flex items-end justify-between">
       <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
       {sparkline && sparkline.data.length >= 2 && (
@@ -219,6 +232,19 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
       iconBg: 'bg-gradient-to-br from-pink-400 to-rose-500',
       trend: trends?.flakyCount,
       sparkline: sparkline ? { data: sparkline.flakyCount, color: '#ec4899' } : undefined,
+      tooltip: (
+        <>
+          <p className="font-semibold mb-1.5 text-amber-400">{t('flakyCriteriaTitle', lang)}</p>
+          <div className="mb-1.5">
+            <p className="font-medium text-green-400 mb-0.5">{t('flakyEntryCriteria', lang)}</p>
+            <p className="text-gray-300 leading-relaxed">{t('flakyEntryCriteriaDetail', lang)}</p>
+          </div>
+          <div>
+            <p className="font-medium text-blue-400 mb-0.5">{t('flakyExitCriteria', lang)}</p>
+            <p className="text-gray-300 leading-relaxed">{t('flakyExitCriteriaDetail', lang)}</p>
+          </div>
+        </>
+      ),
     },
   ];
 

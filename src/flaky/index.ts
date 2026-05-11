@@ -160,6 +160,7 @@ export class FlakyTestManager extends ManagedManager {
       decayRate: this.config.decayRate ?? FLAKY_CONFIG.DECAY_RATE,
       confidenceLevel: this.config.confidenceLevel ?? FLAKY_CONFIG.CONFIDENCE_LEVEL,
       flakyThreshold: this.config.threshold,
+      monitorThreshold: FLAKY_CONFIG.MONITOR_THRESHOLD,
       stableThreshold: 0.05,
     };
   }
@@ -267,6 +268,8 @@ export class FlakyTestManager extends ManagedManager {
       await this.detectFlaky(result);
     }
 
+    await this.downgradeExpiredQuarantine();
+
     this.cachedCausalGraph = null;
     this.scheduleSaveHistory();
   }
@@ -333,7 +336,9 @@ export class FlakyTestManager extends ManagedManager {
 
   private async checkAutoRelease(flakyTest: FlakyTest): Promise<void> {
     const requiredPasses =
-      this.config.autoReleaseAfterPasses ?? FLAKY_CONFIG.AUTO_RELEASE_AFTER_PASSES;
+      flakyTest.isolationLevel === 'hard_quarantine'
+        ? FLAKY_CONFIG.AUTO_RELEASE_HARD_QUARANTINE_PASSES
+        : (this.config.autoReleaseAfterPasses ?? FLAKY_CONFIG.AUTO_RELEASE_AFTER_PASSES);
     if ((flakyTest.consecutivePassesSinceQuarantine || 0) >= requiredPasses) {
       await this.releaseTest(flakyTest.testId, { resetHistory: true });
       this.emit('auto_released', {
@@ -469,9 +474,54 @@ export class FlakyTestManager extends ManagedManager {
     return this.getQuarantinedTests().filter((t) => this.isQuarantineExpired(t.testId));
   }
 
-  getFlakyTests(threshold: number = FLAKY_CONFIG.DEFAULT_THRESHOLD): FlakyTest[] {
+  private async downgradeExpiredQuarantine(): Promise<void> {
+    if (!FLAKY_CONFIG.QUARANTINE_EXPIRY_DOWNGRADE) {
+      return;
+    }
+
+    const expiredTests = this.getExpiredQuarantinedTests();
+    for (const test of expiredTests) {
+      if (test.isolationLevel === 'hard_quarantine') {
+        test.isolationLevel = 'monitor';
+        if (test.quarantineStrategy) {
+          test.quarantineStrategy.isolationLevel = 'monitor';
+          test.quarantineStrategy.strategy = 'retry_only';
+        }
+        this.emit('quarantine_downgraded', {
+          testId: test.testId,
+          title: test.title,
+          fromLevel: 'hard_quarantine',
+          toLevel: 'monitor',
+        });
+      } else if (test.isolationLevel === 'soft_quarantine') {
+        test.isolationLevel = 'monitor';
+        if (test.quarantineStrategy) {
+          test.quarantineStrategy.isolationLevel = 'monitor';
+          test.quarantineStrategy.strategy = 'retry_only';
+        }
+        this.emit('quarantine_downgraded', {
+          testId: test.testId,
+          title: test.title,
+          fromLevel: 'soft_quarantine',
+          toLevel: 'monitor',
+        });
+      }
+    }
+
+    if (expiredTests.length > 0) {
+      this.scheduleSaveHistory();
+    }
+  }
+
+  getFlakyTests(threshold: number = FLAKY_CONFIG.MONITOR_THRESHOLD): FlakyTest[] {
     return Array.from(this.flakyTests.values())
-      .filter((t) => t.weightedFailureRate >= threshold && t.classification !== 'broken')
+      .filter(
+        (t) =>
+          t.weightedFailureRate >= threshold &&
+          t.classification !== 'broken' &&
+          t.classification !== 'insufficient_data' &&
+          t.classification !== 'stable'
+      )
       .sort((a, b) => b.weightedFailureRate - a.weightedFailureRate);
   }
 
@@ -507,6 +557,7 @@ export class FlakyTestManager extends ManagedManager {
       flaky: 0,
       broken: 0,
       regression: 0,
+      monitor: 0,
       stable: 0,
       insufficient_data: 0,
     };
@@ -601,6 +652,35 @@ export class FlakyTestManager extends ManagedManager {
     return Array.from(this.flakyTests.values())
       .filter((t) => t.classification === classification)
       .sort((a, b) => b.weightedFailureRate - a.weightedFailureRate);
+  }
+
+  getFailureAnalysis(filter?: 'persistent' | 'emerging'): any {
+    const allTests = Array.from(this.flakyTests.values());
+    
+    if (!filter) {
+      return {
+        total: allTests.length,
+        persistent: allTests.filter(t => t.classification === 'broken').length,
+        emerging: allTests.filter(t => t.consecutiveFailures && t.consecutiveFailures >= 2).length,
+        byClassification: {
+          broken: allTests.filter(t => t.classification === 'broken').length,
+          flaky: allTests.filter(t => t.classification === 'flaky').length,
+          regression: allTests.filter(t => t.classification === 'regression').length,
+          monitor: allTests.filter(t => t.classification === 'monitor').length,
+          stable: allTests.filter(t => t.classification === 'stable').length,
+        },
+      };
+    }
+    
+    if (filter === 'persistent') {
+      return allTests.filter(t => t.classification === 'broken');
+    }
+    
+    if (filter === 'emerging') {
+      return allTests.filter(t => t.consecutiveFailures && t.consecutiveFailures >= 2);
+    }
+    
+    return [];
   }
 
   /**

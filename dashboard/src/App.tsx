@@ -11,6 +11,7 @@ import { SidebarCards } from './components/SidebarCards';
 import { ReporterPanel } from './components/ReporterPanel';
 import { Modal } from './components/Modal';
 import { HealthDashboard } from './components/HealthDashboard';
+import { TestHistoryDialog } from './components/TestHistoryDialog';
 import { BatchUpdater, MessageRateLimiter } from './utils/performance';
 
 const MAX_LOGS = 100;
@@ -44,6 +45,7 @@ function App() {
   const [fileOrder, setFileOrder] = useState<string[]>([]);
   const [testDir, setTestDir] = useState<string>('./');
   const [isLoadingTests, setIsLoadingTests] = useState(false);
+  const [showTestHistory, setShowTestHistory] = useState<TestCase | null>(null);
   const originalTestFilesRef = useRef<TestFile[]>([]);
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
   const [showHealthDashboard, setShowHealthDashboard] = useState(false);
@@ -54,6 +56,7 @@ function App() {
   const testStatusMapRef = useRef<Map<string, TestStatusUpdate>>(new Map());
   const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
   const localStorageTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const versionSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const testCasesRef = useRef<TestCase[]>([]);
   const hasRestoredFromReportsRef = useRef(false);
   const lastLoadTestsTimeRef = useRef<number>(0);
@@ -194,6 +197,24 @@ function App() {
     });
   }, []);
 
+  useEffect(() => {
+    if (versionInput && versionInput !== '1.0.0') {
+      if (versionSaveTimerRef.current) {
+        clearTimeout(versionSaveTimerRef.current);
+      }
+      
+      versionSaveTimerRef.current = setTimeout(() => {
+        api.savePreferences({ lastVersion: versionInput });
+      }, 1000);
+    }
+    
+    return () => {
+      if (versionSaveTimerRef.current) {
+        clearTimeout(versionSaveTimerRef.current);
+      }
+    };
+  }, [versionInput]);
+
   const loadRunsFromServer = useCallback(async () => {
     try {
       const response = await api.getRuns(20);
@@ -315,6 +336,7 @@ function App() {
             line: test.line,
             retries: test.retries || testResult?.retry || 0,
             manualReruns: test.manualReruns || 0,
+            runHistory: test.runHistory || undefined,
           };
         });
         
@@ -329,6 +351,7 @@ function App() {
           details,
           htmlReportUrl: rawReport?.htmlReportUrl || null,
           skippedQuarantinedTests: run.metadata?.skippedQuarantinedTests || [],
+          status: run.status,
         });
       }
       setReports(prev => {
@@ -401,6 +424,7 @@ function App() {
             line: testResult.line,
             retries: testResult.retries || 0,
             manualReruns: testResult.manualReruns ?? existingDetail?.manualReruns ?? 0,
+            runHistory: testResult.runHistory || undefined,
           };
           if (existingIndex >= 0) {
             newDetails[existingIndex] = newDetail;
@@ -427,6 +451,7 @@ function App() {
       if (status === 'completed' && testResult?.manualReruns) {
         setTimeout(() => {
           loadRunsFromServer();
+          loadHealthMetrics();
         }, 500);
       }
     } else if (msg.type === 'run_started') {
@@ -483,6 +508,7 @@ function App() {
       
       setTimeout(() => {
         loadRunsFromServer();
+        loadHealthMetrics();
       }, 500);
     } else if (msg.type === 'test_result') {
       const r = msg.payload;
@@ -523,6 +549,7 @@ function App() {
             line: r.line,
             retries: r.retries || 0,
             manualReruns: r.manualReruns ?? existingDetail?.manualReruns ?? 0,
+            runHistory: r.runHistory || undefined,
           };
           if (existingIndex >= 0) {
             newDetails[existingIndex] = newDetail;
@@ -562,7 +589,7 @@ function App() {
     } else if (msg.type === 'error') {
       logBatchUpdater.current?.add({ msg: `❌ ${msg.payload.error}`, type: 'error' });
     }
-  }, [lang, selectedIds, loadRunsFromServer, scheduleStatusUpdate]);
+  }, [lang, selectedIds, loadRunsFromServer, loadHealthMetrics, scheduleStatusUpdate]);
 
   useEffect(() => {
     testCasesRef.current = testCases;
@@ -583,10 +610,11 @@ function App() {
     });
     
     loadRunsFromServer();
+    loadHealthMetrics();
     
     api.getFlakyTests().then(data => data && setFlakyTests(data));
     api.getQuarantinedTests().then(data => data && setQuarantinedTests(data));
-  }, [loadRunsFromServer]);
+  }, [loadRunsFromServer, loadHealthMetrics]);
 
   const { isConnected } = useWebSocket(wsUrl, handleWsMessage, { onReconnect: handleWsReconnect });
 
@@ -847,13 +875,16 @@ function App() {
         if (loadResult.rawOutput) {
           addLog(`📋 JSON: ${loadResult.rawOutput}`, 'info');
         }
+
+        loadRunsFromServer();
+        loadHealthMetrics();
       } else {
         addLog(`❌ ${t('testCasesLoadFailed', lang)}: ${result.error || 'Unknown error'}`, 'error');
       }
     } finally {
       setIsLoadingTests(false);
     }
-  }, [lang, addLog, loadTests]);
+  }, [lang, addLog, loadTests, loadRunsFromServer, loadHealthMetrics]);
 
   const formatStartError = useCallback((error: string): string => {
     if (error.includes('already in progress') || error.includes('execution is already')) {
@@ -1067,12 +1098,11 @@ function App() {
 
   return (
     <div className="max-w-[1680px] mx-auto">
-      <Header 
-        lang={lang} 
-        wsConnected={wsConnected} 
+      <Header
+        lang={lang}
         hasTestCases={testCases.length > 0}
         isExecuting={isExecuting}
-        onSwitchLang={switchLang} 
+        onSwitchLang={switchLang}
         onOpenExecutor={() => setIsExecutorDialogOpen(true)}
         showHealthDashboard={showHealthDashboard}
         onToggleHealthDashboard={() => setShowHealthDashboard(!showHealthDashboard)}
@@ -1138,6 +1168,12 @@ function App() {
         onModal={setModalContent}
         fileOrder={fileOrder}
         onFileOrderChange={setFileOrder}
+        onViewTestHistory={(test) => setShowTestHistory(test)}
+      />
+      <TestHistoryDialog
+        lang={lang}
+        test={showTestHistory}
+        onClose={() => setShowTestHistory(null)}
       />
       <Modal content={modalContent} onClose={() => setModalContent(null)} />
     </div>

@@ -228,6 +228,7 @@ export class DiagnosisService {
           ],
           max_tokens: config.maxTokens,
           temperature: config.temperature,
+          response_format: { type: 'json_object' },
         }),
         signal: controller.signal,
       });
@@ -285,6 +286,8 @@ export class DiagnosisService {
       if (tools && tools.length > 0) {
         body.tools = tools;
         body.tool_choice = 'auto';
+      } else {
+        body.response_format = { type: 'json_object' };
       }
 
       const response = await fetch(url, {
@@ -351,6 +354,7 @@ export class DiagnosisService {
           max_tokens: config.maxTokens,
           temperature: config.temperature,
           stream: true,
+          response_format: { type: 'json_object' },
         }),
         signal: controller.signal,
       });
@@ -990,7 +994,9 @@ export class DiagnosisService {
       logs?: string[];
       browser?: string;
     },
-    lang: string = 'zh'
+    lang: string = 'zh',
+    runId?: string,
+    testId?: string
   ): Promise<AIDiagnosis> {
     if (!this.config.enabled) {
       return {
@@ -1025,6 +1031,15 @@ export class DiagnosisService {
     if (cached) {
       this.log.debug('Returning cached diagnosis result');
       return cached;
+    }
+
+    if (runId && testId) {
+      const persisted = await this.loadDiagnosis(runId, testId);
+      if (persisted) {
+        this.log.debug('Returning persisted diagnosis result');
+        this.setCache(cacheKey, persisted);
+        return persisted;
+      }
     }
 
     try {
@@ -1074,6 +1089,9 @@ export class DiagnosisService {
       }
 
       this.setCache(cacheKey, diagnosis);
+      if (runId && testId) {
+        await this.saveDiagnosis(runId, testId, diagnosis);
+      }
       this.log.info(`Diagnosis completed for: ${testInfo.title}`);
       return diagnosis;
     } catch (error) {
@@ -1122,12 +1140,23 @@ export class DiagnosisService {
       logs?: string[];
       browser?: string;
     },
-    lang: string = 'zh'
+    lang: string = 'zh',
+    runId?: string,
+    testId?: string
   ): AsyncGenerator<string, void, unknown> {
     if (!this.config.enabled) {
       const errorMsg = lang === 'zh' ? 'AI 诊断未启用' : 'AI diagnosis is not enabled';
       yield JSON.stringify({ error: errorMsg, type: 'error' });
       return;
+    }
+
+    if (runId && testId) {
+      const persisted = await this.loadDiagnosis(runId, testId);
+      if (persisted) {
+        this.log.debug('Returning persisted diagnosis result via stream');
+        yield JSON.stringify({ type: 'complete', diagnosis: persisted }) + '\n';
+        return;
+      }
     }
 
     try {
@@ -1179,6 +1208,9 @@ export class DiagnosisService {
 
       const cacheKey = this.getCacheKey(testInfo) + `::${lang}`;
       this.setCache(cacheKey, diagnosis);
+      if (runId && testId) {
+        await this.saveDiagnosis(runId, testId, diagnosis);
+      }
 
       yield JSON.stringify({ type: 'complete', diagnosis }) + '\n';
       this.log.info(`Stream diagnosis completed for: ${testInfo.title}`);
@@ -1257,6 +1289,53 @@ export class DiagnosisService {
   /**
    * 清除所有缓存
    */
+  private getDiagnosisDir(): string {
+    return path.join(this.dataDir, 'diagnosis');
+  }
+
+  async saveDiagnosis(runId: string, testId: string, diagnosis: AIDiagnosis): Promise<void> {
+    try {
+      const dir = this.getDiagnosisDir();
+      await fs.promises.mkdir(dir, { recursive: true });
+      const filePath = path.join(dir, `${runId}.json`);
+
+      let store: Record<string, AIDiagnosis> = {};
+      try {
+        if (fs.existsSync(filePath)) {
+          const content = await fs.promises.readFile(filePath, 'utf-8');
+          store = JSON.parse(content);
+        }
+      } catch {
+        store = {};
+      }
+
+      store[testId] = diagnosis;
+      await fs.promises.writeFile(filePath, JSON.stringify(store, null, 2), 'utf-8');
+      this.log.debug(`Diagnosis persisted for runId=${runId}, testId=${testId}`);
+    } catch (error) {
+      this.log.warn(
+        `Failed to persist diagnosis: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  async loadDiagnosis(runId: string, testId: string): Promise<AIDiagnosis | null> {
+    try {
+      const filePath = path.join(this.getDiagnosisDir(), `${runId}.json`);
+      if (!fs.existsSync(filePath)) {
+        return null;
+      }
+      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const store = JSON.parse(content) as Record<string, AIDiagnosis>;
+      return store[testId] || null;
+    } catch (error) {
+      this.log.warn(
+        `Failed to load persisted diagnosis: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return null;
+    }
+  }
+
   clearCache(): void {
     this.cache.clear();
   }

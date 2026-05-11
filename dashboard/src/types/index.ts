@@ -65,12 +65,13 @@ export interface RunDetail {
   logs?: string[];
   browser?: string;
   stackTrace?: string;
+  runHistory?: RetryHistoryEntry[];
 }
 
-export type FlakyClassification = 'flaky' | 'broken' | 'regression' | 'stable' | 'insufficient_data';
+export type FlakyClassification = 'flaky' | 'broken' | 'regression' | 'monitor' | 'stable' | 'insufficient_data';
 
 /** 不稳定测试筛选类型 */
-export type FilterType = 'all' | 'high' | 'medium' | 'low' | 'broken' | 'regression' | 'flaky';
+export type FilterType = 'all' | 'high' | 'medium' | 'low' | 'broken' | 'regression' | 'flaky' | 'monitor';
 
 export type RootCauseType =
   | 'timing'
@@ -329,6 +330,19 @@ export interface TestRunHistory {
   status: 'passed' | 'failed' | 'skipped' | 'timedout';
   duration: number;
   error?: string;
+}
+
+export interface RetryHistoryEntry {
+  retryIndex: number;
+  status: string;
+  duration: number;
+  error?: string;
+  stackTrace?: string;
+  logs?: string[];
+  screenshots?: string[];
+  videos?: string[];
+  traces?: string[];
+  timestamp: number;
 }
 
 /** 浏览器类型 */

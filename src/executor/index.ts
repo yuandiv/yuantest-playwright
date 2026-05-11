@@ -249,7 +249,7 @@ export class Executor extends EventEmitter {
     if (this.config.traces?.enabled) {
       this.traceManager = new TraceManager(
         this.config.traces,
-        path.join(this.config.outputDir, 'traces'),
+        path.join(this.config.outputDir, 'test-results'),
         this.storage
       );
     }
@@ -265,7 +265,7 @@ export class Executor extends EventEmitter {
     if (this.config.artifacts?.enabled) {
       this.artifactManager = new ArtifactManager(
         this.config.artifacts,
-        path.join(this.config.outputDir, 'artifacts'),
+        path.join(this.config.outputDir, 'test-results'),
         this.storage
       );
     }
@@ -809,6 +809,24 @@ module.exports = ProgressReporter;
       args.push(`--retries=${this.config.retries}`);
     }
 
+    if (this.parentRunId && this.config.retryIndex) {
+      const retryTempDir = path.join(
+        resolvedOutputDir,
+        'test-results',
+        `${this.parentRunId}_retry${this.config.retryIndex}_temp`
+      );
+      const safeRetryTempDir = safePathForCLI(retryTempDir);
+      args.push(`--output=${safeRetryTempDir}`);
+      this.log.info(
+        `Rerun output directory (temp): ${retryTempDir} (retry #${this.config.retryIndex})`
+      );
+    } else {
+      const runOutputDir = path.join(resolvedOutputDir, 'test-results', runId);
+      const safeRunOutputDir = safePathForCLI(runOutputDir);
+      args.push(`--output=${safeRunOutputDir}`);
+      this.log.info(`Playwright output directory: ${runOutputDir}`);
+    }
+
     if (this.config.htmlReport) {
       args.push(`--reporter=html,blob,json,${progressReporterPath}`);
     } else {
@@ -1175,6 +1193,10 @@ module.exports = ProgressReporter;
       await this.mergeBlobReport(runId);
     }
 
+    if (this.parentRunId && this.config.retryIndex) {
+      await this.moveRetryArtifacts();
+    }
+
     if (this.traceManager) {
       try {
         const traces = await this.traceManager.discoverTraces(runId);
@@ -1392,6 +1414,101 @@ module.exports = ProgressReporter;
         this.log.warn(
           `Failed to cleanup merged output: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
         );
+      }
+    }
+  }
+
+  private async moveRetryArtifacts(): Promise<void> {
+    if (!this.parentRunId || !this.config.retryIndex) {
+      return;
+    }
+
+    const retryTempDir = path.join(
+      this.resolvedOutputDir,
+      'test-results',
+      `${this.parentRunId}_retry${this.config.retryIndex}_temp`
+    );
+    const originalRunDir = path.join(this.resolvedOutputDir, 'test-results', this.parentRunId);
+
+    if (!(await this.storage.exists(retryTempDir))) {
+      this.log.warn(`Retry temp directory not found: ${retryTempDir}, skipping artifact move`);
+      return;
+    }
+
+    try {
+      const fs = await import('fs/promises');
+
+      if (!(await this.storage.exists(originalRunDir))) {
+        await fs.mkdir(originalRunDir, { recursive: true });
+      }
+
+      const entries = await fs.readdir(retryTempDir, { withFileTypes: true });
+      const pathMappings: Map<string, string> = new Map();
+
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const sourcePath = path.join(retryTempDir, entry.name);
+          const targetName = `${entry.name}-retry${this.config.retryIndex}`;
+          const targetPath = path.join(originalRunDir, targetName);
+
+          if (await this.storage.exists(targetPath)) {
+            await fs.rm(targetPath, { recursive: true });
+          }
+
+          await fs.rename(sourcePath, targetPath);
+          pathMappings.set(sourcePath.replace(/\\/g, '/'), targetPath.replace(/\\/g, '/'));
+          this.log.info(
+            `Moved retry artifact: ${entry.name} -> ${targetName} (retry #${this.config.retryIndex})`
+          );
+        } else if (entry.isFile()) {
+          const sourcePath = path.join(retryTempDir, entry.name);
+          const targetName = `${entry.name}-retry${this.config.retryIndex}`;
+          const targetPath = path.join(originalRunDir, targetName);
+
+          await fs.rename(sourcePath, targetPath);
+          pathMappings.set(sourcePath.replace(/\\/g, '/'), targetPath.replace(/\\/g, '/'));
+          this.log.info(
+            `Moved retry file: ${entry.name} -> ${targetName} (retry #${this.config.retryIndex})`
+          );
+        }
+      }
+
+      this.remapArtifactPaths(pathMappings);
+
+      await fs.rm(retryTempDir, { recursive: true });
+      this.log.info(`Cleaned up retry temp directory: ${retryTempDir}`);
+    } catch (error: unknown) {
+      this.log.error(
+        `Failed to move retry artifacts: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  private remapArtifactPaths(pathMappings: Map<string, string>): void {
+    if (!this._currentRun || pathMappings.size === 0) {
+      return;
+    }
+
+    const remapList = (paths: string[] | undefined): string[] => {
+      if (!paths) {
+        return paths!;
+      }
+      return paths.map((p) => {
+        const normalized = p.replace(/\\/g, '/');
+        for (const [oldPrefix, newPrefix] of pathMappings) {
+          if (normalized.startsWith(oldPrefix)) {
+            return normalized.replace(oldPrefix, newPrefix);
+          }
+        }
+        return p;
+      });
+    };
+
+    for (const suite of this._currentRun.suites) {
+      for (const test of suite.tests) {
+        test.screenshots = remapList(test.screenshots);
+        test.videos = remapList(test.videos);
+        test.traces = remapList(test.traces);
       }
     }
   }

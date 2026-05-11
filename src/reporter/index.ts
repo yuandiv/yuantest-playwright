@@ -421,6 +421,11 @@ export class Reporter {
           status: existingTest.status,
           duration: existingTest.duration,
           error: existingTest.error,
+          screenshots: existingTest.screenshots,
+          videos: existingTest.videos,
+          traces: existingTest.traces,
+          stackTrace: existingTest.stackTrace,
+          logs: existingTest.logs,
         };
 
         if (!existingTest.runHistory) {

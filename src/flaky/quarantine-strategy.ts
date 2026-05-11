@@ -120,6 +120,10 @@ export function determineIsolationLevel(
     return 'none';
   }
 
+  if (classification === 'monitor') {
+    return 'monitor';
+  }
+
   if (weightedFailureRate >= cfg.hardThreshold) {
     return 'hard_quarantine';
   }

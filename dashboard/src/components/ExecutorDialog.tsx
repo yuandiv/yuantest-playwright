@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { Lang } from '../i18n';
 import { t } from '../i18n';
 import { TestCase, TestDescribe, TestFile } from '../types';
+import { ContextMenu } from './ContextMenu';
 
 interface ExecutorDialogProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ interface ExecutorDialogProps {
   onModal: (content: React.ReactNode) => void;
   fileOrder: string[];
   onFileOrderChange: (order: string[]) => void;
+  onViewTestHistory: (test: TestCase) => void;
 }
 
 function countTestsInDescribe(describe: TestDescribe): number {
@@ -110,13 +112,15 @@ function collectAllIdsInFile(file: TestFile): string[] {
   return ids;
 }
 
-const TestItemView = memo(function TestItemView({ test, statusOverride, selectedIds, onSelectedIdsChange, onRunTest }: {
+const TestItemView = memo(function TestItemView({ test, statusOverride, selectedIds, onSelectedIdsChange, onRunTest, onViewTestHistory, lang }: {
   test: TestCase;
   statusOverride?: string;
   durationOverride?: number | null;
   selectedIds: Set<string>;
   onSelectedIdsChange: (ids: Set<string>) => void;
   onRunTest: (test: TestCase) => void;
+  onViewTestHistory: (test: TestCase) => void;
+  lang: Lang;
 }) {
   const isSelected = selectedIds.has(test.id);
   const currentStatus = statusOverride || test.status;
@@ -127,6 +131,16 @@ const TestItemView = memo(function TestItemView({ test, statusOverride, selected
     if (isSelected) next.delete(test.id);
     else next.add(test.id);
     onSelectedIdsChange(next);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // 这个处理会在 ExecutorDialog 中统一处理
+    const event = new CustomEvent('testItemContextMenu', {
+      detail: { test, x: e.clientX, y: e.clientY }
+    });
+    window.dispatchEvent(event);
   };
 
   const statusIcon = (status?: string) => {
@@ -144,6 +158,7 @@ const TestItemView = memo(function TestItemView({ test, statusOverride, selected
     <div
       className="flex items-center gap-1.5 py-1 px-2 ml-4 rounded-lg hover:bg-gray-50 transition-colors text-xs cursor-pointer group"
       onClick={toggleSelect}
+      onContextMenu={handleContextMenu}
     >
       <input
         type="checkbox"
@@ -169,7 +184,7 @@ const TestItemView = memo(function TestItemView({ test, statusOverride, selected
   );
 });
 
-const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, expandedPaths, testCaseStatusMap, onSelectedIdsChange, onExpandedPathsChange, onRunDescribe, onRunTest }: {
+const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, expandedPaths, testCaseStatusMap, onSelectedIdsChange, onExpandedPathsChange, onRunDescribe, onRunTest, onViewTestHistory, lang }: {
   describe: TestDescribe;
   depth: number;
   selectedIds: Set<string>;
@@ -179,6 +194,8 @@ const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, 
   onExpandedPathsChange: (paths: Set<string>) => void;
   onRunDescribe: (describe: TestDescribe) => void;
   onRunTest: (test: TestCase) => void;
+  onViewTestHistory: (test: TestCase) => void;
+  lang: Lang;
 }) {
   const path = `${describe.file}::${describe.title}::${describe.line}`;
   const isExpanded = expandedPaths.has(path);
@@ -253,11 +270,21 @@ const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, 
     onSelectedIdsChange(next);
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const event = new CustomEvent('describeContextMenu', {
+      detail: { describe, x: e.clientX, y: e.clientY }
+    });
+    window.dispatchEvent(event);
+  };
+
   return (
     <div>
       <div
         className={`flex items-center gap-1.5 py-1 px-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-xs group ${depth > 0 ? 'ml-4' : ''}`}
         onClick={toggleExpand}
+        onContextMenu={handleContextMenu}
       >
         <input
           type="checkbox"
@@ -297,6 +324,8 @@ const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, 
               onExpandedPathsChange={onExpandedPathsChange}
               onRunDescribe={onRunDescribe}
               onRunTest={onRunTest}
+              onViewTestHistory={onViewTestHistory}
+              lang={lang}
             />
           ))}
           {describe.tests.map(test => {
@@ -309,6 +338,8 @@ const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, 
                 selectedIds={selectedIds}
                 onSelectedIdsChange={onSelectedIdsChange}
                 onRunTest={onRunTest}
+                onViewTestHistory={onViewTestHistory}
+                lang={lang}
               />
             );
           })}
@@ -318,7 +349,7 @@ const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, 
   );
 });
 
-const FileView = memo(function FileView({ file, selectedIds, expandedPaths, testCaseStatusMap, onSelectedIdsChange, onExpandedPathsChange, onRunFile, onRunDescribe, onRunTest, fileIndex, totalFiles, isExecuting, onMoveUp, onMoveDown, onDragStart, onDragOver, onDrop, lang }: {
+const FileView = memo(function FileView({ file, selectedIds, expandedPaths, testCaseStatusMap, onSelectedIdsChange, onExpandedPathsChange, onRunFile, onRunDescribe, onRunTest, fileIndex, totalFiles, isExecuting, onDragStart, onDragOver, onDrop, onViewTestHistory, lang }: {
   file: TestFile;
   selectedIds: Set<string>;
   expandedPaths: Set<string>;
@@ -331,11 +362,10 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
   fileIndex: number;
   totalFiles: number;
   isExecuting: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
+  onViewTestHistory: (test: TestCase) => void;
   lang: Lang;
 }) {
   const path = file.file;
@@ -423,11 +453,21 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
     onSelectedIdsChange(next);
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const event = new CustomEvent('fileContextMenu', {
+      detail: { file, x: e.clientX, y: e.clientY, fileIndex, totalFiles, isExecuting }
+    });
+    window.dispatchEvent(event);
+  };
+
   return (
     <div>
       <div
         className={`flex items-center gap-1.5 py-1 px-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-xs group ${dragOver ? 'border-t-2 border-indigo-400' : ''}`}
         onClick={toggleExpand}
+        onContextMenu={handleContextMenu}
         draggable={!isExecuting}
         onDragStart={onDragStart}
         onDragOver={(e) => { onDragOver(e); setDragOver(true); }}
@@ -459,22 +499,6 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
         >
           <i className="fas fa-play mr-0.5"></i>Run
         </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-          disabled={fileIndex === 0 || isExecuting}
-          className={`opacity-0 group-hover:opacity-100 px-1.5 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded text-[10px] transition-opacity ${fileIndex === 0 || isExecuting ? 'opacity-0 !cursor-not-allowed' : ''}`}
-          title="Move up"
-        >
-          <i className="fas fa-arrow-up"></i>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-          disabled={fileIndex === totalFiles - 1 || isExecuting}
-          className={`opacity-0 group-hover:opacity-100 px-1.5 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded text-[10px] transition-opacity ${fileIndex === totalFiles - 1 || isExecuting ? 'opacity-0 !cursor-not-allowed' : ''}`}
-          title="Move down"
-        >
-          <i className="fas fa-arrow-down"></i>
-        </button>
       </div>
       {isExpanded && (
         <div className="ml-2">
@@ -490,6 +514,8 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
               onExpandedPathsChange={onExpandedPathsChange}
               onRunDescribe={onRunDescribe}
               onRunTest={onRunTest}
+              onViewTestHistory={onViewTestHistory}
+              lang={lang}
             />
           ))}
           {file.tests.map(test => {
@@ -502,6 +528,8 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
                 selectedIds={selectedIds}
                 onSelectedIdsChange={onSelectedIdsChange}
                 onRunTest={onRunTest}
+                onViewTestHistory={onViewTestHistory}
+                lang={lang}
               />
             );
           })}
@@ -515,12 +543,18 @@ export function ExecutorDialog({
   isOpen, onClose, lang, testFiles, testCases, selectedIds, expandedPaths, isExecuting, isLoadingTests, logs, versionInput, testDir,
   onSelectedIdsChange, onExpandedPathsChange, onRun, onStop, onClearLogs,
   onVersionChange, onTestDirChange, onSelectAll, onClearAll, onExpandAll, onCollapseAll, onModal,
-  fileOrder, onFileOrderChange,
+  fileOrder, onFileOrderChange, onViewTestHistory,
 }: ExecutorDialogProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [tempTestDir, setTempTestDir] = useState(testDir);
   const [isValidating, setIsValidating] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    type: 'file' | 'describe' | 'test';
+    data: any;
+  } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const selectedCount = selectedIds.size;
 
@@ -553,22 +587,6 @@ export function ExecutorDialog({
     newOrder.splice(dropIndex, 0, moved);
     onFileOrderChange(newOrder);
     setDragIndex(null);
-  };
-
-  const handleMoveUp = (index: number) => () => {
-    if (index === 0) return;
-    const currentOrder = orderedTestFiles.map(f => f.file);
-    const newOrder = [...currentOrder];
-    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
-    onFileOrderChange(newOrder);
-  };
-
-  const handleMoveDown = (index: number) => () => {
-    if (index === orderedTestFiles.length - 1) return;
-    const currentOrder = orderedTestFiles.map(f => f.file);
-    const newOrder = [...currentOrder];
-    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-    onFileOrderChange(newOrder);
   };
   
   const testCaseStatusMap = useMemo(() => {
@@ -608,6 +626,34 @@ export function ExecutorDialog({
     setTempTestDir(testDir);
   }, [testDir]);
 
+  // 监听右键菜单事件
+  useEffect(() => {
+    const handleFileContextMenu = (e: any) => {
+      const { file, x, y, fileIndex, totalFiles, isExecuting: exec } = e.detail;
+      setContextMenu({ x, y, type: 'file', data: { file, fileIndex, totalFiles, isExecuting: exec } });
+    };
+
+    const handleDescribeContextMenu = (e: any) => {
+      const { describe, x, y } = e.detail;
+      setContextMenu({ x, y, type: 'describe', data: { describe } });
+    };
+
+    const handleTestContextMenu = (e: any) => {
+      const { test, x, y } = e.detail;
+      setContextMenu({ x, y, type: 'test', data: { test } });
+    };
+
+    window.addEventListener('fileContextMenu', handleFileContextMenu);
+    window.addEventListener('describeContextMenu', handleDescribeContextMenu);
+    window.addEventListener('testItemContextMenu', handleTestContextMenu);
+
+    return () => {
+      window.removeEventListener('fileContextMenu', handleFileContextMenu);
+      window.removeEventListener('describeContextMenu', handleDescribeContextMenu);
+      window.removeEventListener('testItemContextMenu', handleTestContextMenu);
+    };
+  }, [lang]);
+
   /**
    * 处理单个测试用例的执行
    * 在执行前更新selectedIds为当前测试用例，确保统计和状态显示正确
@@ -645,6 +691,22 @@ export function ExecutorDialog({
     const allIds = collectAllIdsInFile(file);
     onSelectedIdsChange(new Set(allIds));
     onRun('file', file.file);
+  };
+
+  const handleMoveFileUp = (index: number) => {
+    if (index === 0) return;
+    const currentOrder = orderedTestFiles.map(f => f.file);
+    const newOrder = [...currentOrder];
+    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+    onFileOrderChange(newOrder);
+  };
+
+  const handleMoveFileDown = (index: number) => {
+    if (index === orderedTestFiles.length - 1) return;
+    const currentOrder = orderedTestFiles.map(f => f.file);
+    const newOrder = [...currentOrder];
+    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    onFileOrderChange(newOrder);
   };
 
   if (!isOpen) return null;
@@ -859,11 +921,10 @@ export function ExecutorDialog({
                   fileIndex={index}
                   totalFiles={orderedTestFiles.length}
                   isExecuting={isExecuting}
-                  onMoveUp={handleMoveUp(index)}
-                  onMoveDown={handleMoveDown(index)}
                   onDragStart={handleDragStart(index)}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop(index)}
+                  onViewTestHistory={onViewTestHistory}
                   lang={lang}
                 />
               ))}
@@ -896,6 +957,84 @@ export function ExecutorDialog({
           </div>
         </div>
       </div>
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={(() => {
+            const items = [];
+            if (contextMenu.type === 'file') {
+              const { file, fileIndex, totalFiles, isExecuting: exec } = contextMenu.data;
+              items.push({
+                id: 'move-up',
+                label: t('moveUp', lang),
+                icon: 'fa-arrow-up',
+                disabled: fileIndex === 0 || exec,
+                onClick: () => {
+                  handleMoveFileUp(fileIndex);
+                  setContextMenu(null);
+                }
+              });
+              items.push({
+                id: 'move-down',
+                label: t('moveDown', lang),
+                icon: 'fa-arrow-down',
+                disabled: fileIndex === totalFiles - 1 || exec,
+                onClick: () => {
+                  handleMoveFileDown(fileIndex);
+                  setContextMenu(null);
+                }
+              });
+              items.push({
+                id: 'run-file',
+                label: t('run', lang),
+                icon: 'fa-play',
+                disabled: exec,
+                onClick: () => {
+                  handleRunFile(file);
+                  setContextMenu(null);
+                }
+              });
+            } else if (contextMenu.type === 'describe') {
+              const { describe } = contextMenu.data;
+              items.push({
+                id: 'run-describe',
+                label: t('run', lang),
+                icon: 'fa-play',
+                disabled: isExecuting,
+                onClick: () => {
+                  handleRunDescribe(describe);
+                  setContextMenu(null);
+                }
+              });
+            } else if (contextMenu.type === 'test') {
+              const { test } = contextMenu.data;
+              items.push({
+                id: 'run-test',
+                label: t('run', lang),
+                icon: 'fa-play',
+                disabled: isExecuting,
+                onClick: () => {
+                  handleRunTest(test);
+                  setContextMenu(null);
+                }
+              });
+              items.push({
+                id: 'view-history',
+                label: t('executionHistory', lang),
+                icon: 'fa-history',
+                onClick: () => {
+                  onViewTestHistory(test);
+                  setContextMenu(null);
+                }
+              });
+            }
+            return items;
+          })()}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

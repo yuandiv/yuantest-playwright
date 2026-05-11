@@ -280,6 +280,64 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
   const failedDetails = report.details.filter(d => d.status === 'failed');
   const [rerunningTestId, setRerunningTestId] = useState<string | null>(null);
   const [rerunStartManualReruns, setRerunStartManualReruns] = useState<number>(0);
+  const [selectedTestIds, setSelectedTestIds] = useState<Set<string>>(new Set());
+  const [batchRerunning, setBatchRerunning] = useState(false);
+  const [batchRerunStartManualReruns, setBatchRerunStartManualReruns] = useState<Map<string, number>>(new Map());
+
+  const failedTestIds = new Set(report.details.filter(d => d.status === 'failed').map(d => d.id));
+  const allFailedSelected = failedTestIds.size > 0 && [...failedTestIds].every(id => selectedTestIds.has(id));
+
+  const toggleTestSelection = (testId: string) => {
+    setSelectedTestIds(prev => {
+      const next = new Set(prev);
+      if (next.has(testId)) next.delete(testId); else next.add(testId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFailed = () => {
+    if (allFailedSelected) {
+      setSelectedTestIds(new Set());
+    } else {
+      setSelectedTestIds(new Set(failedTestIds));
+    }
+  };
+
+  const handleBatchRerun = async () => {
+    const selectedFailed = report.details.filter(d => selectedTestIds.has(d.id) && d.status === 'failed');
+    if (selectedFailed.length === 0) return;
+
+    const tests = selectedFailed
+      .filter(d => d.file && d.line)
+      .map(d => ({ testId: d.id, testLocation: `${d.file}:${d.line}` }));
+
+    if (tests.length === 0) {
+      onRerunMessage({ type: 'error', text: t('testFileOrLineMissing', lang) });
+      setTimeout(() => onRerunMessage(null), 3000);
+      return;
+    }
+
+    setBatchRerunning(true);
+    const startMap = new Map<string, number>();
+    selectedFailed.forEach(d => startMap.set(d.id, d.manualReruns || 0));
+    setBatchRerunStartManualReruns(startMap);
+
+    try {
+      const result = await api.batchRerunTests(String(report.id), tests);
+      if (result.success) {
+        const countText = (t('batchRerunInitiated', lang) || '').replace('{count}', String(tests.length));
+        onRerunMessage({ type: 'success', text: countText });
+      } else {
+        onRerunMessage({ type: 'error', text: `${t('failedToInitiateBatchRerun', lang)}${result.error || t('unknownError', lang)}` });
+        setBatchRerunning(false);
+      }
+      setTimeout(() => onRerunMessage(null), 3000);
+    } catch (error) {
+      onRerunMessage({ type: 'error', text: t('errorDuringRerun', lang) });
+      setBatchRerunning(false);
+      setTimeout(() => onRerunMessage(null), 3000);
+    }
+  };
 
   useEffect(() => {
     if (!rerunningTestId) return;
@@ -288,6 +346,23 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
       setRerunningTestId(null);
     }
   }, [report.details, rerunningTestId, rerunStartManualReruns]);
+
+  useEffect(() => {
+    if (!batchRerunning || batchRerunStartManualReruns.size === 0) return;
+    let allCompleted = true;
+    for (const [testId, startCount] of batchRerunStartManualReruns) {
+      const detail = report.details.find(d => d.id === testId);
+      if (!detail || (detail.manualReruns || 0) <= startCount) {
+        allCompleted = false;
+        break;
+      }
+    }
+    if (allCompleted) {
+      setBatchRerunning(false);
+      setSelectedTestIds(new Set());
+      setBatchRerunStartManualReruns(new Map());
+    }
+  }, [report.details, batchRerunning, batchRerunStartManualReruns]);
 
   const handleRerun = async (e: React.MouseEvent, test: RunDetail) => {
     e.stopPropagation();
@@ -351,11 +426,45 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
 
       <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-3"></div>
 
+      {failedTestIds.size > 0 && (
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-xs text-gray-500">
+            {selectedTestIds.size > 0
+              ? (t('selectedCount', lang) || '').replace('{count}', String(selectedTestIds.size))
+              : t('selectFailedCases', lang)}
+          </span>
+          <button
+            className={`text-xs px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              batchRerunning
+                ? 'bg-amber-100 text-amber-700 cursor-wait'
+                : selectedTestIds.size > 0
+                  ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 cursor-pointer'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+            disabled={selectedTestIds.size === 0 || batchRerunning}
+            onClick={handleBatchRerun}
+            title={t('batchRerunTooltip', lang)}
+          >
+            <i className={`fas ${batchRerunning ? 'fa-spinner fa-spin' : 'fa-redo'}`}></i>
+            <span>{t('batchRerun', lang)}</span>
+          </button>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
           <thead>
             <tr className="bg-gray-50 text-gray-500">
-              <th className="text-left py-1.5 px-2 rounded-tl-lg">#</th>
+              <th className="text-center py-1.5 px-2 rounded-tl-lg">
+                <input
+                  type="checkbox"
+                  checked={allFailedSelected && failedTestIds.size > 0}
+                  onChange={toggleSelectAllFailed}
+                  className="rounded border-gray-300"
+                  title={allFailedSelected ? t('clearAll', lang) : t('selectAll', lang)}
+                />
+              </th>
+              <th className="text-left py-1.5 px-2">#</th>
               <th className="text-left py-1.5 px-2">{t('caseName', lang)}</th>
               <th className="text-center py-1.5 px-2">{t('result', lang)}</th>
               <th className="text-center py-1.5 px-2">{t('duration', lang)}</th>
@@ -373,10 +482,20 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
               return (
                 <tr 
                   key={i} 
-                  className={`border-b border-gray-100 ${isFailed ? 'bg-red-50/50' : ''} ${isRerunning ? 'bg-blue-50/50' : 'hover:bg-blue-50'} cursor-pointer transition-colors`}
+                  className={`border-b border-gray-100 ${isFailed ? 'bg-red-50/50' : ''} ${isRerunning || (batchRerunning && selectedTestIds.has(d.id)) ? 'bg-blue-50/50' : 'hover:bg-blue-50'} ${selectedTestIds.has(d.id) ? 'ring-1 ring-indigo-200' : ''} cursor-pointer transition-colors`}
                   onClick={() => onTestClick(d)}
                   title={t('clickToViewDetails', lang) || 'Click to view details'}
                 >
+                  <td className="py-1.5 px-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedTestIds.has(d.id)}
+                      disabled={!isFailed || batchRerunning || !!rerunningTestId}
+                      onChange={(e) => { e.stopPropagation(); toggleTestSelection(d.id); }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded border-gray-300"
+                    />
+                  </td>
                   <td className="py-1.5 px-2 text-gray-400">{i + 1}</td>
                   <td className={`py-1.5 px-2 font-medium ${isFailed ? 'text-red-700' : 'text-gray-700'}`}>
                     <div className="flex items-center gap-2">
@@ -412,7 +531,7 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
                             ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 cursor-pointer' 
                             : 'bg-gray-100 text-gray-400'
                       }`} 
-                      disabled={!isFailed || !!rerunningTestId}
+                      disabled={!isFailed || !!rerunningTestId || batchRerunning}
                       onClick={(e) => handleRerun(e, d)}
                       title={isRerunning ? t('rerunning', lang) : isFailed ? t('rerunTooltip', lang) : ''}
                     >

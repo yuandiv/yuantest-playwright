@@ -108,7 +108,7 @@ yuantest-playwright 提供完整的测试生命周期管理，无需组合多个
 | **Executor** | 通过 Playwright CLI 执行，无内部 API 依赖，升级兼容性强 |
 | **RealtimeReporter** | WebSocket 实时推送测试进度 |
 | **DashboardServer** | 完整的 Web UI + REST API |
-| **FlakyTestManager** | 自动检测、隔离、统计不稳定测试 |
+| **FlakyTestManager** | 自动检测、隔离、统计不稳定用例 |
 | **ArtifactManager** | 统一管理截图、视频、Trace 文件 |
 
 ### 2. Flaky 测试智能管理
@@ -341,7 +341,7 @@ yuantest analyze --id run_20240101_120000_abc123
 
 - **概览** - 测试运行总数、通过率、Flaky 统计、执行趋势图表
 - **Test Runs** - 历史测试运行记录，支持筛选和搜索
-- **Flaky Tests** - 不稳定测试列表，支持一键隔离/释放
+- **Flaky Tests** - 不稳定用例列表，支持一键隔离/释放
 - **Failure Analysis** - 失败原因分类和修复建议
 - **实时进度** - 测试运行时显示实时进度条和日志
 
@@ -356,7 +356,7 @@ Dashboard 提供 RESTful API，方便集成到其他系统：
 | GET | `/api/runs` | 运行列表 |
 | GET | `/api/runs/:id` | 运行详情 |
 | GET | `/api/flaky` | Flaky 测试列表 |
-| GET | `/api/flaky/quarantined` | 已隔离测试 |
+| GET | `/api/flaky/quarantined` | 已隔离用例 |
 | POST | `/api/flaky/:id/quarantine` | 隔离测试 |
 | POST | `/api/flaky/:id/release` | 释放测试 |
 | GET | `/api/flaky/stats` | Flaky 统计 |

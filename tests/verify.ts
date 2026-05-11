@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
 
-const TEST_DATA_DIR = './test-sandbox';
+const TEST_DATA_DIR = './test-reports';
 const REPORTS_DIR = path.join(TEST_DATA_DIR, 'reports');
 const DATA_DIR = path.join(TEST_DATA_DIR, 'data');
 

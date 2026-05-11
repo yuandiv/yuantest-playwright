@@ -492,7 +492,7 @@ export class Orchestrator extends ManagedManager {
  *
  * 1. 风险感知负载计算
  *    分片负载 = Σ(estimatedDuration) + riskPenalty * Σ(sqrt(variance))
- *    高方差测试的不确定性被显式建模，避免多个不稳定测试聚集在同一分片
+ *    高方差测试的不确定性被显式建模，避免多个不稳定用例聚集在同一分片
  *
  * 2. 多目标优化
  *    - 主目标：最小化最大分片负载（makespan）

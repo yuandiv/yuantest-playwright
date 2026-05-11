@@ -1,4 +1,4 @@
-import type { LLMConfig, LLMStatus, AIDiagnosis } from '../types';
+import type { LLMConfig, LLMStatus, AIDiagnosis, RetryHistoryEntry } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -79,6 +79,22 @@ export async function saveLLMConfig(config: Partial<LLMConfig>): Promise<LLMConf
 
 export async function getLLMStatus(): Promise<LLMStatus | null> {
   return fetchJSON(`${API_BASE}/llm/status`);
+}
+
+export async function getPersistedDiagnosis(
+  runId: string | number,
+  testId: string
+): Promise<{ found: boolean; diagnosis: AIDiagnosis | null } | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/diagnosis/persisted?runId=${encodeURIComponent(String(runId))}&testId=${encodeURIComponent(testId)}`
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.error('Failed to load persisted diagnosis:', e);
+    return null;
+  }
 }
 
 /** 请求AI诊断，支持传递截图、日志、浏览器等额外上下文 */
@@ -529,6 +545,24 @@ export async function rerunTest(runId: string, testId: string, testLocation: str
   }
 }
 
+export async function batchRerunTests(runId: string, tests: Array<{testId: string; testLocation: string}>): Promise<StartRunResult & { count?: number }> {
+  try {
+    const res = await fetch(`${API_BASE}/runs/${runId}/batch-rerun`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tests }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, count: data.count };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { success: false, error: data.error || `HTTP ${res.status}` };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Network error' };
+  }
+}
+
 /** 批量聚类诊断，将多个失败测试结果发送到后端进行聚类分析 */
 export async function requestClusterDiagnosis(
   testResults: Array<{id: string; title: string; name?: string; error?: string; stackTrace?: string; file?: string; line?: number; screenshots?: string[]; logs?: string[]; browser?: string}>,
@@ -541,4 +575,49 @@ export async function requestClusterDiagnosis(
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
+}
+
+export async function getRetryData(runId: string | number, testId: string): Promise<RetryHistoryEntry[] | null> {
+  return fetchJSON(`${API_BASE}/runs/${encodeURIComponent(String(runId))}/tests/${encodeURIComponent(testId)}/retries`);
+}
+
+export interface TestHistoryEntry {
+  runId: string;
+  version: string;
+  status: string;
+  duration: number;
+  error?: string;
+  timestamp: number;
+  retries: number;
+  manualReruns?: number;
+  htmlReportUrl: string | null;
+  testId: string;
+}
+
+export interface TestHistorySummary {
+  stability: number;
+  totalRuns: number;
+  passed: number;
+  failed: number;
+  lastPassed: TestHistoryEntry | null;
+  lastFailed: TestHistoryEntry | null;
+  lastFlaky: TestHistoryEntry | null;
+}
+
+export interface TestHistoryData {
+  testId: string;
+  summary: TestHistorySummary;
+  history: TestHistoryEntry[];
+}
+
+export async function getTestHistory(testId: string, limit: number = 50): Promise<TestHistoryData | null> {
+  return fetchJSON(`${API_BASE}/tests/${encodeURIComponent(testId)}/history?limit=${limit}`);
+}
+
+export async function getFailureAnalysis(filter?: 'persistent' | 'emerging'): Promise<any[] | null> {
+  let url = `${API_BASE}/failures/analysis`;
+  if (filter) {
+    url += `?filter=${encodeURIComponent(filter)}`;
+  }
+  return fetchJSON(url);
 }

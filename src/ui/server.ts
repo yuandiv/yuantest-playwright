@@ -12,7 +12,14 @@ import { VisualTestingManager } from '../visual';
 import { DiagnosisService } from '../diagnosis';
 import { Executor } from '../executor';
 import { TestDiscovery } from '../discovery';
-import { DashboardStats, RunResult, TestConfig, TestResult, getErrorMessage } from '../types';
+import {
+  DashboardStats,
+  RunResult,
+  SuiteResult,
+  TestConfig,
+  TestResult,
+  getErrorMessage,
+} from '../types';
 import { loadConfigFile, mergeConfig } from '../config/loader';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
@@ -113,7 +120,7 @@ export class DashboardServer {
 
     this.artifactManager = new ArtifactManager(
       { enabled: true, screenshots: 'on', videos: 'on' },
-      path.join(this.outputDir, '../artifacts')
+      path.join(this.outputDir, 'test-results')
     );
 
     this.annotationManager = new AnnotationManager();
@@ -668,6 +675,7 @@ export class DashboardServer {
           res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Run not found' });
           return;
         }
+        this.processRunAttachmentPaths(run);
         res.json(run);
       })
     );
@@ -716,30 +724,6 @@ export class DashboardServer {
           return;
         }
 
-        const processAttachmentPath = (attachmentPath: string): string => {
-          if (!attachmentPath) {
-            return attachmentPath;
-          }
-
-          const normalizedPath = attachmentPath.replace(/\\/g, '/');
-
-          if (normalizedPath.includes('test-sandbox/artifacts')) {
-            return normalizedPath.replace(/^.*test-sandbox\/artifacts/, '/artifacts');
-          } else if (normalizedPath.includes('test-sandbox/reports')) {
-            return normalizedPath.replace(/^.*test-sandbox\/reports/, '/html-reports');
-          } else if (normalizedPath.includes(this.outputDir.replace(/\\/g, '/'))) {
-            const normalizedOutputDir = this.outputDir.replace(/\\/g, '/');
-            const relativePath = normalizedPath.replace(normalizedOutputDir, '');
-            if (relativePath.startsWith('/html-reports')) {
-              return relativePath;
-            } else {
-              return `/artifacts${relativePath}`;
-            }
-          }
-
-          return attachmentPath;
-        };
-
         if (rawReport.suites && Array.isArray(rawReport.suites)) {
           const processSuite = (suite: Record<string, unknown>): Record<string, unknown> => {
             const processedSuite = { ...suite };
@@ -759,7 +743,7 @@ export class DashboardServer {
                               const typedAttachment = attachment as Record<string, unknown>;
                               return {
                                 ...typedAttachment,
-                                path: processAttachmentPath(typedAttachment.path as string),
+                                path: this.processAttachmentPath(typedAttachment.path as string),
                               };
                             }
                           );
@@ -778,13 +762,19 @@ export class DashboardServer {
               processedSuite.tests = processedSuite.tests.map((test: unknown) => {
                 const typedTest = test as Record<string, unknown>;
                 if (typedTest.screenshots && Array.isArray(typedTest.screenshots)) {
-                  typedTest.screenshots = typedTest.screenshots.map(processAttachmentPath);
+                  typedTest.screenshots = typedTest.screenshots.map((p: string) =>
+                    this.processAttachmentPath(p)
+                  );
                 }
                 if (typedTest.videos && Array.isArray(typedTest.videos)) {
-                  typedTest.videos = typedTest.videos.map(processAttachmentPath);
+                  typedTest.videos = typedTest.videos.map((p: string) =>
+                    this.processAttachmentPath(p)
+                  );
                 }
                 if (typedTest.traces && Array.isArray(typedTest.traces)) {
-                  typedTest.traces = typedTest.traces.map(processAttachmentPath);
+                  typedTest.traces = typedTest.traces.map((p: string) =>
+                    this.processAttachmentPath(p)
+                  );
                 }
                 return typedTest;
               });
@@ -849,10 +839,12 @@ export class DashboardServer {
         }
 
         let testInfo: { file?: string; line?: number } | null = null;
+        let currentManualReruns = 0;
         for (const suite of report.suites) {
           const test = suite.tests.find((t) => t.id === testId);
           if (test) {
             testInfo = { file: test.file, line: test.line };
+            currentManualReruns = test.manualReruns || 0;
             break;
           }
         }
@@ -880,6 +872,7 @@ export class DashboardServer {
           browsers: ['chromium'],
           htmlReport: false,
           parentRunId: runId,
+          retryIndex: currentManualReruns + 1,
         });
 
         this.executor = new Executor(config, this.storage, this.flakyManager);
@@ -903,15 +896,25 @@ export class DashboardServer {
             parentRunId: runId,
           });
 
-          if (testResult) {
-            const updated = await this.reporter.updateTestResult(runId, testId, testResult);
+          const remappedResult = this.executor.currentRun?.suites
+            .flatMap((s) => s.tests)
+            .find(
+              (t) =>
+                t.id === testId ||
+                (testInfo && t.file === testInfo.file && t.line === testInfo.line)
+            );
+
+          const finalResult = remappedResult || testResult;
+
+          if (finalResult) {
+            const updated = await this.reporter.updateTestResult(runId, testId, finalResult);
             if (updated) {
               const updatedReport = await this.reporter.getReport(runId);
               if (updatedReport) {
                 const updatedTest = updatedReport.suites
                   .flatMap((s) => s.tests)
                   .find((t) => t.id === testId);
-                const narrowedResult = testResult as TestResult;
+                const narrowedResult = finalResult as TestResult;
                 this.realtimeReporter.broadcastReportUpdated(runId, {
                   totalTests: updatedReport.totalTests,
                   passed: updatedReport.passed,
@@ -943,6 +946,373 @@ export class DashboardServer {
             error instanceof Error ? error.message : 'Unknown error'
           );
         }
+      })
+    );
+
+    v1Router.post(
+      '/runs/:runId/batch-rerun',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { runId } = req.params;
+        const { tests } = req.body as { tests: Array<{ testId: string; testLocation: string }> };
+
+        if (!Array.isArray(tests) || tests.length === 0) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'tests array must be non-empty' });
+          return;
+        }
+
+        for (const t of tests) {
+          if (!t.testId || !t.testLocation) {
+            res
+              .status(HTTP_STATUS.BAD_REQUEST)
+              .json({ error: 'Each test must have testId and testLocation' });
+            return;
+          }
+        }
+
+        const report = await this.reporter.getReport(runId);
+        if (!report) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Run not found' });
+          return;
+        }
+
+        const allTestIds = new Set(report.suites.flatMap((s) => s.tests.map((t) => t.id)));
+        const missingTestIds = tests.map((t) => t.testId).filter((id) => !allTestIds.has(id));
+        if (missingTestIds.length > 0) {
+          res
+            .status(HTTP_STATUS.BAD_REQUEST)
+            .json({ error: `TestIds not found: ${missingTestIds.join(', ')}` });
+          return;
+        }
+
+        if (this.executor?.isCurrentlyRunning()) {
+          res.status(HTTP_STATUS.CONFLICT).json({ error: 'An execution is already in progress' });
+          return;
+        }
+
+        const testInfoMap = new Map<string, { file?: string; line?: number }>();
+        let maxManualReruns = 0;
+        for (const suite of report.suites) {
+          for (const test of suite.tests) {
+            for (const t of tests) {
+              if (test.id === t.testId) {
+                testInfoMap.set(t.testId, { file: test.file, line: test.line });
+                const reruns = test.manualReruns || 0;
+                if (reruns > maxManualReruns) {
+                  maxManualReruns = reruns;
+                }
+              }
+            }
+          }
+        }
+
+        const fileConfig = await loadConfigFile();
+        const config: TestConfig = mergeConfig(fileConfig, {
+          version: report.version,
+          testDir: this.testDir,
+          outputDir: this.outputDir,
+          retries: 0,
+          timeout: fileConfig?.timeout ?? 30000,
+          workers: 1,
+          browsers: ['chromium'],
+          htmlReport: false,
+          parentRunId: runId,
+          retryIndex: maxManualReruns + 1,
+        });
+
+        this.executor = new Executor(config, this.storage, this.flakyManager);
+
+        const testResultMap = new Map<string, TestResult>();
+
+        this.executor.on('test_result', (result) => {
+          for (const t of tests) {
+            const info = testInfoMap.get(t.testId);
+            if (
+              result.id === t.testId ||
+              (info && result.file === info.file && result.line === info.line)
+            ) {
+              testResultMap.set(t.testId, result);
+            }
+          }
+        });
+
+        res.json({ status: 'started', message: 'Batch rerun initiated', count: tests.length });
+
+        try {
+          await this.executor.execute({
+            testLocations: tests.map((t) => t.testLocation),
+            parentRunId: runId,
+          });
+
+          for (const t of tests) {
+            const info = testInfoMap.get(t.testId);
+            const remappedResult = this.executor.currentRun?.suites
+              .flatMap((s) => s.tests)
+              .find(
+                (rt) =>
+                  rt.id === t.testId || (info && rt.file === info.file && rt.line === info.line)
+              );
+
+            const finalResult = remappedResult || testResultMap.get(t.testId) || null;
+
+            if (finalResult) {
+              const updated = await this.reporter.updateTestResult(runId, t.testId, finalResult);
+              if (updated) {
+                const updatedReport = await this.reporter.getReport(runId);
+                if (updatedReport) {
+                  const updatedTest = updatedReport.suites
+                    .flatMap((s) => s.tests)
+                    .find((ut) => ut.id === t.testId);
+                  const narrowedResult = finalResult as TestResult;
+                  this.realtimeReporter.broadcastReportUpdated(runId, {
+                    totalTests: updatedReport.totalTests,
+                    passed: updatedReport.passed,
+                    failed: updatedReport.failed,
+                    skipped: updatedReport.skipped,
+                    status: 'completed',
+                    testResult: updatedTest
+                      ? {
+                          ...narrowedResult,
+                          manualReruns: updatedTest.manualReruns,
+                          runHistory: updatedTest.runHistory,
+                        }
+                      : narrowedResult,
+                  });
+                }
+                this.log.info(`Batch rerun completed and report updated: ${t.testId}`);
+              } else {
+                this.log.warn(`Failed to update test result in report: ${t.testId}`);
+              }
+            } else {
+              this.log.warn(`Test result not found after batch rerun: ${t.testId}`);
+            }
+          }
+
+          this.cache.invalidate('runs');
+        } catch (error: unknown) {
+          this.log.error('Batch rerun failed', error instanceof Error ? error : undefined);
+          this.realtimeReporter.broadcastError(
+            runId,
+            error instanceof Error ? error.message : 'Unknown error'
+          );
+        }
+      })
+    );
+
+    v1Router.get(
+      '/runs/:runId/tests/:testId/retries',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { runId, testId } = req.params;
+
+        const report = await this.reporter.getReport(runId);
+        if (!report) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Run not found' });
+          return;
+        }
+
+        let testResult: TestResult | null = null;
+        for (const suite of report.suites) {
+          const found = suite.tests.find((t) => t.id === testId);
+          if (found) {
+            testResult = found;
+            break;
+          }
+        }
+
+        if (!testResult) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Test not found' });
+          return;
+        }
+
+        const retryData: Array<{
+          retryIndex: number;
+          status: string;
+          duration: number;
+          error?: string;
+          stackTrace?: string;
+          logs?: string[];
+          screenshots?: string[];
+          videos?: string[];
+          traces?: string[];
+          timestamp: number;
+        }> = [];
+
+        if (testResult.runHistory && testResult.runHistory.length > 0) {
+          for (let i = 0; i < testResult.runHistory.length; i++) {
+            const entry = testResult.runHistory[i];
+            retryData.push({
+              retryIndex: i,
+              status: entry.status,
+              duration: entry.duration,
+              error: entry.error,
+              stackTrace: entry.stackTrace,
+              logs: entry.logs,
+              screenshots: entry.screenshots?.map((p: string) => this.processAttachmentPath(p)),
+              videos: entry.videos?.map((p: string) => this.processAttachmentPath(p)),
+              traces: entry.traces?.map((p: string) => this.processAttachmentPath(p)),
+              timestamp: entry.timestamp,
+            });
+          }
+        }
+
+        retryData.push({
+          retryIndex: testResult.runHistory?.length ?? 0,
+          status: testResult.status,
+          duration: testResult.duration,
+          error: testResult.error,
+          stackTrace: testResult.stackTrace,
+          logs: testResult.logs,
+          screenshots: testResult.screenshots?.map((p: string) => this.processAttachmentPath(p)),
+          videos: testResult.videos?.map((p: string) => this.processAttachmentPath(p)),
+          traces: testResult.traces?.map((p: string) => this.processAttachmentPath(p)),
+          timestamp: testResult.timestamp,
+        });
+
+        const testResultsDir = path.resolve(this.outputDir, 'test-results', runId);
+        if (fs.existsSync(testResultsDir)) {
+          try {
+            const entries = fs.readdirSync(testResultsDir, { withFileTypes: true });
+            const retryFolders = entries.filter(
+              (e) => e.isDirectory() && /-retry\d+$/.test(e.name)
+            );
+
+            for (const folder of retryFolders) {
+              const retryMatch = folder.name.match(/-retry(\d+)$/);
+              if (!retryMatch) {
+                continue;
+              }
+              const retryIndex = parseInt(retryMatch[1], 10) - 1;
+
+              if (retryIndex >= 0 && retryIndex < retryData.length) {
+                const entry = retryData[retryIndex];
+                const folderPath = path.join(testResultsDir, folder.name);
+
+                if (!entry.screenshots || entry.screenshots.length === 0) {
+                  const screenshots = this.discoverFilesInDir(folderPath, [
+                    '.png',
+                    '.jpg',
+                    '.jpeg',
+                    '.webp',
+                  ]);
+                  if (screenshots.length > 0) {
+                    entry.screenshots = screenshots.map((p) => this.processAttachmentPath(p));
+                  }
+                }
+                if (!entry.videos || entry.videos.length === 0) {
+                  const videos = this.discoverFilesInDir(folderPath, ['.webm', '.mp4', '.ogg']);
+                  if (videos.length > 0) {
+                    entry.videos = videos.map((p) => this.processAttachmentPath(p));
+                  }
+                }
+                if (!entry.traces || entry.traces.length === 0) {
+                  const traces = this.discoverFilesInDir(folderPath, ['.zip', '.trace']);
+                  if (traces.length > 0) {
+                    entry.traces = traces.map((p) => this.processAttachmentPath(p));
+                  }
+                }
+              }
+            }
+          } catch (error: unknown) {
+            this.log.warn(
+              `Failed to scan retry folders: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        }
+
+        res.json(retryData);
+      })
+    );
+
+    v1Router.get(
+      '/tests/:testId/history',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { testId } = req.params;
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+
+        const allReports = await this.reporter.getAllReports();
+        const sortedReports = allReports
+          .filter((r) => r.status !== 'running')
+          .sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+
+        const historyEntries: Array<{
+          runId: string;
+          version: string;
+          status: string;
+          duration: number;
+          error?: string;
+          timestamp: number;
+          retries: number;
+          manualReruns?: number;
+          htmlReportUrl: string | null;
+          testId: string;
+        }> = [];
+
+        for (const report of sortedReports) {
+          if (historyEntries.length >= limit) {
+            break;
+          }
+
+          for (const suite of report.suites) {
+            const test = suite.tests.find((t) => t.id === testId);
+            if (test) {
+              let htmlReportUrl: string | null = null;
+              const htmlReportPath = path.resolve(this.outputDir, 'html-reports', report.id);
+              if (fs.existsSync(htmlReportPath)) {
+                htmlReportUrl = `/html-reports/${report.id}/index.html`;
+              }
+              historyEntries.push({
+                runId: report.id,
+                version: report.version,
+                status: test.status,
+                duration: test.duration,
+                error: test.error,
+                timestamp: test.timestamp || report.startTime,
+                retries: test.retries || 0,
+                manualReruns: test.manualReruns,
+                htmlReportUrl,
+                testId: test.id,
+              });
+              break;
+            }
+          }
+        }
+
+        const totalRuns = historyEntries.length;
+        const passedCount = historyEntries.filter((e) => e.status === 'passed').length;
+        const failedCount = historyEntries.filter((e) => e.status === 'failed').length;
+        const stability = totalRuns > 0 ? ((passedCount / totalRuns) * 100).toFixed(2) : '0.00';
+
+        let lastPassed: (typeof historyEntries)[0] | undefined;
+        let lastFailed: (typeof historyEntries)[0] | undefined;
+        let lastFlaky: (typeof historyEntries)[0] | undefined;
+
+        for (const entry of historyEntries) {
+          if (!lastPassed && entry.status === 'passed') {
+            lastPassed = entry;
+          }
+          if (!lastFailed && entry.status === 'failed') {
+            lastFailed = entry;
+          }
+          if (!lastFlaky && entry.retries > 0 && entry.status === 'passed') {
+            lastFlaky = entry;
+          }
+          if (lastPassed && lastFailed && lastFlaky) {
+            break;
+          }
+        }
+
+        res.json({
+          testId,
+          summary: {
+            stability: parseFloat(stability),
+            totalRuns,
+            passed: passedCount,
+            failed: failedCount,
+            lastPassed: lastPassed || null,
+            lastFailed: lastFailed || null,
+            lastFlaky: lastFlaky || null,
+          },
+          history: historyEntries,
+        });
       })
     );
 
@@ -1105,6 +1475,15 @@ export class DashboardServer {
     );
 
     v1Router.get(
+      '/failures/analysis',
+      asyncHandler(async (req: Request, res: Response) => {
+        const filter = req.query.filter as 'persistent' | 'emerging' | undefined;
+        const analysis = this.flakyManager.getFailureAnalysis(filter);
+        res.json(analysis);
+      })
+    );
+
+    v1Router.get(
       '/analysis/:runId',
       asyncHandler(async (req: Request, res: Response) => {
         const run = await this.reporter.getReport(req.params.runId);
@@ -1201,6 +1580,55 @@ export class DashboardServer {
           return;
         }
         res.send(content);
+      })
+    );
+
+    v1Router.get(
+      '/attachments/file',
+      asyncHandler(async (req: Request, res: Response) => {
+        const filePath = req.query.path as string;
+        if (!filePath) {
+          res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Missing path parameter' });
+          return;
+        }
+
+        const resolvedPath = path.resolve(filePath);
+        const allowedDirs = [
+          path.resolve(this.outputDir),
+          path.resolve(this.outputDir, '..', 'test-results'),
+          path.resolve(this.outputDir, 'test-results'),
+        ];
+
+        const isAllowed = allowedDirs.some((dir) => resolvedPath.startsWith(dir));
+        if (!isAllowed) {
+          res
+            .status(HTTP_STATUS.FORBIDDEN)
+            .json({ error: 'Access denied: path outside allowed directories' });
+          return;
+        }
+
+        if (!fs.existsSync(resolvedPath)) {
+          res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'File not found' });
+          return;
+        }
+
+        const ext = path.extname(resolvedPath).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.webp': 'image/webp',
+          '.gif': 'image/gif',
+          '.bmp': 'image/bmp',
+          '.webm': 'video/webm',
+          '.mp4': 'video/mp4',
+          '.ogg': 'video/ogg',
+          '.zip': 'application/zip',
+          '.trace': 'application/octet-stream',
+        };
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        res.setHeader('Content-Type', contentType);
+        res.sendFile(resolvedPath);
       })
     );
 
@@ -1404,12 +1832,12 @@ export class DashboardServer {
     v1Router.get(
       '/reports/paths',
       asyncHandler(async (req: Request, res: Response) => {
-        const playwrightReportPath = path.resolve(this.outputDir, '../test-sandbox/reports');
-        const artifactsPath = path.resolve(this.outputDir, '../test-sandbox/artifacts');
+        const playwrightReportPath = path.resolve(this.outputDir, 'html-reports');
+        const artifactsPath = path.resolve(this.outputDir, 'test-results');
 
         res.json({
           playwrightReport: fs.existsSync(playwrightReportPath) ? '/playwright-report' : null,
-          artifacts: fs.existsSync(artifactsPath) ? '/artifacts' : null,
+          artifacts: fs.existsSync(artifactsPath) ? '/test-results' : null,
           reportExists:
             fs.existsSync(playwrightReportPath) && fs.readdirSync(playwrightReportPath).length > 0,
         });
@@ -1547,6 +1975,7 @@ export class DashboardServer {
           logs,
           browser,
           runId,
+          testId,
         } = req.body;
 
         const config = this.diagnosisService.getMaskedConfig();
@@ -1582,7 +2011,9 @@ export class DashboardServer {
               logs: enrichedLogs,
               browser: enrichedBrowser,
             },
-            lang || 'zh'
+            lang || 'zh',
+            runId,
+            testId
           );
           res.json({ enabled: true, diagnosis });
         } catch (error: unknown) {
@@ -1606,6 +2037,7 @@ export class DashboardServer {
           logs,
           browser,
           runId,
+          testId,
         } = req.body;
 
         const config = this.diagnosisService.getMaskedConfig();
@@ -1646,7 +2078,9 @@ export class DashboardServer {
               logs: enrichedLogs,
               browser: enrichedBrowser,
             },
-            lang || 'zh'
+            lang || 'zh',
+            runId,
+            testId
           );
 
           for await (const chunk of stream) {
@@ -1658,6 +2092,29 @@ export class DashboardServer {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           res.write(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`);
           res.end();
+        }
+      })
+    );
+
+    v1Router.get(
+      '/diagnosis/persisted',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { runId, testId } = req.query;
+
+        if (!runId || !testId) {
+          res.status(400).json({ error: 'runId and testId are required' });
+          return;
+        }
+
+        try {
+          const diagnosis = await this.diagnosisService.loadDiagnosis(
+            String(runId),
+            String(testId)
+          );
+          res.json({ found: !!diagnosis, diagnosis });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          res.json({ found: false, diagnosis: null, error: errorMessage });
         }
       })
     );
@@ -1789,6 +2246,7 @@ export class DashboardServer {
     this.cache.invalidate('tests:');
     this.cache.invalidate('runs');
     this.cache.invalidate('stats');
+    this.cache.invalidate('health:');
     this.cache.invalidate('traces:');
     this.cache.invalidate('artifacts:');
     this.testDiscovery.invalidateCache();
@@ -1834,7 +2292,7 @@ export class DashboardServer {
 
     this.artifactManager = new ArtifactManager(
       { enabled: true, screenshots: 'on', videos: 'on' },
-      path.join(absoluteDir, 'test-sandbox', 'artifacts')
+      path.join(this.outputDir, 'test-results')
     );
 
     this.visualManager = new VisualTestingManager(
@@ -1857,7 +2315,7 @@ export class DashboardServer {
         `  outputDir: ${this.outputDir}\n` +
         `  dataDir: ${this.dataDir}\n` +
         `  traces: ${path.join(absoluteDir, 'traces')}\n` +
-        `  artifacts: ${path.join(absoluteDir, 'test-sandbox', 'artifacts')}`
+        `  artifacts: ${path.join(this.outputDir, 'test-results')}`
     );
   }
 
@@ -1871,19 +2329,10 @@ export class DashboardServer {
       }
     });
 
-    this.app.use('/playwright-report', (req: Request, res: Response, next: NextFunction) => {
-      const playwrightReportPath = path.resolve(this.outputDir, '../test-sandbox/reports');
-      if (fs.existsSync(playwrightReportPath)) {
-        express.static(playwrightReportPath)(req, res, next);
-      } else {
-        next();
-      }
-    });
-
-    this.app.use('/artifacts', (req: Request, res: Response, next: NextFunction) => {
-      const artifactsPath = path.resolve(this.outputDir, '../test-sandbox/artifacts');
-      if (fs.existsSync(artifactsPath)) {
-        express.static(artifactsPath)(req, res, next);
+    this.app.use('/test-results', (req: Request, res: Response, next: NextFunction) => {
+      const testResultsPath = path.resolve(this.outputDir, 'test-results');
+      if (fs.existsSync(testResultsPath)) {
+        express.static(testResultsPath)(req, res, next);
       } else {
         next();
       }
@@ -1899,11 +2348,25 @@ export class DashboardServer {
     }
   }
 
-  start(): Promise<void> {
-    return new Promise((resolve) => {
-      logger.init(this.dataDir);
-      this.realtimeReporter.initialize(this.server);
+  async start(): Promise<void> {
+    try {
+      const prefs = await this.storage.readJSON<Record<string, string>>(
+        path.join(this.dataDir, 'user-preferences.json')
+      );
+      if (prefs?.testDir && typeof prefs.testDir === 'string') {
+        await this.updatePathsForTestDir(prefs.testDir);
+        this.log.info(`Restored testDir from preferences: ${prefs.testDir}`);
+      }
+    } catch (e) {
+      this.log.warn(
+        `Failed to restore testDir from preferences: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
 
+    logger.init(this.dataDir);
+    this.realtimeReporter.initialize(this.server);
+
+    return new Promise<void>((resolve) => {
       this.server.listen(this.port, () => {
         this.log.info(`Dashboard running at http://localhost:${this.port}`);
         resolve();
@@ -1936,5 +2399,83 @@ export class DashboardServer {
 
   getExecutor(): Executor | null {
     return this.executor;
+  }
+
+  private discoverFilesInDir(dir: string, extensions: string[]): string[] {
+    const files: string[] = [];
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          files.push(...this.discoverFilesInDir(fullPath, extensions));
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (extensions.includes(ext)) {
+            files.push(fullPath);
+          }
+        }
+      }
+    } catch {
+      // Ignore errors when reading directory
+    }
+    return files;
+  }
+
+  private processAttachmentPath(attachmentPath: string): string {
+    if (!attachmentPath) {
+      return attachmentPath;
+    }
+
+    if (attachmentPath.startsWith('/') || attachmentPath.startsWith('http')) {
+      return attachmentPath;
+    }
+
+    const normalizedPath = attachmentPath.replace(/\\/g, '/');
+
+    if (normalizedPath.includes(this.outputDir.replace(/\\/g, '/'))) {
+      const normalizedOutputDir = this.outputDir.replace(/\\/g, '/');
+      const relativePath = normalizedPath.replace(normalizedOutputDir, '');
+      if (relativePath.startsWith('/html-reports')) {
+        return relativePath;
+      } else if (relativePath.startsWith('/test-results')) {
+        return relativePath;
+      } else {
+        return `/api/v1/attachments/file?path=${encodeURIComponent(attachmentPath)}`;
+      }
+    }
+
+    if (path.isAbsolute(attachmentPath)) {
+      return `/api/v1/attachments/file?path=${encodeURIComponent(attachmentPath)}`;
+    }
+
+    return attachmentPath;
+  }
+
+  private processRunAttachmentPaths(run: RunResult): void {
+    if (!run.suites || !Array.isArray(run.suites)) {
+      return;
+    }
+
+    const processSuite = (suite: SuiteResult): SuiteResult => {
+      if (suite.tests && Array.isArray(suite.tests)) {
+        suite.tests = suite.tests.map((test) => {
+          if (test.screenshots && Array.isArray(test.screenshots)) {
+            test.screenshots = test.screenshots.map((p: string) => this.processAttachmentPath(p));
+          }
+          if (test.videos && Array.isArray(test.videos)) {
+            test.videos = test.videos.map((p: string) => this.processAttachmentPath(p));
+          }
+          if (test.traces && Array.isArray(test.traces)) {
+            test.traces = test.traces.map((p: string) => this.processAttachmentPath(p));
+          }
+          return test;
+        });
+      }
+
+      return suite;
+    };
+
+    run.suites = run.suites.map(processSuite);
   }
 }

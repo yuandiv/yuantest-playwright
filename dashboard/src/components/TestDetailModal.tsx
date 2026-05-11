@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Lang } from '../i18n';
 import { t } from '../i18n';
-import { RunDetail, TestAttachment, AIDiagnosis } from '../types';
+import { RunDetail, TestAttachment, AIDiagnosis, RetryHistoryEntry } from '../types';
 import * as api from '../services/api';
 
 interface TestDetailModalProps {
@@ -10,6 +10,18 @@ interface TestDetailModalProps {
   runId: number;
   htmlReportUrl?: string | null;
   onClose: () => void;
+}
+
+interface DisplayData {
+  status: 'passed' | 'failed';
+  duration: string;
+  error: string | null;
+  screenshots?: string[];
+  videos?: string[];
+  traces?: string[];
+  stackTrace?: string;
+  logs?: string[];
+  attachments?: TestAttachment[];
 }
 
 export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: TestDetailModalProps) {
@@ -22,7 +34,105 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
   const [streamingContent, setStreamingContent] = useState<string>('');
   const diagnosisCache = useRef<Map<string, AIDiagnosis>>(new Map());
 
-  const hasError = test?.status === 'failed' && !!test?.error;
+  const [selectedRetryIndex, setSelectedRetryIndex] = useState<number>(-1);
+  const [retryData, setRetryData] = useState<RetryHistoryEntry[] | null>(null);
+  const [loadingRetryData, setLoadingRetryData] = useState(false);
+
+  const hasRetries = (test?.manualReruns && test.manualReruns > 0) || (test?.runHistory && test.runHistory.length > 0);
+  const totalExecutions = hasRetries ? (test?.runHistory?.length ?? 0) + 1 : 1;
+
+  useEffect(() => {
+    if (hasRetries) {
+      setSelectedRetryIndex(totalExecutions - 1);
+    } else {
+      setSelectedRetryIndex(-1);
+    }
+    setRetryData(null);
+    setLoadingRetryData(false);
+  }, [test?.id]);
+
+  const loadRetryData = useCallback(async () => {
+    if (!test || retryData) return;
+    setLoadingRetryData(true);
+    try {
+      const data = await api.getRetryData(runId, test.id);
+      if (data) {
+        setRetryData(data);
+      }
+    } catch {
+      // ignore
+    }
+    setLoadingRetryData(false);
+  }, [test?.id, runId, retryData]);
+
+  useEffect(() => {
+    if (hasRetries && !retryData && !loadingRetryData) {
+      loadRetryData();
+    }
+  }, [hasRetries, retryData, loadingRetryData, loadRetryData]);
+
+  const getDisplayData = (): DisplayData => {
+    if (!test) {
+      return { status: 'failed', duration: '0', error: null };
+    }
+
+    if (!hasRetries || selectedRetryIndex === -1 || selectedRetryIndex === totalExecutions - 1) {
+      return {
+        status: test.status,
+        duration: test.duration,
+        error: test.error,
+        screenshots: test.screenshots,
+        videos: test.videos,
+        traces: test.traces,
+        stackTrace: test.stackTrace,
+        logs: test.logs,
+        attachments: test.attachments,
+      };
+    }
+
+    if (retryData && selectedRetryIndex >= 0 && selectedRetryIndex < retryData.length) {
+      const entry = retryData[selectedRetryIndex];
+      return {
+        status: entry.status === 'passed' ? 'passed' : 'failed',
+        duration: (entry.duration / 1000).toFixed(2),
+        error: entry.error || null,
+        screenshots: entry.screenshots,
+        videos: entry.videos,
+        traces: entry.traces,
+        stackTrace: entry.stackTrace,
+        logs: entry.logs,
+      };
+    }
+
+    if (test.runHistory && selectedRetryIndex >= 0 && selectedRetryIndex < test.runHistory.length) {
+      const entry = test.runHistory[selectedRetryIndex];
+      return {
+        status: entry.status === 'passed' ? 'passed' : 'failed',
+        duration: (entry.duration / 1000).toFixed(2),
+        error: entry.error || null,
+        screenshots: entry.screenshots,
+        videos: entry.videos,
+        traces: entry.traces,
+        stackTrace: entry.stackTrace,
+        logs: entry.logs,
+      };
+    }
+
+    return {
+      status: test.status,
+      duration: test.duration,
+      error: test.error,
+      screenshots: test.screenshots,
+      videos: test.videos,
+      traces: test.traces,
+      stackTrace: test.stackTrace,
+      logs: test.logs,
+      attachments: test.attachments,
+    };
+  };
+
+  const displayData = getDisplayData();
+  const hasError = displayData.status === 'failed' && !!displayData.error;
 
   useEffect(() => {
     const handleConfigChanged = () => {
@@ -57,7 +167,8 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
 
   useEffect(() => {
     if (activeTab === 'error' && hasError && llmEnabled && test) {
-      const cached = diagnosisCache.current.get(test.id);
+      const cacheKey = hasRetries ? `${test.id}_retry${selectedRetryIndex}` : test.id;
+      const cached = diagnosisCache.current.get(cacheKey);
       if (cached) {
         setDiagnosis(cached);
         setDiagnosing(false);
@@ -65,82 +176,103 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
         setStreamingContent('');
         return;
       }
+
       setDiagnosing(true);
       setDiagnosis(null);
       setDiagnosisError(null);
       setStreamingContent('');
-      
-      api.requestDiagnosisStream({
-        testTitle: test.name,
-        error: test.error || '',
-        file: test.file,
-        line: test.line,
-        testId: test.id,
-        lang,
-        screenshots: test.screenshots,
-        logs: test.logs,
-        browser: test.browser,
-        stackTrace: test.stackTrace,
-      }, {
-        onStart: (testTitle) => {
-          setStreamingContent('');
-        },
-        onChunk: (content) => {
-          setStreamingContent(prev => prev + content);
-        },
-        onComplete: (diagnosisResult) => {
-          setDiagnosis(diagnosisResult);
-          diagnosisCache.current.set(test.id, diagnosisResult);
+
+      const requestDiagnosis = () => {
+        api.requestDiagnosisStream({
+          testTitle: test.name,
+          error: displayData.error || '',
+          file: test.file,
+          line: test.line,
+          testId: test.id,
+          runId: String(runId),
+          lang,
+          screenshots: displayData.screenshots,
+          logs: displayData.logs,
+          browser: test.browser,
+          stackTrace: displayData.stackTrace,
+        }, {
+          onStart: () => {
+            setStreamingContent('');
+          },
+          onChunk: (content) => {
+            setStreamingContent(prev => prev + content);
+          },
+          onComplete: (diagnosisResult) => {
+            setDiagnosis(diagnosisResult);
+            diagnosisCache.current.set(cacheKey, diagnosisResult);
+            setDiagnosing(false);
+            setStreamingContent('');
+          },
+          onError: (error) => {
+            setDiagnosisError(error);
+            setDiagnosing(false);
+          }
+        });
+      };
+
+      api.getPersistedDiagnosis(runId, test.id).then(result => {
+        if (result?.found && result.diagnosis) {
+          setDiagnosis(result.diagnosis);
+          diagnosisCache.current.set(cacheKey, result.diagnosis);
           setDiagnosing(false);
-          setStreamingContent('');
-        },
-        onError: (error) => {
-          setDiagnosisError(error);
-          setDiagnosing(false);
+          return;
         }
+        requestDiagnosis();
+      }).catch(() => {
+        requestDiagnosis();
       });
     }
-  }, [activeTab, hasError, llmEnabled, test]);
+  }, [activeTab, hasError, llmEnabled, test, runId, selectedRetryIndex]);
 
   if (!test) return null;
 
-  const screenshots = test.attachments?.filter(a => 
+  const screenshots = displayData.attachments?.filter((a: TestAttachment) =>
     a.contentType?.startsWith('image/') || a.name.toLowerCase().includes('screenshot')
   ) || [];
 
-  const videos = test.attachments?.filter(a => 
+  const videos = displayData.attachments?.filter((a: TestAttachment) =>
     a.contentType?.startsWith('video/') || a.name.toLowerCase().includes('video')
   ) || [];
 
-  const otherAttachments = test.attachments?.filter(a => 
+  const otherAttachments = displayData.attachments?.filter((a: TestAttachment) =>
     !screenshots.includes(a) && !videos.includes(a)
   ) || [];
 
-  const hasScreenshots = screenshots.length > 0;
-  const hasVideos = videos.length > 0;
+  const displayScreenshots = displayData.screenshots || [];
+  const displayVideos = displayData.videos || [];
+
+  const hasScreenshots = screenshots.length > 0 || displayScreenshots.length > 0;
+  const hasVideos = videos.length > 0 || displayVideos.length > 0;
   const hasOther = otherAttachments.length > 0;
 
   const handleRetryDiagnosis = () => {
     if (!test) return;
-    diagnosisCache.current.delete(test.id);
+    const cacheKey = hasRetries ? `${test.id}_retry${selectedRetryIndex}` : test.id;
+    diagnosisCache.current.delete(cacheKey);
     setDiagnosis(null);
     setDiagnosisError(null);
     setDiagnosing(true);
     setStreamingContent('');
-    
+
     api.requestDiagnosisStream({
       testTitle: test.name,
-      error: test.error || '',
+      error: displayData.error || '',
       file: test.file,
       line: test.line,
       testId: test.id,
+      runId: String(runId),
       lang,
-      screenshots: test.screenshots,
-      logs: test.logs,
+      screenshots: displayData.screenshots,
+      logs: displayData.logs,
       browser: test.browser,
-      stackTrace: test.stackTrace,
+      stackTrace: displayData.stackTrace,
     }, {
-      onStart: (testTitle) => {
+      onStart: () => {
         setStreamingContent('');
       },
       onChunk: (content) => {
@@ -148,7 +280,7 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
       },
       onComplete: (diagnosisResult) => {
         setDiagnosis(diagnosisResult);
-        diagnosisCache.current.set(test.id, diagnosisResult);
+        diagnosisCache.current.set(cacheKey, diagnosisResult);
         setDiagnosing(false);
         setStreamingContent('');
       },
@@ -159,9 +291,32 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
     });
   };
 
+  const getRetryStatusLabel = (index: number, status: string, duration: number) => {
+    const statusIcon = status === 'passed' ? '✅' : '❌';
+    const durationStr = (duration / 1000).toFixed(2);
+    if (index === 0) {
+      return `${statusIcon} ${t('firstExecution', lang)} (${durationStr}s)`;
+    }
+    const label = t('retryExecution', lang).replace('{n}', String(index));
+    return `${statusIcon} ${label} (${durationStr}s)`;
+  };
+
+  const getRetryStatusForIndex = (index: number): { status: string; duration: number } => {
+    if (retryData && index < retryData.length) {
+      return { status: retryData[index].status, duration: retryData[index].duration };
+    }
+    if (test.runHistory && index < test.runHistory.length) {
+      return { status: test.runHistory[index].status, duration: test.runHistory[index].duration };
+    }
+    if (index === totalExecutions - 1) {
+      return { status: test.status, duration: parseFloat(test.duration) * 1000 };
+    }
+    return { status: 'unknown', duration: 0 };
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div 
+      <div
         className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
@@ -169,13 +324,13 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                test.status === 'passed' 
-                  ? 'bg-green-100 text-green-700' 
+                displayData.status === 'passed'
+                  ? 'bg-green-100 text-green-700'
                   : 'bg-red-100 text-red-700'
               }`}>
-                {test.status === 'passed' ? '✅' : '❌'} {test.status.toUpperCase()}
+                {displayData.status === 'passed' ? '✅' : '❌'} {displayData.status.toUpperCase()}
               </span>
-              <span className="text-sm text-gray-500">⏱️ {test.duration}s</span>
+              <span className="text-sm text-gray-500">⏱️ {displayData.duration}s</span>
             </div>
             <h2 className="text-lg font-bold text-gray-800 pr-8">{test.name}</h2>
             {test.file && (
@@ -192,13 +347,41 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
           </button>
         </div>
 
+        {hasRetries && (
+          <div className="border-b border-gray-200 bg-gray-50 px-4 py-2">
+            <div className="text-xs font-medium text-gray-500 mb-1.5">{t('retryHistory', lang)}</div>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {Array.from({ length: totalExecutions }, (_, i) => {
+                const info = getRetryStatusForIndex(i);
+                const isSelected = i === selectedRetryIndex;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setSelectedRetryIndex(i);
+                      setActiveTab('error');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    {getRetryStatusLabel(i, info.status, info.duration)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex border-b border-gray-200 bg-gray-50">
           {hasError && (
             <button
               onClick={() => setActiveTab('error')}
               className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === 'error' 
-                  ? 'text-red-600 border-b-2 border-red-600 bg-white' 
+                activeTab === 'error'
+                  ? 'text-red-600 border-b-2 border-red-600 bg-white'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -210,34 +393,34 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
             <button
               onClick={() => setActiveTab('screenshots')}
               className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === 'screenshots' 
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
+                activeTab === 'screenshots'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
               <i className="fas fa-image mr-1.5"></i>
-              {t('screenshots', lang) || 'Screenshots'} ({screenshots.length})
+              {t('screenshots', lang) || 'Screenshots'} ({screenshots.length + displayScreenshots.length})
             </button>
           )}
           {hasVideos && (
             <button
               onClick={() => setActiveTab('videos')}
               className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === 'videos' 
-                  ? 'text-purple-600 border-b-2 border-purple-600 bg-white' 
+                activeTab === 'videos'
+                  ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
               <i className="fas fa-video mr-1.5"></i>
-              {t('videos', lang) || 'Videos'} ({videos.length})
+              {t('videos', lang) || 'Videos'} ({videos.length + displayVideos.length})
             </button>
           )}
           {hasOther && (
             <button
               onClick={() => setActiveTab('other')}
               className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === 'other' 
-                  ? 'text-gray-600 border-b-2 border-gray-600 bg-white' 
+                activeTab === 'other'
+                  ? 'text-gray-600 border-b-2 border-gray-600 bg-white'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
             >
@@ -248,6 +431,13 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
+          {loadingRetryData && hasRetries && (
+            <div className="flex items-center justify-center py-4 text-sm text-gray-500">
+              <i className="fas fa-spinner fa-spin mr-2"></i>
+              {t('loadingRetryData', lang)}
+            </div>
+          )}
+
           {activeTab === 'error' && hasError && (
             <div className="space-y-4">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -256,22 +446,34 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
                   <span className="font-semibold text-red-700">{t('errorMessage', lang) || 'Error Message'}</span>
                 </div>
                 <pre className="text-sm text-red-600 whitespace-pre-wrap font-mono overflow-x-auto max-h-96">
-                  {test.error}
+                  {displayData.error}
                 </pre>
               </div>
-              
-              {test.error && test.error.includes('Stack trace:') && (
+
+              {displayData.stackTrace && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <i className="fas fa-layer-group text-gray-600"></i>
                     <span className="font-semibold text-gray-700">{t('stackTrace', lang) || 'Stack Trace'}</span>
                   </div>
                   <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono overflow-x-auto max-h-64">
-                    {test.error.split('Stack trace:')[1]?.trim() || ''}
+                    {displayData.stackTrace}
                   </pre>
                 </div>
               )}
-              
+
+              {!displayData.stackTrace && displayData.error && displayData.error.includes('Stack trace:') && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <i className="fas fa-layer-group text-gray-600"></i>
+                    <span className="font-semibold text-gray-700">{t('stackTrace', lang) || 'Stack Trace'}</span>
+                  </div>
+                  <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono overflow-x-auto max-h-64">
+                    {displayData.error.split('Stack trace:')[1]?.trim() || ''}
+                  </pre>
+                </div>
+              )}
+
               {llmEnabled ? (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -452,8 +654,35 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
 
           {activeTab === 'screenshots' && hasScreenshots && (
             <div className="space-y-4">
+              {displayScreenshots.map((screenshotUrl, index) => (
+                <div key={`retry-screenshot-${index}`} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">
+                      <i className="fas fa-image mr-2 text-blue-500"></i>
+                      Screenshot {index + 1}
+                    </span>
+                    <a
+                      href={screenshotUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      <i className="fas fa-external-link-alt mr-1"></i>
+                      {t('openNewTab', lang) || 'Open in new tab'}
+                    </a>
+                  </div>
+                  <div className="p-2 bg-gray-100">
+                    <img
+                      src={screenshotUrl}
+                      alt={`Screenshot ${index + 1}`}
+                      className="max-w-full h-auto mx-auto rounded shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => setSelectedAttachment({ name: `Screenshot ${index + 1}`, path: screenshotUrl, contentType: 'image/png' })}
+                    />
+                  </div>
+                </div>
+              ))}
               {screenshots.map((screenshot, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div key={`attach-screenshot-${index}`} className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">
                       <i className="fas fa-image mr-2 text-blue-500"></i>
@@ -498,8 +727,37 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
 
           {activeTab === 'videos' && hasVideos && (
             <div className="space-y-4">
+              {displayVideos.map((videoUrl, index) => (
+                <div key={`retry-video-${index}`} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">
+                      <i className="fas fa-video mr-2 text-purple-500"></i>
+                      Video {index + 1}
+                    </span>
+                    <a
+                      href={videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      <i className="fas fa-download mr-1"></i>
+                      {t('download', lang) || 'Download'}
+                    </a>
+                  </div>
+                  <div className="p-2 bg-black">
+                    <video
+                      src={videoUrl}
+                      controls
+                      className="max-w-full h-auto mx-auto"
+                      style={{ maxHeight: '400px' }}
+                    >
+                      {t('videoNotSupported', lang) || 'Your browser does not support the video tag.'}
+                    </video>
+                  </div>
+                </div>
+              ))}
               {videos.map((video, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div key={`attach-video-${index}`} className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">
                       <i className="fas fa-video mr-2 text-purple-500"></i>
@@ -600,7 +858,7 @@ export function TestDetailModal({ lang, test, runId, htmlReportUrl, onClose }: T
       </div>
 
       {selectedAttachment && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedAttachment(null)}
         >

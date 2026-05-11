@@ -62,6 +62,18 @@ export class RealtimeReporter extends EventEmitter {
         runId: '',
       });
 
+      for (const [runId, progress] of this.runProgress.entries()) {
+        if (progress.status === 'running') {
+          this.sendToClient(ws, {
+            type: 'run_progress',
+            payload: progress,
+            timestamp: Date.now(),
+            runId,
+          });
+          this.log.debug(`Sent running progress to new client: ${runId}`);
+        }
+      }
+
       ws.on('close', () => {
         this.clients.delete(ws);
         this.log.info(`Client disconnected (total: ${this.clients.size})`);

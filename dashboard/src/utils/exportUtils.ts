@@ -47,7 +47,7 @@ export function exportToHTML(data: HealthTrendData[], stats: {
   totalTests: number;
   totalFlaky: number;
 }, lang: Lang, filename: string = 'health-report'): void {
-  const title = t('healthDashboard', lang) || 'Health Dashboard';
+  const title = t('healthDashboard', lang) || 'Dashboard';
   const dateStr = new Date().toLocaleString();
   
   const htmlContent = `<!DOCTYPE html>

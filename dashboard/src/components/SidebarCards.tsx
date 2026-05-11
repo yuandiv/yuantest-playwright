@@ -55,6 +55,8 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
         return { label: 'Regression', color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
       case 'flaky':
         return { label: 'Flaky', color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
+      case 'monitor':
+        return { label: t('monitorLabel', lang), color: 'bg-yellow-100 text-yellow-700', icon: 'fas fa-eye' };
       case 'stable':
         return { label: 'Stable', color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
       default:
@@ -82,9 +84,26 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
       <div className="w-80 flex flex-col gap-4 flex-shrink-0">
         <div className="bg-white rounded-[1.25rem] shadow-sm p-4 flex-1 flex flex-col min-h-0">
           <div className="flex justify-between items-center mb-3 flex-shrink-0">
-            <h3 className="text-sm font-semibold text-gray-700">
-              <i className="fas fa-bug mr-1.5 text-amber-500"></i>{t('flakyTestsTitle', lang)}
-            </h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-gray-700">
+                <i className="fas fa-bug mr-1.5 text-amber-500"></i>{t('flakyTestsTitle', lang)}
+              </h3>
+              <div className="relative group">
+                <i className="fas fa-circle-question text-xs text-gray-400 cursor-help hover:text-amber-500 transition-colors"></i>
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 bg-gray-800 text-white text-[11px] rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
+                  <p className="font-semibold mb-1.5 text-amber-400">{t('flakyCriteriaTitle', lang)}</p>
+                  <div className="mb-1.5">
+                    <p className="font-medium text-green-400 mb-0.5">{t('flakyEntryCriteria', lang)}</p>
+                    <p className="text-gray-300 leading-relaxed">{t('flakyEntryCriteriaDetail', lang)}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-blue-400 mb-0.5">{t('flakyExitCriteria', lang)}</p>
+                    <p className="text-gray-300 leading-relaxed">{t('flakyExitCriteriaDetail', lang)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
             {flakyTests.length > 0 && (
               <span className="text-xs text-gray-400">{flakyTests.length} {t('items', lang)}</span>
             )}
@@ -149,9 +168,26 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
 
         <div className="bg-white rounded-[1.25rem] shadow-sm p-4 flex-1 flex flex-col min-h-0">
           <div className="flex justify-between items-center mb-3 flex-shrink-0">
-            <h3 className="text-sm font-semibold text-gray-700">
-              <i className="fas fa-lock mr-1.5 text-red-500"></i>{t('quarantinedTests', lang)}
-            </h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-gray-700">
+                <i className="fas fa-lock mr-1.5 text-red-500"></i>{t('quarantinedTests', lang)}
+              </h3>
+              <div className="relative group">
+                <i className="fas fa-circle-question text-xs text-gray-400 cursor-help hover:text-red-500 transition-colors"></i>
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 bg-gray-800 text-white text-[11px] rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
+                  <p className="font-semibold mb-1.5 text-red-400">{t('quarantineCriteriaTitle', lang)}</p>
+                  <div className="mb-1.5">
+                    <p className="font-medium text-green-400 mb-0.5">{t('flakyEntryCriteria', lang)}</p>
+                    <p className="text-gray-300 leading-relaxed">{t('quarantineEntryCriteriaDetail', lang)}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-blue-400 mb-0.5">{t('flakyExitCriteria', lang)}</p>
+                    <p className="text-gray-300 leading-relaxed">{t('quarantineExitCriteriaDetail', lang)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
             {quarantinedTests.length > 0 && (
               <span className="text-xs text-gray-400">{quarantinedTests.length} {t('items', lang)}</span>
             )}
@@ -244,6 +280,8 @@ function FlakyTestsModal({
         return { label: 'Regression', color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
       case 'flaky':
         return { label: 'Flaky', color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
+      case 'monitor':
+        return { label: t('monitorLabel', lang), color: 'bg-yellow-100 text-yellow-700', icon: 'fas fa-eye' };
       case 'stable':
         return { label: 'Stable', color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
       default:
@@ -256,6 +294,7 @@ function FlakyTestsModal({
     if (filter === 'broken') return flakyTests.filter(t => t.classification === 'broken');
     if (filter === 'regression') return flakyTests.filter(t => t.classification === 'regression');
     if (filter === 'flaky') return flakyTests.filter(t => t.classification === 'flaky');
+    if (filter === 'monitor') return flakyTests.filter(t => t.classification === 'monitor');
     return flakyTests.filter(test => {
       if (filter === 'high') return test.failureRate <= 0.2;
       if (filter === 'medium') return test.failureRate > 0.2 && test.failureRate <= 0.5;
@@ -276,6 +315,7 @@ function FlakyTestsModal({
   const filterButtons = [
     { key: 'all' as const, label: t('allLevels', lang) },
     { key: 'flaky' as const, label: 'Flaky' },
+    { key: 'monitor' as const, label: t('monitorLabel', lang) },
     { key: 'broken' as const, label: 'Broken' },
     { key: 'regression' as const, label: 'Regression' },
     { key: 'high' as const, label: t('highStability', lang) },

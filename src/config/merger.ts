@@ -101,8 +101,8 @@ const FRAMEWORK_DEFAULTS = {
   testIgnore: [],
   testMatch: '**/*.{test,spec}.{js,ts,mjs,mts}',
   projects: [{ name: 'chromium', use: {} }],
-  outputDir: './test-sandbox/reports',
-  snapshotDir: './test-sandbox/snapshots',
+  outputDir: './test-reports',
+  snapshotDir: './test-reports/snapshots',
 };
 
 export class PlaywrightConfigMerger {

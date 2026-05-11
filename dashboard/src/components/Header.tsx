@@ -7,7 +7,6 @@ import { LLMConfigDialog } from './LLMConfigDialog';
 
 interface HeaderProps {
   lang: Lang;
-  wsConnected: boolean;
   hasTestCases: boolean;
   isExecuting: boolean;
   onSwitchLang: (lang: Lang) => void;
@@ -16,7 +15,7 @@ interface HeaderProps {
   onToggleHealthDashboard?: () => void;
 }
 
-export function Header({ lang, wsConnected, hasTestCases, isExecuting, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard }: HeaderProps) {
+export function Header({ lang, hasTestCases, isExecuting, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard }: HeaderProps) {
   const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
   const [showLLMConfig, setShowLLMConfig] = useState(false);
 
@@ -64,7 +63,7 @@ export function Header({ lang, wsConnected, hasTestCases, isExecuting, onSwitchL
             }`}
           >
             <i className="fas fa-heartbeat"></i>
-            <span>{t('healthDashboard', lang) || 'Health Dashboard'}</span>
+            <span>{t('healthDashboard', lang) || 'Dashboard'}</span>
           </button>
         )}
         <button
@@ -108,10 +107,6 @@ export function Header({ lang, wsConnected, hasTestCases, isExecuting, onSwitchL
             onSaved={handleLLMConfigSaved}
           />
         )}
-        <div className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm border border-gray-100">
-          <span className={`w-2 h-2 rounded-full inline-block ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-          <span>{wsConnected ? t('connected', lang) : t('disconnected', lang)}</span>
-        </div>
         <div className="bg-white px-1.5 py-1 rounded-full shadow-sm flex border border-gray-100">
           <button
             className={`text-xs px-3 py-1 rounded-full cursor-pointer font-medium transition-all ${lang === 'zh' ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}

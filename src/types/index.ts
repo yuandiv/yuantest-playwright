@@ -20,6 +20,7 @@ export interface TestConfig {
   htmlReport?: boolean;
   htmlReportDir?: string;
   parentRunId?: string;
+  retryIndex?: number;
   testMatch?: string[];
   testIgnore?: string[];
   ignoreDirs?: string[];
@@ -154,6 +155,11 @@ export interface TestRunHistory {
   status: 'passed' | 'failed' | 'skipped' | 'timedout';
   duration: number;
   error?: string;
+  screenshots?: string[];
+  videos?: string[];
+  traces?: string[];
+  stackTrace?: string;
+  logs?: string[];
 }
 
 export interface TestResult {
@@ -262,6 +268,7 @@ export type FlakyClassification =
   | 'flaky'
   | 'broken'
   | 'regression'
+  | 'monitor'
   | 'stable'
   | 'insufficient_data';
 

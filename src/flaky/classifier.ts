@@ -9,6 +9,7 @@ export interface ClassifyConfig {
   decayRate: number;
   confidenceLevel: number;
   flakyThreshold: number;
+  monitorThreshold: number;
   stableThreshold: number;
 }
 
@@ -20,6 +21,7 @@ const DEFAULT_CLASSIFY_CONFIG: ClassifyConfig = {
   decayRate: FLAKY_CONFIG.DECAY_RATE,
   confidenceLevel: FLAKY_CONFIG.CONFIDENCE_LEVEL,
   flakyThreshold: FLAKY_CONFIG.DEFAULT_THRESHOLD,
+  monitorThreshold: FLAKY_CONFIG.MONITOR_THRESHOLD,
   stableThreshold: 0.05,
 };
 
@@ -232,9 +234,13 @@ export function classifyTest(
     return 'flaky';
   }
 
+  if (weightedRate >= cfg.monitorThreshold) {
+    return 'monitor';
+  }
+
   if (test.failureRate >= cfg.flakyThreshold && weightedRate < cfg.flakyThreshold) {
     return 'stable';
   }
 
-  return 'flaky';
+  return 'monitor';
 }
