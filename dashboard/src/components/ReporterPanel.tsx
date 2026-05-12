@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Lang } from '../i18n';
 import { t } from '../i18n';
-import { RunReport, RunDetail } from '../types';
+import { RunReport, RunDetail, AIDiagnosis } from '../types';
 import * as api from '../services/api';
 import { ConfirmDialog } from './ConfirmDialog';
 import { TestDetailModal } from './TestDetailModal';
+import { ClusterCard } from './ClusterCard';
 
 function formatVersionLabel(version: string): string {
   if (!version || typeof version !== 'string') return 'v0.0.0';
@@ -178,9 +179,16 @@ export function ReporterPanel({ lang, reports, activeReportId, onActiveReportCha
               return (
                 <div
                   key={report.id}
-                  className={`border rounded-lg p-2.5 cursor-pointer transition bg-white ${isActive ? 'border-indigo-400 bg-indigo-50' : 'hover:bg-gray-50'} ${isRunning ? 'ring-2 ring-blue-200 ring-opacity-50' : ''}`}
+                  className={`border rounded-lg p-2.5 cursor-pointer transition-all duration-200 bg-white relative overflow-hidden ${
+                    isActive 
+                      ? 'border-indigo-500 bg-gradient-to-r from-indigo-50 to-blue-50 shadow-md ring-2 ring-indigo-200' 
+                      : 'hover:bg-gray-50 hover:shadow-sm'
+                  } ${isRunning ? 'ring-2 ring-blue-200 ring-opacity-50' : ''}`}
                   onClick={() => onActiveReportChange(report.id)}
                 >
+                  {isActive && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 to-blue-500"></div>
+                  )}
                   <div className="flex justify-between items-center text-xs mb-1">
                     <span className="font-mono text-gray-600">{new Date(report.timestamp).toLocaleString()}</span>
                     <div className="flex items-center gap-2">
@@ -283,6 +291,25 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
   const [selectedTestIds, setSelectedTestIds] = useState<Set<string>>(new Set());
   const [batchRerunning, setBatchRerunning] = useState(false);
   const [batchRerunStartManualReruns, setBatchRerunStartManualReruns] = useState<Map<string, number>>(new Map());
+  const [clusters, setClusters] = useState<Array<{
+    clusterId: string;
+    category: string;
+    testIds: string[];
+    similarity: number;
+    diagnosis: AIDiagnosis | null;
+    representativeError?: string;
+  }>>([]);
+  const [analyzingCluster, setAnalyzingCluster] = useState(false);
+
+  const testToClusterMap = useMemo(() => {
+    const map = new Map<string, number>();
+    clusters.forEach((cluster, index) => {
+      cluster.testIds.forEach(testId => {
+        map.set(testId, index + 1);
+      });
+    });
+    return map;
+  }, [clusters]);
 
   const failedTestIds = new Set(report.details.filter(d => d.status === 'failed').map(d => d.id));
   const allFailedSelected = failedTestIds.size > 0 && [...failedTestIds].every(id => selectedTestIds.has(id));
@@ -300,6 +327,43 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
       setSelectedTestIds(new Set());
     } else {
       setSelectedTestIds(new Set(failedTestIds));
+    }
+  };
+
+  const handleClusterAnalysis = async () => {
+    if (failedDetails.length < 2) return;
+
+    setAnalyzingCluster(true);
+    try {
+      const testResults = failedDetails.map(d => ({
+        id: d.id,
+        title: d.name,
+        error: d.error || undefined,
+        stackTrace: d.stackTrace || undefined,
+        file: d.file || undefined,
+        line: d.line || undefined,
+        screenshots: d.screenshots || undefined,
+        logs: d.logs || undefined,
+        browser: d.browser || undefined,
+      }));
+      const result = await api.requestClusterDiagnosis(testResults, lang);
+      if (result && result.clusters) {
+        setClusters(result.clusters.map(c => {
+          const representativeTest = failedDetails.find(d => d.id === c.testIds[0]);
+          return {
+            clusterId: c.clusterId,
+            category: c.category,
+            testIds: c.testIds,
+            similarity: c.similarity,
+            diagnosis: c.diagnosis as AIDiagnosis | null,
+            representativeError: representativeTest?.error || c.errorMessage,
+          };
+        }));
+      }
+    } catch {
+      setClusters([]);
+    } finally {
+      setAnalyzingCluster(false);
     }
   };
 
@@ -404,7 +468,24 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
       <div className="mb-3">
         <div className="flex justify-between items-center mb-2">
           <span className="font-bold text-sm text-gray-800">{t('report', lang)} #{report.id}</span>
-          <span className="text-xs text-gray-500">{new Date(report.timestamp).toLocaleString()}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">{new Date(report.timestamp).toLocaleString()}</span>
+            {failedDetails.length >= 2 && (
+              <button
+                onClick={handleClusterAnalysis}
+                disabled={analyzingCluster}
+                className={`text-xs px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                  analyzingCluster 
+                    ? 'bg-violet-100 text-violet-700 cursor-wait' 
+                    : 'bg-violet-50 text-violet-600 hover:bg-violet-100 cursor-pointer'
+                }`}
+                title={t('clusterAnalysis', lang)}
+              >
+                <i className={`fas ${analyzingCluster ? 'fa-spinner fa-spin' : 'fa-project-diagram'}`}></i>
+                <span>{analyzingCluster ? t('analyzingCluster', lang) : t('clusterAnalysis', lang)}</span>
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
           <span className="bg-gray-100 px-2 py-0.5 rounded font-mono">{formatVersionLabel(report.version)}</span>
@@ -426,7 +507,42 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
 
       <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-3"></div>
 
-      {failedTestIds.size > 0 && (
+      {analyzingCluster && (
+        <div className="mb-3">
+          <div className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl p-4 text-center">
+            <div className="w-10 h-10 border-4 border-violet-200 border-t-violet-500 rounded-full animate-spin mx-auto mb-2"></div>
+            <p className="text-violet-600 text-sm">{t('analyzingCluster', lang)}</p>
+          </div>
+        </div>
+      )}
+
+      {clusters.length > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-2 mb-2">
+            <h4 className="text-xs font-semibold text-gray-700">
+              <i className="fas fa-project-diagram mr-1 text-violet-500"></i>
+              {t('clusterAnalysis', lang)}
+            </h4>
+            <span className="text-xs text-gray-400">{clusters.length} {t('clusterGroup', lang)}</span>
+          </div>
+          <div className="space-y-2">
+            {clusters.map((cluster, index) => (
+              <ClusterCard
+                key={cluster.clusterId}
+                lang={lang}
+                clusterIndex={index + 1}
+                category={cluster.category}
+                testIds={cluster.testIds}
+                similarity={cluster.similarity}
+                representativeError={cluster.representativeError}
+                diagnosis={cluster.diagnosis}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {failedDetails.length > 0 && (
         <div className="flex items-center justify-between mb-2 px-1">
           <span className="text-xs text-gray-500">
             {selectedTestIds.size > 0
@@ -520,7 +636,16 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
                     </span>
                   </td>
                   <td className="py-1.5 px-2 max-w-[200px]">
-                    {d.error ? <span className="text-red-500 truncate block" title={d.error}>{d.error}</span> : <span className="text-gray-300">-</span>}
+                    {d.error ? (
+                      <span className="text-red-500 truncate block" title={d.error}>
+                        {testToClusterMap.has(d.id) && (
+                          <span className="text-violet-600 font-semibold mr-1">#{testToClusterMap.get(d.id)}</span>
+                        )}
+                        {d.error}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">-</span>
+                    )}
                   </td>
                   <td className="py-1.5 px-2 text-center">
                     <button 

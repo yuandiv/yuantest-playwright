@@ -14,9 +14,10 @@ interface SidebarCardsProps {
   onRefresh: () => void;
   onModal: (content: React.ReactNode) => void;
   onClearFlakyHistory: () => Promise<void>;
+  onOpenFlakyDialog?: () => void;
 }
 
-export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onReleaseTest, onValidateReleaseTest, onRefresh, onModal, onClearFlakyHistory }: SidebarCardsProps) {
+export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onReleaseTest, onValidateReleaseTest, onRefresh, onModal, onClearFlakyHistory, onOpenFlakyDialog }: SidebarCardsProps) {
   const trend = useMemo(() => {
     const sortedReports = [...reports]
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -50,29 +51,33 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
   const getClassificationInfo = (classification?: FlakyClassification) => {
     switch (classification) {
       case 'broken':
-        return { label: 'Broken', color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
+        return { label: t('brokenLabel', lang), color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
       case 'regression':
-        return { label: 'Regression', color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
+        return { label: t('regressionLabel', lang), color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
       case 'flaky':
-        return { label: 'Flaky', color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
+        return { label: t('flakyLabel', lang), color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
       case 'monitor':
         return { label: t('monitorLabel', lang), color: 'bg-yellow-100 text-yellow-700', icon: 'fas fa-eye' };
       case 'stable':
-        return { label: 'Stable', color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
+        return { label: t('stableLabel', lang), color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
       default:
         return null;
     }
   };
 
   const handleViewAllFlakyTests = () => {
-    onModal(
-      <FlakyTestsModal
-        lang={lang}
-        flakyTests={flakyTests}
-        getStabilityInfo={getStabilityInfo}
-        onClearHistory={onClearFlakyHistory}
-      />
-    );
+    if (onOpenFlakyDialog) {
+      onOpenFlakyDialog();
+    } else {
+      onModal(
+        <FlakyTestsModal
+          lang={lang}
+          flakyTests={flakyTests}
+          getStabilityInfo={getStabilityInfo}
+          onClearHistory={onClearFlakyHistory}
+        />
+      );
+    }
   };
 
   return (
@@ -275,15 +280,15 @@ function FlakyTestsModal({
   const getClassificationInfo = (classification?: FlakyClassification) => {
     switch (classification) {
       case 'broken':
-        return { label: 'Broken', color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
+        return { label: t('brokenLabel', lang), color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
       case 'regression':
-        return { label: 'Regression', color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
+        return { label: t('regressionLabel', lang), color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
       case 'flaky':
-        return { label: 'Flaky', color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
+        return { label: t('flakyLabel', lang), color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
       case 'monitor':
         return { label: t('monitorLabel', lang), color: 'bg-yellow-100 text-yellow-700', icon: 'fas fa-eye' };
       case 'stable':
-        return { label: 'Stable', color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
+        return { label: t('stableLabel', lang), color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
       default:
         return null;
     }
@@ -314,10 +319,10 @@ function FlakyTestsModal({
 
   const filterButtons = [
     { key: 'all' as const, label: t('allLevels', lang) },
-    { key: 'flaky' as const, label: 'Flaky' },
+    { key: 'flaky' as const, label: t('flakyLabel', lang) },
     { key: 'monitor' as const, label: t('monitorLabel', lang) },
-    { key: 'broken' as const, label: 'Broken' },
-    { key: 'regression' as const, label: 'Regression' },
+    { key: 'broken' as const, label: t('brokenLabel', lang) },
+    { key: 'regression' as const, label: t('regressionLabel', lang) },
     { key: 'high' as const, label: t('highStability', lang) },
     { key: 'medium' as const, label: t('mediumStability', lang) },
     { key: 'low' as const, label: t('lowStability', lang) },

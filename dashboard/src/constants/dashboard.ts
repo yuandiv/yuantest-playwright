@@ -13,6 +13,7 @@ export const TAB_CONFIG = [
   { key: 'runDuration', icon: 'fas fa-clock', labelKey: 'runDuration' },
   { key: 'testSuiteSize', icon: 'fas fa-layer-group', labelKey: 'testSuiteSize' },
   { key: 'testFlakiness', icon: 'fas fa-wave-square', labelKey: 'testFlakiness' },
+  { key: 'failureAnalysis', icon: 'fas fa-bug', labelKey: 'failureAnalysis' },
 ] as const;
 
 export const STORAGE_KEY = 'healthDashboardConfig';

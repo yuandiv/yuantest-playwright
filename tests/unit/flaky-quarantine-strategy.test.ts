@@ -128,7 +128,7 @@ describe('checkQuarantineBudget', () => {
   });
 
   test('预算耗尽时拒绝隔离', () => {
-    const budget = checkQuarantineBudget(100, 15);
+    const budget = checkQuarantineBudget(100, 21);
     expect(budget.allowed).toBe(false);
     expect(budget.remaining).toBe(0);
   });

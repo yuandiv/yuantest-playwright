@@ -430,13 +430,7 @@ export class DiagnosisService {
     /htpasswd/i,
   ];
 
-  private static readonly BLOCKED_DIRS = [
-    'node_modules',
-    '.git',
-    '__pycache__',
-    '.venv',
-    'venv',
-  ];
+  private static readonly BLOCKED_DIRS = ['node_modules', '.git', '__pycache__', '.venv', 'venv'];
 
   private isPathAllowed(filePath: string): boolean {
     const resolved = path.resolve(filePath);
@@ -480,7 +474,10 @@ export class DiagnosisService {
                 if (results.length >= 20) {
                   break;
                 }
-                if (entry.name.startsWith('.') || DiagnosisService.BLOCKED_DIRS.includes(entry.name)) {
+                if (
+                  entry.name.startsWith('.') ||
+                  DiagnosisService.BLOCKED_DIRS.includes(entry.name)
+                ) {
                   continue;
                 }
                 const fullPath = path.join(dir, entry.name);
@@ -1095,7 +1092,7 @@ export class DiagnosisService {
       const prompt = this.buildEnrichedPrompt(context, patterns, testInfo, lang);
 
       if (rootCause) {
-        prompt.system += `\n\n## Root Cause Analysis Findings\n- Primary Cause: ${rootCause.primaryCause}\n- Confidence: ${(rootCause.confidence * 100).toFixed(0)}%\n- Suggested Actions: ${rootCause.suggestedActions.join(', ')}\n- Evidence: ${rootCause.evidence.map(e => e.description).join('; ')}`;
+        prompt.system += `\n\n## Root Cause Analysis Findings\n- Primary Cause: ${rootCause.primaryCause}\n- Confidence: ${(rootCause.confidence * 100).toFixed(0)}%\n- Suggested Actions: ${rootCause.suggestedActions.join(', ')}\n- Evidence: ${rootCause.evidence.map((e) => e.description).join('; ')}`;
       }
 
       const { responseText, reasoningSteps, analysisMode } = await this.agentLoop(

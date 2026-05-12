@@ -331,6 +331,17 @@ program
   .option('--threshold <rate>', 'Flaky threshold (0-1)', '0.3')
   .action(async (options) => {
     const flakyManager = new FlakyTestManager('./test-data');
+    try {
+      const prefsPath = path.join('./test-data', 'user-preferences.json');
+      if (fs.existsSync(prefsPath)) {
+        const prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf-8'));
+        if (prefs?.autoQuarantine !== undefined && typeof prefs.autoQuarantine === 'boolean') {
+          flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
 
     if (options.list) {
       const flaky = flakyManager.getFlakyTests(parseFloat(options.threshold));
@@ -428,7 +439,7 @@ program
   .action(async (options) => {
     try {
       if (!options.id) {
-        console.error(chalk.red('Error: Run ID is required. Use --id <runId>'));
+        console.error(chalk.red('Please specify a run ID with --id'));
         process.exit(1);
       }
 

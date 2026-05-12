@@ -1,4 +1,11 @@
-import { RunResult, TestResult, FailureAnalysis, DashboardStats, TestRunHistory, RootCauseAnalysis } from '../types';
+import {
+  RunResult,
+  TestResult,
+  FailureAnalysis,
+  DashboardStats,
+  TestRunHistory,
+  RootCauseAnalysis,
+} from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../logger';
@@ -34,7 +41,12 @@ export class Reporter {
   private diagnosisService: DiagnosisService | null = null;
   private flakyManager?: FlakyTestManager;
 
-  constructor(outputDir: string = DEFAULTS.REPORTS_DIR, storage?: StorageProvider, diagnosisService?: DiagnosisService, flakyManager?: FlakyTestManager) {
+  constructor(
+    outputDir: string = DEFAULTS.REPORTS_DIR,
+    storage?: StorageProvider,
+    diagnosisService?: DiagnosisService,
+    flakyManager?: FlakyTestManager
+  ) {
     this.outputDir = outputDir;
     this.storage = storage || getStorage();
     this.diagnosisService = diagnosisService ?? null;
@@ -157,27 +169,39 @@ export class Reporter {
             if (this.flakyManager) {
               try {
                 const flakyTests = this.flakyManager.getFlakyTests();
-                const flakyTest = flakyTests.find(ft => ft.testId === analysis.testId);
+                const flakyTest = flakyTests.find((ft) => ft.testId === analysis.testId);
                 if (flakyTest?.rootCause) {
                   rootCauseData = flakyTest.rootCause;
                 }
-              } catch {}
+              } catch {
+                // Ignore errors when accessing flaky test data
+              }
             }
-            const diagnosis = await this.diagnosisService.diagnose(testInfo, 'zh', String(runResult.id), analysis.testId, rootCauseData);
+            const diagnosis = await this.diagnosisService.diagnose(
+              testInfo,
+              'zh',
+              String(runResult.id),
+              analysis.testId,
+              rootCauseData
+            );
             if (diagnosis && diagnosis.analysisMode !== 'fallback') {
               analysis.aiDiagnosis = diagnosis;
               if (this.flakyManager) {
                 try {
                   const flakyTests = this.flakyManager.getFlakyTests();
-                  const flakyTest = flakyTests.find(ft => ft.testId === analysis.testId);
+                  const flakyTest = flakyTests.find((ft) => ft.testId === analysis.testId);
                   if (flakyTest) {
                     flakyTest.aiDiagnosis = diagnosis;
                   }
-                } catch {}
+                } catch {
+                  // Ignore errors when updating flaky test diagnosis
+                }
               }
             }
           } catch (e) {
-            this.log.warn(`AI diagnosis failed for test ${analysis.testId}: ${e instanceof Error ? e.message : String(e)}`);
+            this.log.warn(
+              `AI diagnosis failed for test ${analysis.testId}: ${e instanceof Error ? e.message : String(e)}`
+            );
           }
         }
       }

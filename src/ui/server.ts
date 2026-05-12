@@ -1241,14 +1241,15 @@ export class DashboardServer {
       '/tests/:testId/history',
       asyncHandler(async (req: Request, res: Response) => {
         const { testId } = req.params;
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 10));
 
         const allReports = await this.reporter.getAllReports();
         const sortedReports = allReports
           .filter((r) => r.status !== 'running')
           .sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
 
-        const historyEntries: Array<{
+        const allHistoryEntries: Array<{
           runId: string;
           version: string;
           status: string;
@@ -1262,10 +1263,6 @@ export class DashboardServer {
         }> = [];
 
         for (const report of sortedReports) {
-          if (historyEntries.length >= limit) {
-            break;
-          }
-
           for (const suite of report.suites) {
             const test = suite.tests.find((t) => t.id === testId);
             if (test) {
@@ -1274,7 +1271,7 @@ export class DashboardServer {
               if (fs.existsSync(htmlReportPath)) {
                 htmlReportUrl = `/html-reports/${report.id}/index.html`;
               }
-              historyEntries.push({
+              allHistoryEntries.push({
                 runId: report.id,
                 version: report.version,
                 status: test.status,
@@ -1291,16 +1288,21 @@ export class DashboardServer {
           }
         }
 
-        const totalRuns = historyEntries.length;
-        const passedCount = historyEntries.filter((e) => e.status === 'passed').length;
-        const failedCount = historyEntries.filter((e) => e.status === 'failed').length;
+        const total = allHistoryEntries.length;
+        const totalPages = Math.ceil(total / pageSize);
+        const startIndex = (page - 1) * pageSize;
+        const historyEntries = allHistoryEntries.slice(startIndex, startIndex + pageSize);
+
+        const totalRuns = total;
+        const passedCount = allHistoryEntries.filter((e) => e.status === 'passed').length;
+        const failedCount = allHistoryEntries.filter((e) => e.status === 'failed').length;
         const stability = totalRuns > 0 ? ((passedCount / totalRuns) * 100).toFixed(2) : '0.00';
 
-        let lastPassed: (typeof historyEntries)[0] | undefined;
-        let lastFailed: (typeof historyEntries)[0] | undefined;
-        let lastFlaky: (typeof historyEntries)[0] | undefined;
+        let lastPassed: (typeof allHistoryEntries)[0] | undefined;
+        let lastFailed: (typeof allHistoryEntries)[0] | undefined;
+        let lastFlaky: (typeof allHistoryEntries)[0] | undefined;
 
-        for (const entry of historyEntries) {
+        for (const entry of allHistoryEntries) {
           if (!lastPassed && entry.status === 'passed') {
             lastPassed = entry;
           }
@@ -1327,6 +1329,12 @@ export class DashboardServer {
             lastFlaky: lastFlaky || null,
           },
           history: historyEntries,
+          pagination: {
+            page,
+            pageSize,
+            total,
+            totalPages,
+          },
         });
       })
     );
@@ -1613,7 +1621,9 @@ export class DashboardServer {
           return;
         }
 
-        let filteredEntries: Array<[string, typeof failedTestMap extends Map<string, infer V> ? V : never]>;
+        let filteredEntries: Array<
+          [string, typeof failedTestMap extends Map<string, infer V> ? V : never]
+        >;
         if (filter === 'persistent') {
           filteredEntries = Array.from(failedTestMap.entries()).filter(([, v]) => v.count >= 3);
         } else if (filter === 'emerging') {
@@ -1736,6 +1746,7 @@ export class DashboardServer {
           suggestionsTemplate,
           docLinks: docLinks || [],
         });
+        await this.saveCustomErrorPatterns();
         res.json({ success: true, id });
       })
     );
@@ -1748,6 +1759,7 @@ export class DashboardServer {
           res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Pattern not found' });
           return;
         }
+        await this.saveCustomErrorPatterns();
         res.json({ success: true });
       })
     );
@@ -2263,7 +2275,9 @@ export class DashboardServer {
             if (flakyTest?.rootCause) {
               rootCauseData = flakyTest.rootCause;
             }
-          } catch {}
+          } catch {
+            // Ignore errors when accessing flaky test data
+          }
 
           const diagnosis = await this.diagnosisService.diagnose(
             {
@@ -2654,16 +2668,52 @@ export class DashboardServer {
 
   async start(): Promise<void> {
     try {
-      const prefs = await this.storage.readJSON<Record<string, string>>(
+      const prefs = await this.storage.readJSON<Record<string, unknown>>(
         path.join(this.dataDir, 'user-preferences.json')
       );
       if (prefs?.testDir && typeof prefs.testDir === 'string') {
         await this.updatePathsForTestDir(prefs.testDir);
         this.log.info(`Restored testDir from preferences: ${prefs.testDir}`);
       }
+      if (prefs?.autoQuarantine !== undefined && typeof prefs.autoQuarantine === 'boolean') {
+        this.flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
+        this.log.info(`Restored autoQuarantine from preferences: ${prefs.autoQuarantine}`);
+      }
+    } catch (e) {
+      this.log.warn(`Failed to restore preferences: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    try {
+      const prefs = await this.storage.readJSON<Record<string, unknown>>(
+        path.join(this.dataDir, 'user-preferences.json')
+      );
+      if (prefs?.customErrorPatterns && Array.isArray(prefs.customErrorPatterns)) {
+        loadPatternsFromConfig(
+          prefs.customErrorPatterns as Array<{
+            id: string;
+            category:
+              | 'timeout'
+              | 'selector'
+              | 'assertion'
+              | 'network'
+              | 'frame'
+              | 'auth'
+              | 'unknown';
+            name: string;
+            description: string;
+            regex: string[];
+            rootCauseTemplate: { zh: string; en: string };
+            suggestionsTemplate: { zh: string[]; en: string[] };
+            docLinks?: { title: string; url: string }[];
+          }>
+        );
+        this.log.info(
+          `Loaded ${(prefs.customErrorPatterns as unknown[]).length} custom error patterns from user preferences`
+        );
+      }
     } catch (e) {
       this.log.warn(
-        `Failed to restore testDir from preferences: ${e instanceof Error ? e.message : String(e)}`
+        `Failed to load custom error patterns from user preferences: ${e instanceof Error ? e.message : String(e)}`
       );
     }
 
@@ -2690,6 +2740,34 @@ export class DashboardServer {
         resolve();
       });
     });
+  }
+
+  private async saveCustomErrorPatterns(): Promise<void> {
+    try {
+      const customPatterns = getCustomPatterns();
+      const serializedPatterns = customPatterns.map((p) => ({
+        id: p.id,
+        category: p.category,
+        name: p.name,
+        description: p.description,
+        regex: p.regex.map((r) => r.source),
+        rootCauseTemplate: p.rootCauseTemplate,
+        suggestionsTemplate: p.suggestionsTemplate,
+        docLinks: p.docLinks,
+      }));
+
+      const existing =
+        (await this.storage.readJSON<Record<string, unknown>>(
+          path.join(this.dataDir, 'user-preferences.json')
+        )) || {};
+      const merged = { ...existing, customErrorPatterns: serializedPatterns };
+      await this.storage.writeJSON(path.join(this.dataDir, 'user-preferences.json'), merged);
+      this.log.info(`Saved ${serializedPatterns.length} custom error patterns to user preferences`);
+    } catch (e) {
+      this.log.warn(
+        `Failed to save custom error patterns: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
   }
 
   async stop(): Promise<void> {

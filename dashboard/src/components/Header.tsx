@@ -14,11 +14,9 @@ interface HeaderProps {
   onOpenExecutor: () => void;
   showHealthDashboard?: boolean;
   onToggleHealthDashboard?: () => void;
-  showFailureAnalysis?: boolean;
-  onToggleFailureAnalysis?: () => void;
 }
 
-export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, showFailureAnalysis, onToggleFailureAnalysis }: HeaderProps) {
+export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard }: HeaderProps) {
   const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
   const [showLLMConfig, setShowLLMConfig] = useState(false);
 
@@ -78,19 +76,6 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
           >
             <i className="fas fa-heartbeat"></i>
             <span>{t('healthDashboard', lang) || 'Dashboard'}</span>
-          </button>
-        )}
-        {onToggleFailureAnalysis && (
-          <button
-            onClick={onToggleFailureAnalysis}
-            className={`flex items-center gap-2 text-xs px-3 py-2 rounded-full shadow-sm border transition-colors cursor-pointer ${
-              showFailureAnalysis
-                ? 'bg-amber-100 text-amber-700 border-amber-200'
-                : 'text-gray-500 bg-white border-gray-100 hover:bg-gray-50'
-            }`}
-          >
-            <i className="fas fa-magnifying-glass-chart"></i>
-            <span>{t('failureAnalysisPanel', lang)}</span>
           </button>
         )}
         <button

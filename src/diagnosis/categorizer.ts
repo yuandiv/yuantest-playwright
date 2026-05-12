@@ -1,6 +1,13 @@
 import { matchPatterns, ErrorPattern } from './knowledge-base';
 
-export type FailureCategory = 'assertion' | 'timeout' | 'network' | 'selector' | 'frame' | 'auth' | 'unknown';
+export type FailureCategory =
+  | 'assertion'
+  | 'timeout'
+  | 'network'
+  | 'selector'
+  | 'frame'
+  | 'auth'
+  | 'unknown';
 
 export function categorizeError(error: string): FailureCategory {
   const matched = matchPatterns(error);
@@ -35,7 +42,10 @@ export function categorizeError(error: string): FailureCategory {
 const FALLBACK_SUGGESTIONS: Record<FailureCategory, { zh: string[]; en: string[] }> = {
   timeout: {
     zh: ['考虑增加超时时间', '检查元素是否加载过慢'],
-    en: ['Consider increasing the timeout value', 'Check if the element is taking too long to load'],
+    en: [
+      'Consider increasing the timeout value',
+      'Check if the element is taking too long to load',
+    ],
   },
   selector: {
     zh: ['验证选择器是否正确', '检查元素是否存在于 DOM 中'],
@@ -47,11 +57,17 @@ const FALLBACK_SUGGESTIONS: Record<FailureCategory, { zh: string[]; en: string[]
   },
   assertion: {
     zh: ['检查断言期望值是否正确', '确认动态内容是否已加载完成'],
-    en: ['Verify the assertion expected value is correct', 'Ensure dynamic content has fully loaded'],
+    en: [
+      'Verify the assertion expected value is correct',
+      'Ensure dynamic content has fully loaded',
+    ],
   },
   frame: {
     zh: ['检查 iframe 是否已加载完成', '确认是否需要先获取 frame 对象'],
-    en: ['Check if the iframe has fully loaded', 'Confirm if you need to get the frame object first'],
+    en: [
+      'Check if the iframe has fully loaded',
+      'Confirm if you need to get the frame object first',
+    ],
   },
   auth: {
     zh: ['检查认证状态是否有效', '确认是否需要重新登录'],
@@ -59,7 +75,10 @@ const FALLBACK_SUGGESTIONS: Record<FailureCategory, { zh: string[]; en: string[]
   },
   unknown: {
     zh: ['查看错误消息和堆栈跟踪', '检查最近的代码变更是否导致了此失败'],
-    en: ['Review the error message and stack trace', 'Check recent code changes that may have caused this failure'],
+    en: [
+      'Review the error message and stack trace',
+      'Check recent code changes that may have caused this failure',
+    ],
   },
 };
 

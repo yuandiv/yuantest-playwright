@@ -10,21 +10,25 @@ interface TestHistoryDialogProps {
   onClose: () => void;
 }
 
+const PAGE_SIZE = 10;
+
 export function TestHistoryDialog({ lang, test, onClose }: TestHistoryDialogProps) {
   const [historyData, setHistoryData] = useState<TestHistoryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (!test) {
       setHistoryData(null);
       setLoading(false);
       setError(null);
+      setCurrentPage(1);
       return;
     }
     setLoading(true);
     setError(null);
-    getTestHistory(test.id, 50)
+    getTestHistory(test.id, currentPage, PAGE_SIZE)
       .then((data) => {
         setHistoryData(data);
       })
@@ -34,12 +38,19 @@ export function TestHistoryDialog({ lang, test, onClose }: TestHistoryDialogProp
       .finally(() => {
         setLoading(false);
       });
+  }, [test, currentPage]);
+
+  useEffect(() => {
+    if (test) {
+      setCurrentPage(1);
+    }
   }, [test]);
 
   if (!test) return null;
 
   const summary = historyData?.summary;
   const history = historyData?.history || [];
+  const pagination = historyData?.pagination;
 
   const formatTimeAgo = (timestamp: number) => {
     const then = new Date(timestamp);
@@ -128,6 +139,81 @@ export function TestHistoryDialog({ lang, test, onClose }: TestHistoryDialogProp
       const url = `${entry.htmlReportUrl}#?testId=${entry.testId}`;
       window.open(url, '_blank');
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (pagination && page >= 1 && page <= pagination.totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const renderPagination = () => {
+    if (!pagination || pagination.totalPages <= 1) return null;
+
+    const pages: (number | string)[] = [];
+    const { page, totalPages } = pagination;
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      if (page > 3) {
+        pages.push('...');
+      }
+      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
+        pages.push(i);
+      }
+      if (page < totalPages - 2) {
+        pages.push('...');
+      }
+      pages.push(totalPages);
+    }
+
+    return (
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200">
+        <div className="text-sm text-gray-600">
+          {t('paginationInfo', lang)
+            .replace('{start}', String((pagination.page - 1) * pagination.pageSize + 1))
+            .replace('{end}', String(Math.min(pagination.page * pagination.pageSize, pagination.total)))
+            .replace('{total}', String(pagination.total))}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => handlePageChange(page - 1)}
+            disabled={page === 1}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <i className="fas fa-chevron-left"></i>
+          </button>
+          {pages.map((p, index) => (
+            p === '...' ? (
+              <span key={`ellipsis-${index}`} className="px-2 text-gray-400">...</span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => handlePageChange(p as number)}
+                className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                  p === page
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
+                    : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                {p}
+              </button>
+            )
+          ))}
+          <button
+            onClick={() => handlePageChange(page + 1)}
+            disabled={page === totalPages}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <i className="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -224,7 +310,7 @@ export function TestHistoryDialog({ lang, test, onClose }: TestHistoryDialogProp
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">{t('version', lang)}</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">{t('status', lang)}</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">{t('durationCol', lang)}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">{t('runLocation', lang)}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">{t('runId', lang)}</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">{t('actions', lang)}</th>
                   </tr>
                 </thead>
@@ -248,8 +334,8 @@ export function TestHistoryDialog({ lang, test, onClose }: TestHistoryDialogProp
                       <td className="px-4 py-3 text-gray-600">
                         {(entry.duration / 1000).toFixed(1)}s
                       </td>
-                      <td className="px-4 py-3 text-gray-600" title={entry.runId}>
-                        <span className="truncate max-w-[120px] inline-block align-middle">#{entry.runId.slice(0, 8)}</span>
+                      <td className="px-4 py-3 text-gray-600 font-mono text-xs">
+                        {entry.runId}
                       </td>
                       <td className="px-4 py-3">
                         {entry.htmlReportUrl ? (
@@ -268,6 +354,7 @@ export function TestHistoryDialog({ lang, test, onClose }: TestHistoryDialogProp
                   ))}
                 </tbody>
               </table>
+              {renderPagination()}
             </div>
           )}
         </div>

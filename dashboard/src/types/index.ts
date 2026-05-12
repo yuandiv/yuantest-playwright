@@ -229,7 +229,7 @@ export interface DashboardConfig {
     start: string;
     end: string;
   };
-  activeTab: 'runStatus' | 'runDuration' | 'testSuiteSize' | 'testFlakiness';
+  activeTab: 'runStatus' | 'runDuration' | 'testSuiteSize' | 'testFlakiness' | 'failureAnalysis';
   chartType: 'line' | 'bar' | 'area';
 }
 

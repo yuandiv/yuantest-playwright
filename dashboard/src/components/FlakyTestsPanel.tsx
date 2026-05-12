@@ -309,11 +309,11 @@ export function FlakyTestsPanel({
 
   const getClassificationInfo = (classification?: FlakyClassification) => {
     switch (classification) {
-      case 'broken': return { label: 'Broken', color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
-      case 'regression': return { label: 'Regression', color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
-      case 'flaky': return { label: 'Flaky', color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
+      case 'broken': return { label: t('brokenLabel', lang), color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
+      case 'regression': return { label: t('regressionLabel', lang), color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
+      case 'flaky': return { label: t('flakyLabel', lang), color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
       case 'monitor': return { label: t('monitorLabel', lang), color: 'bg-yellow-100 text-yellow-700', icon: 'fas fa-eye' };
-      case 'stable': return { label: 'Stable', color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
+      case 'stable': return { label: t('stableLabel', lang), color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
       default: return null;
     }
   };
@@ -380,7 +380,7 @@ export function FlakyTestsPanel({
                     <i className="fas fa-fire text-sm text-white"></i>
                   </div>
                 </div>
-                <div className="text-xs text-gray-600 mb-1">Broken</div>
+                <div className="text-xs text-gray-600 mb-1">{t('brokenLabel', lang)}</div>
                 <div className="text-2xl font-bold text-red-600">{classificationCounts.broken}</div>
               </div>
               <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100">
@@ -389,7 +389,7 @@ export function FlakyTestsPanel({
                     <i className="fas fa-arrow-trend-down text-sm text-white"></i>
                   </div>
                 </div>
-                <div className="text-xs text-gray-600 mb-1">Regression</div>
+                <div className="text-xs text-gray-600 mb-1">{t('regressionLabel', lang)}</div>
                 <div className="text-2xl font-bold text-orange-600">{classificationCounts.regression}</div>
               </div>
               <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-4 border border-yellow-100">
@@ -398,7 +398,7 @@ export function FlakyTestsPanel({
                     <i className="fas fa-shuffle text-sm text-white"></i>
                   </div>
                 </div>
-                <div className="text-xs text-gray-600 mb-1">Flaky</div>
+                <div className="text-xs text-gray-600 mb-1">{t('flakyLabel', lang)}</div>
                 <div className="text-2xl font-bold text-yellow-600">{classificationCounts.flaky}</div>
               </div>
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
@@ -407,7 +407,7 @@ export function FlakyTestsPanel({
                     <i className="fas fa-eye text-sm text-white"></i>
                   </div>
                 </div>
-                <div className="text-xs text-gray-600 mb-1">Monitor</div>
+                <div className="text-xs text-gray-600 mb-1">{t('monitorLabel', lang)}</div>
                 <div className="text-2xl font-bold text-blue-600">{classificationCounts.monitor}</div>
               </div>
             </div>

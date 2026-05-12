@@ -630,14 +630,22 @@ export interface TestHistorySummary {
   lastFlaky: TestHistoryEntry | null;
 }
 
+export interface TestHistoryPagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface TestHistoryData {
   testId: string;
   summary: TestHistorySummary;
   history: TestHistoryEntry[];
+  pagination?: TestHistoryPagination;
 }
 
-export async function getTestHistory(testId: string, limit: number = 50): Promise<TestHistoryData | null> {
-  return fetchJSON(`${API_BASE}/tests/${encodeURIComponent(testId)}/history?limit=${limit}`);
+export async function getTestHistory(testId: string, page: number = 1, pageSize: number = 10): Promise<TestHistoryData | null> {
+  return fetchJSON(`${API_BASE}/tests/${encodeURIComponent(testId)}/history?page=${page}&pageSize=${pageSize}`);
 }
 
 export async function getFailureAnalysis(filter?: 'persistent' | 'emerging' | 'immediate'): Promise<any[] | null> {

@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { Lang, t } from '../i18n';
-import { HealthMetric } from '../types';
+import { HealthMetric, RunReport } from '../types';
 import { TAB_CONFIG, DEFAULT_CONFIG } from '../constants/dashboard';
 import { useDashboardConfig } from '../hooks/useDashboardConfig';
 import { useChartData } from '../hooks/useChartData';
 import { StatsCards } from './StatsCards';
 import { ChartRenderer } from './charts/ChartRenderer';
+import { FailureAnalysis } from './failure-analysis/FailureAnalysis';
 import { exportToCSV, exportToJSON, exportToHTML } from '../utils/exportUtils';
 
 interface HealthDashboardProps {
   lang: Lang;
   data: HealthMetric[];
+  reports: RunReport[];
   onRefresh: () => Promise<void>;
 }
 
@@ -18,7 +20,7 @@ interface HealthDashboardProps {
  * 健康仪表盘主组件
  * 显示测试运行的健康指标数据，包括统计卡片和图表
  */
-export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, onRefresh }) => {
+export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, reports, onRefresh }) => {
   const { config, setDateRange, setActiveTab } = useDashboardConfig();
   const { chartData, stats, hasData } = useChartData(data);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -92,16 +94,24 @@ export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, on
           onTabChange={setActiveTab}
         />
 
-        <ChartContainer hasData={hasData} lang={lang}>
-          {stats && (
-            <ChartRenderer
-              data={chartData}
+        <ChartContainer hasData={hasData} lang={lang} activeTab={config.activeTab}>
+          {config.activeTab === 'failureAnalysis' ? (
+            <FailureAnalysis
               lang={lang}
-              activeTab={config.activeTab}
-              avgPassRate={stats.avgPassRate}
-              avgDuration={stats.avgDuration}
-              avgFlakyRate={stats.avgFlakyRate}
+              reports={reports}
+              onRefresh={onRefresh}
             />
+          ) : (
+            stats && (
+              <ChartRenderer
+                data={chartData}
+                lang={lang}
+                activeTab={config.activeTab as any}
+                avgPassRate={stats.avgPassRate}
+                avgDuration={stats.avgDuration}
+                avgFlakyRate={stats.avgFlakyRate}
+              />
+            )
           )}
         </ChartContainer>
       </div>
@@ -308,15 +318,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({ lang }) => (
 interface ChartContainerProps {
   hasData: boolean;
   lang: Lang;
+  activeTab: string;
   children: React.ReactNode;
 }
 
-/**
- * 图表容器组件
- */
-const ChartContainer: React.FC<ChartContainerProps> = ({ hasData, lang, children }) => (
+const ChartContainer: React.FC<ChartContainerProps> = ({ hasData, lang, activeTab, children }) => (
   <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-100">
-    {!hasData ? (
+    {!hasData && activeTab !== 'failureAnalysis' ? (
       <div className="text-center text-gray-400 py-12">
         <i className="fas fa-chart-line text-4xl mb-3"></i>
         <p>{t('noHealthData', lang) || 'No health data available'}</p>

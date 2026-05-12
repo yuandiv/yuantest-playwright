@@ -8,11 +8,10 @@ import { Header } from './components/Header';
 import { KPICards } from './components/KPICards';
 import { ExecutorDialog } from './components/ExecutorDialog';
 import { SidebarCards } from './components/SidebarCards';
-import { FlakyTestsPanel } from './components/FlakyTestsPanel';
+import { FlakyTestsDialog } from './components/FlakyTestsDialog';
 import { ReporterPanel } from './components/ReporterPanel';
 import { Modal } from './components/Modal';
 import { HealthDashboard } from './components/HealthDashboard';
-import { FailureAnalysisPanel } from './components/FailureAnalysisPanel';
 import { TestHistoryDialog } from './components/TestHistoryDialog';
 import { BatchUpdater, MessageRateLimiter } from './utils/performance';
 
@@ -52,7 +51,7 @@ function App() {
   const originalTestFilesRef = useRef<TestFile[]>([]);
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
   const [showHealthDashboard, setShowHealthDashboard] = useState(false);
-  const [showFailureAnalysis, setShowFailureAnalysis] = useState(false);
+  const [isFlakyDialogOpen, setIsFlakyDialogOpen] = useState(false);
   const [, startTransition] = useTransition();
   
   const messageRateLimiter = useRef(new MessageRateLimiter(20, 1000));
@@ -1119,49 +1118,42 @@ function App() {
         onSwitchLang={switchLang}
         onOpenExecutor={() => setIsExecutorDialogOpen(true)}
         showHealthDashboard={showHealthDashboard}
-        onToggleHealthDashboard={() => { setShowHealthDashboard(!showHealthDashboard); setShowFailureAnalysis(false); }}
-        showFailureAnalysis={showFailureAnalysis}
-        onToggleFailureAnalysis={() => { setShowFailureAnalysis(!showFailureAnalysis); setShowHealthDashboard(false); }}
+        onToggleHealthDashboard={() => setShowHealthDashboard(!showHealthDashboard)}
       />
       
       {showHealthDashboard ? (
         <HealthDashboard 
           lang={lang} 
           data={healthMetrics}
-          onRefresh={loadHealthMetrics}
-        />
-      ) : showFailureAnalysis ? (
-        <FailureAnalysisPanel
-          lang={lang}
           reports={reports}
-          onRefresh={loadRunsFromServer}
-          onNavigateToFlakyTests={() => setShowFailureAnalysis(false)}
+          onRefresh={loadHealthMetrics}
         />
       ) : (
         <>
           <KPICards lang={lang} total={total} passed={passed} failed={failed} pending={pending} />
           <div className="mb-5">
-        <FlakyTestsPanel
-          lang={lang}
-          reports={reports}
-          flakyTests={flakyTests}
-          quarantinedTests={quarantinedTests}
-          onReleaseTest={handleReleaseTest}
-          onValidateReleaseTest={handleValidateReleaseTest}
-          onRefresh={loadRunsFromServer}
-          onClearFlakyHistory={handleClearFlakyHistory}
-          onNavigateToFailureAnalysis={() => setShowFailureAnalysis(true)}
-        />
-      </div>
-      <ReporterPanel
-        lang={lang}
-        reports={reports}
-        activeReportId={activeReportId}
-        onActiveReportChange={setActiveReportId}
-        onRefresh={loadRunsFromServer}
-        onDeleteReport={handleDeleteReport}
-        onDeleteAllReports={handleDeleteAllReports}
-      />
+            <SidebarCards
+              lang={lang}
+              reports={reports}
+              flakyTests={flakyTests}
+              quarantinedTests={quarantinedTests}
+              onReleaseTest={handleReleaseTest}
+              onValidateReleaseTest={handleValidateReleaseTest}
+              onRefresh={loadRunsFromServer}
+              onModal={setModalContent}
+              onClearFlakyHistory={handleClearFlakyHistory}
+              onOpenFlakyDialog={() => setIsFlakyDialogOpen(true)}
+            />
+          </div>
+          <ReporterPanel
+            lang={lang}
+            reports={reports}
+            activeReportId={activeReportId}
+            onActiveReportChange={setActiveReportId}
+            onRefresh={loadRunsFromServer}
+            onDeleteReport={handleDeleteReport}
+            onDeleteAllReports={handleDeleteAllReports}
+          />
         </>
       )}
       <ExecutorDialog
@@ -1198,6 +1190,18 @@ function App() {
         lang={lang}
         test={showTestHistory}
         onClose={() => setShowTestHistory(null)}
+      />
+      <FlakyTestsDialog
+        isOpen={isFlakyDialogOpen}
+        onClose={() => setIsFlakyDialogOpen(false)}
+        lang={lang}
+        reports={reports}
+        flakyTests={flakyTests}
+        quarantinedTests={quarantinedTests}
+        onReleaseTest={handleReleaseTest}
+        onValidateReleaseTest={handleValidateReleaseTest}
+        onRefresh={loadRunsFromServer}
+        onClearFlakyHistory={handleClearFlakyHistory}
       />
       <Modal content={modalContent} onClose={() => setModalContent(null)} />
     </div>

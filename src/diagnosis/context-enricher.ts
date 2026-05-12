@@ -221,7 +221,7 @@ export async function enrichContext(
     enrichedContext.rootCauseContext = {
       primaryCause: rootCause.primaryCause,
       confidence: rootCause.confidence,
-      evidence: rootCause.evidence.map(e => ({
+      evidence: rootCause.evidence.map((e) => ({
         indicators: e.indicators,
         confidence: e.confidence,
         description: e.description,

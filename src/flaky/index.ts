@@ -71,7 +71,7 @@ export class FlakyTestManager extends ManagedManager {
     this.config = {
       enabled: true,
       threshold: FLAKY_CONFIG.DEFAULT_THRESHOLD,
-      autoQuarantine: false,
+      autoQuarantine: true,
       minimumRuns: FLAKY_CONFIG.MINIMUM_RUNS_FOR_QUARANTINE,
       autoReleaseAfterPasses: FLAKY_CONFIG.AUTO_RELEASE_AFTER_PASSES,
       quarantineExpiryDays: FLAKY_CONFIG.QUARANTINE_EXPIRY_DAYS,
@@ -302,6 +302,16 @@ export class FlakyTestManager extends ManagedManager {
     }
 
     if (flakyTest.classification === 'broken') {
+      this.emit('flaky_detected', {
+        testId: flakyTest.testId,
+        title: flakyTest.title,
+        failureRate: flakyTest.failureRate,
+        weightedFailureRate: flakyTest.weightedFailureRate,
+        classification: flakyTest.classification,
+        rootCause: flakyTest.rootCause?.primaryCause,
+        isolationLevel: flakyTest.isolationLevel,
+        timestamp: Date.now(),
+      });
       return;
     }
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Lang, t } from '../i18n';
 import { RunReport, AIDiagnosis, LLMConfig } from '../types';
 import * as api from '../services/api';
+import { ClusterCard } from './ClusterCard';
 
 interface FailureAnalysisPanelProps {
   lang: Lang;
@@ -37,6 +38,7 @@ interface ClusterData {
   testIds: string[];
   similarity: number;
   diagnosis: AIDiagnosis | null;
+  representativeError?: string;
 }
 
 function safeNumber(value: any, defaultValue: number = 0): number {
@@ -82,7 +84,6 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
   const [llmEnabled, setLlmEnabled] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   const [customPatterns, setCustomPatterns] = useState<any[]>([]);
   const [showAddPattern, setShowAddPattern] = useState(false);
   const [newPattern, setNewPattern] = useState({
@@ -97,17 +98,18 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
     suggestionsEn: '',
   });
 
+  const testToClusterMap = useMemo(() => {
+    const map = new Map<string, number>();
+    clusters.forEach((cluster, index) => {
+      cluster.testIds.forEach(testId => {
+        map.set(testId, index + 1);
+      });
+    });
+    return map;
+  }, [clusters]);
+
   const toggleRow = (id: string) => {
     setExpandedRows(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleCluster = (id: string) => {
-    setExpandedClusters(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -372,13 +374,17 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
       }));
       const result = await api.requestClusterDiagnosis(testResults, lang);
       if (result && result.clusters) {
-        setClusters(result.clusters.map(c => ({
-          clusterId: c.clusterId,
-          category: c.category,
-          testIds: c.testIds,
-          similarity: c.similarity,
-          diagnosis: c.diagnosis as AIDiagnosis | null,
-        })));
+        setClusters(result.clusters.map(c => {
+          const representativeTest = failedDetails.find(d => d.id === c.testIds[0]);
+          return {
+            clusterId: c.clusterId,
+            category: c.category,
+            testIds: c.testIds,
+            similarity: c.similarity,
+            diagnosis: c.diagnosis as AIDiagnosis | null,
+            representativeError: representativeTest?.error || c.errorMessage,
+          };
+        }));
       }
     } catch {
       setClusters([]);
@@ -656,7 +662,7 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
             {filteredItems.length === 0 ? (
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 text-center">
                 <i className="fas fa-check-circle text-2xl text-green-300 mb-2"></i>
-                <p className="text-gray-400 text-xs">{t('noFlakyTests', lang)}</p>
+                <p className="text-gray-400 text-xs">{t('noFailuresInRun', lang)}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -742,7 +748,7 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
             {runAnalysis.length === 0 ? (
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 text-center">
                 <i className="fas fa-check-circle text-2xl text-green-300 mb-2"></i>
-                <p className="text-gray-400 text-xs">{t('noFlakyTests', lang)}</p>
+                <p className="text-gray-400 text-xs">{t('noFailuresInRun', lang)}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -835,91 +841,18 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
               <span className="text-xs text-gray-400">{clusters.length} {t('clusterGroup', lang)}</span>
             </div>
             <div className="space-y-3">
-              {clusters.map(cluster => {
-                const catConfig = getCategoryConfig(cluster.category);
-                const isExpanded = expandedClusters.has(cluster.clusterId);
-                return (
-                  <div key={cluster.clusterId} className="bg-gradient-to-r from-gray-50 to-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-all">
-                    <button
-                      onClick={() => toggleCluster(cluster.clusterId)}
-                      className="w-full text-left p-3 flex justify-between items-center cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${
-                          cluster.category === 'timeout' ? 'from-yellow-500 to-amber-600' :
-                          cluster.category === 'selector' ? 'from-purple-500 to-violet-600' :
-                          cluster.category === 'network' ? 'from-blue-500 to-cyan-600' :
-                          cluster.category === 'assertion' ? 'from-red-500 to-rose-600' :
-                          'from-gray-500 to-gray-600'
-                        } flex items-center justify-center`}>
-                          <i className={`${catConfig.icon} text-xs text-white`}></i>
-                        </div>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${catConfig.text}`}>
-                          {t(`category.${cluster.category}`, lang)}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          <i className="fas fa-link mr-0.5"></i>{t('similarity', lang)}: {(safeNumber(cluster.similarity, 0) * 100).toFixed(0)}%
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          <i className="fas fa-vial mr-0.5"></i>{cluster.testIds.length} {t('testsInCluster', lang)}
-                        </span>
-                      </div>
-                      <i className={`fas ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-gray-400 text-xs`}></i>
-                    </button>
-                    {isExpanded && (
-                      <div className="px-3 pb-3 border-t border-gray-100 pt-2 space-y-2">
-                        <div className="flex flex-wrap gap-1">
-                          {cluster.testIds.map(testId => (
-                            <span key={testId} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">
-                              {testId}
-                            </span>
-                          ))}
-                        </div>
-                        {cluster.diagnosis ? (
-                          <div className="bg-indigo-50 rounded-lg p-3">
-                            <p className="text-xs font-semibold text-indigo-700 mb-1.5">
-                              <i className="fas fa-robot mr-1"></i>{t('representativeDiagnosis', lang)}
-                            </p>
-                            <div className="space-y-1.5">
-                              <div>
-                                <p className="text-[10px] font-medium text-indigo-600">{t('summary', lang)}</p>
-                                <p className="text-xs text-indigo-500">{cluster.diagnosis.summary}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-medium text-indigo-600">{t('rootCause', lang)}</p>
-                                <p className="text-xs text-indigo-500">{cluster.diagnosis.rootCause}</p>
-                              </div>
-                              {cluster.diagnosis.suggestions && cluster.diagnosis.suggestions.length > 0 && (
-                                <div>
-                                  <p className="text-[10px] font-medium text-indigo-600 mb-0.5">{t('suggestions', lang)}</p>
-                                  <ul className="text-xs text-indigo-500 space-y-0.5">
-                                    {cluster.diagnosis.suggestions.map((s, idx) => (
-                                      <li key={idx} className="flex items-start gap-1">
-                                        <i className="fas fa-chevron-right mt-0.5 text-[8px]"></i>
-                                        <span>{s}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-3 text-[10px] text-indigo-400">
-                                <span><i className="fas fa-percentage mr-0.5"></i>{t('confidence', lang)}: {(safeNumber(cluster.diagnosis.confidence, 0) * 100).toFixed(0)}%</span>
-                                {cluster.diagnosis.model && (
-                                  <span><i className="fas fa-microchip mr-0.5"></i>{t('model', lang)}: {cluster.diagnosis.model}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="bg-gray-50 rounded-lg p-3 text-center">
-                            <p className="text-xs text-gray-400">{t('clusterDiagnosisUnavailable', lang)}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {clusters.map((cluster, index) => (
+                <ClusterCard
+                  key={cluster.clusterId}
+                  lang={lang}
+                  clusterIndex={index + 1}
+                  category={cluster.category}
+                  testIds={cluster.testIds}
+                  similarity={cluster.similarity}
+                  representativeError={cluster.representativeError}
+                  diagnosis={cluster.diagnosis}
+                />
+              ))}
             </div>
           </div>
         )}
