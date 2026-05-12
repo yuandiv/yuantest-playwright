@@ -83,11 +83,18 @@ export type RootCauseType =
   | 'assertion_flaky'
   | 'unknown';
 
+export interface RootCauseEvidence {
+  type: RootCauseType;
+  indicators: string[];
+  confidence: number;
+  description: string;
+}
+
 export interface RootCauseAnalysis {
   testId: string;
   primaryCause: RootCauseType;
   confidence: number;
-  evidence: { type: RootCauseType; indicators: string[]; confidence: number; description: string }[];
+  evidence: RootCauseEvidence[];
   suggestedActions: string[];
   analyzedAt: number;
 }
@@ -100,55 +107,152 @@ export interface CorrelationGroup {
   evidence: string;
 }
 
+export interface FlakyHistoryEntry {
+  timestamp: number;
+  status: 'passed' | 'failed' | 'skipped' | 'timedout';
+  duration: number;
+  error?: string;
+}
+
+export type QuarantineStrategyType = 'skip' | 'retry_only' | 'soft' | 'hard' | 'graduated';
+
+export type IsolationLevel = 'none' | 'monitor' | 'soft_quarantine' | 'hard_quarantine';
+
+export interface RetryPolicy {
+  maxRetries: number;
+  retryDelay: number;
+  backoffMultiplier: number;
+  retryOnPassOnly: boolean;
+}
+
+export interface QuarantineStrategy {
+  testId: string;
+  strategy: QuarantineStrategyType;
+  isolationLevel: IsolationLevel;
+  retryPolicy: RetryPolicy;
+  reason: string;
+  expiresAt?: number;
+}
+
+export type TrendDirection = 'improving' | 'stable' | 'degrading' | 'volatile';
+
+export interface TrendDataPoint {
+  timestamp: number;
+  passRate: number;
+  failRate: number;
+  avgDuration: number;
+  flakyCount: number;
+  totalRuns: number;
+}
+
+export interface ChangePoint {
+  timestamp: number;
+  beforeRate: number;
+  afterRate: number;
+  magnitude: number;
+  confidence: number;
+}
+
+export interface SeasonalPattern {
+  period: 'hourly' | 'daily' | 'weekly';
+  peakHours: number[];
+  peakDays: number[];
+  amplitude: number;
+  confidence: number;
+}
+
+export interface CodeChangeCorrelation {
+  commitHash: string;
+  commitMessage: string;
+  timestamp: number;
+  author: string;
+  affectedFiles: string[];
+  correlationScore: number;
+  flakyRateBefore: number;
+  flakyRateAfter: number;
+}
+
+export interface TrendForecast {
+  next7Days: TrendDataPoint[];
+  confidence: number;
+  projectedDirection: TrendDirection;
+}
+
 export interface TrendAnalysis {
-  direction: 'improving' | 'stable' | 'degrading' | 'volatile';
+  testId: string;
+  direction: TrendDirection;
   slope: number;
   r2: number;
-  changePoints: { index: number; timestamp: number; from: number; to: number }[];
-  seasonalPattern: { period: string; strength: number; peakHours?: number[] } | null;
-  forecast: { timestamp: number; predicted: number; lower: number; upper: number }[];
+  dataPoints: TrendDataPoint[];
+  changePoints: ChangePoint[];
+  seasonalPattern: SeasonalPattern | null;
+  codeChangeCorrelations: CodeChangeCorrelation[];
+  forecast: TrendForecast;
+  analyzedAt: number;
 }
 
 export interface FlakyHealthScore {
   overall: number;
-  stability: number;
-  trend: number;
-  recoverability: number;
-  predictability: number;
+  breakdown: {
+    stability: number;
+    trend: number;
+    recoverability: number;
+    predictability: number;
+  };
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  label: string;
+}
+
+export interface PredictionSignal {
+  type: 'duration_anomaly' | 'failure_pattern' | 'environment_shift' | 'code_change' | 'resource_pressure';
+  strength: number;
+  description: string;
+  data: Record<string, unknown>;
 }
 
 export interface PredictionResult {
   testId: string;
   willFail: boolean;
+  probability: number;
   confidence: number;
-  signals: { type: string; value: number; threshold: number; triggered: boolean }[];
+  signals: PredictionSignal[];
+  recommendedAction: string;
   predictedAt: number;
 }
 
 export interface DurationAnomaly {
   testId: string;
-  title: string;
-  zScore: number;
-  meanDuration: number;
-  lastDuration: number;
+  baseline: number;
+  current: number;
+  deviation: number;
   isAnomaly: boolean;
+  zScore: number;
+  detectedAt: number;
 }
 
 export interface FlakyTest {
+  testId: string;
   title: string;
   failureRate: number;
   totalRuns: number;
-  lastFailure?: string;
-  testId: string;
-  classification?: FlakyClassification;
-  weightedFailureRate?: number;
-  consecutiveFailures?: number;
-  consecutivePasses?: number;
+  lastFailure?: number;
+  isQuarantined: boolean;
+  quarantinedAt?: number;
+  consecutivePassesSinceQuarantine?: number;
+  history: FlakyHistoryEntry[];
+  classification: FlakyClassification;
+  weightedFailureRate: number;
+  consecutiveFailures: number;
+  consecutivePasses: number;
+  lastClassifiedAt?: number;
   rootCause?: RootCauseAnalysis;
+  isolationLevel?: IsolationLevel;
+  quarantineStrategy?: QuarantineStrategy;
   trendAnalysis?: TrendAnalysis;
   healthScore?: FlakyHealthScore;
   durationAnomaly?: DurationAnomaly;
   lastPrediction?: PredictionResult;
+  aiDiagnosis?: AIDiagnosis;
 }
 
 export interface QuarantinedTest {

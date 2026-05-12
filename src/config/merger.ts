@@ -325,6 +325,7 @@ export class PlaywrightConfigMerger {
 
     let createJiti: (id: string, opts?: Record<string, unknown>) => (filePath: string) => unknown;
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       createJiti = require('jiti');
     } catch {
       throw new Error(
@@ -345,6 +346,7 @@ export class PlaywrightConfigMerger {
 
       try {
         delete require.cache[require.resolve(absolutePath)];
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const config = require(absolutePath);
         return config?.default ?? config;
       } catch (requireError) {
@@ -363,6 +365,7 @@ export class PlaywrightConfigMerger {
 
   private loadConfigWithTsx(absolutePath: string): unknown {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const tsx = require('tsx/cjs/api');
       delete require.cache[require.resolve(absolutePath)];
 

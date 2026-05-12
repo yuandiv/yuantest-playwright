@@ -1,6 +1,5 @@
 import {
   FlakyTest,
-  FlakyHistoryEntry,
   QuarantineConfig,
   FlakyClassification,
   RootCauseAnalysis,
@@ -301,13 +300,13 @@ export class FlakyTestManager extends ManagedManager {
       return;
     }
 
-    if (flakyTest.classification === 'broken') {
+    if (flakyTest.classification === 'broken' || flakyTest.failureRate === 1) {
       this.emit('flaky_detected', {
         testId: flakyTest.testId,
         title: flakyTest.title,
         failureRate: flakyTest.failureRate,
         weightedFailureRate: flakyTest.weightedFailureRate,
-        classification: flakyTest.classification,
+        classification: 'broken',
         rootCause: flakyTest.rootCause?.primaryCause,
         isolationLevel: flakyTest.isolationLevel,
         timestamp: Date.now(),

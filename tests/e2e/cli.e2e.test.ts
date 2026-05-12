@@ -255,7 +255,7 @@ describe('CLI E2E Tests', () => {
     it('should handle missing required options', async () => {
       const result = await runCLI(['analyze']);
 
-      expect(result.stdout).toContain('Please specify a run ID with --id');
+      expect(result.stderr).toContain('Please specify a run ID with --id');
     });
   });
 });

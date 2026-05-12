@@ -1,5 +1,4 @@
 import { TagConfig, TagInfo } from '../types';
-import * as path from 'path';
 import { walkDirAsync } from '../utils/filesystem';
 import { StorageProvider, getStorage } from '../storage';
 
@@ -73,7 +72,7 @@ export class TagManager {
     }
   }
 
-  private addTag(tagName: string, testId: string, testName: string): void {
+  private addTag(tagName: string, testId: string, _testName: string): void {
     if (!this.tags.has(tagName)) {
       this.tags.set(tagName, {
         name: tagName,
@@ -151,7 +150,7 @@ export class TagManager {
     return filtered;
   }
 
-  buildGrepPattern(include?: string[], exclude?: string[]): string {
+  buildGrepPattern(include?: string[], _exclude?: string[]): string {
     const parts: string[] = [];
 
     if (include && include.length > 0) {

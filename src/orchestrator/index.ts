@@ -1,7 +1,5 @@
-import { TestConfig, OrchestrationConfig, TestAssignment, BrowserType, ErrorCode } from '../types';
+import { TestConfig, OrchestrationConfig, TestAssignment, ErrorCode } from '../types';
 import { PlaywrightRunnerError } from '../types';
-import { logger } from '../logger';
-import * as fs from 'fs';
 import * as path from 'path';
 import { StorageProvider, getStorage } from '../storage';
 import { walkDirAsync } from '../utils/filesystem';
@@ -154,7 +152,7 @@ export class Orchestrator extends ManagedManager {
     );
 
     const allAssignments: TestAssignment[] = [];
-    optimizedAssignments.forEach((shardAssignments: TestAssignment[], shardId: number) => {
+    optimizedAssignments.forEach((shardAssignments: TestAssignment[], _shardId: number) => {
       allAssignments.push(...shardAssignments);
     });
 

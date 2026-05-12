@@ -1,4 +1,4 @@
-import { matchPatterns, ErrorPattern } from './knowledge-base';
+import { matchPatterns } from './knowledge-base';
 
 export type FailureCategory =
   | 'assertion'

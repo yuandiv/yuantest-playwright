@@ -237,7 +237,7 @@ function identifyRootCauses(graph: CausalGraph): CausalNode[] {
     outDegree.set(edge.from, (outDegree.get(edge.from) || 0) + edge.weight);
   }
 
-  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
+  const _nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
 
   const rootCauses = graph.nodes
     .filter((node) => {

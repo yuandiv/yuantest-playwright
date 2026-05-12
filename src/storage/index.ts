@@ -7,6 +7,7 @@ type LoggerType = typeof import('../logger').logger;
 let _logger: LoggerType | null = null;
 function getLogger(): LoggerType {
   if (!_logger) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     _logger = require('../logger').logger;
   }
   return _logger!;

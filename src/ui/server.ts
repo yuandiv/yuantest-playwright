@@ -27,10 +27,8 @@ import {
   TestResult,
   getErrorMessage,
   RootCauseAnalysis,
-  FailureAnalysisSummary,
   ReportFailureSummary,
   ReportFailureItem,
-  ReportFailureResult,
 } from '../types';
 import { categorizeError, generateSuggestions } from '../diagnosis/categorizer';
 import { loadConfigFile, mergeConfig } from '../config/loader';
@@ -136,7 +134,7 @@ export class DashboardServer {
         sources: true,
         attachments: true,
       },
-      path.join(this.outputDir, '../traces')
+      path.join(this.outputDir, 'test-results')
     );
 
     this.artifactManager = new ArtifactManager(
@@ -2605,7 +2603,7 @@ export class DashboardServer {
         sources: true,
         attachments: true,
       },
-      path.join(absoluteDir, 'traces')
+      path.join(this.outputDir, 'test-results')
     );
 
     this.artifactManager = new ArtifactManager(
@@ -2624,7 +2622,7 @@ export class DashboardServer {
       path.join(absoluteDir, 'visual-testing')
     );
 
-    logger.init(this.dataDir);
+    void logger.init(this.dataDir);
 
     this.invalidateAllCache();
 
@@ -2632,7 +2630,7 @@ export class DashboardServer {
       `Paths updated for test directory: ${absoluteDir}\n` +
         `  outputDir: ${this.outputDir}\n` +
         `  dataDir: ${this.dataDir}\n` +
-        `  traces: ${path.join(absoluteDir, 'traces')}\n` +
+        `  traces: ${path.join(this.outputDir, 'test-results')}\n` +
         `  artifacts: ${path.join(this.outputDir, 'test-results')}`
     );
   }
@@ -2731,7 +2729,7 @@ export class DashboardServer {
       );
     }
 
-    logger.init(this.dataDir);
+    void logger.init(this.dataDir);
     this.realtimeReporter.initialize(this.server);
 
     return new Promise<void>((resolve) => {

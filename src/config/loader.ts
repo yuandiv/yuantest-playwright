@@ -116,6 +116,7 @@ function loadJsConfig(filePath: string): YuanTestConfigFile {
 
   if (isTypeScript) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const tsx = require('tsx/cjs/api');
       const callerPath = resolveCallerPath();
       delete require.cache[require.resolve(filePath)];
@@ -134,8 +135,10 @@ function loadJsConfig(filePath: string): YuanTestConfigFile {
   let jiti: (filePath: string) => unknown;
   try {
     const callerPath = resolveCallerPath();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     jiti = require('jiti')(callerPath, { interopDefault: true, esmResolve: true });
   } catch {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     jiti = require(filePath);
   }
 

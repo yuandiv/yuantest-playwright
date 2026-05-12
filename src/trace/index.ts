@@ -1,6 +1,6 @@
-import { TraceConfig, TraceFile, BrowserType } from '../types';
+import { TraceConfig, TraceFile } from '../types';
 import * as path from 'path';
-import { walkDirAsync, walkDirWithCallbackAsync } from '../utils/filesystem';
+import { walkDirWithCallbackAsync } from '../utils/filesystem';
 import { StorageProvider, getStorage } from '../storage';
 import { logger } from '../logger';
 
@@ -139,6 +139,7 @@ export class TraceManager {
   }
 
   async openTraceViewer(tracePath: string, port?: number): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { spawn } = require('child_process');
     const viewerPort = port || 9323;
 
@@ -183,6 +184,7 @@ export class TraceManager {
   }
 
   async mergeTraces(tracePaths: string[], outputPath: string): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { execSync } = require('child_process');
     const listFile = path.join(this.baseDir, 'trace-merge-list.txt');
     await this.storage.writeText(listFile, tracePaths.join('\n'));

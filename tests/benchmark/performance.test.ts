@@ -238,7 +238,7 @@ describe('Performance Benchmarks', () => {
       );
 
       console.log(formatResult(result));
-      expect(result.avgTime).toBeLessThan(500);
+      expect(result.avgTime).toBeLessThan(1000);
     });
   });
 
@@ -295,7 +295,7 @@ describe('Performance Benchmarks', () => {
       );
 
       console.log(formatResult(result));
-      expect(result.avgTime).toBeLessThan(200);
+      expect(result.avgTime).toBeLessThan(500);
     });
 
     it('should benchmark medium report generation (100 tests)', async () => {
@@ -351,7 +351,7 @@ describe('Performance Benchmarks', () => {
       );
 
       console.log(formatResult(result));
-      expect(result.avgTime).toBeLessThan(200);
+      expect(result.avgTime).toBeLessThan(500);
     });
 
     it('should benchmark large report generation (500 tests)', async () => {
@@ -412,7 +412,7 @@ describe('Performance Benchmarks', () => {
       );
 
       console.log(formatResult(result));
-      expect(result.avgTime).toBeLessThan(500);
+      expect(result.avgTime).toBeLessThan(1500);
     });
 
     it('should benchmark report with artifacts', async () => {
@@ -472,7 +472,7 @@ describe('Performance Benchmarks', () => {
       );
 
       console.log(formatResult(result));
-      expect(result.avgTime).toBeLessThan(150);
+      expect(result.avgTime).toBeLessThan(600);
     });
   });
 

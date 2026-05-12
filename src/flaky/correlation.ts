@@ -309,7 +309,7 @@ export function analyzeCorrelations(
   const correlationGroups: CorrelationGroup[] = [];
   let groupIndex = 0;
 
-  for (const [root, testIds] of groups) {
+  for (const [_root, testIds] of groups) {
     if (testIds.length < 2) {
       continue;
     }

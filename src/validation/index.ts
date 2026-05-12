@@ -9,7 +9,7 @@ const ScreenshotModeSchema = z.enum(['off', 'on', 'only-on-failure']);
 
 const VideoModeSchema = z.enum(['off', 'on', 'retain-on-failure', 'on-first-retry']);
 
-const AnnotationTypeSchema = z.enum([
+const _AnnotationTypeSchema = z.enum([
   'skip',
   'only',
   'fail',

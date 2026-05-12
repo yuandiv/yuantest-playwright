@@ -5,7 +5,6 @@ import {
   VisualTestComparison,
   BrowserType,
 } from '../types';
-import * as fs from 'fs';
 import * as path from 'path';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
@@ -159,7 +158,7 @@ export class VisualTestingManager {
 
     const baselineData = new Uint8Array(width * height * 4);
     const currentData = new Uint8Array(width * height * 4);
-    const diffData = new Uint8Array(width * height * 4);
+    const _diffData = new Uint8Array(width * height * 4);
 
     baselineData.set(
       baselinePng.data.subarray(0, Math.min(baselinePng.data.length, baselineData.length))
@@ -251,7 +250,7 @@ export class VisualTestingManager {
     return true;
   }
 
-  async updateAllBaselines(browser: BrowserType = 'chromium'): Promise<number> {
+  async updateAllBaselines(_browser: BrowserType = 'chromium'): Promise<number> {
     const currentDir = path.join(this.baseDir, 'current');
     const currentExists = await this.storage.exists(currentDir);
     if (!currentExists) {

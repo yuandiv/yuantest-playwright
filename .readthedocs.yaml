@@ -7,8 +7,7 @@ build:
     nodejs: "20"
   jobs:
     pre_build:
-      - npm ci
-      - npm run build
+      - node scripts/generate-docs.js
 
 mkdocs:
   configuration: mkdocs.yml

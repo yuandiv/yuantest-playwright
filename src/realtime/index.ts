@@ -2,7 +2,6 @@ import { EventEmitter } from 'events';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { RealTimeMessage, RunProgress, RunResult, TestResult } from '../types';
-import dayjs from 'dayjs';
 import { logger } from '../logger';
 import { CACHE_CONFIG, WEBSOCKET_CONFIG } from '../constants';
 

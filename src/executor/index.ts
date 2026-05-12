@@ -346,7 +346,7 @@ export class Executor extends EventEmitter {
     return this._currentRun;
   }
 
-  private async prepareRun(options?: {
+  private async prepareRun(_options?: {
     shardIndex?: number;
     shardTotal?: number;
     grepPattern?: string;
@@ -971,10 +971,6 @@ module.exports = ProgressReporter;
     }
 
     const jsonSuites: SuiteResult[] = [];
-    let jsonTotal = 0;
-    let jsonPassed = 0;
-    let jsonFailed = 0;
-    let jsonSkipped = 0;
     const jsonFlaky: TestResult[] = [];
 
     const processSuite = (suite: PlaywrightJSONSuite, parentFile?: string, parentLine?: number) => {
@@ -1069,10 +1065,10 @@ module.exports = ProgressReporter;
       processSuite(suite);
     }
 
-    jsonTotal = jsonSuites.reduce((sum, s) => sum + s.totalTests, 0);
-    jsonPassed = jsonSuites.reduce((sum, s) => sum + s.passed, 0);
-    jsonFailed = jsonSuites.reduce((sum, s) => sum + s.failed, 0);
-    jsonSkipped = jsonSuites.reduce((sum, s) => sum + s.skipped, 0);
+    const _jsonTotal = jsonSuites.reduce((sum, s) => sum + s.totalTests, 0);
+    const _jsonPassed = jsonSuites.reduce((sum, s) => sum + s.passed, 0);
+    const _jsonFailed = jsonSuites.reduce((sum, s) => sum + s.failed, 0);
+    const _jsonSkipped = jsonSuites.reduce((sum, s) => sum + s.skipped, 0);
 
     for (const jsonSuite of jsonSuites) {
       const existingSuite = this._currentRun.suites.find((s) => s.name === jsonSuite.name);

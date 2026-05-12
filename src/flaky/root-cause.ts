@@ -4,7 +4,6 @@ import {
   RootCauseAnalysis,
   RootCauseEvidence,
   RunResult,
-  TestResult,
 } from '../types';
 
 /** 根因分析所需的上下文信息 */
@@ -544,7 +543,7 @@ function isTimeClustered(timestamps: number[]): boolean {
   }
 
   const meanInterval = intervals.reduce((sum, v) => sum + v, 0) / intervals.length;
-  const minInterval = Math.min(...intervals);
+  const _minInterval = Math.min(...intervals);
 
   if (meanInterval === 0) {
     return false;

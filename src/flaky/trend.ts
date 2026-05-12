@@ -45,10 +45,10 @@ export function aggregateTimeSeries(
     return [];
   }
 
-  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const _MS_PER_DAY = 24 * 60 * 60 * 1000;
   const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
-  const earliest = sorted[0].timestamp;
-  const latest = sorted[sorted.length - 1].timestamp;
+  const _earliest = sorted[0].timestamp;
+  const _latest = sorted[sorted.length - 1].timestamp;
 
   const buckets = new Map<
     string,

@@ -131,14 +131,41 @@ Dashboard 提供 RESTful API，方便与其他系统集成：
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/stats` | 整体统计 |
-| GET | `/api/runs` | 运行列表 |
-| GET | `/api/runs/:id` | 运行详情 |
-| GET | `/api/flaky` | Flaky 测试列表 |
-| GET | `/api/flaky/quarantined` | 已隔离测试 |
-| POST | `/api/flaky/:id/quarantine` | 隔离测试 |
-| POST | `/api/flaky/:id/release` | 释放测试 |
-| GET | `/api/flaky/stats` | Flaky 统计 |
-| GET | `/api/analysis/:runId` | 失败分析 |
-| GET | `/api/progress` | 实时进度 |
+| GET | `/api/v1/health` | 健康检查 |
+| GET | `/api/v1/stats` | 整体统计 |
+| GET | `/api/v1/runs` | 运行列表 |
+| GET | `/api/v1/runs/:id` | 运行详情 |
+| GET | `/api/v1/flaky` | Flaky 测试列表 |
+| GET | `/api/v1/flaky/quarantined` | 已隔离测试 |
+| POST | `/api/v1/flaky/:id/quarantine` | 隔离测试 |
+| POST | `/api/v1/flaky/:id/release` | 释放测试 |
+| GET | `/api/v1/flaky/stats` | Flaky 统计 |
+| GET | `/api/v1/analysis/:runId` | 失败分析 |
+| GET | `/api/v1/progress` | 实时进度 |
+| GET | `/api/v1/tests` | 测试发现 |
+| GET | `/api/v1/tests/stats` | 测试统计 |
+| POST | `/api/v1/runs` | 启动测试运行 |
+| POST | `/api/v1/runs/stop` | 停止运行 |
+| POST | `/api/v1/runs/:runId/tests/:testId/rerun` | 重跑单个测试 |
+| POST | `/api/v1/runs/:runId/batch-rerun` | 批量重跑 |
+| GET | `/api/v1/tests/:testId/history` | 测试历史 |
+| POST | `/api/v1/diagnosis` | AI 诊断 |
+| POST | `/api/v1/diagnosis/stream` | AI 诊断(流式) |
+| GET | `/api/v1/diagnosis/persisted` | 持久化诊断 |
+| POST | `/api/v1/diagnosis/cluster` | 聚类诊断 |
+| GET | `/api/v1/error-patterns` | 错误模式列表 |
+| POST | `/api/v1/error-patterns` | 添加错误模式 |
+| DELETE | `/api/v1/error-patterns/:id` | 删除错误模式 |
+| GET | `/api/v1/llm/config` | LLM 配置 |
+| PUT | `/api/v1/llm/config` | 更新 LLM 配置 |
+| GET | `/api/v1/llm/status` | LLM 状态 |
+| POST | `/api/v1/llm/test-connection` | 测试 LLM 连接 |
+| GET | `/api/v1/flaky/trends` | Flaky 趋势 |
+| GET | `/api/v1/flaky/health` | Flaky 健康度 |
+| GET | `/api/v1/flaky/prediction/:testId` | 失败预测 |
+| GET | `/api/v1/flaky/duration-anomalies` | 执行时间异常 |
+| GET | `/api/v1/causal-graph` | 因果图 |
+| GET | `/api/v1/impact-analysis/:testId` | 影响分析 |
+| GET | `/api/v1/health/metrics` | 健康指标 |
+| GET | `/api/v1/preferences` | 用户偏好 |
+| POST | `/api/v1/preferences` | 保存偏好 |

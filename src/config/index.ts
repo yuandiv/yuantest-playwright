@@ -1,6 +1,5 @@
 import {
   TestConfig,
-  BrowserType,
   TraceConfig,
   ArtifactConfig,
   VisualTestingConfig,
@@ -204,7 +203,7 @@ ${useOptions.join('\n')}
     return `testIgnore: [${ignoreStr}],`;
   }
 
-  async writeConfig(outputPath?: string): Promise<string> {
+  async writeConfig(_outputPath?: string): Promise<string> {
     throw new Error(
       'writeConfig is deprecated. Playwright config should be managed in the project root directory. ' +
         'Please use the existing playwright.config.ts in your project root instead.'

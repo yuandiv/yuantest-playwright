@@ -6,21 +6,20 @@ import * as fs from 'fs';
 import chalk from 'chalk';
 import ora from 'ora';
 import { Orchestrator } from '../orchestrator';
-import { Executor, ParallelExecutor } from '../executor';
+import { Executor } from '../executor';
 import { Reporter } from '../reporter';
 import { FlakyTestManager } from '../flaky';
-import { RealtimeReporter } from '../realtime';
 import { DashboardServer } from '../ui/server';
 import { TraceManager } from '../trace';
 import { AnnotationManager } from '../annotations';
 import { TagManager } from '../tags';
 import { ArtifactManager } from '../artifacts';
 import { VisualTestingManager } from '../visual';
-import { PlaywrightConfigBuilder } from '../config';
 import { loadConfigFile, mergeConfig, getDashboardConfig } from '../config/loader';
-import { TestConfig, BrowserType, Artifact } from '../types';
+import { TestConfig, TestResult, BrowserType, Artifact, RootCauseAnalysis } from '../types';
 import { logger } from '../logger';
 import dayjs from 'dayjs';
+import { getStorage } from '../storage';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 
@@ -71,7 +70,7 @@ program
       const cliOverrides: Partial<TestConfig> = {
         version: options.project || undefined,
         testDir: options.testDir || undefined,
-        outputDir: options.output || undefined,
+        outputDir: options.output || './test-reports',
         baseURL: options.baseUrl || undefined,
         retries: parseInt(options.retries) || undefined,
         timeout: parseInt(options.timeout) || undefined,
@@ -330,7 +329,7 @@ program
   .option('--release <id>', 'Release a test from quarantine')
   .option('--threshold <rate>', 'Flaky threshold (0-1)', '0.3')
   .action(async (options) => {
-    const flakyManager = new FlakyTestManager('./test-data');
+    const flakyManager = new FlakyTestManager('./test-data', {}, getStorage());
     try {
       const prefsPath = path.join('./test-data', 'user-preferences.json');
       if (fs.existsSync(prefsPath)) {
@@ -339,7 +338,7 @@ program
           flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
         }
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
 
@@ -477,16 +476,42 @@ program
         try {
           const { DiagnosisService } = await import('../diagnosis');
           const diagnosisService = new DiagnosisService('./test-data');
+          const flakyManager = new FlakyTestManager('./test-data', {}, getStorage());
           const config = diagnosisService.getMaskedConfig();
           if (config.enabled) {
             console.log(chalk.cyan('\n🤖 Running AI diagnosis...'));
             for (const item of analysis) {
               try {
+                let rootCauseData: RootCauseAnalysis | undefined;
+                try {
+                  const flakyTests = flakyManager.getFlakyTests();
+                  const flakyTest = flakyTests.find((ft) => ft.testId === item.testId);
+                  if (flakyTest?.rootCause) {
+                    rootCauseData = flakyTest.rootCause;
+                  }
+                } catch {
+                  // Ignore errors when accessing flaky test data
+                }
+
+                const testFromRun = run.suites
+                  .flatMap((s) => s.tests)
+                  .find((t) => t.id === item.testId);
+
                 const diagnosis = await diagnosisService.diagnose(
-                  { title: item.title, error: item.failureReason },
+                  {
+                    title: item.title,
+                    error: item.failureReason,
+                    stackTrace: testFromRun?.stackTrace || item.stackTrace,
+                    filePath: item.filePath,
+                    lineNumber: item.lineNumber,
+                    screenshots: testFromRun?.screenshots,
+                    logs: testFromRun?.logs,
+                    browser: testFromRun?.browser,
+                  },
                   'zh',
                   String(run.id),
-                  item.testId
+                  item.testId,
+                  rootCauseData
                 );
                 if (diagnosis && diagnosis.analysisMode !== 'fallback') {
                   item.aiDiagnosis = diagnosis;
@@ -882,12 +907,545 @@ program
       return;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { spawn } = require('child_process');
     console.log(chalk.blue(`Opening report: ${reportPath}`));
     spawn('npx', ['playwright', 'show-report', options.path], {
       stdio: 'inherit',
       shell: true,
     });
+  });
+
+program
+  .command('test-history <testId>')
+  .description('View test run history')
+  .option('--page <number>', 'Page number', '1')
+  .option('--page-size <number>', 'Page size', '10')
+  .option('--json', 'Output in JSON format')
+  .action(async (testId, options) => {
+    try {
+      const reporter = new Reporter('./test-reports');
+      const allReports = await reporter.getAllReports();
+      const sortedReports = allReports
+        .filter((r) => r.status !== 'running')
+        .sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+
+      const allHistoryEntries: Array<{
+        runId: string;
+        version: string;
+        status: string;
+        duration: number;
+        error?: string;
+        timestamp: number;
+        retries: number;
+        manualReruns?: number;
+      }> = [];
+
+      for (const report of sortedReports) {
+        for (const suite of report.suites) {
+          const test = suite.tests.find((t) => t.id === testId);
+          if (test) {
+            allHistoryEntries.push({
+              runId: report.id,
+              version: report.version,
+              status: test.status,
+              duration: test.duration,
+              error: test.error,
+              timestamp: test.timestamp || report.startTime,
+              retries: test.retries || 0,
+              manualReruns: test.manualReruns,
+            });
+            break;
+          }
+        }
+      }
+
+      const total = allHistoryEntries.length;
+      const passedCount = allHistoryEntries.filter((e) => e.status === 'passed').length;
+      const failedCount = allHistoryEntries.filter((e) => e.status === 'failed').length;
+      const stability = total > 0 ? ((passedCount / total) * 100).toFixed(2) : '0.00';
+
+      if (options.json) {
+        console.log(
+          JSON.stringify(
+            {
+              testId,
+              summary: {
+                stability: parseFloat(stability),
+                totalRuns: total,
+                passed: passedCount,
+                failed: failedCount,
+              },
+              history: allHistoryEntries,
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
+
+      console.log(chalk.bold(`\n📜 Test History: ${testId}`));
+      console.log(
+        `  Stability: ${parseFloat(stability) >= 80 ? chalk.green(stability + '%') : chalk.red(stability + '%')}`
+      );
+      console.log(`  Total runs: ${total}`);
+      console.log(`  Passed: ${chalk.green(passedCount)} | Failed: ${chalk.red(failedCount)}`);
+
+      const page = parseInt(options.page);
+      const pageSize = parseInt(options.pageSize);
+      const start = (page - 1) * pageSize;
+      const entries = allHistoryEntries.slice(start, start + pageSize);
+
+      console.log(chalk.bold(`\n  Recent runs (page ${page}):`));
+      entries.forEach((entry) => {
+        const time = dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm');
+        const statusIcon = entry.status === 'passed' ? '✅' : '❌';
+        console.log(
+          `  ${statusIcon} ${time} | ${entry.status} | ${entry.duration}ms | Run: ${entry.runId}`
+        );
+        if (entry.error) {
+          console.log(chalk.gray(`     Error: ${entry.error.substring(0, 100)}`));
+        }
+      });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('error-patterns')
+  .description('Manage error patterns')
+  .option('-l, --list', 'List all error patterns')
+  .option('--custom', 'List custom error patterns only')
+  .option('--add <json>', 'Add a custom error pattern (JSON string)')
+  .option('--delete <id>', 'Delete a custom error pattern')
+  .action(async (options) => {
+    try {
+      const { getAllPatterns, getCustomPatterns, registerPattern, unregisterPattern } =
+        await import('../diagnosis/knowledge-base');
+
+      if (options.add) {
+        const pattern = JSON.parse(options.add);
+        if (
+          !pattern.id ||
+          !pattern.category ||
+          !pattern.name ||
+          !pattern.regex ||
+          !pattern.rootCauseTemplate ||
+          !pattern.suggestionsTemplate
+        ) {
+          console.error(
+            chalk.red(
+              'Missing required fields: id, category, name, regex, rootCauseTemplate, suggestionsTemplate'
+            )
+          );
+          process.exit(1);
+        }
+        registerPattern({
+          ...pattern,
+          regex: pattern.regex.map((r: string) => new RegExp(r, 'i')),
+          description: pattern.description || '',
+          docLinks: pattern.docLinks || [],
+        });
+        console.log(chalk.green(`✅ Error pattern "${pattern.id}" added`));
+        return;
+      }
+
+      if (options.delete) {
+        const removed = unregisterPattern(options.delete);
+        if (removed) {
+          console.log(chalk.green(`✅ Error pattern "${options.delete}" deleted`));
+        } else {
+          console.log(chalk.red(`Pattern "${options.delete}" not found`));
+        }
+        return;
+      }
+
+      const patterns = options.custom ? getCustomPatterns() : getAllPatterns();
+      const label = options.custom ? 'Custom Error Patterns' : 'All Error Patterns';
+      console.log(chalk.bold(`\n🔍 ${label} (${patterns.length}):`));
+
+      if (patterns.length === 0) {
+        console.log(chalk.yellow('  No patterns found'));
+        return;
+      }
+
+      patterns.forEach((p) => {
+        const isCustom = !p.id.match(/^(timeout|selector|assertion|network|frame|auth)-/);
+        const tag = isCustom ? chalk.magenta(' [custom]') : '';
+        console.log(`  ${chalk.bold(p.name)}${tag}`);
+        console.log(`    ID: ${p.id} | Category: ${chalk.yellow(p.category)}`);
+        console.log(`    Regex: ${p.regex.map((r: RegExp) => r.source).join(', ')}`);
+      });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('llm-config')
+  .description('Manage LLM diagnosis configuration')
+  .option('--show', 'Show current LLM configuration')
+  .option('--set <json>', 'Update LLM configuration (JSON string)')
+  .option('--test', 'Test LLM connection')
+  .option('--status', 'Check LLM status')
+  .action(async (options) => {
+    try {
+      const { DiagnosisService } = await import('../diagnosis');
+      const diagnosisService = new DiagnosisService('./test-data');
+
+      if (options.set) {
+        const config = JSON.parse(options.set);
+        await diagnosisService.saveConfig(config);
+        console.log(chalk.green('✅ LLM configuration updated'));
+        const masked = diagnosisService.getMaskedConfig();
+        console.log(JSON.stringify(masked, null, 2));
+        return;
+      }
+
+      if (options.test) {
+        const spinner = ora('Testing LLM connection...').start();
+        const config = diagnosisService.getMaskedConfig();
+        const result = await diagnosisService.testConnection(config);
+        if (result.success) {
+          spinner.succeed('LLM connection successful');
+        } else {
+          spinner.fail(`LLM connection failed: ${result.error || 'Unknown error'}`);
+        }
+        return;
+      }
+
+      if (options.status) {
+        const status = await diagnosisService.getStatus();
+        console.log(chalk.bold('\n🤖 LLM Status:'));
+        console.log(`  Configured: ${status.configured ? chalk.green('Yes') : chalk.red('No')}`);
+        console.log(`  Connected: ${status.connected ? chalk.green('Yes') : chalk.red('No')}`);
+        console.log(
+          `  Status: ${status.status === 'green' ? chalk.green('🟢 Green') : status.status === 'yellow' ? chalk.yellow('🟡 Yellow') : chalk.red('🔴 Red')}`
+        );
+        return;
+      }
+
+      const config = diagnosisService.getMaskedConfig();
+      console.log(chalk.bold('\n🤖 LLM Configuration:'));
+      console.log(`  Enabled: ${config.enabled ? chalk.green('Yes') : chalk.red('No')}`);
+      console.log(`  Base URL: ${config.baseUrl || 'Not set'}`);
+      console.log(`  Model: ${config.model || 'Not set'}`);
+      console.log(`  API Key: ${config.apiKey ? 'sk-****' : 'Not set'}`);
+      console.log(`  Max Tokens: ${config.maxTokens}`);
+      console.log(`  Temperature: ${config.temperature}`);
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('health')
+  .description('View test health metrics')
+  .option('--json', 'Output in JSON format')
+  .option('-l, --limit <number>', 'Number of recent runs to analyze', '10')
+  .action(async (options) => {
+    try {
+      const reporter = new Reporter('./test-reports');
+      const allReports = await reporter.getAllReports();
+      const recent = allReports.slice(-parseInt(options.limit)).reverse();
+
+      if (recent.length === 0) {
+        console.log(chalk.yellow('No test runs found'));
+        return;
+      }
+
+      const metrics = recent.map((run) => ({
+        date: dayjs(run.startTime).format('YYYY-MM-DD HH:mm'),
+        totalTests: run.totalTests,
+        passed: run.passed,
+        failed: run.failed,
+        passRate: run.totalTests > 0 ? ((run.passed / run.totalTests) * 100).toFixed(1) : '0.0',
+        duration: ((run.duration || 0) / 1000).toFixed(2),
+      }));
+
+      if (options.json) {
+        console.log(JSON.stringify(metrics, null, 2));
+        return;
+      }
+
+      const avgPassRate =
+        metrics.reduce((sum, m) => sum + parseFloat(m.passRate), 0) / metrics.length;
+      const avgDuration =
+        metrics.reduce((sum, m) => sum + parseFloat(m.duration), 0) / metrics.length;
+
+      console.log(chalk.bold('\n💊 Test Health Metrics:'));
+      console.log(`  Recent runs: ${metrics.length}`);
+      console.log(
+        `  Average pass rate: ${avgPassRate >= 80 ? chalk.green(avgPassRate.toFixed(1) + '%') : chalk.red(avgPassRate.toFixed(1) + '%')}`
+      );
+      console.log(`  Average duration: ${avgDuration.toFixed(2)}s`);
+
+      const flakyManager = new FlakyTestManager('./test-data', {}, getStorage());
+      const flakyStats = flakyManager.getQuarantineStats();
+      console.log(`  Flaky tests: ${chalk.yellow(flakyStats.totalTests)}`);
+      console.log(`  Quarantined: ${chalk.red(flakyStats.quarantined)}`);
+
+      console.log(chalk.bold('\n  Recent runs:'));
+      metrics.forEach((m) => {
+        const rate = parseFloat(m.passRate);
+        const rateStr = rate >= 80 ? chalk.green(m.passRate + '%') : chalk.red(m.passRate + '%');
+        console.log(`  ${m.date} | ${rateStr} | ${m.passed}/${m.totalTests} | ${m.duration}s`);
+      });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('prediction')
+  .description('View test failure predictions')
+  .option('--high-risk', 'List high-risk tests')
+  .option('--test <testId>', 'View prediction for a specific test')
+  .option('--duration-anomalies', 'View duration anomalies')
+  .option('--json', 'Output in JSON format')
+  .action(async (options) => {
+    try {
+      const flakyManager = new FlakyTestManager('./test-data', {}, getStorage());
+
+      if (options.test) {
+        const prediction = await flakyManager.predictTestFailure(options.test);
+        if (!prediction) {
+          console.log(chalk.yellow(`No prediction data for test: ${options.test}`));
+          return;
+        }
+        if (options.json) {
+          console.log(JSON.stringify(prediction, null, 2));
+          return;
+        }
+        console.log(chalk.bold(`\n🔮 Prediction for ${options.test}:`));
+        console.log(`  Will fail: ${prediction.willFail ? chalk.red('Yes') : chalk.green('No')}`);
+        console.log(`  Probability: ${(prediction.probability * 100).toFixed(0)}%`);
+        console.log(`  Confidence: ${(prediction.confidence * 100).toFixed(0)}%`);
+        console.log(`  Recommended action: ${prediction.recommendedAction}`);
+        if (prediction.signals.length > 0) {
+          console.log('  Signals:');
+          prediction.signals.forEach((s) => {
+            console.log(
+              `    ${chalk.yellow(s.type)}: ${s.description} (strength: ${s.strength.toFixed(2)})`
+            );
+          });
+        }
+        return;
+      }
+
+      if (options.durationAnomalies) {
+        const anomalies = await flakyManager.getDurationAnomalies();
+        if (options.json) {
+          console.log(JSON.stringify(anomalies, null, 2));
+          return;
+        }
+        console.log(chalk.bold('\n⏱️  Duration Anomalies:'));
+        if (anomalies.length === 0) {
+          console.log(chalk.green('  No anomalies detected'));
+          return;
+        }
+        anomalies.forEach((a) => {
+          console.log(
+            `  ${chalk.red(a.testId)}: z-score=${a.zScore.toFixed(2)}, baseline=${a.baseline}ms, current=${a.current}ms`
+          );
+        });
+        return;
+      }
+
+      const highRisk = await flakyManager.getHighRiskTests();
+      if (options.json) {
+        console.log(JSON.stringify(highRisk, null, 2));
+        return;
+      }
+      console.log(chalk.bold('\n⚠️  High-Risk Tests:'));
+      if (highRisk.length === 0) {
+        console.log(chalk.green('  No high-risk tests detected'));
+        return;
+      }
+      highRisk.forEach((p) => {
+        console.log(
+          `  ${chalk.red(p.testId)}: willFail=${p.willFail ? 'Yes' : 'No'}, probability=${(p.probability * 100).toFixed(0)}%, confidence=${(p.confidence * 100).toFixed(0)}%`
+        );
+      });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('correlations')
+  .description('View test correlation analysis')
+  .option('--causal-graph', 'Show causal graph summary')
+  .option('--json', 'Output in JSON format')
+  .action(async (options) => {
+    try {
+      const flakyManager = new FlakyTestManager('./test-data', {}, getStorage());
+
+      if (options.causalGraph) {
+        const graph = await flakyManager.buildCausalGraph();
+        if (options.json) {
+          console.log(
+            JSON.stringify(
+              {
+                nodes: graph.nodes,
+                edges: graph.edges,
+                rootCauses: graph.rootCauses,
+              },
+              null,
+              2
+            )
+          );
+          return;
+        }
+        console.log(chalk.bold('\n🕸️  Causal Graph:'));
+        console.log(`  Nodes: ${graph.nodes.length}`);
+        console.log(`  Edges: ${graph.edges.length}`);
+        console.log(`  Root causes: ${graph.rootCauses.length}`);
+        if (graph.rootCauses.length > 0) {
+          console.log(chalk.bold('  Root cause nodes:'));
+          graph.rootCauses.forEach((node) => {
+            console.log(`    ${chalk.red(node.label)} (${node.type})`);
+          });
+        }
+        return;
+      }
+
+      const groups = flakyManager.analyzeCorrelations();
+      if (options.json) {
+        console.log(JSON.stringify(groups, null, 2));
+        return;
+      }
+      console.log(chalk.bold('\n🔗 Test Correlations:'));
+      if (groups.length === 0) {
+        console.log(chalk.yellow('  No correlations found'));
+        return;
+      }
+      groups.forEach((group) => {
+        console.log(
+          `  ${chalk.bold(group.groupId)}: ${group.correlationType} (confidence: ${(group.confidence * 100).toFixed(0)}%)`
+        );
+        console.log(`    Tests: ${group.testIds.join(', ')}`);
+        console.log(`    Evidence: ${group.evidence}`);
+      });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('rerun <runId> <testId>')
+  .description('Rerun a specific test from a previous run')
+  .option('--json', 'Output result in JSON format')
+  .action(async (runId, testId, options) => {
+    const spinner = ora('Loading report...').start();
+
+    try {
+      const reporter = new Reporter('./test-reports');
+      const run = await reporter.getReport(runId);
+      if (!run) {
+        spinner.fail(`Run ${runId} not found`);
+        process.exit(1);
+      }
+
+      let testInfo: { file?: string; line?: number; title?: string } | null = null;
+      let currentManualReruns = 0;
+      for (const suite of run.suites) {
+        const test = suite.tests.find((t) => t.id === testId);
+        if (test) {
+          testInfo = { file: test.file, line: test.line, title: test.title };
+          currentManualReruns = test.manualReruns || 0;
+          break;
+        }
+      }
+
+      if (!testInfo || !testInfo.file || !testInfo.line) {
+        spinner.fail(`Test ${testId} not found in run ${runId} or missing file/line info`);
+        process.exit(1);
+      }
+
+      spinner.text = `Rerunning test: ${testInfo.title}`;
+
+      const fileConfig = await loadConfigFile();
+      const config: TestConfig = mergeConfig(fileConfig, {
+        version: run.version,
+        testDir: path.dirname(testInfo.file),
+        outputDir: './test-reports',
+        retries: 0,
+        timeout: fileConfig?.timeout ?? 30000,
+        workers: 1,
+        browsers: ['chromium'],
+        htmlReport: false,
+        parentRunId: runId,
+        retryIndex: currentManualReruns + 1,
+      });
+
+      const executor = new Executor(
+        config,
+        getStorage(),
+        new FlakyTestManager('./test-data', {}, getStorage())
+      );
+      let testResult: TestResult | null = null;
+
+      executor.on('test_result', (result) => {
+        if (
+          result.id === testId ||
+          (testInfo && result.file === testInfo.file && result.line === testInfo.line)
+        ) {
+          testResult = result;
+        }
+      });
+
+      await executor.execute({
+        testLocations: [`${testInfo.file}:${testInfo.line}`],
+        parentRunId: runId,
+      });
+
+      const remappedResult = executor.currentRun?.suites
+        .flatMap((s) => s.tests)
+        .find(
+          (t) =>
+            t.id === testId || (testInfo && t.file === testInfo.file && t.line === testInfo.line)
+        );
+
+      const finalResult = remappedResult || testResult;
+
+      if (finalResult) {
+        const updated = await reporter.updateTestResult(runId, testId, finalResult);
+        if (updated) {
+          spinner.succeed(`Test rerun completed: ${finalResult.status}`);
+        } else {
+          spinner.warn('Test rerun completed but failed to update report');
+        }
+
+        if (options.json) {
+          console.log(JSON.stringify(finalResult, null, 2));
+        } else {
+          console.log(chalk.bold(`\n🔄 Rerun Result:`));
+          console.log(`  Test: ${testInfo.title}`);
+          console.log(
+            `  Status: ${finalResult.status === 'passed' ? chalk.green('PASSED') : chalk.red('FAILED')}`
+          );
+          console.log(`  Duration: ${finalResult.duration}ms`);
+          if (finalResult.error) {
+            console.log(`  Error: ${chalk.red(finalResult.error)}`);
+          }
+          console.log(`  Manual reruns: ${currentManualReruns + 1}`);
+        }
+      } else {
+        spinner.warn('Test result not found after rerun');
+      }
+    } catch (error) {
+      spinner.fail(`Rerun failed: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
   });
 
 if (!process.argv.slice(2).length) {

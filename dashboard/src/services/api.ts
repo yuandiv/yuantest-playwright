@@ -43,6 +43,11 @@ export async function startRun(options: {
   testLocations?: string[];
   testFiles?: string[];
   describePattern?: string;
+  browsers?: string[];
+  retries?: number;
+  timeout?: number;
+  workers?: number;
+  shards?: number;
 }): Promise<StartRunResult> {
   try {
     const res = await fetch(`${API_BASE}/runs`, {

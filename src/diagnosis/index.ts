@@ -18,7 +18,6 @@ import {
   readSourceCode,
   encodeScreenshot,
 } from './context-enricher';
-import { clusterFailures, FailureCluster } from './cluster';
 
 /** 缓存条目接口 */
 interface CacheEntry {

@@ -1,5 +1,4 @@
 import { AnnotationConfig, Annotation, AnnotationType } from '../types';
-import * as path from 'path';
 import { walkDirAsync } from '../utils/filesystem';
 import { StorageProvider, getStorage } from '../storage';
 
