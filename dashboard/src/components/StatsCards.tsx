@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lang, t } from '../i18n';
+import { Lang, t, formatTemplate } from '../i18n';
 import { TrendIndicator } from '../types';
 
 interface SparklineProps {
@@ -162,6 +162,10 @@ interface StatsCardsProps {
     totalTests: number[];
     flakyCount: number[];
   };
+  criteriaParams?: {
+    flakyCriteria?: Record<string, number | string>;
+    quarantineCriteria?: Record<string, number | string>;
+  };
 }
 
 /**
@@ -177,6 +181,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
   totalFlaky,
   trends,
   sparkline,
+  criteriaParams,
 }) => {
   const safeLatestPassRate = typeof latestPassRate === 'number' && Number.isFinite(latestPassRate) ? latestPassRate : 0;
   const safeAvgPassRate = typeof avgPassRate === 'number' && Number.isFinite(avgPassRate) ? avgPassRate : 0;
@@ -244,11 +249,11 @@ export const StatsCards: React.FC<StatsCardsProps> = ({
           <p className="font-semibold mb-1.5 text-amber-400">{t('flakyCriteriaTitle', lang)}</p>
           <div className="mb-1.5">
             <p className="font-medium text-green-400 mb-0.5">{t('flakyEntryCriteria', lang)}</p>
-            <p className="text-gray-300 leading-relaxed">{t('flakyEntryCriteriaDetail', lang)}</p>
+            <p className="text-gray-300 leading-relaxed">{formatTemplate(t('flakyEntryCriteriaDetail', lang), criteriaParams?.flakyCriteria || {})}</p>
           </div>
           <div>
             <p className="font-medium text-blue-400 mb-0.5">{t('flakyExitCriteria', lang)}</p>
-            <p className="text-gray-300 leading-relaxed">{t('flakyExitCriteriaDetail', lang)}</p>
+            <p className="text-gray-300 leading-relaxed">{formatTemplate(t('flakyExitCriteriaDetail', lang), criteriaParams?.flakyCriteria || {})}</p>
           </div>
         </>
       ),

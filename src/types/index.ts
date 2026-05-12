@@ -844,3 +844,30 @@ export function createError(
   const causeError = cause instanceof Error ? cause : undefined;
   return new PlaywrightRunnerError(message, code, causeError);
 }
+
+export interface FlakyCriteriaConfig {
+  minimumRuns: number;
+  flakyThreshold: number;
+  monitorThreshold: number;
+  stableThreshold: number;
+  highThreshold: number;
+  brokenConsecutiveThreshold: number;
+  regressionWindow: number;
+  regressionRecentFailRate: number;
+  regressionOlderFailRate: number;
+  decayRate: number;
+  confidenceLevel: number;
+  autoReleaseAfterPasses: number;
+}
+
+export interface QuarantineCriteriaConfig {
+  softThreshold: number;
+  hardThreshold: number;
+  maxQuarantineRatio: number;
+  autoReleaseHardQuarantinePasses: number;
+  quarantineExpiryDays: number;
+  quarantineExpiryDowngrade: boolean;
+  retryMax: number;
+  retryDelayMs: number;
+  retryBackoff: number;
+}

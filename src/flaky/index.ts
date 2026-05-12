@@ -18,12 +18,14 @@ import {
   FailureAnalysisSummary,
   FailureAnalysisResult,
   ImmediateFailure,
+  FlakyCriteriaConfig,
+  QuarantineCriteriaConfig,
 } from '../types';
 import * as path from 'path';
 import dayjs from 'dayjs';
 import { ManagedManager } from '../base';
 import { StorageProvider, getStorage } from '../storage';
-import { FLAKY_CONFIG, CACHE_CONFIG, DEFAULTS } from '../constants';
+import { FLAKY_CONFIG, CACHE_CONFIG, DEFAULTS, DEFAULT_FLAKY_CRITERIA, DEFAULT_QUARANTINE_CRITERIA } from '../constants';
 import {
   classifyTest,
   calculateWeightedFailureRate,
@@ -38,10 +40,12 @@ import { TrendAnalyzer, calculateHealthScore } from './trend';
 import { FlakyPredictor, detectDurationAnomaly } from './predictor';
 import {
   QuarantineStrategyManager,
+  QuarantineStrategyConfig,
   generateQuarantineStrategy,
   checkQuarantineBudget,
 } from './quarantine-strategy';
 import { CausalGraphBuilder } from './causal-graph';
+import { mergeFlakyCriteria, mergeQuarantineCriteria } from './config-merge';
 
 export class FlakyTestManager extends ManagedManager {
   private flakyTests: Map<string, FlakyTest> = new Map();
@@ -57,6 +61,8 @@ export class FlakyTestManager extends ManagedManager {
   private causalGraphBuilder: CausalGraphBuilder;
   private recentRuns: RunResult[] = [];
   private cachedCausalGraph: CausalGraph | null = null;
+  private flakyCriteria: FlakyCriteriaConfig = { ...DEFAULT_FLAKY_CRITERIA };
+  private quarantineCriteriaConfig: QuarantineCriteriaConfig = { ...DEFAULT_QUARANTINE_CRITERIA };
   private readonly MAX_RECENT_RUNS = 20;
 
   constructor(
@@ -156,14 +162,16 @@ export class FlakyTestManager extends ManagedManager {
    */
   private getClassifyConfig(): ClassifyConfig {
     return {
-      minimumRuns: this.config.minimumRuns ?? FLAKY_CONFIG.MINIMUM_RUNS_FOR_QUARANTINE,
-      brokenThreshold: this.config.brokenThreshold ?? FLAKY_CONFIG.BROKEN_CONSECUTIVE_THRESHOLD,
-      regressionWindow: this.config.regressionWindow ?? FLAKY_CONFIG.REGRESSION_WINDOW,
-      decayRate: this.config.decayRate ?? FLAKY_CONFIG.DECAY_RATE,
-      confidenceLevel: this.config.confidenceLevel ?? FLAKY_CONFIG.CONFIDENCE_LEVEL,
-      flakyThreshold: this.config.threshold,
-      monitorThreshold: FLAKY_CONFIG.MONITOR_THRESHOLD,
-      stableThreshold: 0.05,
+      minimumRuns: this.flakyCriteria.minimumRuns,
+      brokenThreshold: this.flakyCriteria.brokenConsecutiveThreshold,
+      regressionWindow: this.flakyCriteria.regressionWindow,
+      decayRate: this.flakyCriteria.decayRate,
+      confidenceLevel: this.flakyCriteria.confidenceLevel,
+      flakyThreshold: this.flakyCriteria.flakyThreshold,
+      monitorThreshold: this.flakyCriteria.monitorThreshold,
+      stableThreshold: this.flakyCriteria.stableThreshold,
+      regressionRecentFailRate: this.flakyCriteria.regressionRecentFailRate,
+      regressionOlderFailRate: this.flakyCriteria.regressionOlderFailRate,
     };
   }
 
@@ -174,7 +182,7 @@ export class FlakyTestManager extends ManagedManager {
   private updateTestClassification(flakyTest: FlakyTest): void {
     flakyTest.weightedFailureRate = calculateWeightedFailureRate(
       flakyTest.history,
-      this.config.decayRate ?? FLAKY_CONFIG.DECAY_RATE
+      this.flakyCriteria.decayRate
     );
     flakyTest.consecutiveFailures = calculateConsecutiveFailures(flakyTest.history);
     flakyTest.consecutivePasses = calculateConsecutivePasses(flakyTest.history);
@@ -322,12 +330,12 @@ export class FlakyTestManager extends ManagedManager {
       confidenceLevel
     );
 
-    if (!isSignificant && flakyTest.weightedFailureRate < FLAKY_CONFIG.HIGH_THRESHOLD) {
+    if (!isSignificant && flakyTest.weightedFailureRate < this.flakyCriteria.highThreshold) {
       return;
     }
 
     if (flakyTest.weightedFailureRate >= this.config.threshold || isSignificant) {
-      if (flakyTest.weightedFailureRate >= FLAKY_CONFIG.HIGH_THRESHOLD || isSignificant) {
+      if (flakyTest.weightedFailureRate >= this.flakyCriteria.highThreshold || isSignificant) {
         this.emit('flaky_detected', {
           testId: flakyTest.testId,
           title: flakyTest.title,
@@ -349,8 +357,8 @@ export class FlakyTestManager extends ManagedManager {
   private async checkAutoRelease(flakyTest: FlakyTest): Promise<void> {
     const requiredPasses =
       flakyTest.isolationLevel === 'hard_quarantine'
-        ? FLAKY_CONFIG.AUTO_RELEASE_HARD_QUARANTINE_PASSES
-        : (this.config.autoReleaseAfterPasses ?? FLAKY_CONFIG.AUTO_RELEASE_AFTER_PASSES);
+        ? this.quarantineCriteriaConfig.autoReleaseHardQuarantinePasses
+        : this.flakyCriteria.autoReleaseAfterPasses;
     if ((flakyTest.consecutivePassesSinceQuarantine || 0) >= requiredPasses) {
       await this.releaseTest(flakyTest.testId, { resetHistory: true });
       this.emit('auto_released', {
@@ -487,7 +495,7 @@ export class FlakyTestManager extends ManagedManager {
   }
 
   private async downgradeExpiredQuarantine(): Promise<void> {
-    if (!FLAKY_CONFIG.QUARANTINE_EXPIRY_DOWNGRADE) {
+    if (!this.quarantineCriteriaConfig.quarantineExpiryDowngrade) {
       return;
     }
 
@@ -1051,12 +1059,42 @@ export class FlakyTestManager extends ManagedManager {
     await this.saveHistory();
   }
 
-  setConfig(config: Partial<QuarantineConfig>): void {
-    this.config = { ...this.config, ...config };
+  setConfig(config: Partial<QuarantineConfig> & { flakyCriteria?: Partial<FlakyCriteriaConfig>; quarantineCriteria?: Partial<QuarantineCriteriaConfig> }): void {
+    const { flakyCriteria, quarantineCriteria, ...restConfig } = config;
+    this.config = { ...this.config, ...restConfig };
+    if (flakyCriteria) {
+      this.flakyCriteria = mergeFlakyCriteria(flakyCriteria);
+    }
+    if (quarantineCriteria) {
+      this.quarantineCriteriaConfig = mergeQuarantineCriteria(quarantineCriteria);
+      this.strategyManager = new QuarantineStrategyManager({
+        maxQuarantineRatio: this.quarantineCriteriaConfig.maxQuarantineRatio,
+        softThreshold: this.quarantineCriteriaConfig.softThreshold,
+        hardThreshold: this.quarantineCriteriaConfig.hardThreshold,
+        retryMax: this.quarantineCriteriaConfig.retryMax,
+        retryDelayMs: this.quarantineCriteriaConfig.retryDelayMs,
+        retryBackoff: this.quarantineCriteriaConfig.retryBackoff,
+        minQuarantineCount: 3,
+        quarantineExpiryDays: this.quarantineCriteriaConfig.quarantineExpiryDays,
+        quarantineExpiryDowngrade: this.quarantineCriteriaConfig.quarantineExpiryDowngrade,
+      });
+    }
   }
 
   getConfig(): QuarantineConfig {
     return { ...this.config };
+  }
+
+  /**
+   * 获取当前生效的完整配置（含默认值填充）
+   * @returns 包含 flakyCriteria 和 quarantineCriteria 的完整配置
+   */
+  getEffectiveConfig(): { config: QuarantineConfig; flakyCriteria: FlakyCriteriaConfig; quarantineCriteria: QuarantineCriteriaConfig } {
+    return {
+      config: { ...this.config },
+      flakyCriteria: { ...this.flakyCriteria },
+      quarantineCriteria: { ...this.quarantineCriteriaConfig },
+    };
   }
 
   async flush(): Promise<void> {

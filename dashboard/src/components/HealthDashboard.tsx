@@ -14,13 +14,17 @@ interface HealthDashboardProps {
   data: HealthMetric[];
   reports: RunReport[];
   onRefresh: () => Promise<void>;
+  criteriaParams?: {
+    flakyCriteria?: Record<string, number | string>;
+    quarantineCriteria?: Record<string, number | string>;
+  };
 }
 
 /**
  * 健康仪表盘主组件
  * 显示测试运行的健康指标数据，包括统计卡片和图表
  */
-export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, reports, onRefresh }) => {
+export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, reports, onRefresh, criteriaParams }) => {
   const { config, setDateRange, setActiveTab } = useDashboardConfig();
   const { chartData, stats, hasData } = useChartData(data);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -83,6 +87,7 @@ export const HealthDashboard: React.FC<HealthDashboardProps> = ({ lang, data, re
             totalFlaky={stats.totalFlaky}
             trends={stats.trends}
             sparkline={stats.sparkline}
+            criteriaParams={criteriaParams}
           />
         ) : (
           <EmptyState lang={lang} />

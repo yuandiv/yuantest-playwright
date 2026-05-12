@@ -60,6 +60,33 @@ export const FLAKY_CONFIG = {
   },
 } as const;
 
+export const DEFAULT_FLAKY_CRITERIA: import('../types').FlakyCriteriaConfig = {
+  minimumRuns: FLAKY_CONFIG.MINIMUM_RUNS_FOR_QUARANTINE,
+  flakyThreshold: FLAKY_CONFIG.DEFAULT_THRESHOLD,
+  monitorThreshold: FLAKY_CONFIG.MONITOR_THRESHOLD,
+  stableThreshold: 0.05,
+  highThreshold: FLAKY_CONFIG.HIGH_THRESHOLD,
+  brokenConsecutiveThreshold: FLAKY_CONFIG.BROKEN_CONSECUTIVE_THRESHOLD,
+  regressionWindow: FLAKY_CONFIG.REGRESSION_WINDOW,
+  regressionRecentFailRate: 0.6,
+  regressionOlderFailRate: 0.2,
+  decayRate: FLAKY_CONFIG.DECAY_RATE,
+  confidenceLevel: FLAKY_CONFIG.CONFIDENCE_LEVEL,
+  autoReleaseAfterPasses: FLAKY_CONFIG.AUTO_RELEASE_AFTER_PASSES,
+};
+
+export const DEFAULT_QUARANTINE_CRITERIA: import('../types').QuarantineCriteriaConfig = {
+  softThreshold: FLAKY_CONFIG.QUARANTINE_SOFT_THRESHOLD,
+  hardThreshold: FLAKY_CONFIG.QUARANTINE_HARD_THRESHOLD,
+  maxQuarantineRatio: FLAKY_CONFIG.QUARANTINE_MAX_RATIO,
+  autoReleaseHardQuarantinePasses: FLAKY_CONFIG.AUTO_RELEASE_HARD_QUARANTINE_PASSES,
+  quarantineExpiryDays: FLAKY_CONFIG.QUARANTINE_EXPIRY_DAYS,
+  quarantineExpiryDowngrade: FLAKY_CONFIG.QUARANTINE_EXPIRY_DOWNGRADE,
+  retryMax: FLAKY_CONFIG.QUARANTINE_RETRY_MAX,
+  retryDelayMs: FLAKY_CONFIG.QUARANTINE_RETRY_DELAY_MS,
+  retryBackoff: FLAKY_CONFIG.QUARANTINE_RETRY_BACKOFF,
+};
+
 export const WEBSOCKET_CONFIG = {
   RECONNECT_BASE_DELAY: 1000,
   RECONNECT_MAX_DELAY: 30000,

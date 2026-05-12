@@ -52,6 +52,10 @@ function App() {
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
   const [showHealthDashboard, setShowHealthDashboard] = useState(false);
   const [isFlakyDialogOpen, setIsFlakyDialogOpen] = useState(false);
+  const [criteriaParams, setCriteriaParams] = useState<{
+    flakyCriteria?: Record<string, number | string>;
+    quarantineCriteria?: Record<string, number | string>;
+  }>({});
   const [, startTransition] = useTransition();
   
   const messageRateLimiter = useRef(new MessageRateLimiter(20, 1000));
@@ -196,8 +200,52 @@ function App() {
         }
         if (prefs.lastVersion) setVersionInput(prefs.lastVersion);
         if (prefs.testDir) setTestDir(prefs.testDir);
+        const flakyCriteria: Record<string, number | string> = {};
+        const quarantineCriteria: Record<string, number | string> = {};
+        if (prefs.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
+          const fc = prefs.flakyCriteria as Record<string, unknown>;
+          for (const [k, v] of Object.entries(fc)) {
+            if (typeof v === 'number') flakyCriteria[k] = v;
+          }
+        }
+        if (prefs.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
+          const qc = prefs.quarantineCriteria as Record<string, unknown>;
+          for (const [k, v] of Object.entries(qc)) {
+            if (typeof v === 'number') quarantineCriteria[k] = v;
+          }
+        }
+        if (Object.keys(flakyCriteria).length > 0 || Object.keys(quarantineCriteria).length > 0) {
+          setCriteriaParams({ flakyCriteria, quarantineCriteria });
+        }
       }
     });
+  }, []);
+
+  /** 监听判定参数配置变更事件，重新获取偏好配置并更新 criteriaParams */
+  useEffect(() => {
+    const handler = () => {
+      api.getPreferences().then(prefs => {
+        if (prefs) {
+          const flakyCriteria: Record<string, number | string> = {};
+          const quarantineCriteria: Record<string, number | string> = {};
+          if (prefs.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
+            const fc = prefs.flakyCriteria as Record<string, unknown>;
+            for (const [k, v] of Object.entries(fc)) {
+              if (typeof v === 'number') flakyCriteria[k] = v;
+            }
+          }
+          if (prefs.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
+            const qc = prefs.quarantineCriteria as Record<string, unknown>;
+            for (const [k, v] of Object.entries(qc)) {
+              if (typeof v === 'number') quarantineCriteria[k] = v;
+            }
+          }
+          setCriteriaParams({ flakyCriteria, quarantineCriteria });
+        }
+      });
+    };
+    window.addEventListener('criteria-config-changed', handler);
+    return () => window.removeEventListener('criteria-config-changed', handler);
   }, []);
 
   useEffect(() => {
@@ -1152,6 +1200,7 @@ function App() {
           data={healthMetrics}
           reports={reports}
           onRefresh={loadHealthMetrics}
+          criteriaParams={criteriaParams}
         />
       ) : (
         <>
@@ -1168,6 +1217,7 @@ function App() {
               onModal={setModalContent}
               onClearFlakyHistory={handleClearFlakyHistory}
               onOpenFlakyDialog={() => setIsFlakyDialogOpen(true)}
+              criteriaParams={criteriaParams}
             />
           </div>
           <ReporterPanel

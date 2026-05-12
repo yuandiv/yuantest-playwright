@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULTS, FLAKY_CONFIG, FILE_PATTERNS } from '../constants';
+import { DEFAULTS, FLAKY_CONFIG, FILE_PATTERNS, DEFAULT_FLAKY_CRITERIA, DEFAULT_QUARANTINE_CRITERIA } from '../constants';
 
 const BrowserTypeSchema = z.enum(['chromium', 'firefox', 'webkit']);
 
@@ -128,10 +128,39 @@ export const SetTestDirRequestSchema = z.object({
   testDir: z.string().min(1, 'testDir is required'),
 });
 
+const FlakyCriteriaSchema = z.object({
+  minimumRuns: z.number().int().min(1).optional(),
+  flakyThreshold: z.number().min(0).max(1).optional(),
+  monitorThreshold: z.number().min(0).max(1).optional(),
+  stableThreshold: z.number().min(0).max(1).optional(),
+  highThreshold: z.number().min(0).max(1).optional(),
+  brokenConsecutiveThreshold: z.number().int().min(1).optional(),
+  regressionWindow: z.number().int().min(1).optional(),
+  regressionRecentFailRate: z.number().min(0).max(1).optional(),
+  regressionOlderFailRate: z.number().min(0).max(1).optional(),
+  decayRate: z.number().min(0).max(1).optional(),
+  confidenceLevel: z.number().min(0).max(1).optional(),
+  autoReleaseAfterPasses: z.number().int().min(1).optional(),
+});
+
+const QuarantineCriteriaSchema = z.object({
+  softThreshold: z.number().min(0).max(1).optional(),
+  hardThreshold: z.number().min(0).max(1).optional(),
+  maxQuarantineRatio: z.number().min(0).max(1).optional(),
+  autoReleaseHardQuarantinePasses: z.number().int().min(1).optional(),
+  quarantineExpiryDays: z.number().int().min(1).optional(),
+  quarantineExpiryDowngrade: z.boolean().optional(),
+  retryMax: z.number().int().min(0).optional(),
+  retryDelayMs: z.number().int().min(0).optional(),
+  retryBackoff: z.number().min(0).optional(),
+});
+
 export const SavePreferencesRequestSchema = z.object({
   lang: z.enum(['zh', 'en']).optional(),
   lastVersion: z.string().optional(),
   testDir: z.string().optional(),
+  flakyCriteria: FlakyCriteriaSchema.optional(),
+  quarantineCriteria: QuarantineCriteriaSchema.optional(),
 });
 
 export type TestConfigInput = z.infer<typeof TestConfigSchema>;

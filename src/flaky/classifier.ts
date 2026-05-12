@@ -11,6 +11,8 @@ export interface ClassifyConfig {
   flakyThreshold: number;
   monitorThreshold: number;
   stableThreshold: number;
+  regressionRecentFailRate: number;
+  regressionOlderFailRate: number;
 }
 
 /** 默认分类器配置 */
@@ -23,6 +25,8 @@ const DEFAULT_CLASSIFY_CONFIG: ClassifyConfig = {
   flakyThreshold: FLAKY_CONFIG.DEFAULT_THRESHOLD,
   monitorThreshold: FLAKY_CONFIG.MONITOR_THRESHOLD,
   stableThreshold: 0.05,
+  regressionRecentFailRate: 0.6,
+  regressionOlderFailRate: 0.2,
 };
 
 /**
@@ -165,9 +169,10 @@ export function calculateConsecutivePasses(history: FlakyHistoryEntry[]): number
  * 回归特征：前期稳定通过，最近窗口内持续失败
  * @param history - 测试运行历史记录数组
  * @param window - 回归检测窗口大小
+ * @param config - 分类器配置（可选）
  * @returns 是否为回归模式
  */
-function isRegression(history: FlakyHistoryEntry[], window: number): boolean {
+function isRegression(history: FlakyHistoryEntry[], window: number, config: Partial<ClassifyConfig> = {}): boolean {
   if (history.length < window) {
     return false;
   }
@@ -187,7 +192,10 @@ function isRegression(history: FlakyHistoryEntry[], window: number): boolean {
     olderHistory.filter((h) => h.status === 'failed' || h.status === 'timedout').length /
     olderHistory.length;
 
-  return recentFailRate >= 0.6 && olderFailRate <= 0.2;
+  const recentThreshold = config.regressionRecentFailRate ?? DEFAULT_CLASSIFY_CONFIG.regressionRecentFailRate;
+  const olderThreshold = config.regressionOlderFailRate ?? DEFAULT_CLASSIFY_CONFIG.regressionOlderFailRate;
+
+  return recentFailRate >= recentThreshold && olderFailRate <= olderThreshold;
 }
 
 /**
@@ -220,7 +228,7 @@ export function classifyTest(
     }
   }
 
-  if (isRegression(test.history, cfg.regressionWindow)) {
+  if (isRegression(test.history, cfg.regressionWindow, cfg)) {
     return 'regression';
   }
 

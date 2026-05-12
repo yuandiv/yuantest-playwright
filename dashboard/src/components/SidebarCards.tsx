@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Lang } from '../i18n';
-import { t } from '../i18n';
+import { t, formatTemplate } from '../i18n';
 import { FlakyTest, QuarantinedTest, RunReport, FlakyClassification, FilterType } from '../types';
 import { VersionTrendChart } from './VersionTrendChart';
 
@@ -15,9 +15,13 @@ interface SidebarCardsProps {
   onModal: (content: React.ReactNode) => void;
   onClearFlakyHistory: () => Promise<void>;
   onOpenFlakyDialog?: () => void;
+  criteriaParams?: {
+    flakyCriteria?: Record<string, number | string>;
+    quarantineCriteria?: Record<string, number | string>;
+  };
 }
 
-export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onReleaseTest, onValidateReleaseTest, onRefresh, onModal, onClearFlakyHistory, onOpenFlakyDialog }: SidebarCardsProps) {
+export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onReleaseTest, onValidateReleaseTest, onRefresh, onModal, onClearFlakyHistory, onOpenFlakyDialog, criteriaParams }: SidebarCardsProps) {
   const trend = useMemo(() => {
     const sortedReports = [...reports]
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -100,11 +104,11 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
                   <p className="font-semibold mb-1.5 text-amber-400">{t('flakyCriteriaTitle', lang)}</p>
                   <div className="mb-1.5">
                     <p className="font-medium text-green-400 mb-0.5">{t('flakyEntryCriteria', lang)}</p>
-                    <p className="text-gray-300 leading-relaxed">{t('flakyEntryCriteriaDetail', lang)}</p>
+                    <p className="text-gray-300 leading-relaxed">{formatTemplate(t('flakyEntryCriteriaDetail', lang), criteriaParams?.flakyCriteria || {})}</p>
                   </div>
                   <div>
                     <p className="font-medium text-blue-400 mb-0.5">{t('flakyExitCriteria', lang)}</p>
-                    <p className="text-gray-300 leading-relaxed">{t('flakyExitCriteriaDetail', lang)}</p>
+                    <p className="text-gray-300 leading-relaxed">{formatTemplate(t('flakyExitCriteriaDetail', lang), criteriaParams?.flakyCriteria || {})}</p>
                   </div>
                 </div>
               </div>
@@ -184,11 +188,11 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
                   <p className="font-semibold mb-1.5 text-red-400">{t('quarantineCriteriaTitle', lang)}</p>
                   <div className="mb-1.5">
                     <p className="font-medium text-green-400 mb-0.5">{t('flakyEntryCriteria', lang)}</p>
-                    <p className="text-gray-300 leading-relaxed">{t('quarantineEntryCriteriaDetail', lang)}</p>
+                    <p className="text-gray-300 leading-relaxed">{formatTemplate(t('quarantineEntryCriteriaDetail', lang), criteriaParams?.quarantineCriteria || {})}</p>
                   </div>
                   <div>
                     <p className="font-medium text-blue-400 mb-0.5">{t('flakyExitCriteria', lang)}</p>
-                    <p className="text-gray-300 leading-relaxed">{t('quarantineExitCriteriaDetail', lang)}</p>
+                    <p className="text-gray-300 leading-relaxed">{formatTemplate(t('quarantineExitCriteriaDetail', lang), criteriaParams?.quarantineCriteria || {})}</p>
                   </div>
                 </div>
               </div>

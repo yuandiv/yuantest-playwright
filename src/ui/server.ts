@@ -1989,10 +1989,15 @@ export class DashboardServer {
     v1Router.get(
       '/preferences',
       asyncHandler(async (req: Request, res: Response) => {
-        const prefs = await this.storage.readJSON<Record<string, string>>(
+        const prefs = await this.storage.readJSON<Record<string, unknown>>(
           path.join(this.dataDir, 'user-preferences.json')
         );
-        res.json(prefs || {});
+        const effective = this.flakyManager.getEffectiveConfig();
+        res.json({
+          ...(prefs || {}),
+          flakyCriteria: { ...effective.flakyCriteria, ...((prefs?.flakyCriteria as Record<string, unknown>) || {}) },
+          quarantineCriteria: { ...effective.quarantineCriteria, ...((prefs?.quarantineCriteria as Record<string, unknown>) || {}) },
+        });
       })
     );
 
@@ -2001,12 +2006,23 @@ export class DashboardServer {
       validateBody(SavePreferencesRequestSchema),
       asyncHandler(async (req: Request, res: Response) => {
         const existing =
-          (await this.storage.readJSON<Record<string, string>>(
+          (await this.storage.readJSON<Record<string, unknown>>(
             path.join(this.dataDir, 'user-preferences.json')
           )) || {};
         const merged = { ...existing, ...req.body };
         await this.storage.writeJSON(path.join(this.dataDir, 'user-preferences.json'), merged);
-        res.json(merged);
+        if (req.body.flakyCriteria) {
+          this.flakyManager.setConfig({ flakyCriteria: req.body.flakyCriteria });
+        }
+        if (req.body.quarantineCriteria) {
+          this.flakyManager.setConfig({ quarantineCriteria: req.body.quarantineCriteria });
+        }
+        const effective = this.flakyManager.getEffectiveConfig();
+        res.json({
+          ...merged,
+          flakyCriteria: effective.flakyCriteria,
+          quarantineCriteria: effective.quarantineCriteria,
+        });
       })
     );
 
@@ -2676,6 +2692,14 @@ export class DashboardServer {
       if (prefs?.autoQuarantine !== undefined && typeof prefs.autoQuarantine === 'boolean') {
         this.flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
         this.log.info(`Restored autoQuarantine from preferences: ${prefs.autoQuarantine}`);
+      }
+      if (prefs?.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
+        this.flakyManager.setConfig({ flakyCriteria: prefs.flakyCriteria as Record<string, unknown> });
+        this.log.info('Restored flakyCriteria from preferences');
+      }
+      if (prefs?.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
+        this.flakyManager.setConfig({ quarantineCriteria: prefs.quarantineCriteria as Record<string, unknown> });
+        this.log.info('Restored quarantineCriteria from preferences');
       }
     } catch (e) {
       this.log.warn(`Failed to restore preferences: ${e instanceof Error ? e.message : String(e)}`);

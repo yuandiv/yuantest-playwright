@@ -18,6 +18,9 @@ export interface QuarantineStrategyConfig {
   retryDelayMs: number;
   retryBackoff: number;
   defaultStrategy: QuarantineStrategyType;
+  minQuarantineCount: number;
+  quarantineExpiryDays: number;
+  quarantineExpiryDowngrade: boolean;
 }
 
 /** 默认隔离策略配置 */
@@ -29,6 +32,9 @@ const DEFAULT_STRATEGY_CONFIG: QuarantineStrategyConfig = {
   retryDelayMs: FLAKY_CONFIG.QUARANTINE_RETRY_DELAY_MS,
   retryBackoff: FLAKY_CONFIG.QUARANTINE_RETRY_BACKOFF,
   defaultStrategy: 'graduated',
+  minQuarantineCount: 3,
+  quarantineExpiryDays: FLAKY_CONFIG.QUARANTINE_EXPIRY_DAYS,
+  quarantineExpiryDowngrade: FLAKY_CONFIG.QUARANTINE_EXPIRY_DOWNGRADE,
 };
 
 /**
@@ -184,7 +190,7 @@ export function generateQuarantineStrategy(
 
   const expiresAt =
     isolationLevel !== 'none'
-      ? Date.now() + FLAKY_CONFIG.QUARANTINE_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+      ? Date.now() + cfg.quarantineExpiryDays * 24 * 60 * 60 * 1000
       : undefined;
 
   return {
@@ -243,7 +249,7 @@ export function checkQuarantineBudget(
   config: Partial<QuarantineStrategyConfig> = {}
 ): { allowed: boolean; remaining: number; utilization: number } {
   const cfg = { ...DEFAULT_STRATEGY_CONFIG, ...config };
-  const maxQuarantined = Math.max(3, Math.ceil(totalTests * cfg.maxQuarantineRatio));
+  const maxQuarantined = Math.max(cfg.minQuarantineCount, Math.ceil(totalTests * cfg.maxQuarantineRatio));
   const remaining = Math.max(0, maxQuarantined - currentQuarantined);
   const utilization = totalTests > 0 ? currentQuarantined / totalTests : 0;
 

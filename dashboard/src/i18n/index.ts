@@ -273,11 +273,11 @@ const zh: Record<string, string> = {
   flakyCriteriaTitle: '不稳定用例判定标准',
   flakyEntryCriteria: '入标准',
   flakyExitCriteria: '出标准',
-  flakyEntryCriteriaDetail: '① 总运行次数 ≥ 5 次；② 分类为 Flaky（加权失败率 ≥ 30%）或 Monitor（10% ≤ 加权失败率 < 30%）或 Regression（近期失败率 ≥ 60%，早期失败率 ≤ 20%）',
-  flakyExitCriteriaDetail: '① 分类变为 Stable（加权失败率 < 5%）；② 分类变为 Broken（连续失败 ≥ 5 次）时移至损坏用例；③ 连续通过 3 次后自动释放；④ 手动释放',
+  flakyEntryCriteriaDetail: '① 总运行次数 ≥ {minimumRuns} 次；② 分类为 Flaky（加权失败率 ≥ {flakyThreshold}%）或 Monitor（{monitorThreshold}% ≤ 加权失败率 < {flakyThreshold}%）或 Regression（近期失败率 ≥ {regressionRecentFailRate}%，早期失败率 ≤ {regressionOlderFailRate}%）',
+  flakyExitCriteriaDetail: '① 分类变为 Stable（加权失败率 < {stableThreshold}%）；② 分类变为 Broken（连续失败 ≥ {brokenConsecutiveThreshold} 次）时移至损坏用例；③ 连续通过 {autoReleaseAfterPasses} 次后自动释放；④ 手动释放',
   quarantineCriteriaTitle: '已隔离用例判定标准',
-  quarantineEntryCriteriaDetail: '① 分类为 Broken（连续失败 ≥ 5 次）→ 硬隔离；② 加权失败率 ≥ 40% → 硬隔离；③ 加权失败率 ≥ 15% → 软隔离；④ 隔离预算上限：不超过总测试数的 20%',
-  quarantineExitCriteriaDetail: '① 硬隔离：连续通过 5 次后自动释放；软隔离：连续通过 3 次后自动释放；② 隔离 30 天后降级为监控模式（需再观察确认稳定后释放）；③ 手动释放或验证释放',
+  quarantineEntryCriteriaDetail: '① 分类为 Broken（连续失败 ≥ {brokenConsecutiveThreshold} 次）→ 硬隔离；② 加权失败率 ≥ {hardThreshold}% → 硬隔离；③ 加权失败率 ≥ {softThreshold}% → 软隔离；④ 隔离预算上限：不超过总测试数的 {maxQuarantineRatio}%',
+  quarantineExitCriteriaDetail: '① 硬隔离：连续通过 {autoReleaseHardQuarantinePasses} 次后自动释放；软隔离：连续通过 {autoReleaseAfterPasses} 次后自动释放；② 隔离 {quarantineExpiryDays} 天后降级为监控模式（需再观察确认稳定后释放）；③ 手动释放或验证释放',
   monitorLabel: '需关注',
   monitorDescription: '10% ≤ 加权失败率 < 30%，尚未达到不稳定标准但需持续关注',
   brokenLabel: '损坏',
@@ -671,11 +671,11 @@ const en: Record<string, string> = {
   flakyCriteriaTitle: 'Flaky Test Criteria',
   flakyEntryCriteria: 'Entry Criteria',
   flakyExitCriteria: 'Exit Criteria',
-  flakyEntryCriteriaDetail: '① Total runs ≥ 5; ② Classified as Flaky (weighted failure rate ≥ 30%) or Monitor (10% ≤ weighted failure rate < 30%) or Regression (recent failure rate ≥ 60%, earlier failure rate ≤ 20%)',
-  flakyExitCriteriaDetail: '① Classification becomes Stable (weighted failure rate < 5%); ② Classification becomes Broken (consecutive failures ≥ 5) → moved to broken tests; ③ Auto-released after 3 consecutive passes; ④ Manual release',
+  flakyEntryCriteriaDetail: '① Total runs ≥ {minimumRuns}; ② Classified as Flaky (weighted failure rate ≥ {flakyThreshold}%) or Monitor ({monitorThreshold}% ≤ weighted failure rate < {flakyThreshold}%) or Regression (recent failure rate ≥ {regressionRecentFailRate}%, earlier failure rate ≤ {regressionOlderFailRate}%)',
+  flakyExitCriteriaDetail: '① Classification becomes Stable (weighted failure rate < {stableThreshold}%); ② Classification becomes Broken (consecutive failures ≥ {brokenConsecutiveThreshold}) → moved to broken tests; ③ Auto-released after {autoReleaseAfterPasses} consecutive passes; ④ Manual release',
   quarantineCriteriaTitle: 'Quarantined Test Criteria',
-  quarantineEntryCriteriaDetail: '① Classified as Broken (consecutive failures ≥ 5) → Hard quarantine; ② Weighted failure rate ≥ 40% → Hard quarantine; ③ Weighted failure rate ≥ 15% → Soft quarantine; ④ Budget cap: no more than 20% of total tests',
-  quarantineExitCriteriaDetail: '① Hard quarantine: auto-released after 5 consecutive passes; Soft quarantine: auto-released after 3 consecutive passes; ② After 30 days, downgraded to monitor mode (requires further observation before release); ③ Manual release or validate & release',
+  quarantineEntryCriteriaDetail: '① Classified as Broken (consecutive failures ≥ {brokenConsecutiveThreshold}) → Hard quarantine; ② Weighted failure rate ≥ {hardThreshold}% → Hard quarantine; ③ Weighted failure rate ≥ {softThreshold}% → Soft quarantine; ④ Budget cap: no more than {maxQuarantineRatio}% of total tests',
+  quarantineExitCriteriaDetail: '① Hard quarantine: auto-released after {autoReleaseHardQuarantinePasses} consecutive passes; Soft quarantine: auto-released after {autoReleaseAfterPasses} consecutive passes; ② After {quarantineExpiryDays} days, downgraded to monitor mode (requires further observation before release); ③ Manual release or validate & release',
   monitorLabel: 'Monitor',
   monitorDescription: '10% ≤ weighted failure rate < 30%, not yet flaky but needs attention',
   brokenLabel: 'Broken',
@@ -794,6 +794,16 @@ const en: Record<string, string> = {
 };
 
 const translations: Record<string, Record<string, string>> = { zh, en };
+
+/**
+ * 替换模板字符串中的占位符
+ * @param template - 包含 {key} 占位符的模板字符串
+ * @param params - 替换参数键值对
+ * @returns 替换后的字符串
+ */
+export function formatTemplate(template: string, params: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => String(params[key] ?? `{${key}}`));
+}
 
 export function t(key: string, lang: string = 'zh'): string {
   return translations[lang]?.[key] || key;

@@ -337,6 +337,12 @@ program
         if (prefs?.autoQuarantine !== undefined && typeof prefs.autoQuarantine === 'boolean') {
           flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
         }
+        if (prefs?.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
+          flakyManager.setConfig({ flakyCriteria: prefs.flakyCriteria });
+        }
+        if (prefs?.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
+          flakyManager.setConfig({ quarantineCriteria: prefs.quarantineCriteria });
+        }
       }
     } catch {
       // ignore
