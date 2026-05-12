@@ -1,9 +1,6 @@
-# 更新日志
+# Changelog
 
-本文件记录了项目的所有重要变更。
-
-格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
-本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
 ## [1.0.8] - 2026-05-06
 
