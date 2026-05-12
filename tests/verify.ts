@@ -1,5 +1,4 @@
 import { Orchestrator, ShardOptimizer } from '../src/orchestrator';
-import { Executor } from '../src/executor';
 import { Reporter } from '../src/reporter';
 import { FlakyTestManager } from '../src/flaky';
 import { RealtimeReporter } from '../src/realtime';
@@ -50,7 +49,12 @@ function assertIncludes(arr: any[], item: any, message: string) {
   }
 }
 
-function generateMockTestResult(id: string, title: string, status: TestResult['status'], browser: BrowserType = 'chromium'): TestResult {
+function generateMockTestResult(
+  id: string,
+  title: string,
+  status: TestResult['status'],
+  browser: BrowserType = 'chromium'
+): TestResult {
   return {
     id,
     title,
@@ -69,13 +73,17 @@ function getRandomError(): string {
     'Error: expect(received).toBe(expected) // Object.is equality\n  Expected: "Dashboard"\n  Received: "Error Page"',
     'Error: Timeout 30000ms exceeded waiting for selector ".user-profile"',
     'Error: net::ERR_CONNECTION_REFUSED at http://localhost:3000/api/users',
-    'Error: locator.click: Target closed\n  Waiting for locator(\'button.submit\')',
+    "Error: locator.click: Target closed\n  Waiting for locator('button.submit')",
     'Error: expect(received).toHaveText(expected)\n  Expected string: "Welcome back"\n  Received string: "Please login"',
   ];
   return errors[Math.floor(Math.random() * errors.length)];
 }
 
-function generateMockRunResult(id: string, version: string, status: RunResult['status'] = 'success'): RunResult {
+function generateMockRunResult(
+  id: string,
+  version: string,
+  status: RunResult['status'] = 'success'
+): RunResult {
   const suites: SuiteResult[] = [
     {
       name: 'Login Page',
@@ -166,7 +174,9 @@ function generateMockRunResult(id: string, version: string, status: RunResult['s
   const failedCount = suites.reduce((s, suite) => s + suite.failed, 0);
   const skipped = suites.reduce((s, suite) => s + suite.skipped, 0);
 
-  const allFailedTests = suites.flatMap((s: SuiteResult) => s.tests.filter((t: TestResult) => t.status === 'failed'));
+  const allFailedTests = suites.flatMap((s: SuiteResult) =>
+    s.tests.filter((t: TestResult) => t.status === 'failed')
+  );
 
   return {
     id,
@@ -217,7 +227,10 @@ async function testOrchestrator() {
 
   const orchestration = await orchestrator.orchestrate();
   assert(orchestration.totalShards === 4, 'Orchestration should have 4 shards');
-  assert(orchestration.testAssignment.length >= 5, `Should discover at least 5 test files (found: ${orchestration.testAssignment.length})`);
+  assert(
+    orchestration.testAssignment.length >= 5,
+    `Should discover at least 5 test files (found: ${orchestration.testAssignment.length})`
+  );
   assert(orchestration.strategy === 'distributed', 'Strategy should be distributed');
 
   const pwConfig = await orchestrator.createPlaywrightConfig();
@@ -229,10 +242,18 @@ async function testOrchestrator() {
   const optimized = await optimizer.optimize(orchestration.testAssignment, 4);
   assert(optimized.size === 4, 'Optimized should have 4 shards');
   let totalAssigned = 0;
-  optimized.forEach((tests: any[]) => { totalAssigned += tests.length; });
-  assertEqual(totalAssigned, orchestration.testAssignment.length, 'All tests should be assigned after optimization');
+  optimized.forEach((tests: any[]) => {
+    totalAssigned += tests.length;
+  });
+  assertEqual(
+    totalAssigned,
+    orchestration.testAssignment.length,
+    'All tests should be assigned after optimization'
+  );
 
-  console.log(`  📊 Discovered ${orchestration.testAssignment.length} test files across ${orchestration.totalShards} shards`);
+  console.log(
+    `  📊 Discovered ${orchestration.testAssignment.length} test files across ${orchestration.totalShards} shards`
+  );
 }
 
 async function testFlakyManager() {
@@ -246,21 +267,27 @@ async function testFlakyManager() {
   const run2 = generateMockRunResult('run_002', 'project-a');
   const run3 = generateMockRunResult('run_003', 'project-a');
 
-  manager.recordRunResults(run1);
-  manager.recordRunResults(run2);
-  manager.recordRunResults(run3);
+  void manager.recordRunResults(run1);
+  void manager.recordRunResults(run2);
+  void manager.recordRunResults(run3);
 
   const allFlaky = manager.getAllFlakyTests();
   assert(allFlaky.length > 0, `Should detect flaky tests (found: ${allFlaky.length})`);
 
   const flakyAbove30 = manager.getFlakyTests(0.3);
-  assert(flakyAbove30.length > 0, `Should have flaky tests above 30% threshold (found: ${flakyAbove30.length})`);
+  assert(
+    flakyAbove30.length > 0,
+    `Should have flaky tests above 30% threshold (found: ${flakyAbove30.length})`
+  );
 
   if (flakyAbove30.length > 0) {
     const testId = flakyAbove30[0].testId;
     const test = manager.getTestById(testId);
     assert(test !== undefined, `Should find test by id: ${testId}`);
-    assert(test!.history.length >= 3, `Test should have at least 3 history entries (has: ${test!.history.length})`);
+    assert(
+      test!.history.length >= 3,
+      `Test should have at least 3 history entries (has: ${test!.history.length})`
+    );
 
     const quarantined = manager.quarantineTest(testId);
     assert(quarantined, 'Should quarantine test successfully');
@@ -282,7 +309,7 @@ async function testFlakyManager() {
   assert(typeof stats.flakyRate === 'number', 'Stats flakyRate should be a number');
   assert(Array.isArray(stats.topFlaky), 'Stats topFlaky should be an array');
 
-  manager.clearHistory();
+  void manager.clearHistory();
   const cleared = manager.getAllFlakyTests();
   assertEqual(cleared.length, 0, 'Should have no flaky tests after clearing history');
 }
@@ -308,7 +335,11 @@ async function testReporter() {
 
   const jsonContent = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
   assertEqual(jsonContent.id, 'run_20240315_100000_abc', 'JSON report should have correct run id');
-  assertEqual(jsonContent.totalTests, run1.totalTests, 'JSON report should have correct totalTests');
+  assertEqual(
+    jsonContent.totalTests,
+    run1.totalTests,
+    'JSON report should have correct totalTests'
+  );
 
   await reporter.generateReport(run2);
   await reporter.generateReport(run3);
@@ -329,8 +360,12 @@ async function testReporter() {
   assert(analysis.length > 0, `Should analyze failures (found: ${analysis.length})`);
   if (analysis.length > 0) {
     const first = analysis[0];
-    assert(['assertion', 'timeout', 'network', 'selector', 'frame', 'auth', 'unknown'].includes(first.category),
-      `Failure category should be valid (got: ${first.category})`);
+    assert(
+      ['assertion', 'timeout', 'network', 'selector', 'frame', 'auth', 'unknown'].includes(
+        first.category
+      ),
+      `Failure category should be valid (got: ${first.category})`
+    );
     assert(first.suggestions.length > 0, 'Failure analysis should have suggestions');
     assert(typeof first.lastOccurrence === 'number', 'Failure analysis should have lastOccurrence');
     assert(typeof first.title === 'string', 'Failure analysis should have title');
@@ -348,11 +383,15 @@ async function testRealtimeReporter() {
   assertEqual(realtime.getAllProgress().length, 0, 'Should have no progress initially');
 
   const mockServer = {
-    on: (event: string, cb: Function) => {},
+    on: (_event: string, _cb: (...args: unknown[]) => void) => {},
   } as any;
 
   realtime.initialize(mockServer);
-  assertEqual(realtime.getConnectedClients(), 0, 'Should still have 0 clients after init (no real WS)');
+  assertEqual(
+    realtime.getConnectedClients(),
+    0,
+    'Should still have 0 clients after init (no real WS)'
+  );
 
   const runId = 'test-run-001';
   realtime.broadcastRunStarted(runId, 'test-project');
@@ -413,14 +452,21 @@ async function testDashboardServer() {
 
   const fetchJSON = (url: string): Promise<any> => {
     return new Promise((resolve, reject) => {
-      http.get(url, (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-          try { resolve(JSON.parse(data)); }
-          catch { resolve(data); }
-        });
-      }).on('error', reject);
+      http
+        .get(url, (res) => {
+          let data = '';
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch {
+              resolve(data);
+            }
+          });
+        })
+        .on('error', reject);
     });
   };
 
@@ -485,7 +531,7 @@ async function testCLIViaAPI() {
   assertEqual(fetched!.version, 'cli-test', 'CLI report should have correct version');
 
   const flakyManager = new FlakyTestManager(DATA_DIR);
-  flakyManager.recordRunResults(mockRun);
+  void flakyManager.recordRunResults(mockRun);
   const stats = flakyManager.getQuarantineStats();
   assert(typeof stats.totalTests === 'number', 'CLI flaky stats should work');
 }
@@ -510,7 +556,9 @@ async function main() {
   }
 
   console.log('\n' + '='.repeat(50));
-  console.log(`\n🎯 Results: ${chalk.green(`${passed} passed`)}, ${failed > 0 ? chalk.red(`${failed} failed`) : chalk.green('0 failed')}, ${total} total`);
+  console.log(
+    `\n🎯 Results: ${chalk.green(`${passed} passed`)}, ${failed > 0 ? chalk.red(`${failed} failed`) : chalk.green('0 failed')}, ${total} total`
+  );
   console.log(`\n📁 Test data in: ${TEST_DATA_DIR}`);
   console.log(`📊 Reports in: ${REPORTS_DIR}`);
 
@@ -520,4 +568,4 @@ async function main() {
 }
 
 import chalk from 'chalk';
-main();
+void main();

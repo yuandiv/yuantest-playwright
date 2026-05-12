@@ -1,9 +1,5 @@
-import {
-  detectDurationAnomaly,
-  predictFailure,
-  FlakyPredictor,
-} from '../../src/flaky/predictor';
-import { FlakyTest, DurationAnomaly } from '../../src/types';
+import { detectDurationAnomaly, predictFailure, FlakyPredictor } from '../../src/flaky/predictor';
+import { FlakyTest } from '../../src/types';
 
 function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   const now = Date.now();
@@ -11,7 +7,7 @@ function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   for (let i = 0; i < 15; i++) {
     history.push({
       timestamp: now - (15 - i) * 3600000,
-      status: i % 3 === 0 ? 'failed' as const : 'passed' as const,
+      status: i % 3 === 0 ? ('failed' as const) : ('passed' as const),
       duration: 1000 + (i % 3 === 0 ? 3000 : Math.random() * 500),
       error: i % 3 === 0 ? 'timeout waiting for selector' : undefined,
     });
@@ -34,9 +30,9 @@ function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
 
 describe('detectDurationAnomaly', () => {
   test('历史不足返回 null', () => {
-    const test = createFlakyTest({ history: [
-      { timestamp: Date.now(), status: 'passed', duration: 1000 },
-    ]});
+    const test = createFlakyTest({
+      history: [{ timestamp: Date.now(), status: 'passed', duration: 1000 }],
+    });
     expect(detectDurationAnomaly(test)).toBeNull();
   });
 
@@ -186,21 +182,25 @@ describe('FlakyPredictor', () => {
 
     const test1 = createFlakyTest({
       testId: 'test-1',
-      history: Array(15).fill(null).map((_, i) => ({
-        timestamp: now - (15 - i) * 3600000,
-        status: 'passed' as const,
-        duration: 1000,
-      })),
+      history: Array(15)
+        .fill(null)
+        .map((_, i) => ({
+          timestamp: now - (15 - i) * 3600000,
+          status: 'passed' as const,
+          duration: 1000,
+        })),
     });
 
     const test2 = createFlakyTest({
       testId: 'test-2',
       history: [
-        ...Array(14).fill(null).map((_, i) => ({
-          timestamp: now - (15 - i) * 3600000,
-          status: 'passed' as const,
-          duration: 1000,
-        })),
+        ...Array(14)
+          .fill(null)
+          .map((_, i) => ({
+            timestamp: now - (15 - i) * 3600000,
+            status: 'passed' as const,
+            duration: 1000,
+          })),
         { timestamp: now, status: 'failed' as const, duration: 10000, error: 'timeout' },
       ],
     });

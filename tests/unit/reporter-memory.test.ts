@@ -179,8 +179,20 @@ describe('Reporter with MemoryStorage', () => {
   });
 
   it('should generate dashboard stats', async () => {
-    const run1 = createMockRunResult({ id: 'run-001', totalTests: 3, passed: 2, failed: 1, duration: 5000 });
-    const run2 = createMockRunResult({ id: 'run-002', totalTests: 5, passed: 5, failed: 0, duration: 3000 });
+    const run1 = createMockRunResult({
+      id: 'run-001',
+      totalTests: 3,
+      passed: 2,
+      failed: 1,
+      duration: 5000,
+    });
+    const run2 = createMockRunResult({
+      id: 'run-002',
+      totalTests: 5,
+      passed: 5,
+      failed: 0,
+      duration: 3000,
+    });
 
     await reporter.generateReport(run1);
     await reporter.generateReport(run2);

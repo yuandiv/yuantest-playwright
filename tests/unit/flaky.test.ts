@@ -17,7 +17,9 @@ describe('FlakyTestManager', () => {
     await manager.flush();
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
+    } catch {
+      // ignore cleanup errors
+    }
   });
 
   it('should record a single test result', async () => {
@@ -65,7 +67,7 @@ describe('FlakyTestManager', () => {
 
     const flakyTests = manager.getFlakyTests(0.3);
     expect(flakyTests.length).toBeGreaterThan(0);
-    const flaky = flakyTests.find(t => t.testId === 'test-flaky');
+    const flaky = flakyTests.find((t) => t.testId === 'test-flaky');
     expect(flaky).toBeDefined();
     expect(flaky!.failureRate).toBe(0.5);
     expect(flaky!.classification).toBe('flaky');
@@ -96,7 +98,7 @@ describe('FlakyTestManager', () => {
     expect(brokenTest!.consecutiveFailures).toBe(5);
 
     const flakyTests = manager.getFlakyTests(0.1);
-    const brokenInFlaky = flakyTests.find(t => t.testId === 'test-broken');
+    const brokenInFlaky = flakyTests.find((t) => t.testId === 'test-broken');
     expect(brokenInFlaky).toBeUndefined();
   });
 
@@ -157,9 +159,45 @@ describe('FlakyTestManager', () => {
 
   it('should return correct quarantine stats with classification breakdown', async () => {
     const now = Date.now();
-    await manager.recordTestResult({ id: 't1', title: 'T1', status: 'passed', duration: 100, timestamp: now, retries: 0, browser: 'chromium', screenshots: [], videos: [], traces: [], logs: [] });
-    await manager.recordTestResult({ id: 't2', title: 'T2', status: 'failed', duration: 100, timestamp: now, retries: 0, browser: 'chromium', screenshots: [], videos: [], traces: [], logs: [] });
-    await manager.recordTestResult({ id: 't2', title: 'T2', status: 'passed', duration: 100, timestamp: now + 1, retries: 0, browser: 'chromium', screenshots: [], videos: [], traces: [], logs: [] });
+    await manager.recordTestResult({
+      id: 't1',
+      title: 'T1',
+      status: 'passed',
+      duration: 100,
+      timestamp: now,
+      retries: 0,
+      browser: 'chromium',
+      screenshots: [],
+      videos: [],
+      traces: [],
+      logs: [],
+    });
+    await manager.recordTestResult({
+      id: 't2',
+      title: 'T2',
+      status: 'failed',
+      duration: 100,
+      timestamp: now,
+      retries: 0,
+      browser: 'chromium',
+      screenshots: [],
+      videos: [],
+      traces: [],
+      logs: [],
+    });
+    await manager.recordTestResult({
+      id: 't2',
+      title: 'T2',
+      status: 'passed',
+      duration: 100,
+      timestamp: now + 1,
+      retries: 0,
+      browser: 'chromium',
+      screenshots: [],
+      videos: [],
+      traces: [],
+      logs: [],
+    });
     await manager.quarantineTest('t2');
 
     const stats = manager.getQuarantineStats();

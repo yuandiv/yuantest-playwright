@@ -6,7 +6,7 @@ import {
   prioritizeForQuarantine,
   QuarantineStrategyManager,
 } from '../../src/flaky/quarantine-strategy';
-import { FlakyTest, IsolationLevel, RootCauseType } from '../../src/types';
+import { FlakyTest } from '../../src/types';
 
 function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   return {
@@ -141,8 +141,16 @@ describe('checkQuarantineBudget', () => {
 
 describe('prioritizeForQuarantine', () => {
   test('高失败率测试优先', () => {
-    const test1 = createFlakyTest({ testId: 'low', weightedFailureRate: 0.2, isolationLevel: 'monitor' });
-    const test2 = createFlakyTest({ testId: 'high', weightedFailureRate: 0.8, isolationLevel: 'hard_quarantine' });
+    const test1 = createFlakyTest({
+      testId: 'low',
+      weightedFailureRate: 0.2,
+      isolationLevel: 'monitor',
+    });
+    const test2 = createFlakyTest({
+      testId: 'high',
+      weightedFailureRate: 0.8,
+      isolationLevel: 'hard_quarantine',
+    });
 
     const result = prioritizeForQuarantine([test1, test2]);
     expect(result[0].testId).toBe('high');
@@ -162,8 +170,18 @@ describe('QuarantineStrategyManager', () => {
   test('带预算的策略生成', () => {
     const manager = new QuarantineStrategyManager();
     const tests = [
-      createFlakyTest({ testId: 'test-1', weightedFailureRate: 0.6, isQuarantined: false, isolationLevel: 'hard_quarantine' }),
-      createFlakyTest({ testId: 'test-2', weightedFailureRate: 0.3, isQuarantined: false, isolationLevel: 'soft_quarantine' }),
+      createFlakyTest({
+        testId: 'test-1',
+        weightedFailureRate: 0.6,
+        isQuarantined: false,
+        isolationLevel: 'hard_quarantine',
+      }),
+      createFlakyTest({
+        testId: 'test-2',
+        weightedFailureRate: 0.3,
+        isQuarantined: false,
+        isolationLevel: 'soft_quarantine',
+      }),
     ];
 
     const strategies = manager.generateStrategiesWithBudget(tests, 100);

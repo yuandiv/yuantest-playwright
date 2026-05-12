@@ -18,7 +18,7 @@ function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   for (let i = 0; i < 20; i++) {
     history.push({
       timestamp: now - (20 - i) * MS_PER_DAY,
-      status: i % 3 === 0 ? 'failed' as const : 'passed' as const,
+      status: i % 3 === 0 ? ('failed' as const) : ('passed' as const),
       duration: 1000 + Math.random() * 500,
       error: i % 3 === 0 ? 'timeout' : undefined,
     });
@@ -82,7 +82,11 @@ describe('linearRegression', () => {
 describe('detectTrendDirection', () => {
   test('数据不足返回 stable', () => {
     expect(detectTrendDirection([])).toBe('stable');
-    expect(detectTrendDirection([{ timestamp: 1, passRate: 1, failRate: 0, avgDuration: 100, flakyCount: 0, totalRuns: 1 }])).toBe('stable');
+    expect(
+      detectTrendDirection([
+        { timestamp: 1, passRate: 1, failRate: 0, avgDuration: 100, flakyCount: 0, totalRuns: 1 },
+      ])
+    ).toBe('stable');
   });
 
   test('失败率持续上升返回 degrading', () => {
@@ -151,9 +155,7 @@ describe('detectChangePoints', () => {
 
 describe('detectSeasonalPattern', () => {
   test('数据不足返回 null', () => {
-    const history = [
-      { timestamp: Date.now(), status: 'failed' as const, duration: 100 },
-    ];
+    const history = [{ timestamp: Date.now(), status: 'failed' as const, duration: 100 }];
     expect(detectSeasonalPattern(history)).toBeNull();
   });
 
@@ -179,24 +181,28 @@ describe('correlateCodeChanges', () => {
 
   test('时间接近的代码变更被关联', () => {
     const now = Date.now();
-    const changePoints: ChangePoint[] = [{
-      timestamp: now,
-      beforeRate: 0.1,
-      afterRate: 0.6,
-      magnitude: 0.5,
-      confidence: 0.9,
-    }];
+    const changePoints: ChangePoint[] = [
+      {
+        timestamp: now,
+        beforeRate: 0.1,
+        afterRate: 0.6,
+        magnitude: 0.5,
+        confidence: 0.9,
+      },
+    ];
 
-    const codeChanges: CodeChangeCorrelation[] = [{
-      commitHash: 'abc123',
-      commitMessage: 'feat: new feature',
-      timestamp: now - 86400000,
-      author: 'dev',
-      affectedFiles: ['src/test.ts'],
-      correlationScore: 0,
-      flakyRateBefore: 0,
-      flakyRateAfter: 0,
-    }];
+    const codeChanges: CodeChangeCorrelation[] = [
+      {
+        commitHash: 'abc123',
+        commitMessage: 'feat: new feature',
+        timestamp: now - 86400000,
+        author: 'dev',
+        affectedFiles: ['src/test.ts'],
+        correlationScore: 0,
+        flakyRateBefore: 0,
+        flakyRateAfter: 0,
+      },
+    ];
 
     const result = correlateCodeChanges(changePoints, codeChanges);
     expect(result.length).toBeGreaterThan(0);
@@ -236,11 +242,13 @@ describe('calculateHealthScore', () => {
       weightedFailureRate: 0.05,
       failureRate: 0.05,
       totalRuns: 20,
-      history: Array(20).fill(null).map((_, i) => ({
-        timestamp: Date.now() - i * 86400000,
-        status: 'passed' as const,
-        duration: 1000,
-      })),
+      history: Array(20)
+        .fill(null)
+        .map((_, i) => ({
+          timestamp: Date.now() - i * 86400000,
+          status: 'passed' as const,
+          duration: 1000,
+        })),
     });
 
     const score = calculateHealthScore(test, 'stable', 0.8);
@@ -288,16 +296,18 @@ describe('TrendAnalyzer', () => {
     const test = createFlakyTest();
     const now = Date.now();
 
-    const codeChanges: CodeChangeCorrelation[] = [{
-      commitHash: 'abc',
-      commitMessage: 'fix: bug',
-      timestamp: now,
-      author: 'dev',
-      affectedFiles: ['src/test.ts'],
-      correlationScore: 0,
-      flakyRateBefore: 0,
-      flakyRateAfter: 0,
-    }];
+    const codeChanges: CodeChangeCorrelation[] = [
+      {
+        commitHash: 'abc',
+        commitMessage: 'fix: bug',
+        timestamp: now,
+        author: 'dev',
+        affectedFiles: ['src/test.ts'],
+        correlationScore: 0,
+        flakyRateBefore: 0,
+        flakyRateAfter: 0,
+      },
+    ];
 
     const result = analyzer.analyze(test, codeChanges);
     expect(result.codeChangeCorrelations).toBeDefined();

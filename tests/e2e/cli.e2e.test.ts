@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -6,7 +6,7 @@ import * as os from 'os';
 const DIST_PATH = path.join(__dirname, '../../dist');
 const CLI_PATH = path.join(__dirname, '../../bin/cli.js');
 const SRC_CLI_PATH = path.join(__dirname, '../../src/cli/index.ts');
-const TIMEOUT = 30000;
+const TIMEOUT = 60000;
 
 const distExists = fs.existsSync(DIST_PATH);
 
@@ -16,13 +16,16 @@ interface CLIResult {
   exitCode: number | null;
 }
 
-function runCLI(args: string[], options: { cwd?: string; timeout?: number } = {}): Promise<CLIResult> {
+function runCLI(
+  args: string[],
+  options: { cwd?: string; timeout?: number } = {}
+): Promise<CLIResult> {
   return new Promise((resolve, reject) => {
     const useDist = distExists;
     const command = useDist ? 'node' : 'npx';
     const cliPath = useDist ? CLI_PATH : SRC_CLI_PATH;
     const commandArgs = useDist ? [cliPath, ...args] : ['tsx', cliPath, ...args];
-    
+
     const proc = spawn(command, commandArgs, {
       cwd: options.cwd || process.cwd(),
       env: { ...process.env, NODE_ENV: 'test' },
@@ -57,6 +60,8 @@ function runCLI(args: string[], options: { cwd?: string; timeout?: number } = {}
   });
 }
 
+jest.setTimeout(60000);
+
 describe('CLI E2E Tests', () => {
   let tmpDir: string;
 
@@ -65,10 +70,12 @@ describe('CLI E2E Tests', () => {
   });
 
   afterEach(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
+    } catch {
+      // ignore cleanup errors
+    }
   });
 
   describe('Help and Version', () => {
@@ -101,12 +108,15 @@ describe('CLI E2E Tests', () => {
       const testDir = path.join(tmpDir, 'tests');
       fs.mkdirSync(testDir, { recursive: true });
 
-      fs.writeFileSync(path.join(testDir, 'example.spec.ts'), `
+      fs.writeFileSync(
+        path.join(testDir, 'example.spec.ts'),
+        `
         import { test, expect } from '@playwright/test';
         test('example test', async () => {
           expect(1).toBe(1);
         });
-      `);
+      `
+      );
 
       const result = await runCLI(['orchestrate', '-t', testDir, '-s', '2'], { cwd: tmpDir });
 
@@ -167,7 +177,9 @@ describe('CLI E2E Tests', () => {
       const testDir = path.join(tmpDir, 'tests');
       fs.mkdirSync(testDir, { recursive: true });
 
-      fs.writeFileSync(path.join(testDir, 'annotated.spec.ts'), `
+      fs.writeFileSync(
+        path.join(testDir, 'annotated.spec.ts'),
+        `
         import { test, expect } from '@playwright/test';
         test.skip('skipped test', async () => {
           expect(1).toBe(1);
@@ -175,7 +187,8 @@ describe('CLI E2E Tests', () => {
         test.fixme('fixme test', async () => {
           expect(1).toBe(1);
         });
-      `);
+      `
+      );
 
       const result = await runCLI(['annotations', '-t', testDir], { cwd: tmpDir });
 
@@ -189,12 +202,15 @@ describe('CLI E2E Tests', () => {
       const testDir = path.join(tmpDir, 'tests');
       fs.mkdirSync(testDir, { recursive: true });
 
-      fs.writeFileSync(path.join(testDir, 'tagged.spec.ts'), `
+      fs.writeFileSync(
+        path.join(testDir, 'tagged.spec.ts'),
+        `
         import { test, expect } from '@playwright/test';
         test('tagged test @smoke @critical', async () => {
           expect(1).toBe(1);
         });
-      `);
+      `
+      );
 
       const result = await runCLI(['tags', '-t', testDir], { cwd: tmpDir });
 

@@ -8,7 +8,9 @@ import { DEFAULT_FLAKY_CRITERIA, DEFAULT_QUARANTINE_CRITERIA } from '../constant
  * @returns 合并后的完整配置
  */
 export function mergeFlakyCriteria(userConfig?: Partial<FlakyCriteriaConfig>): FlakyCriteriaConfig {
-  if (!userConfig) return { ...DEFAULT_FLAKY_CRITERIA };
+  if (!userConfig) {
+    return { ...DEFAULT_FLAKY_CRITERIA };
+  }
   const result = { ...DEFAULT_FLAKY_CRITERIA };
   for (const key of Object.keys(DEFAULT_FLAKY_CRITERIA) as (keyof FlakyCriteriaConfig)[]) {
     const val = userConfig[key];
@@ -25,10 +27,16 @@ export function mergeFlakyCriteria(userConfig?: Partial<FlakyCriteriaConfig>): F
  * @param userConfig - 用户自定义配置（部分字段）
  * @returns 合并后的完整配置
  */
-export function mergeQuarantineCriteria(userConfig?: Partial<QuarantineCriteriaConfig>): QuarantineCriteriaConfig {
-  if (!userConfig) return { ...DEFAULT_QUARANTINE_CRITERIA };
+export function mergeQuarantineCriteria(
+  userConfig?: Partial<QuarantineCriteriaConfig>
+): QuarantineCriteriaConfig {
+  if (!userConfig) {
+    return { ...DEFAULT_QUARANTINE_CRITERIA };
+  }
   const result = { ...DEFAULT_QUARANTINE_CRITERIA };
-  for (const key of Object.keys(DEFAULT_QUARANTINE_CRITERIA) as (keyof QuarantineCriteriaConfig)[]) {
+  for (const key of Object.keys(
+    DEFAULT_QUARANTINE_CRITERIA
+  ) as (keyof QuarantineCriteriaConfig)[]) {
     const val = userConfig[key];
     if (val !== undefined && typeof val === typeof DEFAULT_QUARANTINE_CRITERIA[key]) {
       (result as Record<string, unknown>)[key] = val;

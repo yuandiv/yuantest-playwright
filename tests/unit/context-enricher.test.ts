@@ -4,7 +4,6 @@ import {
   encodeScreenshot,
   buildHistoryContext,
   enrichContext,
-  EnrichedContext,
 } from '../../src/diagnosis/context-enricher';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -63,7 +62,9 @@ describe('context-enricher', () => {
     afterEach(() => {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        // ignore cleanup errors
+      }
     });
 
     /** 应读取存在的文件内容 */
@@ -100,7 +101,9 @@ describe('context-enricher', () => {
     afterEach(() => {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        // ignore cleanup errors
+      }
     });
 
     /** 空数组应返回 undefined */
@@ -135,7 +138,9 @@ describe('context-enricher', () => {
     afterEach(() => {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        // ignore cleanup errors
+      }
     });
 
     /** 无历史文件时应返回 undefined */
@@ -161,9 +166,7 @@ describe('context-enricher', () => {
     /** 无匹配记录时应返回 undefined */
     it('无匹配记录时应返回 undefined', async () => {
       const historyPath = path.join(tmpDir, 'history.json');
-      const historyData = [
-        { title: 'Test A', status: 'passed', timestamp: Date.now() },
-      ];
+      const historyData = [{ title: 'Test A', status: 'passed', timestamp: Date.now() }];
       fs.writeFileSync(historyPath, JSON.stringify(historyData));
       const result = await buildHistoryContext('Test B', tmpDir);
       expect(result).toBeUndefined();
@@ -180,7 +183,9 @@ describe('context-enricher', () => {
     afterEach(() => {
       try {
         fs.rmSync(tmpDir, { recursive: true, force: true });
-      } catch {}
+      } catch {
+        // ignore cleanup errors
+      }
     });
 
     /** 应返回包含环境信息的上下文对象 */
@@ -195,10 +200,7 @@ describe('context-enricher', () => {
 
     /** 应正确标记未使用的上下文 */
     it('应正确标记未使用的上下文', async () => {
-      const context = await enrichContext(
-        { title: 'Test 1', error: 'some error' },
-        tmpDir
-      );
+      const context = await enrichContext({ title: 'Test 1', error: 'some error' }, tmpDir);
       expect(context.contextUsed.sourceCode).toBe(false);
       expect(context.contextUsed.screenshot).toBe(false);
       expect(context.contextUsed.consoleLogs).toBe(false);

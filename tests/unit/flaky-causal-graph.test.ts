@@ -1,5 +1,9 @@
 import { CausalGraphBuilder } from '../../src/flaky/causal-graph';
-import { FlakyTest, RunResult, CorrelationGroup, CausalGraph, ImpactAnalysis } from '../../src/types';
+import {
+  FlakyTest,
+  RunResult,
+  CorrelationGroup,
+} from '../../src/types';
 
 function createFlakyTest(testId: string, overrides: Partial<FlakyTest> = {}): FlakyTest {
   const now = Date.now();
@@ -9,12 +13,14 @@ function createFlakyTest(testId: string, overrides: Partial<FlakyTest> = {}): Fl
     failureRate: 0.4,
     totalRuns: 10,
     isQuarantined: false,
-    history: Array(10).fill(null).map((_, i) => ({
-      timestamp: now - (10 - i) * 3600000,
-      status: i % 3 === 0 ? 'failed' as const : 'passed' as const,
-      duration: 1000,
-      error: i % 3 === 0 ? 'timeout' : undefined,
-    })),
+    history: Array(10)
+      .fill(null)
+      .map((_, i) => ({
+        timestamp: now - (10 - i) * 3600000,
+        status: i % 3 === 0 ? ('failed' as const) : ('passed' as const),
+        duration: 1000,
+        error: i % 3 === 0 ? 'timeout' : undefined,
+      })),
     classification: 'flaky',
     weightedFailureRate: 0.4,
     consecutiveFailures: 0,
@@ -31,24 +37,26 @@ function createRunResult(testIds: string[], failedIds: string[]): RunResult {
     startTime: Date.now() - 60000,
     endTime: Date.now(),
     duration: 60000,
-    suites: [{
-      name: 'Suite 1',
-      totalTests: testIds.length,
-      passed: testIds.length - failedIds.length,
-      failed: failedIds.length,
-      skipped: 0,
-      duration: 60000,
-      tests: testIds.map((id) => ({
-        id,
-        title: `Test ${id}`,
-        status: failedIds.includes(id) ? 'failed' as const : 'passed' as const,
-        duration: 1000,
-        retries: 0,
+    suites: [
+      {
+        name: 'Suite 1',
+        totalTests: testIds.length,
+        passed: testIds.length - failedIds.length,
+        failed: failedIds.length,
+        skipped: 0,
+        duration: 60000,
+        tests: testIds.map((id) => ({
+          id,
+          title: `Test ${id}`,
+          status: failedIds.includes(id) ? ('failed' as const) : ('passed' as const),
+          duration: 1000,
+          retries: 0,
+          timestamp: Date.now(),
+          browser: 'chromium' as const,
+        })),
         timestamp: Date.now(),
-        browser: 'chromium' as const,
-      })),
-      timestamp: Date.now(),
-    }],
+      },
+    ],
     totalTests: testIds.length,
     passed: testIds.length - failedIds.length,
     failed: failedIds.length,
@@ -69,10 +77,7 @@ describe('CausalGraphBuilder', () => {
 
   test('构建测试节点', () => {
     const builder = new CausalGraphBuilder();
-    const tests = [
-      createFlakyTest('test-1'),
-      createFlakyTest('test-2'),
-    ];
+    const tests = [createFlakyTest('test-1'), createFlakyTest('test-2')];
 
     const graph = builder.build(tests, [], []);
     expect(graph.nodes.length).toBe(2);
@@ -82,18 +87,17 @@ describe('CausalGraphBuilder', () => {
 
   test('关联组生成基础设施节点', () => {
     const builder = new CausalGraphBuilder();
-    const tests = [
-      createFlakyTest('test-1'),
-      createFlakyTest('test-2'),
-    ];
+    const tests = [createFlakyTest('test-1'), createFlakyTest('test-2')];
 
-    const correlations: CorrelationGroup[] = [{
-      groupId: 'corr-1',
-      testIds: ['test-1', 'test-2'],
-      correlationType: 'same_error_pattern',
-      confidence: 0.8,
-      evidence: 'test-1 and test-2 frequently fail together',
-    }];
+    const correlations: CorrelationGroup[] = [
+      {
+        groupId: 'corr-1',
+        testIds: ['test-1', 'test-2'],
+        correlationType: 'same_error_pattern',
+        confidence: 0.8,
+        evidence: 'test-1 and test-2 frequently fail together',
+      },
+    ];
 
     const graph = builder.build(tests, correlations, []);
     expect(graph.nodes.length).toBeGreaterThan(2);
@@ -102,11 +106,7 @@ describe('CausalGraphBuilder', () => {
 
   test('运行结果推断依赖边', () => {
     const builder = new CausalGraphBuilder();
-    const tests = [
-      createFlakyTest('test-1'),
-      createFlakyTest('test-2'),
-      createFlakyTest('test-3'),
-    ];
+    const tests = [createFlakyTest('test-1'), createFlakyTest('test-2'), createFlakyTest('test-3')];
 
     const runs: RunResult[] = [];
     for (let i = 0; i < 5; i++) {
@@ -119,18 +119,17 @@ describe('CausalGraphBuilder', () => {
 
   test('影响分析', () => {
     const builder = new CausalGraphBuilder();
-    const tests = [
-      createFlakyTest('test-1'),
-      createFlakyTest('test-2'),
-    ];
+    const tests = [createFlakyTest('test-1'), createFlakyTest('test-2')];
 
-    const correlations: CorrelationGroup[] = [{
-      groupId: 'corr-1',
-      testIds: ['test-1', 'test-2'],
-      correlationType: 'same_error_pattern',
-      confidence: 0.9,
-      evidence: 'correlated',
-    }];
+    const correlations: CorrelationGroup[] = [
+      {
+        groupId: 'corr-1',
+        testIds: ['test-1', 'test-2'],
+        correlationType: 'same_error_pattern',
+        confidence: 0.9,
+        evidence: 'correlated',
+      },
+    ];
 
     const graph = builder.build(tests, correlations, []);
     const impact = builder.analyzeImpact('test-1', graph);
@@ -144,18 +143,17 @@ describe('CausalGraphBuilder', () => {
 
   test('获取根因节点', () => {
     const builder = new CausalGraphBuilder();
-    const tests = [
-      createFlakyTest('test-1'),
-      createFlakyTest('test-2'),
-    ];
+    const tests = [createFlakyTest('test-1'), createFlakyTest('test-2')];
 
-    const correlations: CorrelationGroup[] = [{
-      groupId: 'corr-1',
-      testIds: ['test-1', 'test-2'],
-      correlationType: 'same_run',
-      confidence: 0.9,
-      evidence: 'correlated',
-    }];
+    const correlations: CorrelationGroup[] = [
+      {
+        groupId: 'corr-1',
+        testIds: ['test-1', 'test-2'],
+        correlationType: 'same_run',
+        confidence: 0.9,
+        evidence: 'correlated',
+      },
+    ];
 
     const graph = builder.build(tests, correlations, []);
     const rootCauses = builder.getRootCauses(graph);
@@ -164,18 +162,17 @@ describe('CausalGraphBuilder', () => {
 
   test('获取下游影响链', () => {
     const builder = new CausalGraphBuilder();
-    const tests = [
-      createFlakyTest('test-1'),
-      createFlakyTest('test-2'),
-    ];
+    const tests = [createFlakyTest('test-1'), createFlakyTest('test-2')];
 
-    const correlations: CorrelationGroup[] = [{
-      groupId: 'corr-1',
-      testIds: ['test-1', 'test-2'],
-      correlationType: 'same_error_pattern',
-      confidence: 0.9,
-      evidence: 'correlated',
-    }];
+    const correlations: CorrelationGroup[] = [
+      {
+        groupId: 'corr-1',
+        testIds: ['test-1', 'test-2'],
+        correlationType: 'same_error_pattern',
+        confidence: 0.9,
+        evidence: 'correlated',
+      },
+    ];
 
     const graph = builder.build(tests, correlations, []);
     const downstream = builder.getDownstreamChain('test-1', graph);

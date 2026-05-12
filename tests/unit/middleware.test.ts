@@ -8,7 +8,7 @@ import {
   validateParams,
   errorHandler,
   notFoundHandler,
-  createAppError
+  createAppError,
 } from '../../src/middleware';
 import { PlaywrightRunnerError, ErrorCode } from '../../src/types';
 import { HTTP_STATUS } from '../../src/constants';
@@ -23,9 +23,12 @@ describe('Middleware Module', () => {
 
   describe('asyncHandler', () => {
     it('should handle async errors and pass to error handler', async () => {
-      app.get('/test', asyncHandler(async () => {
-        throw new Error('Test error');
-      }));
+      app.get(
+        '/test',
+        asyncHandler(async () => {
+          throw new Error('Test error');
+        })
+      );
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
@@ -33,14 +36,17 @@ describe('Middleware Module', () => {
       expect(response.status).toBe(HTTP_STATUS.INTERNAL_ERROR);
       expect(response.body).toEqual({
         error: 'Internal server error',
-        message: 'Test error'
+        message: 'Test error',
       });
     });
 
     it('should pass through on success', async () => {
-      app.get('/test', asyncHandler(async (_req, res) => {
-        res.json({ success: true });
-      }));
+      app.get(
+        '/test',
+        asyncHandler(async (_req, res) => {
+          res.json({ success: true });
+        })
+      );
 
       const response = await request(app).get('/test');
 
@@ -49,9 +55,12 @@ describe('Middleware Module', () => {
     });
 
     it('should handle PlaywrightRunnerError', async () => {
-      app.get('/test', asyncHandler(async () => {
-        throw new PlaywrightRunnerError('Custom error', ErrorCode.INVALID_CONFIG, undefined, 400);
-      }));
+      app.get(
+        '/test',
+        asyncHandler(async () => {
+          throw new PlaywrightRunnerError('Custom error', ErrorCode.INVALID_CONFIG, undefined, 400);
+        })
+      );
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
@@ -59,7 +68,7 @@ describe('Middleware Module', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         error: 'Custom error',
-        code: 'INVALID_CONFIG'
+        code: 'INVALID_CONFIG',
       });
     });
   });
@@ -72,9 +81,7 @@ describe('Middleware Module', () => {
         res.json({ received: req.body });
       });
 
-      const response = await request(app)
-        .post('/test')
-        .send({ name: 'John', age: 25 });
+      const response = await request(app).post('/test').send({ name: 'John', age: 25 });
 
       expect(response.status).toBe(HTTP_STATUS.OK);
       expect(response.body.received).toEqual({ name: 'John', age: 25 });
@@ -85,9 +92,7 @@ describe('Middleware Module', () => {
         res.json({ error: 'should not reach' });
       });
 
-      const response = await request(app)
-        .post('/test')
-        .send({ name: 'John', age: 'not-a-number' });
+      const response = await request(app).post('/test').send({ name: 'John', age: 'not-a-number' });
 
       expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST);
       expect(response.body.error).toBe('Validation failed');
@@ -95,7 +100,7 @@ describe('Middleware Module', () => {
       expect(response.body.details).toHaveLength(1);
       expect(response.body.details[0]).toMatchObject({
         path: 'age',
-        message: expect.stringContaining('number')
+        message: expect.stringContaining('number'),
       });
     });
 
@@ -104,9 +109,7 @@ describe('Middleware Module', () => {
         res.json({ error: 'should not reach' });
       });
 
-      const response = await request(app)
-        .post('/test')
-        .send({ name: 'John' });
+      const response = await request(app).post('/test').send({ name: 'John' });
 
       expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST);
       expect(response.body.error).toBe('Validation failed');
@@ -122,9 +125,7 @@ describe('Middleware Module', () => {
         res.json({ received: req.query });
       });
 
-      const response = await request(app)
-        .get('/test')
-        .query({ page: '1', limit: '10' });
+      const response = await request(app).get('/test').query({ page: '1', limit: '10' });
 
       expect(response.status).toBe(HTTP_STATUS.OK);
       expect(response.body.received).toEqual({ page: '1', limit: 10 });
@@ -135,9 +136,7 @@ describe('Middleware Module', () => {
         res.json({ error: 'should not reach' });
       });
 
-      const response = await request(app)
-        .get('/test')
-        .query({ limit: 'not-a-number' });
+      const response = await request(app).get('/test').query({ limit: 'not-a-number' });
 
       expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST);
       expect(response.body.error).toBe('Validation failed');
@@ -149,9 +148,7 @@ describe('Middleware Module', () => {
         res.json({ error: 'should not reach' });
       });
 
-      const response = await request(app)
-        .get('/test')
-        .query({ page: '1' });
+      const response = await request(app).get('/test').query({ page: '1' });
 
       expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST);
       expect(response.body.error).toBe('Validation failed');
@@ -198,7 +195,7 @@ describe('Middleware Module', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         error: 'Test error',
-        code: 'INVALID_CONFIG'
+        code: 'INVALID_CONFIG',
       });
     });
 
@@ -227,7 +224,7 @@ describe('Middleware Module', () => {
       expect(response.status).toBe(HTTP_STATUS.INTERNAL_ERROR);
       expect(response.body).toEqual({
         error: 'Internal server error',
-        message: 'Generic error'
+        message: 'Generic error',
       });
     });
 
@@ -244,7 +241,7 @@ describe('Middleware Module', () => {
 
       expect(response.status).toBe(HTTP_STATUS.INTERNAL_ERROR);
       expect(response.body).toEqual({
-        error: 'Internal server error'
+        error: 'Internal server error',
       });
       expect(response.body.message).toBeUndefined();
 
@@ -272,7 +269,7 @@ describe('Middleware Module', () => {
       expect(response.status).toBe(HTTP_STATUS.NOT_FOUND);
       expect(response.body).toEqual({
         error: 'Not found',
-        path: '/nonexistent'
+        path: '/nonexistent',
       });
     });
 
@@ -284,7 +281,7 @@ describe('Middleware Module', () => {
       expect(response.status).toBe(HTTP_STATUS.NOT_FOUND);
       expect(response.body).toEqual({
         error: 'Not found',
-        path: '/api/unknown/endpoint'
+        path: '/api/unknown/endpoint',
       });
     });
   });
@@ -332,7 +329,7 @@ describe('Middleware Module', () => {
           res.json({
             id: req.params.id,
             data: req.body,
-            verbose: req.query.verbose
+            verbose: req.query.verbose,
           });
         })
       );
@@ -346,7 +343,7 @@ describe('Middleware Module', () => {
       expect(response.body).toEqual({
         id: '123',
         data: { name: 'John', age: 25 },
-        verbose: 'true'
+        verbose: 'true',
       });
     });
 
@@ -362,9 +359,7 @@ describe('Middleware Module', () => {
       );
       app.use(errorHandler);
 
-      const response = await request(app)
-        .post('/users')
-        .send({ email: 'invalid-email' });
+      const response = await request(app).post('/users').send({ email: 'invalid-email' });
 
       expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST);
       expect(response.body.error).toBe('Validation failed');
@@ -384,7 +379,7 @@ describe('Middleware Module', () => {
       expect(response.status).toBe(HTTP_STATUS.NOT_FOUND);
       expect(response.body).toEqual({
         error: 'Not found',
-        code: 'NOT_FOUND'
+        code: 'NOT_FOUND',
       });
     });
   });

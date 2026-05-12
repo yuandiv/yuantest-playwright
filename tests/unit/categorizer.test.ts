@@ -1,4 +1,7 @@
-import { categorizeError, generateSuggestions, FailureCategory } from '../../src/diagnosis/categorizer';
+import {
+  categorizeError,
+  generateSuggestions,
+} from '../../src/diagnosis/categorizer';
 
 describe('categorizer', () => {
   describe('categorizeError', () => {
@@ -53,7 +56,9 @@ describe('categorizer', () => {
     });
 
     it('should prioritize knowledge base patterns over keyword matching', () => {
-      expect(categorizeError('Timeout 30000ms exceeded waiting for selector ".btn"')).toBe('timeout');
+      expect(categorizeError('Timeout 30000ms exceeded waiting for selector ".btn"')).toBe(
+        'timeout'
+      );
       expect(categorizeError('No element found for selector ".submit"')).toBe('selector');
       expect(categorizeError('Expected text "Hello" received "World"')).toBe('assertion');
     });
@@ -63,7 +68,7 @@ describe('categorizer', () => {
     it('should return Chinese suggestions by default', () => {
       const suggestions = generateSuggestions('some unknown error');
       expect(suggestions.length).toBeGreaterThan(0);
-      suggestions.forEach(s => {
+      suggestions.forEach((s) => {
         expect(typeof s).toBe('string');
       });
     });
@@ -74,13 +79,23 @@ describe('categorizer', () => {
     });
 
     it('should return knowledge base suggestions for known patterns', () => {
-      const zhSuggestions = generateSuggestions('Timeout 30000ms exceeded waiting for selector ".btn"', 'zh');
+      const zhSuggestions = generateSuggestions(
+        'Timeout 30000ms exceeded waiting for selector ".btn"',
+        'zh'
+      );
       expect(zhSuggestions.length).toBeGreaterThan(0);
-      expect(zhSuggestions.some(s => s.includes('超时') || s.includes('waitFor'))).toBe(true);
+      expect(zhSuggestions.some((s) => s.includes('超时') || s.includes('waitFor'))).toBe(true);
 
-      const enSuggestions = generateSuggestions('Timeout 30000ms exceeded waiting for selector ".btn"', 'en');
+      const enSuggestions = generateSuggestions(
+        'Timeout 30000ms exceeded waiting for selector ".btn"',
+        'en'
+      );
       expect(enSuggestions.length).toBeGreaterThan(0);
-      expect(enSuggestions.some(s => s.includes('timeout') || s.includes('Timeout') || s.includes('waitFor'))).toBe(true);
+      expect(
+        enSuggestions.some(
+          (s) => s.includes('timeout') || s.includes('Timeout') || s.includes('waitFor')
+        )
+      ).toBe(true);
     });
 
     it('should return fallback suggestions for timeout errors', () => {

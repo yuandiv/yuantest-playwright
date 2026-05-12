@@ -40,9 +40,9 @@ describe('TagManager', () => {
   describe('scanDirectory', () => {
     it('should return empty array if directory does not exist', async () => {
       mockStorage.exists.mockResolvedValue(false);
-      
+
       const result = await tagManager.scanDirectory('/nonexistent');
-      
+
       expect(result).toEqual([]);
       expect(mockStorage.exists).toHaveBeenCalledWith('/nonexistent');
     });
@@ -60,8 +60,8 @@ describe('TagManager', () => {
         test('test with tag', () => {});
       `);
 
-      const result = await tagManager.scanDirectory('/test-dir');
-      
+      const _result = await tagManager.scanDirectory('/test-dir');
+
       expect(mockStorage.exists).toHaveBeenCalledWith('/test-dir');
     });
   });
@@ -69,9 +69,9 @@ describe('TagManager', () => {
   describe('scanFile', () => {
     it('should return void if file content is empty', async () => {
       mockStorage.readText.mockResolvedValue('');
-      
+
       await tagManager.scanFile('/test.ts');
-      
+
       expect(mockStorage.readText).toHaveBeenCalledWith('/test.ts');
     });
 
@@ -79,9 +79,9 @@ describe('TagManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test('tagged test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
-      
+
       expect(mockStorage.readText).toHaveBeenCalled();
     });
 
@@ -90,12 +90,12 @@ describe('TagManager', () => {
         // @smoke
         test('smoke test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
+
       expect(tags.length).toBeGreaterThan(0);
-      expect(tags.find(t => t.name === 'smoke')).toBeDefined();
+      expect(tags.find((t) => t.name === 'smoke')).toBeDefined();
     });
 
     it('should detect @regression tag', async () => {
@@ -103,11 +103,11 @@ describe('TagManager', () => {
         // @regression
         test('regression test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'regression')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'regression')).toBeDefined();
     });
 
     it('should detect @critical tag', async () => {
@@ -115,11 +115,11 @@ describe('TagManager', () => {
         // @critical
         test('critical test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'critical')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'critical')).toBeDefined();
     });
 
     it('should detect @p0 tag', async () => {
@@ -127,11 +127,11 @@ describe('TagManager', () => {
         // @p0
         test('p0 test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'p0')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'p0')).toBeDefined();
     });
 
     it('should detect @p1 tag', async () => {
@@ -139,11 +139,11 @@ describe('TagManager', () => {
         // @p1
         test('p1 test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'p1')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'p1')).toBeDefined();
     });
 
     it('should detect @p2 tag', async () => {
@@ -151,11 +151,11 @@ describe('TagManager', () => {
         // @p2
         test('p2 test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'p2')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'p2')).toBeDefined();
     });
 
     it('should detect @sanity tag', async () => {
@@ -163,11 +163,11 @@ describe('TagManager', () => {
         // @sanity
         test('sanity test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'sanity')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'sanity')).toBeDefined();
     });
 
     it('should detect @e2e tag', async () => {
@@ -175,11 +175,11 @@ describe('TagManager', () => {
         // @e2e
         test('e2e test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'e2e')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'e2e')).toBeDefined();
     });
 
     it('should detect @unit tag', async () => {
@@ -187,11 +187,11 @@ describe('TagManager', () => {
         // @unit
         test('unit test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'unit')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'unit')).toBeDefined();
     });
 
     it('should detect @integration tag', async () => {
@@ -199,11 +199,11 @@ describe('TagManager', () => {
         // @integration
         test('integration test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'integration')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'integration')).toBeDefined();
     });
 
     it('should detect @slow tag', async () => {
@@ -211,11 +211,11 @@ describe('TagManager', () => {
         // @slow
         test('slow test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'slow')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'slow')).toBeDefined();
     });
 
     it('should detect @fast tag', async () => {
@@ -223,11 +223,11 @@ describe('TagManager', () => {
         // @fast
         test('fast test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'fast')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'fast')).toBeDefined();
     });
 
     it('should detect @flaky tag', async () => {
@@ -235,11 +235,11 @@ describe('TagManager', () => {
         // @flaky
         test('flaky test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
-      expect(tags.find(t => t.name === 'flaky')).toBeDefined();
+
+      expect(tags.find((t) => t.name === 'flaky')).toBeDefined();
     });
 
     it('should extract test name correctly', async () => {
@@ -247,10 +247,10 @@ describe('TagManager', () => {
         // @smoke
         test('my smoke test', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tests = tagManager.getTestsByTag('smoke');
-      
+
       expect(tests.length).toBeGreaterThan(0);
       expect(tests[0]).toContain('my smoke test');
     });
@@ -264,10 +264,10 @@ describe('TagManager', () => {
         // @regression
         test('test2', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
+
       expect(tags.length).toBe(2);
     });
   });
@@ -280,16 +280,16 @@ describe('TagManager', () => {
         // @smoke
         test('test2', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tests = tagManager.getTestsByTag('smoke');
-      
+
       expect(tests.length).toBe(2);
     });
 
     it('should return empty array for non-existent tag', () => {
       const tests = tagManager.getTestsByTag('nonexistent');
-      
+
       expect(tests).toEqual([]);
     });
   });
@@ -300,10 +300,10 @@ describe('TagManager', () => {
         // @smoke @critical
         test('test1', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const tags = tagManager.getTags();
-      
+
       if (tags.length > 0) {
         const tests = tagManager.getTestsByTag('smoke');
         if (tests.length > 0) {
@@ -315,7 +315,7 @@ describe('TagManager', () => {
 
     it('should return empty array for non-existent test', () => {
       const tags = tagManager.getTagsForTest('nonexistent');
-      
+
       expect(tags).toEqual([]);
     });
   });
@@ -328,11 +328,11 @@ describe('TagManager', () => {
         // @regression
         test('test2', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const allTests = ['test1', 'test2', 'test3'];
       const filtered = tagManager.getFilteredTests(allTests, ['smoke']);
-      
+
       expect(filtered.length).toBeLessThan(allTests.length);
     });
 
@@ -343,11 +343,11 @@ describe('TagManager', () => {
         // @regression
         test('test2', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const allTests = ['test1', 'test2', 'test3'];
       const filtered = tagManager.getFilteredTests(allTests, undefined, ['smoke']);
-      
+
       expect(filtered.length).toBeGreaterThanOrEqual(0);
     });
 
@@ -358,18 +358,21 @@ describe('TagManager', () => {
         // @smoke
         test('test2', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const allTests = ['test1', 'test2', 'test3'];
-      const filtered = tagManager.getFilteredTests(allTests, undefined, undefined, ['smoke', 'critical']);
-      
+      const filtered = tagManager.getFilteredTests(allTests, undefined, undefined, [
+        'smoke',
+        'critical',
+      ]);
+
       expect(filtered.length).toBeLessThan(allTests.length);
     });
 
     it('should return all tests if no filters', async () => {
       const allTests = ['test1', 'test2', 'test3'];
       const filtered = tagManager.getFilteredTests(allTests);
-      
+
       expect(filtered).toEqual(allTests);
     });
   });
@@ -377,13 +380,13 @@ describe('TagManager', () => {
   describe('buildGrepPattern', () => {
     it('should build grep pattern from tags', () => {
       const pattern = tagManager.buildGrepPattern(['smoke', 'regression']);
-      
+
       expect(pattern).toBe('smoke|regression');
     });
 
     it('should return empty string if no tags', () => {
       const pattern = tagManager.buildGrepPattern();
-      
+
       expect(pattern).toBe('');
     });
   });
@@ -396,10 +399,10 @@ describe('TagManager', () => {
         // @regression
         test('test2', () => {});
       `);
-      
+
       await tagManager.scanFile('/test.ts');
       const summary = tagManager.getSummary();
-      
+
       expect(summary.totalTags).toBeGreaterThan(0);
       expect(summary.totalTaggedTests).toBeGreaterThan(0);
       expect(summary.tags).toBeDefined();
@@ -413,10 +416,10 @@ describe('TagManager', () => {
         test('test1', () => {});
       `);
       mockStorage.writeJSON.mockResolvedValue();
-      
+
       await tagManager.scanFile('/test.ts');
       const result = await tagManager.generateTagReport('/output/report.json');
-      
+
       expect(result).toBe('/output/report.json');
       expect(mockStorage.writeJSON).toHaveBeenCalled();
     });

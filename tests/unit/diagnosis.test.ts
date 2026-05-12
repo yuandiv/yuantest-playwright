@@ -1,5 +1,5 @@
 import { DiagnosisService } from '../../src/diagnosis';
-import { LLMConfig, AIDiagnosis, ContextUsed } from '../../src/types';
+import { LLMConfig } from '../../src/types';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -31,11 +31,13 @@ function createMockLLMResponse(overrides: Record<string, unknown> = {}) {
             confidence: 0.85,
             category: 'timeout',
             codeDiffs: [
-              { filePath: 'tests/login.spec.ts', unifiedDiff: '@@ -10,1 +10,1 @@', description: 'Update selector' },
+              {
+                filePath: 'tests/login.spec.ts',
+                unifiedDiff: '@@ -10,1 +10,1 @@',
+                description: 'Update selector',
+              },
             ],
-            docLinks: [
-              { title: 'Selectors', url: 'https://playwright.dev/docs/selectors' },
-            ],
+            docLinks: [{ title: 'Selectors', url: 'https://playwright.dev/docs/selectors' }],
             ...overrides,
           }),
         },
@@ -58,20 +60,6 @@ function createMockLLMResponseNoTools(content: string) {
   };
 }
 
-/** 辅助函数：创建带 tool_calls 的 LLM mock 响应（模拟支持 tool_calling） */
-function createMockLLMResponseWithTools(toolCalls: Array<{ id: string; function: { name: string; arguments: string } }>, content: string | null = null) {
-  return {
-    choices: [
-      {
-        message: {
-          content,
-          tool_calls: toolCalls,
-        },
-      },
-    ],
-  };
-}
-
 describe('DiagnosisService', () => {
   let tmpDir: string;
   let service: DiagnosisService;
@@ -87,7 +75,9 @@ describe('DiagnosisService', () => {
     global.fetch = originalFetch;
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
+    } catch {
+      // ignore cleanup errors
+    }
   });
 
   describe('constructor', () => {
@@ -262,12 +252,15 @@ describe('DiagnosisService', () => {
         choices: [
           {
             message: {
-              content: '```json\n' + JSON.stringify({
-                summary: 'Test summary',
-                rootCause: 'Root cause',
-                suggestions: ['Fix it'],
-                confidence: 0.7,
-              }) + '\n```',
+              content:
+                '```json\n' +
+                JSON.stringify({
+                  summary: 'Test summary',
+                  rootCause: 'Root cause',
+                  suggestions: ['Fix it'],
+                  confidence: 0.7,
+                }) +
+                '\n```',
             },
           },
         ],
@@ -688,10 +681,13 @@ describe('DiagnosisService', () => {
 
       await service.saveConfig(createEnabledConfig());
 
-      const result = await service.diagnose({
-        title: '测试登录失败',
-        error: 'Timeout 30000ms exceeded',
-      }, 'zh');
+      const result = await service.diagnose(
+        {
+          title: '测试登录失败',
+          error: 'Timeout 30000ms exceeded',
+        },
+        'zh'
+      );
 
       expect(result.summary).toBe('元素未找到');
     });
@@ -720,8 +716,16 @@ describe('DiagnosisService', () => {
     it('应正确解析 codeDiffs 字段', async () => {
       const mockResponse = createMockLLMResponse({
         codeDiffs: [
-          { filePath: 'tests/login.spec.ts', unifiedDiff: '@@ -10,1 +10,1 @@', description: 'Update selector' },
-          { filePath: 'tests/home.spec.ts', unifiedDiff: '@@ -5,1 +5,1 @@', description: 'Fix wait' },
+          {
+            filePath: 'tests/login.spec.ts',
+            unifiedDiff: '@@ -10,1 +10,1 @@',
+            description: 'Update selector',
+          },
+          {
+            filePath: 'tests/home.spec.ts',
+            unifiedDiff: '@@ -5,1 +5,1 @@',
+            description: 'Fix wait',
+          },
         ],
       });
       global.fetch = jest.fn().mockResolvedValue({
@@ -990,13 +994,16 @@ describe('DiagnosisService', () => {
 
       await service.saveConfig(createEnabledConfig());
 
-      const result = await service.diagnose({
-        title: 'Test low confidence',
-        error: 'Something unexpected',
-      }, 'zh');
+      const result = await service.diagnose(
+        {
+          title: 'Test low confidence',
+          error: 'Something unexpected',
+        },
+        'zh'
+      );
 
       expect(result.calibratedConfidence).toBeLessThan(0.5);
-      expect(result.suggestions.some(s => s.includes('建议人工确认'))).toBe(true);
+      expect(result.suggestions.some((s) => s.includes('建议人工确认'))).toBe(true);
     });
 
     /** 英文模式下低置信度应追加英文警告 */
@@ -1009,13 +1016,16 @@ describe('DiagnosisService', () => {
 
       await service.saveConfig(createEnabledConfig());
 
-      const result = await service.diagnose({
-        title: 'Test low confidence en',
-        error: 'Something unexpected',
-      }, 'en');
+      const result = await service.diagnose(
+        {
+          title: 'Test low confidence en',
+          error: 'Something unexpected',
+        },
+        'en'
+      );
 
       expect(result.calibratedConfidence).toBeLessThan(0.5);
-      expect(result.suggestions.some(s => s.includes('manual review'))).toBe(true);
+      expect(result.suggestions.some((s) => s.includes('manual review'))).toBe(true);
     });
 
     /** 高置信度时不应追加警告 */
@@ -1033,7 +1043,9 @@ describe('DiagnosisService', () => {
         error: 'Timeout 30000ms exceeded waiting for selector ".btn"',
       });
 
-      expect(result.suggestions.some(s => s.includes('建议人工确认') || s.includes('manual review'))).toBe(false);
+      expect(
+        result.suggestions.some((s) => s.includes('建议人工确认') || s.includes('manual review'))
+      ).toBe(false);
     });
   });
 
@@ -1048,8 +1060,8 @@ describe('DiagnosisService', () => {
         events.push(event);
       }
 
-      const parsed = events.map(e => JSON.parse(e.trim()));
-      expect(parsed.some(e => e.type === 'error')).toBe(true);
+      const parsed = events.map((e) => JSON.parse(e.trim()));
+      expect(parsed.some((e) => e.type === 'error')).toBe(true);
     });
 
     /** 流式诊断应产生完整的事件序列 */
@@ -1092,12 +1104,18 @@ describe('DiagnosisService', () => {
         events.push(event);
       }
 
-      const parsed = events.map(e => {
-        try { return JSON.parse(e.trim()); } catch { return null; }
-      }).filter(Boolean);
+      const parsed = events
+        .map((e) => {
+          try {
+            return JSON.parse(e.trim());
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
 
-      expect(parsed.some(e => e.type === 'start')).toBe(true);
-      expect(parsed.some(e => e.type === 'complete')).toBe(true);
+      expect(parsed.some((e) => e.type === 'start')).toBe(true);
+      expect(parsed.some((e) => e.type === 'complete')).toBe(true);
     });
   });
 

@@ -172,7 +172,11 @@ export function calculateConsecutivePasses(history: FlakyHistoryEntry[]): number
  * @param config - 分类器配置（可选）
  * @returns 是否为回归模式
  */
-function isRegression(history: FlakyHistoryEntry[], window: number, config: Partial<ClassifyConfig> = {}): boolean {
+function isRegression(
+  history: FlakyHistoryEntry[],
+  window: number,
+  config: Partial<ClassifyConfig> = {}
+): boolean {
   if (history.length < window) {
     return false;
   }
@@ -192,8 +196,10 @@ function isRegression(history: FlakyHistoryEntry[], window: number, config: Part
     olderHistory.filter((h) => h.status === 'failed' || h.status === 'timedout').length /
     olderHistory.length;
 
-  const recentThreshold = config.regressionRecentFailRate ?? DEFAULT_CLASSIFY_CONFIG.regressionRecentFailRate;
-  const olderThreshold = config.regressionOlderFailRate ?? DEFAULT_CLASSIFY_CONFIG.regressionOlderFailRate;
+  const recentThreshold =
+    config.regressionRecentFailRate ?? DEFAULT_CLASSIFY_CONFIG.regressionRecentFailRate;
+  const olderThreshold =
+    config.regressionOlderFailRate ?? DEFAULT_CLASSIFY_CONFIG.regressionOlderFailRate;
 
   return recentFailRate >= recentThreshold && olderFailRate <= olderThreshold;
 }

@@ -1,6 +1,5 @@
 import { AnnotationManager } from '../../src/annotations';
 import { StorageProvider } from '../../src/storage';
-import * as path from 'path';
 
 describe('AnnotationManager', () => {
   let annotationManager: AnnotationManager;
@@ -33,10 +32,13 @@ describe('AnnotationManager', () => {
     });
 
     it('should merge custom config with defaults', () => {
-      const manager = new AnnotationManager({
-        enabled: false,
-        respectSkip: false,
-      }, mockStorage);
+      const manager = new AnnotationManager(
+        {
+          enabled: false,
+          respectSkip: false,
+        },
+        mockStorage
+      );
       expect(manager).toBeDefined();
     });
   });
@@ -44,9 +46,9 @@ describe('AnnotationManager', () => {
   describe('scanDirectory', () => {
     it('should return empty array if directory does not exist', async () => {
       mockStorage.exists.mockResolvedValue(false);
-      
+
       const result = await annotationManager.scanDirectory('/nonexistent');
-      
+
       expect(result).toEqual([]);
       expect(mockStorage.exists).toHaveBeenCalledWith('/nonexistent');
     });
@@ -65,8 +67,8 @@ describe('AnnotationManager', () => {
         test('normal test', () => {});
       `);
 
-      const result = await annotationManager.scanDirectory('/test-dir');
-      
+      const _result = await annotationManager.scanDirectory('/test-dir');
+
       expect(mockStorage.exists).toHaveBeenCalledWith('/test-dir');
     });
   });
@@ -74,9 +76,9 @@ describe('AnnotationManager', () => {
   describe('scanFile', () => {
     it('should return empty array if file content is empty', async () => {
       mockStorage.readText.mockResolvedValue('');
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result).toEqual([]);
     });
 
@@ -86,9 +88,9 @@ describe('AnnotationManager', () => {
           expect(true).toBe(true);
         });
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('skip');
     });
@@ -99,9 +101,9 @@ describe('AnnotationManager', () => {
           expect(true).toBe(true);
         });
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('only');
     });
@@ -112,9 +114,9 @@ describe('AnnotationManager', () => {
           expect(true).toBe(false);
         });
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('fail');
     });
@@ -125,9 +127,9 @@ describe('AnnotationManager', () => {
           // slow operation
         });
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('slow');
     });
@@ -138,9 +140,9 @@ describe('AnnotationManager', () => {
           // needs fixing
         });
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('fixme');
     });
@@ -149,9 +151,9 @@ describe('AnnotationManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test.todo('todo test');
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('todo');
     });
@@ -162,9 +164,9 @@ describe('AnnotationManager', () => {
           test('test1', () => {});
         });
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('skip');
     });
@@ -175,9 +177,9 @@ describe('AnnotationManager', () => {
           test('test1', () => {});
         });
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('serial');
     });
@@ -188,9 +190,9 @@ describe('AnnotationManager', () => {
           test('test1', () => {});
         });
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('parallel');
     });
@@ -200,9 +202,9 @@ describe('AnnotationManager', () => {
         // @skip reason: not ready yet
         test('test with comment', () => {});
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].type).toBe('skip');
     });
@@ -211,9 +213,9 @@ describe('AnnotationManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test.skip('my skipped test', () => {});
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result.length).toBeGreaterThan(0);
       expect(result[0].testName).toBeDefined();
     });
@@ -222,9 +224,9 @@ describe('AnnotationManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test.skip('reason: not implemented', 'my test', () => {});
       `);
-      
+
       const result = await annotationManager.scanFile('/test.ts');
-      
+
       expect(result[0].description).toBeDefined();
     });
   });
@@ -236,10 +238,10 @@ describe('AnnotationManager', () => {
         test.only('test2', () => {});
         test.skip('test3', () => {});
       `);
-      
+
       await annotationManager.scanFile('/test.ts');
       const skipAnnotations = annotationManager.getAnnotationsByType('skip');
-      
+
       expect(skipAnnotations.length).toBeGreaterThanOrEqual(0);
     });
   });
@@ -249,10 +251,10 @@ describe('AnnotationManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test.skip('test1', () => {});
       `);
-      
+
       await annotationManager.scanFile('/test.ts');
       const fileAnnotations = annotationManager.getAnnotationsByFile('/test.ts');
-      
+
       expect(fileAnnotations.length).toBeGreaterThanOrEqual(0);
     });
   });
@@ -263,10 +265,10 @@ describe('AnnotationManager', () => {
         test.skip('test1', () => {});
         test.only('test2', () => {});
       `);
-      
+
       await annotationManager.scanFile('/test.ts');
       const summary = annotationManager.getSummary();
-      
+
       expect(summary.total).toBeGreaterThanOrEqual(0);
       expect(summary.byType).toBeDefined();
       expect(summary.byFile).toBeDefined();
@@ -283,10 +285,10 @@ describe('AnnotationManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test.skip('test1', () => {});
       `);
-      
+
       await annotationManager.scanFile('/test.ts');
       const annotations = annotationManager.getAnnotationsByType('skip');
-      
+
       if (annotations.length > 0) {
         const result = annotationManager.shouldSkipTest(annotations[0].testId);
         expect(result).toBe(true);
@@ -297,10 +299,10 @@ describe('AnnotationManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test.fixme('test1', () => {});
       `);
-      
+
       await annotationManager.scanFile('/test.ts');
       const annotations = annotationManager.getAnnotationsByType('fixme');
-      
+
       if (annotations.length > 0) {
         const result = annotationManager.shouldSkipTest(annotations[0].testId);
         expect(result).toBe(true);
@@ -318,10 +320,10 @@ describe('AnnotationManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test.fail('test1', () => {});
       `);
-      
+
       await annotationManager.scanFile('/test.ts');
       const annotations = annotationManager.getAnnotationsByType('fail');
-      
+
       if (annotations.length > 0) {
         const result = annotationManager.shouldExpectFail(annotations[0].testId);
         expect(result).toBe(true);
@@ -340,10 +342,10 @@ describe('AnnotationManager', () => {
       mockStorage.readText.mockResolvedValue(`
         test.slow('test1', () => {});
       `);
-      
+
       await manager.scanFile('/test.ts');
       const annotations = manager.getAnnotationsByType('slow');
-      
+
       if (annotations.length > 0) {
         const result = manager.isSlowTest(annotations[0].testId);
         expect(result).toBe(true);
@@ -354,19 +356,22 @@ describe('AnnotationManager', () => {
   describe('getPlaywrightAnnotations', () => {
     it('should return annotations for Playwright config', () => {
       const result = annotationManager.getPlaywrightAnnotations();
-      
+
       expect(result).toBeDefined();
       expect(result.skip).toBe(true);
       expect(result.fixme).toBe(true);
     });
 
     it('should include custom annotations with skip action', () => {
-      const manager = new AnnotationManager({
-        customAnnotations: {
-          custom: { action: 'skip' },
+      const manager = new AnnotationManager(
+        {
+          customAnnotations: {
+            custom: { action: 'skip' },
+          },
         },
-      }, mockStorage);
-      
+        mockStorage
+      );
+
       const result = manager.getPlaywrightAnnotations();
       expect(result.custom).toBe(true);
     });
@@ -378,10 +383,10 @@ describe('AnnotationManager', () => {
         test.skip('test1', () => {});
       `);
       mockStorage.writeJSON.mockResolvedValue();
-      
+
       await annotationManager.scanFile('/test.ts');
       const result = await annotationManager.generateAnnotationReport('/output/report.json');
-      
+
       expect(result).toBe('/output/report.json');
       expect(mockStorage.writeJSON).toHaveBeenCalled();
     });

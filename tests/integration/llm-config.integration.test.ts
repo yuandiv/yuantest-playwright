@@ -19,7 +19,9 @@ describe('LLM Config API Integration', () => {
     global.fetch = originalFetch;
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
+    } catch {
+      // ignore cleanup errors
+    }
   });
 
   describe('config persistence', () => {
@@ -99,20 +101,22 @@ describe('LLM Config API Integration', () => {
 
     it('should complete full diagnosis flow with mocked LLM', async () => {
       const diagnosisResponse = {
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              summary: 'Element selector timeout',
-              rootCause: 'The target element was not rendered within the timeout period',
-              suggestions: [
-                'Increase the timeout value in the test',
-                'Add a waitForSelector before interacting',
-                'Check if the page is fully loaded',
-              ],
-              confidence: 0.88,
-            }),
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                summary: 'Element selector timeout',
+                rootCause: 'The target element was not rendered within the timeout period',
+                suggestions: [
+                  'Increase the timeout value in the test',
+                  'Add a waitForSelector before interacting',
+                  'Check if the page is fully loaded',
+                ],
+                confidence: 0.88,
+              }),
+            },
           },
-        }],
+        ],
       };
 
       global.fetch = jest.fn().mockResolvedValue({
@@ -161,18 +165,21 @@ describe('LLM Config API Integration', () => {
         callCount++;
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  summary: 'Test summary',
-                  rootCause: 'Root cause',
-                  suggestions: ['Fix it'],
-                  confidence: 0.7,
-                }),
-              },
-            }],
-          }),
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      summary: 'Test summary',
+                      rootCause: 'Root cause',
+                      suggestions: ['Fix it'],
+                      confidence: 0.7,
+                    }),
+                  },
+                },
+              ],
+            }),
         });
       });
 
@@ -206,18 +213,21 @@ describe('LLM Config API Integration', () => {
         callCount++;
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  summary: 'Cached result',
-                  rootCause: 'Root cause',
-                  suggestions: ['Fix'],
-                  confidence: 0.9,
-                }),
-              },
-            }],
-          }),
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      summary: 'Cached result',
+                      rootCause: 'Root cause',
+                      suggestions: ['Fix'],
+                      confidence: 0.9,
+                    }),
+                  },
+                },
+              ],
+            }),
         });
       });
 

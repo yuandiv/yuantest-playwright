@@ -1,6 +1,5 @@
 import { Orchestrator } from '../../src/orchestrator';
 import { Executor } from '../../src/executor';
-import { Reporter } from '../../src/reporter';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -57,12 +56,15 @@ describe('Orchestrator-Executor Integration', () => {
     });
 
     it('should discover test files', async () => {
-      fs.writeFileSync(path.join(testDir, 'example.spec.ts'), `
+      fs.writeFileSync(
+        path.join(testDir, 'example.spec.ts'),
+        `
         import { test, expect } from '@playwright/test';
         test('example test', async () => {
           expect(1).toBe(1);
         });
-      `);
+      `
+      );
 
       const orchestrator = new Orchestrator({
         version: 'test-project',
@@ -79,12 +81,15 @@ describe('Orchestrator-Executor Integration', () => {
 
     it('should distribute tests across shards', async () => {
       for (let i = 0; i < 5; i++) {
-        fs.writeFileSync(path.join(testDir, `test${i}.spec.ts`), `
+        fs.writeFileSync(
+          path.join(testDir, `test${i}.spec.ts`),
+          `
           import { test, expect } from '@playwright/test';
           test('test ${i}', async () => {
             expect(${i}).toBe(${i});
           });
-        `);
+        `
+        );
       }
 
       const orchestrator = new Orchestrator({
@@ -101,7 +106,7 @@ describe('Orchestrator-Executor Integration', () => {
       expect(result.testAssignment.length).toBe(5);
 
       const shardCounts = [0, 0, 0];
-      result.testAssignment.forEach(a => {
+      result.testAssignment.forEach((a) => {
         shardCounts[a.shardId]++;
       });
 
@@ -192,12 +197,15 @@ describe('Orchestrator-Executor Integration', () => {
 
   describe('Orchestrator-Executor Workflow', () => {
     it('should orchestrate and prepare for execution', async () => {
-      fs.writeFileSync(path.join(testDir, 'simple.spec.ts'), `
+      fs.writeFileSync(
+        path.join(testDir, 'simple.spec.ts'),
+        `
         import { test, expect } from '@playwright/test';
         test('simple test', async () => {
           expect(true).toBe(true);
         });
-      `);
+      `
+      );
 
       const orchestrator = new Orchestrator({
         version: 'test-project',

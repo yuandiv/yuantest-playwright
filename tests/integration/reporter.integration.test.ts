@@ -147,8 +147,8 @@ describe('Reporter Integration', () => {
       const allReports = await reporter.getAllReports();
 
       expect(allReports.length).toBe(2);
-      expect(allReports.map(r => r.id)).toContain('run-1');
-      expect(allReports.map(r => r.id)).toContain('run-2');
+      expect(allReports.map((r) => r.id)).toContain('run-1');
+      expect(allReports.map((r) => r.id)).toContain('run-2');
     });
   });
 
@@ -169,16 +169,18 @@ describe('Reporter Integration', () => {
       };
 
       const runResult = createMockRunResult({
-        suites: [{
-          name: 'Suite with Failure',
-          totalTests: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 2000,
-          tests: [failedTest],
-          timestamp: Date.now(),
-        }],
+        suites: [
+          {
+            name: 'Suite with Failure',
+            totalTests: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 2000,
+            tests: [failedTest],
+            timestamp: Date.now(),
+          },
+        ],
         passed: 0,
         failed: 1,
       });
@@ -207,16 +209,18 @@ describe('Reporter Integration', () => {
       };
 
       const runResult = createMockRunResult({
-        suites: [{
-          name: 'Suite',
-          totalTests: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 1000,
-          tests: [failedTest],
-          timestamp: Date.now(),
-        }],
+        suites: [
+          {
+            name: 'Suite',
+            totalTests: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 1000,
+            tests: [failedTest],
+            timestamp: Date.now(),
+          },
+        ],
         passed: 0,
         failed: 1,
       });
@@ -242,16 +246,18 @@ describe('Reporter Integration', () => {
       };
 
       const runResult = createMockRunResult({
-        suites: [{
-          name: 'Suite',
-          totalTests: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 1000,
-          tests: [failedTest],
-          timestamp: Date.now(),
-        }],
+        suites: [
+          {
+            name: 'Suite',
+            totalTests: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 1000,
+            tests: [failedTest],
+            timestamp: Date.now(),
+          },
+        ],
         passed: 0,
         failed: 1,
       });
@@ -266,8 +272,12 @@ describe('Reporter Integration', () => {
     it('should generate dashboard statistics', async () => {
       const reporter = new Reporter(outputDir);
 
-      await reporter.generateReport(createMockRunResult({ id: 'run-1', passed: 5, failed: 1, totalTests: 6 }));
-      await reporter.generateReport(createMockRunResult({ id: 'run-2', passed: 4, failed: 2, totalTests: 6 }));
+      await reporter.generateReport(
+        createMockRunResult({ id: 'run-1', passed: 5, failed: 1, totalTests: 6 })
+      );
+      await reporter.generateReport(
+        createMockRunResult({ id: 'run-2', passed: 4, failed: 2, totalTests: 6 })
+      );
 
       const stats = await reporter.generateDashboard();
 

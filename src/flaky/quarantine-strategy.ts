@@ -249,7 +249,10 @@ export function checkQuarantineBudget(
   config: Partial<QuarantineStrategyConfig> = {}
 ): { allowed: boolean; remaining: number; utilization: number } {
   const cfg = { ...DEFAULT_STRATEGY_CONFIG, ...config };
-  const maxQuarantined = Math.max(cfg.minQuarantineCount, Math.ceil(totalTests * cfg.maxQuarantineRatio));
+  const maxQuarantined = Math.max(
+    cfg.minQuarantineCount,
+    Math.ceil(totalTests * cfg.maxQuarantineRatio)
+  );
   const remaining = Math.max(0, maxQuarantined - currentQuarantined);
   const utilization = totalTests > 0 ? currentQuarantined / totalTests : 0;
 

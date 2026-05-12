@@ -7,7 +7,11 @@ import { TestResult } from '../../src/types';
  */
 
 /** 辅助函数：创建测试结果对象 */
-function createTestResult(id: string, error: string, overrides: Partial<TestResult> = {}): TestResult {
+function createTestResult(
+  id: string,
+  error: string,
+  overrides: Partial<TestResult> = {}
+): TestResult {
   return {
     id,
     title: `Test ${id}`,
@@ -42,7 +46,7 @@ describe('cluster', () => {
         createTestResult('2', '401 Unauthorized - token expired'),
       ];
       const clusters = clusterFailures(results);
-      clusters.forEach(cluster => {
+      clusters.forEach((cluster) => {
         expect(cluster.testIds.length).toBeLessThan(2);
       });
     });
@@ -162,7 +166,7 @@ describe('cluster', () => {
       const clusters = clusterFailures(results);
       if (clusters.length > 0) {
         expect(clusters[0].representativeTestId).toBeDefined();
-        expect(results.some(r => r.id === clusters[0].representativeTestId)).toBe(true);
+        expect(results.some((r) => r.id === clusters[0].representativeTestId)).toBe(true);
       }
     });
 

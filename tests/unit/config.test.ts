@@ -180,14 +180,14 @@ describe('ConfigLoader', () => {
     it('should handle headers config', () => {
       const fileConfig = {
         headers: {
-          'Authorization': 'Bearer token',
+          Authorization: 'Bearer token',
           'X-Custom': 'value',
         },
       };
 
       const config = mergeConfig(fileConfig, {});
       expect(config.headers).toEqual({
-        'Authorization': 'Bearer token',
+        Authorization: 'Bearer token',
         'X-Custom': 'value',
       });
     });

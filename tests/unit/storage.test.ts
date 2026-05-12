@@ -87,8 +87,8 @@ describe('MemoryStorage', () => {
       await storage.mkdir('/test/dir');
       const entries = await storage.readDirWithTypes('/test');
       expect(entries.length).toBe(2);
-      const file = entries.find(e => e.name === 'file.txt');
-      const dir = entries.find(e => e.name === 'dir');
+      const file = entries.find((e) => e.name === 'file.txt');
+      const dir = entries.find((e) => e.name === 'dir');
       expect(file?.isFile()).toBe(true);
       expect(dir?.isDirectory()).toBe(true);
     });
@@ -223,14 +223,16 @@ describe('FilesystemStorage', () => {
   beforeEach(async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fs-storage-test-'));
     storage = new FilesystemStorage();
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
   afterEach(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
+    } catch {
+      // ignore cleanup errors
+    }
   });
 
   describe('basic operations', () => {
@@ -299,8 +301,8 @@ describe('FilesystemStorage', () => {
 
       const entries = await storage.readDirWithTypes(tmpDir);
       expect(entries.length).toBe(2);
-      const file = entries.find(e => e.name === 'file.txt');
-      const dir = entries.find(e => e.name === 'dir');
+      const file = entries.find((e) => e.name === 'file.txt');
+      const dir = entries.find((e) => e.name === 'dir');
       expect(file?.isFile()).toBe(true);
       expect(dir?.isDirectory()).toBe(true);
     });

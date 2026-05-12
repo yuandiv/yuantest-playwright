@@ -112,8 +112,8 @@ describe('ArtifactManager', () => {
 
       const artifacts = await manager.discoverArtifacts('run-1');
       expect(artifacts.length).toBe(2);
-      expect(artifacts.find(a => a.fileName === 'image.jpg')?.type).toBe('screenshot');
-      expect(artifacts.find(a => a.fileName === 'image.jpeg')?.type).toBe('screenshot');
+      expect(artifacts.find((a) => a.fileName === 'image.jpg')?.type).toBe('screenshot');
+      expect(artifacts.find((a) => a.fileName === 'image.jpeg')?.type).toBe('screenshot');
     });
 
     it('should discover webp screenshots', async () => {

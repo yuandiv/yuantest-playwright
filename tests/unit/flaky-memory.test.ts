@@ -55,7 +55,7 @@ describe('FlakyTestManager with MemoryStorage', () => {
     }
 
     const flakyTests = manager.getFlakyTests(0.3);
-    const flaky = flakyTests.find(t => t.testId === 'mem-flaky');
+    const flaky = flakyTests.find((t) => t.testId === 'mem-flaky');
     expect(flaky).toBeDefined();
     expect(flaky!.failureRate).toBe(0.5);
   });

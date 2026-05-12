@@ -25,7 +25,13 @@ import * as path from 'path';
 import dayjs from 'dayjs';
 import { ManagedManager } from '../base';
 import { StorageProvider, getStorage } from '../storage';
-import { FLAKY_CONFIG, CACHE_CONFIG, DEFAULTS, DEFAULT_FLAKY_CRITERIA, DEFAULT_QUARANTINE_CRITERIA } from '../constants';
+import {
+  FLAKY_CONFIG,
+  CACHE_CONFIG,
+  DEFAULTS,
+  DEFAULT_FLAKY_CRITERIA,
+  DEFAULT_QUARANTINE_CRITERIA,
+} from '../constants';
 import {
   classifyTest,
   calculateWeightedFailureRate,
@@ -40,7 +46,6 @@ import { TrendAnalyzer, calculateHealthScore } from './trend';
 import { FlakyPredictor, detectDurationAnomaly } from './predictor';
 import {
   QuarantineStrategyManager,
-  QuarantineStrategyConfig,
   generateQuarantineStrategy,
   checkQuarantineBudget,
 } from './quarantine-strategy';
@@ -1059,7 +1064,12 @@ export class FlakyTestManager extends ManagedManager {
     await this.saveHistory();
   }
 
-  setConfig(config: Partial<QuarantineConfig> & { flakyCriteria?: Partial<FlakyCriteriaConfig>; quarantineCriteria?: Partial<QuarantineCriteriaConfig> }): void {
+  setConfig(
+    config: Partial<QuarantineConfig> & {
+      flakyCriteria?: Partial<FlakyCriteriaConfig>;
+      quarantineCriteria?: Partial<QuarantineCriteriaConfig>;
+    }
+  ): void {
     const { flakyCriteria, quarantineCriteria, ...restConfig } = config;
     this.config = { ...this.config, ...restConfig };
     if (flakyCriteria) {
@@ -1089,7 +1099,11 @@ export class FlakyTestManager extends ManagedManager {
    * 获取当前生效的完整配置（含默认值填充）
    * @returns 包含 flakyCriteria 和 quarantineCriteria 的完整配置
    */
-  getEffectiveConfig(): { config: QuarantineConfig; flakyCriteria: FlakyCriteriaConfig; quarantineCriteria: QuarantineCriteriaConfig } {
+  getEffectiveConfig(): {
+    config: QuarantineConfig;
+    flakyCriteria: FlakyCriteriaConfig;
+    quarantineCriteria: QuarantineCriteriaConfig;
+  } {
     return {
       config: { ...this.config },
       flakyCriteria: { ...this.flakyCriteria },

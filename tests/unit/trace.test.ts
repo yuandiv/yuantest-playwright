@@ -1,6 +1,5 @@
 import { TraceManager } from '../../src/trace';
 import { StorageProvider } from '../../src/storage';
-import * as path from 'path';
 
 jest.mock('child_process', () => ({
   execSync: jest.fn(),
@@ -50,8 +49,8 @@ describe('TraceManager', () => {
 
   describe('constructor', () => {
     it('should initialize with config', () => {
-      const config = { 
-        enabled: true, 
+      const config = {
+        enabled: true,
         mode: 'on' as const,
         screenshots: true,
         snapshots: true,
@@ -63,8 +62,8 @@ describe('TraceManager', () => {
     });
 
     it('should use outputDir from config', () => {
-      const config = { 
-        enabled: true, 
+      const config = {
+        enabled: true,
         mode: 'on' as const,
         outputDir: './custom-traces',
         screenshots: true,
@@ -81,17 +80,17 @@ describe('TraceManager', () => {
     it('should create trace directory if not exists', async () => {
       mockStorage.exists.mockResolvedValue(false);
       mockStorage.mkdir.mockResolvedValue();
-      
+
       await traceManager.initialize();
-      
+
       expect(mockStorage.mkdir).toHaveBeenCalled();
     });
 
     it('should not create directory if exists', async () => {
       mockStorage.exists.mockResolvedValue(true);
-      
+
       await traceManager.initialize();
-      
+
       expect(mockStorage.mkdir).toHaveBeenCalled();
     });
   });
@@ -99,9 +98,9 @@ describe('TraceManager', () => {
   describe('discoverTraces', () => {
     it('should return empty array if directory does not exist', async () => {
       mockStorage.exists.mockResolvedValue(false);
-      
+
       const result = await traceManager.discoverTraces();
-      
+
       expect(result).toEqual([]);
     });
 
@@ -128,16 +127,16 @@ describe('TraceManager', () => {
       } as any);
 
       const result = await traceManager.discoverTraces();
-      
+
       expect(result.length).toBeGreaterThanOrEqual(0);
     });
 
     it('should filter by runId', async () => {
       mockStorage.exists.mockResolvedValue(true);
       mockStorage.readDirWithTypes.mockResolvedValue([]);
-      
-      const result = await traceManager.discoverTraces('run-123');
-      
+
+      const _result = await traceManager.discoverTraces('run-123');
+
       expect(mockStorage.exists).toHaveBeenCalled();
     });
   });
@@ -145,9 +144,9 @@ describe('TraceManager', () => {
   describe('getTrace', () => {
     it('should return null if trace not found', async () => {
       mockStorage.exists.mockResolvedValue(false);
-      
+
       const result = await traceManager.getTrace('test-id');
-      
+
       expect(result).toBeNull();
     });
 
@@ -169,7 +168,7 @@ describe('TraceManager', () => {
       } as any);
 
       const result = await traceManager.getTrace('test-id');
-      
+
       expect(result).toBeDefined();
     });
   });
@@ -177,18 +176,18 @@ describe('TraceManager', () => {
   describe('getTraceContent', () => {
     it('should return null if file does not exist', async () => {
       mockStorage.exists.mockResolvedValue(false);
-      
+
       const result = await traceManager.getTraceContent('/path/to/trace.zip');
-      
+
       expect(result).toBeNull();
     });
 
     it('should return buffer if file exists', async () => {
       mockStorage.exists.mockResolvedValue(true);
       mockStorage.readBuffer.mockResolvedValue(Buffer.from('trace data'));
-      
+
       const result = await traceManager.getTraceContent('/path/to/trace.zip');
-      
+
       expect(result).toBeInstanceOf(Buffer);
     });
   });
@@ -196,18 +195,18 @@ describe('TraceManager', () => {
   describe('deleteTrace', () => {
     it('should return false if file does not exist', async () => {
       mockStorage.exists.mockResolvedValue(false);
-      
+
       const result = await traceManager.deleteTrace('/path/to/trace.zip');
-      
+
       expect(result).toBe(false);
     });
 
     it('should delete trace and return true', async () => {
       mockStorage.exists.mockResolvedValue(true);
       mockStorage.remove.mockResolvedValue();
-      
+
       const result = await traceManager.deleteTrace('/path/to/trace.zip');
-      
+
       expect(result).toBe(true);
       expect(mockStorage.remove).toHaveBeenCalledWith('/path/to/trace.zip');
     });
@@ -215,9 +214,9 @@ describe('TraceManager', () => {
     it('should return false on error', async () => {
       mockStorage.exists.mockResolvedValue(true);
       mockStorage.remove.mockRejectedValue(new Error('Delete failed'));
-      
+
       const result = await traceManager.deleteTrace('/path/to/trace.zip');
-      
+
       expect(result).toBe(false);
     });
   });
@@ -234,15 +233,15 @@ describe('TraceManager', () => {
       ]);
       mockStorage.stat.mockResolvedValue({
         size: 1024,
-        mtimeMs: Date.now() - (8 * 24 * 60 * 60 * 1000),
-        birthtimeMs: Date.now() - (8 * 24 * 60 * 60 * 1000),
+        mtimeMs: Date.now() - 8 * 24 * 60 * 60 * 1000,
+        birthtimeMs: Date.now() - 8 * 24 * 60 * 60 * 1000,
         isDirectory: () => false,
         isFile: () => true,
       } as any);
       mockStorage.remove.mockResolvedValue();
 
       const result = await traceManager.cleanTraces(7 * 24 * 60 * 60 * 1000);
-      
+
       expect(result).toBeGreaterThanOrEqual(0);
     });
   });
@@ -271,7 +270,7 @@ describe('TraceManager', () => {
       } as any);
 
       const stats = await traceManager.getTraceStats();
-      
+
       expect(stats.totalTraces).toBeGreaterThanOrEqual(0);
       expect(stats.totalSize).toBeGreaterThanOrEqual(0);
       expect(stats.byBrowser).toBeDefined();
@@ -281,8 +280,8 @@ describe('TraceManager', () => {
 
   describe('getTraceConfigForPlaywright', () => {
     it('should return off config when disabled', () => {
-      const config = { 
-        enabled: false, 
+      const config = {
+        enabled: false,
         mode: 'on' as const,
         screenshots: true,
         snapshots: true,
@@ -290,15 +289,15 @@ describe('TraceManager', () => {
         attachments: true,
       };
       const manager = new TraceManager(config, './traces', mockStorage);
-      
+
       const result = manager.getTraceConfigForPlaywright();
-      
+
       expect(result.trace).toBe('off');
     });
 
     it('should return mode config when enabled', () => {
-      const config = { 
-        enabled: true, 
+      const config = {
+        enabled: true,
         mode: 'retain-on-failure' as const,
         screenshots: true,
         snapshots: true,
@@ -306,9 +305,9 @@ describe('TraceManager', () => {
         attachments: true,
       };
       const manager = new TraceManager(config, './traces', mockStorage);
-      
+
       const result = manager.getTraceConfigForPlaywright();
-      
+
       expect(result.trace).toBe('retain-on-failure');
     });
   });
@@ -385,7 +384,7 @@ describe('TraceManager', () => {
         isFile: () => true,
       } as any);
 
-      const result = await traceManager.discoverTraces('run-1');
+      const _result = await traceManager.discoverTraces('run-1');
 
       expect(mockStorage.exists).toHaveBeenCalled();
     });

@@ -141,7 +141,7 @@ describe('TTLCache', () => {
     cache.set('key1', 'value1');
     expect(cache.get('key1')).toBe('value1');
 
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(cache.get('key1')).toBeNull();
   });
 
@@ -149,7 +149,7 @@ describe('TTLCache', () => {
     cache.set('key1', 'value1');
     expect(cache.has('key1')).toBe(true);
 
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(cache.has('key1')).toBe(false);
   });
 });

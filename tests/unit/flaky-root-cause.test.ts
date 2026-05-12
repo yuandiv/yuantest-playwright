@@ -1,5 +1,5 @@
 import { RootCauseAnalyzer, AnalysisContext } from '../../src/flaky/root-cause';
-import { FlakyTest, FlakyHistoryEntry, RunResult, SuiteResult } from '../../src/types';
+import { FlakyTest, FlakyHistoryEntry, RunResult } from '../../src/types';
 
 function makeFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   return {
@@ -56,16 +56,18 @@ function makeRunResult(
     startTime: Date.now() - 1000,
     endTime: Date.now(),
     duration: 1000,
-    suites: [{
-      name: 'suite-1',
-      totalTests: tests.length,
-      passed: tests.filter((t) => t.status === 'passed').length,
-      failed: tests.filter((t) => t.status === 'failed').length,
-      skipped: 0,
-      duration: 1000,
-      tests,
-      timestamp: Date.now(),
-    }],
+    suites: [
+      {
+        name: 'suite-1',
+        totalTests: tests.length,
+        passed: tests.filter((t) => t.status === 'passed').length,
+        failed: tests.filter((t) => t.status === 'failed').length,
+        skipped: 0,
+        duration: 1000,
+        tests,
+        timestamp: Date.now(),
+      },
+    ],
     totalTests: tests.length,
     passed: tests.filter((t) => t.status === 'passed').length,
     failed: tests.filter((t) => t.status === 'failed').length,
@@ -86,7 +88,13 @@ describe('RootCauseAnalyzer', () => {
       const test = makeFlakyTest({
         history: makeHistoryWithError(
           ['passed', 'failed', 'passed', 'failed', 'passed'],
-          [undefined, 'Timeout waiting for selector .btn', undefined, 'Navigation timeout exceeded', undefined]
+          [
+            undefined,
+            'Timeout waiting for selector .btn',
+            undefined,
+            'Navigation timeout exceeded',
+            undefined,
+          ]
         ),
       });
 
@@ -100,7 +108,13 @@ describe('RootCauseAnalyzer', () => {
       const test = makeFlakyTest({
         history: makeHistoryWithError(
           ['passed', 'failed', 'passed', 'failed', 'passed'],
-          [undefined, 'Assertion failed: expected 5', undefined, 'Assertion failed: expected 3', undefined]
+          [
+            undefined,
+            'Assertion failed: expected 5',
+            undefined,
+            'Assertion failed: expected 3',
+            undefined,
+          ]
         ),
       });
 
@@ -115,7 +129,13 @@ describe('RootCauseAnalyzer', () => {
       const test = makeFlakyTest({
         history: makeHistoryWithError(
           ['passed', 'failed', 'passed', 'failed', 'passed'],
-          [undefined, 'Network request failed: ECONNREFUSED', undefined, 'fetch failed with 503', undefined]
+          [
+            undefined,
+            'Network request failed: ECONNREFUSED',
+            undefined,
+            'fetch failed with 503',
+            undefined,
+          ]
         ),
       });
 
@@ -144,7 +164,13 @@ describe('RootCauseAnalyzer', () => {
       const test = makeFlakyTest({
         history: makeHistoryWithError(
           ['passed', 'failed', 'passed', 'failed', 'passed'],
-          [undefined, 'AssertionError: expected 5 to equal 4', undefined, 'expect(received).toBe(expected)', undefined]
+          [
+            undefined,
+            'AssertionError: expected 5 to equal 4',
+            undefined,
+            'expect(received).toBe(expected)',
+            undefined,
+          ]
         ),
       });
 
@@ -165,18 +191,10 @@ describe('RootCauseAnalyzer', () => {
       });
 
       const recentRuns: RunResult[] = [
-        makeRunResult('run-1', [
-          { id: 'test-1', status: 'passed', shard: 1 },
-        ]),
-        makeRunResult('run-2', [
-          { id: 'test-1', status: 'failed', shard: 2 },
-        ]),
-        makeRunResult('run-3', [
-          { id: 'test-1', status: 'passed', shard: 1 },
-        ]),
-        makeRunResult('run-4', [
-          { id: 'test-1', status: 'failed', shard: 2 },
-        ]),
+        makeRunResult('run-1', [{ id: 'test-1', status: 'passed', shard: 1 }]),
+        makeRunResult('run-2', [{ id: 'test-1', status: 'failed', shard: 2 }]),
+        makeRunResult('run-3', [{ id: 'test-1', status: 'passed', shard: 1 }]),
+        makeRunResult('run-4', [{ id: 'test-1', status: 'failed', shard: 2 }]),
       ];
 
       const context: AnalysisContext = {
@@ -209,7 +227,7 @@ describe('RootCauseAnalyzer', () => {
       const history: FlakyHistoryEntry[] = [100, 150, 200, 300, 450, 600, 800, 1100].map(
         (duration, i) => ({
           timestamp: now - (8 - i) * 3600000,
-          status: i % 3 === 0 ? 'failed' as const : 'passed' as const,
+          status: i % 3 === 0 ? ('failed' as const) : ('passed' as const),
           duration,
           error: i % 3 === 0 ? 'test failed' : undefined,
         })
@@ -273,7 +291,13 @@ describe('RootCauseAnalyzer', () => {
       const test = makeFlakyTest({
         history: makeHistoryWithError(
           ['failed', 'failed', 'failed', 'failed', 'failed'],
-          ['Timeout waiting for selector', 'Network error ECONNREFUSED', 'Timeout exceeded', 'fetch failed', 'Timeout']
+          [
+            'Timeout waiting for selector',
+            'Network error ECONNREFUSED',
+            'Timeout exceeded',
+            'fetch failed',
+            'Timeout',
+          ]
         ),
       });
 

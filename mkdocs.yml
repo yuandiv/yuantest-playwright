@@ -37,11 +37,15 @@ theme:
 nav:
   - 首页: index.md
   - 快速开始: getting-started.md
+  - 架构概览: architecture.md
   - 使用指南:
       - 概述: usage/index.md
       - Web UI: usage/web-ui.md
       - 命令行: usage/cli.md
       - CI/CD 集成: usage/cicd.md
+  - 深度指南:
+      - Flaky 测试管理: guides/flaky-management.md
+      - AI 智能诊断: guides/ai-diagnosis.md
   - API 参考:
       - 概述: api/index.md
       - Orchestrator: api/orchestrator.md

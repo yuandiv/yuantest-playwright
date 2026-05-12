@@ -1995,8 +1995,14 @@ export class DashboardServer {
         const effective = this.flakyManager.getEffectiveConfig();
         res.json({
           ...(prefs || {}),
-          flakyCriteria: { ...effective.flakyCriteria, ...((prefs?.flakyCriteria as Record<string, unknown>) || {}) },
-          quarantineCriteria: { ...effective.quarantineCriteria, ...((prefs?.quarantineCriteria as Record<string, unknown>) || {}) },
+          flakyCriteria: {
+            ...effective.flakyCriteria,
+            ...((prefs?.flakyCriteria as Record<string, unknown>) || {}),
+          },
+          quarantineCriteria: {
+            ...effective.quarantineCriteria,
+            ...((prefs?.quarantineCriteria as Record<string, unknown>) || {}),
+          },
         });
       })
     );
@@ -2694,11 +2700,15 @@ export class DashboardServer {
         this.log.info(`Restored autoQuarantine from preferences: ${prefs.autoQuarantine}`);
       }
       if (prefs?.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
-        this.flakyManager.setConfig({ flakyCriteria: prefs.flakyCriteria as Record<string, unknown> });
+        this.flakyManager.setConfig({
+          flakyCriteria: prefs.flakyCriteria as Record<string, unknown>,
+        });
         this.log.info('Restored flakyCriteria from preferences');
       }
       if (prefs?.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
-        this.flakyManager.setConfig({ quarantineCriteria: prefs.quarantineCriteria as Record<string, unknown> });
+        this.flakyManager.setConfig({
+          quarantineCriteria: prefs.quarantineCriteria as Record<string, unknown>,
+        });
         this.log.info('Restored quarantineCriteria from preferences');
       }
     } catch (e) {

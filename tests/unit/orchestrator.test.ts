@@ -80,16 +80,44 @@ describe('ShardOptimizer', () => {
   it('should separate high-variance tests across shards', async () => {
     const optimizer = new ShardOptimizer();
     const assignments = [
-      { testId: 'stable1', shardId: 0, priority: 1, estimatedDuration: 10000, durationVariance: 100, durationConfidence: 0.9 },
-      { testId: 'stable2', shardId: 0, priority: 1, estimatedDuration: 10000, durationVariance: 100, durationConfidence: 0.9 },
-      { testId: 'flaky1', shardId: 0, priority: 1, estimatedDuration: 10000, durationVariance: 50000000, durationConfidence: 0.2 },
-      { testId: 'flaky2', shardId: 0, priority: 1, estimatedDuration: 10000, durationVariance: 50000000, durationConfidence: 0.2 },
+      {
+        testId: 'stable1',
+        shardId: 0,
+        priority: 1,
+        estimatedDuration: 10000,
+        durationVariance: 100,
+        durationConfidence: 0.9,
+      },
+      {
+        testId: 'stable2',
+        shardId: 0,
+        priority: 1,
+        estimatedDuration: 10000,
+        durationVariance: 100,
+        durationConfidence: 0.9,
+      },
+      {
+        testId: 'flaky1',
+        shardId: 0,
+        priority: 1,
+        estimatedDuration: 10000,
+        durationVariance: 50000000,
+        durationConfidence: 0.2,
+      },
+      {
+        testId: 'flaky2',
+        shardId: 0,
+        priority: 1,
+        estimatedDuration: 10000,
+        durationVariance: 50000000,
+        durationConfidence: 0.2,
+      },
     ];
 
     const result = await optimizer.optimize(assignments, 2);
 
-    const shard0Flaky = result.get(0)!.filter(t => t.testId.startsWith('flaky')).length;
-    const shard1Flaky = result.get(1)!.filter(t => t.testId.startsWith('flaky')).length;
+    const shard0Flaky = result.get(0)!.filter((t) => t.testId.startsWith('flaky')).length;
+    const shard1Flaky = result.get(1)!.filter((t) => t.testId.startsWith('flaky')).length;
 
     expect(shard0Flaky).toBe(1);
     expect(shard1Flaky).toBe(1);
@@ -170,21 +198,27 @@ describe('Orchestrator', () => {
 
   describe('constructor', () => {
     it('should create orchestrator with config', () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       expect(orchestrator).toBeDefined();
     });
 
     it('should apply default values', () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       const config = orchestrator.getConfig();
       expect(config.retries).toBeDefined();
@@ -196,32 +230,41 @@ describe('Orchestrator', () => {
 
   describe('initialize', () => {
     it('should initialize successfully', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       expect(orchestrator.isInitialized()).toBe(true);
     });
 
     it('should throw error if version is missing', async () => {
-      const orchestrator = new Orchestrator({
-        version: '',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await expect(orchestrator.initialize()).rejects.toThrow();
     });
 
     it('should throw error if testDir is missing', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: '',
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: '',
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await expect(orchestrator.initialize()).rejects.toThrow();
     });
@@ -232,12 +275,15 @@ describe('Orchestrator', () => {
       fs.writeFileSync(path.join(testDir, 'test1.spec.ts'), 'test content', 'utf8');
       fs.writeFileSync(path.join(testDir, 'test2.spec.ts'), 'test content', 'utf8');
 
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-        shards: 2,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+          shards: 2,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       const result = await orchestrator.orchestrate();
@@ -248,11 +294,14 @@ describe('Orchestrator', () => {
     });
 
     it('should handle empty test directory', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       const result = await orchestrator.orchestrate();
@@ -266,12 +315,15 @@ describe('Orchestrator', () => {
       fs.writeFileSync(path.join(testDir, 'test1.spec.ts'), 'test content', 'utf8');
       fs.writeFileSync(path.join(testDir, 'test2.spec.ts'), 'test content', 'utf8');
 
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-        shards: 2,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+          shards: 2,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       const result = await orchestrator.optimizeSharding();
@@ -283,12 +335,15 @@ describe('Orchestrator', () => {
     it('should include confidence and variance in assignments', async () => {
       fs.writeFileSync(path.join(testDir, 'test1.spec.ts'), 'test content', 'utf8');
 
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-        shards: 2,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+          shards: 2,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       const result = await orchestrator.optimizeSharding();
@@ -303,11 +358,14 @@ describe('Orchestrator', () => {
 
   describe('getConfig', () => {
     it('should return a copy of config', () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       const config1 = orchestrator.getConfig();
       const config2 = orchestrator.getConfig();
@@ -319,22 +377,28 @@ describe('Orchestrator', () => {
 
   describe('validateConfig', () => {
     it('should return true for valid config', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       const isValid = await orchestrator.validateConfig();
       expect(isValid).toBe(true);
     });
 
     it('should return false for invalid config', async () => {
-      const orchestrator = new Orchestrator({
-        version: '',
-        testDir: '',
-        outputDir: '',
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '',
+          testDir: '',
+          outputDir: '',
+        },
+        storage
+      );
 
       const isValid = await orchestrator.validateConfig();
       expect(isValid).toBe(false);
@@ -343,15 +407,18 @@ describe('Orchestrator', () => {
 
   describe('createPlaywrightConfig', () => {
     it('should create playwright config', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-        timeout: 60000,
-        retries: 2,
-        workers: 4,
-        browsers: ['chromium', 'firefox'],
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+          timeout: 60000,
+          retries: 2,
+          workers: 4,
+          browsers: ['chromium', 'firefox'],
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       const pwConfig = await orchestrator.createPlaywrightConfig();
@@ -366,11 +433,14 @@ describe('Orchestrator', () => {
 
   describe('updateDurationHistory', () => {
     it('should update duration history for new test', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       orchestrator.updateDurationHistory('test1.spec.ts', 5000);
@@ -380,11 +450,14 @@ describe('Orchestrator', () => {
     });
 
     it('should update duration history for existing test', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       orchestrator.updateDurationHistory('test1.spec.ts', 5000);
@@ -395,11 +468,14 @@ describe('Orchestrator', () => {
     });
 
     it('should track variance across multiple runs', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       orchestrator.updateDurationHistory('test1.spec.ts', 5000);
@@ -411,11 +487,14 @@ describe('Orchestrator', () => {
     });
 
     it('should compute EMA with recency weighting', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       orchestrator.updateDurationHistory('test1.spec.ts', 5000);
@@ -428,11 +507,14 @@ describe('Orchestrator', () => {
     });
 
     it('should track min/max/p95 durations', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       const durations = [3000, 5000, 8000, 12000, 15000];
@@ -447,11 +529,14 @@ describe('Orchestrator', () => {
 
   describe('recordRunResults', () => {
     it('should record multiple test results', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       orchestrator.recordRunResults([
@@ -466,11 +551,14 @@ describe('Orchestrator', () => {
 
   describe('recordShardFeedback', () => {
     it('should record shard prediction feedback', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       orchestrator.recordShardFeedback({
@@ -486,11 +574,14 @@ describe('Orchestrator', () => {
     });
 
     it('should calibrate factor based on feedback', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       const initialFactor = orchestrator.getCalibrationFactor();
@@ -509,11 +600,14 @@ describe('Orchestrator', () => {
     });
 
     it('should clamp calibration factor within bounds', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
 
@@ -537,12 +631,15 @@ describe('Orchestrator', () => {
       fs.writeFileSync(path.join(testDir, 'test1.spec.ts'), 'test content', 'utf8');
       fs.writeFileSync(path.join(testDir, 'test2.spec.ts'), 'test content', 'utf8');
 
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-        shards: 2,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+          shards: 2,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       await orchestrator.orchestrate();
@@ -554,17 +651,20 @@ describe('Orchestrator', () => {
 
   describe('flush', () => {
     it('should flush duration history', async () => {
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       orchestrator.updateDurationHistory('test1.spec.ts', 5000);
       await orchestrator.flush();
 
-      expect(storage.exists(outputDir)).resolves.toBe(true);
+      await expect(storage.exists(outputDir)).resolves.toBe(true);
     });
   });
 
@@ -585,11 +685,14 @@ describe('Orchestrator', () => {
       fs.mkdirSync(outputDir, { recursive: true });
       fs.writeFileSync(historyFile, JSON.stringify(oldFormatData), 'utf8');
 
-      const orchestrator = new Orchestrator({
-        version: '1.0.0',
-        testDir: testDir,
-        outputDir: outputDir,
-      }, storage);
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
 
       await orchestrator.initialize();
       orchestrator.updateDurationHistory('old-test.spec.ts', 10000);

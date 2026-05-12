@@ -10,14 +10,16 @@ describe('Reporter', () => {
   beforeEach(async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'reporter-test-'));
     reporter = new Reporter(tmpDir);
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
   afterEach(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
+    } catch {
+      // ignore cleanup errors
+    }
   });
 
   it('should generate a report', async () => {
@@ -28,20 +30,59 @@ describe('Reporter', () => {
       startTime: Date.now() - 5000,
       endTime: Date.now(),
       duration: 5000,
-      suites: [{
-        name: 'Suite 1',
-        totalTests: 3,
-        passed: 2,
-        failed: 1,
-        skipped: 0,
-        duration: 5000,
-        tests: [
-          { id: 't1', title: 'Test 1', status: 'passed' as const, duration: 1000, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [] },
-          { id: 't2', title: 'Test 2', status: 'passed' as const, duration: 2000, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [] },
-          { id: 't3', title: 'Test 3', status: 'failed' as const, duration: 2000, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [], error: 'Expected true but got false' },
-        ],
-        timestamp: Date.now(),
-      }],
+      suites: [
+        {
+          name: 'Suite 1',
+          totalTests: 3,
+          passed: 2,
+          failed: 1,
+          skipped: 0,
+          duration: 5000,
+          tests: [
+            {
+              id: 't1',
+              title: 'Test 1',
+              status: 'passed' as const,
+              duration: 1000,
+              retries: 0,
+              timestamp: Date.now(),
+              browser: 'chromium' as const,
+              screenshots: [],
+              videos: [],
+              traces: [],
+              logs: [],
+            },
+            {
+              id: 't2',
+              title: 'Test 2',
+              status: 'passed' as const,
+              duration: 2000,
+              retries: 0,
+              timestamp: Date.now(),
+              browser: 'chromium' as const,
+              screenshots: [],
+              videos: [],
+              traces: [],
+              logs: [],
+            },
+            {
+              id: 't3',
+              title: 'Test 3',
+              status: 'failed' as const,
+              duration: 2000,
+              retries: 0,
+              timestamp: Date.now(),
+              browser: 'chromium' as const,
+              screenshots: [],
+              videos: [],
+              traces: [],
+              logs: [],
+              error: 'Expected true but got false',
+            },
+          ],
+          timestamp: Date.now(),
+        },
+      ],
       totalTests: 3,
       passed: 2,
       failed: 1,
@@ -91,19 +132,47 @@ describe('Reporter', () => {
       startTime: Date.now(),
       endTime: Date.now(),
       duration: 1000,
-      suites: [{
-        name: 'Suite',
-        totalTests: 2,
-        passed: 0,
-        failed: 2,
-        skipped: 0,
-        duration: 1000,
-        tests: [
-          { id: 't1', title: 'Timeout Test', status: 'failed' as const, duration: 30000, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [], error: 'Timeout 30000ms exceeded' },
-          { id: 't2', title: 'Selector Test', status: 'failed' as const, duration: 500, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [], error: 'Error: waiting for selector ".btn"' },
-        ],
-        timestamp: Date.now(),
-      }],
+      suites: [
+        {
+          name: 'Suite',
+          totalTests: 2,
+          passed: 0,
+          failed: 2,
+          skipped: 0,
+          duration: 1000,
+          tests: [
+            {
+              id: 't1',
+              title: 'Timeout Test',
+              status: 'failed' as const,
+              duration: 30000,
+              retries: 0,
+              timestamp: Date.now(),
+              browser: 'chromium' as const,
+              screenshots: [],
+              videos: [],
+              traces: [],
+              logs: [],
+              error: 'Timeout 30000ms exceeded',
+            },
+            {
+              id: 't2',
+              title: 'Selector Test',
+              status: 'failed' as const,
+              duration: 500,
+              retries: 0,
+              timestamp: Date.now(),
+              browser: 'chromium' as const,
+              screenshots: [],
+              videos: [],
+              traces: [],
+              logs: [],
+              error: 'Error: waiting for selector ".btn"',
+            },
+          ],
+          timestamp: Date.now(),
+        },
+      ],
       totalTests: 2,
       passed: 0,
       failed: 2,
@@ -191,19 +260,45 @@ describe('Reporter', () => {
         startTime: Date.now(),
         endTime: Date.now(),
         duration: 5000,
-        suites: [{
-          name: 'Suite',
-          totalTests: 2,
-          passed: 2,
-          failed: 0,
-          skipped: 0,
-          duration: 5000,
-          tests: [
-            { id: 't1', title: 'Test 1', status: 'passed' as const, duration: 1000, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [] },
-            { id: 't2', title: 'Test 2', status: 'passed' as const, duration: 1000, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [] },
-          ],
-          timestamp: Date.now(),
-        }],
+        suites: [
+          {
+            name: 'Suite',
+            totalTests: 2,
+            passed: 2,
+            failed: 0,
+            skipped: 0,
+            duration: 5000,
+            tests: [
+              {
+                id: 't1',
+                title: 'Test 1',
+                status: 'passed' as const,
+                duration: 1000,
+                retries: 0,
+                timestamp: Date.now(),
+                browser: 'chromium' as const,
+                screenshots: [],
+                videos: [],
+                traces: [],
+                logs: [],
+              },
+              {
+                id: 't2',
+                title: 'Test 2',
+                status: 'passed' as const,
+                duration: 1000,
+                retries: 0,
+                timestamp: Date.now(),
+                browser: 'chromium' as const,
+                screenshots: [],
+                videos: [],
+                traces: [],
+                logs: [],
+              },
+            ],
+            timestamp: Date.now(),
+          },
+        ],
         totalTests: 2,
         passed: 2,
         failed: 0,
@@ -236,18 +331,33 @@ describe('Reporter', () => {
         startTime: Date.now(),
         endTime: Date.now(),
         duration: 1000,
-        suites: [{
-          name: 'Suite',
-          totalTests: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 1000,
-          tests: [
-            { id: 't1', title: 'Network Test', status: 'failed' as const, duration: 500, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [], error: 'Network error: fetch failed' },
-          ],
-          timestamp: Date.now(),
-        }],
+        suites: [
+          {
+            name: 'Suite',
+            totalTests: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 1000,
+            tests: [
+              {
+                id: 't1',
+                title: 'Network Test',
+                status: 'failed' as const,
+                duration: 500,
+                retries: 0,
+                timestamp: Date.now(),
+                browser: 'chromium' as const,
+                screenshots: [],
+                videos: [],
+                traces: [],
+                logs: [],
+                error: 'Network error: fetch failed',
+              },
+            ],
+            timestamp: Date.now(),
+          },
+        ],
         totalTests: 1,
         passed: 0,
         failed: 1,
@@ -272,18 +382,33 @@ describe('Reporter', () => {
         startTime: Date.now(),
         endTime: Date.now(),
         duration: 1000,
-        suites: [{
-          name: 'Suite',
-          totalTests: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 1000,
-          tests: [
-            { id: 't1', title: 'Assertion Test', status: 'failed' as const, duration: 500, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [], error: 'AssertionError: expect(true).toBe(false)' },
-          ],
-          timestamp: Date.now(),
-        }],
+        suites: [
+          {
+            name: 'Suite',
+            totalTests: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 1000,
+            tests: [
+              {
+                id: 't1',
+                title: 'Assertion Test',
+                status: 'failed' as const,
+                duration: 500,
+                retries: 0,
+                timestamp: Date.now(),
+                browser: 'chromium' as const,
+                screenshots: [],
+                videos: [],
+                traces: [],
+                logs: [],
+                error: 'AssertionError: expect(true).toBe(false)',
+              },
+            ],
+            timestamp: Date.now(),
+          },
+        ],
         totalTests: 1,
         passed: 0,
         failed: 1,
@@ -308,18 +433,33 @@ describe('Reporter', () => {
         startTime: Date.now(),
         endTime: Date.now(),
         duration: 1000,
-        suites: [{
-          name: 'Suite',
-          totalTests: 1,
-          passed: 0,
-          failed: 1,
-          skipped: 0,
-          duration: 1000,
-          tests: [
-            { id: 't1', title: 'Unknown Test', status: 'failed' as const, duration: 500, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [], error: 'Something went wrong' },
-          ],
-          timestamp: Date.now(),
-        }],
+        suites: [
+          {
+            name: 'Suite',
+            totalTests: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            duration: 1000,
+            tests: [
+              {
+                id: 't1',
+                title: 'Unknown Test',
+                status: 'failed' as const,
+                duration: 500,
+                retries: 0,
+                timestamp: Date.now(),
+                browser: 'chromium' as const,
+                screenshots: [],
+                videos: [],
+                traces: [],
+                logs: [],
+                error: 'Something went wrong',
+              },
+            ],
+            timestamp: Date.now(),
+          },
+        ],
         totalTests: 1,
         passed: 0,
         failed: 1,
@@ -344,19 +484,47 @@ describe('Reporter', () => {
         startTime: Date.now(),
         endTime: Date.now(),
         duration: 1000,
-        suites: [{
-          name: 'Suite',
-          totalTests: 2,
-          passed: 0,
-          failed: 2,
-          skipped: 0,
-          duration: 1000,
-          tests: [
-            { id: 't1', title: 'Same Test', status: 'failed' as const, duration: 500, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [], error: 'Error' },
-            { id: 't1', title: 'Same Test', status: 'failed' as const, duration: 500, retries: 0, timestamp: Date.now(), browser: 'chromium' as const, screenshots: [], videos: [], traces: [], logs: [], error: 'Error' },
-          ],
-          timestamp: Date.now(),
-        }],
+        suites: [
+          {
+            name: 'Suite',
+            totalTests: 2,
+            passed: 0,
+            failed: 2,
+            skipped: 0,
+            duration: 1000,
+            tests: [
+              {
+                id: 't1',
+                title: 'Same Test',
+                status: 'failed' as const,
+                duration: 500,
+                retries: 0,
+                timestamp: Date.now(),
+                browser: 'chromium' as const,
+                screenshots: [],
+                videos: [],
+                traces: [],
+                logs: [],
+                error: 'Error',
+              },
+              {
+                id: 't1',
+                title: 'Same Test',
+                status: 'failed' as const,
+                duration: 500,
+                retries: 0,
+                timestamp: Date.now(),
+                browser: 'chromium' as const,
+                screenshots: [],
+                videos: [],
+                traces: [],
+                logs: [],
+                error: 'Error',
+              },
+            ],
+            timestamp: Date.now(),
+          },
+        ],
         totalTests: 2,
         passed: 0,
         failed: 2,
@@ -382,15 +550,19 @@ describe('Reporter', () => {
 
     it('should skip invalid report files', async () => {
       fs.writeFileSync(path.join(tmpDir, 'invalid.json'), 'not valid json', 'utf8');
-      fs.writeFileSync(path.join(tmpDir, 'valid.json'), JSON.stringify({
-        id: 'valid-run',
-        suites: [],
-        totalTests: 0,
-        passed: 0,
-        failed: 0,
-        skipped: 0,
-        flakyTests: [],
-      }), 'utf8');
+      fs.writeFileSync(
+        path.join(tmpDir, 'valid.json'),
+        JSON.stringify({
+          id: 'valid-run',
+          suites: [],
+          totalTests: 0,
+          passed: 0,
+          failed: 0,
+          skipped: 0,
+          flakyTests: [],
+        }),
+        'utf8'
+      );
 
       const reports = await reporter.getAllReports();
       expect(reports.length).toBe(1);
@@ -418,7 +590,14 @@ describe('Reporter', () => {
           tags: [{ name: 'smoke', count: 5 }],
           traces: { total: 2, files: [] },
           artifacts: { total: 3, byType: { screenshot: 2, video: 1 } },
-          visualTesting: { passRate: 100, identical: 5, different: 0, regression: 0, new: 0, results: [] },
+          visualTesting: {
+            passRate: 100,
+            identical: 5,
+            different: 0,
+            regression: 0,
+            new: 0,
+            results: [],
+          },
         },
       };
 
@@ -440,14 +619,16 @@ describe('JSONReporter', () => {
   beforeEach(async () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'json-reporter-test-'));
     reporter = new JSONReporter(tmpDir);
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
   afterEach(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
+    } catch {
+      // ignore cleanup errors
+    }
   });
 
   it('should generate JSON report string', async () => {

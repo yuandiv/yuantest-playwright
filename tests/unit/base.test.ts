@@ -53,11 +53,7 @@ describe('BaseManager', () => {
     });
 
     it('should return same promise for concurrent calls', async () => {
-      const promises = [
-        manager.initialize(),
-        manager.initialize(),
-        manager.initialize(),
-      ];
+      const promises = [manager.initialize(), manager.initialize(), manager.initialize()];
       await Promise.all(promises);
       expect(manager.initOrder).toEqual(['init']);
     });

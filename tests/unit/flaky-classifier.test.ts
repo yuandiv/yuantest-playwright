@@ -6,7 +6,7 @@ import {
   wilsonConfidenceInterval,
   isStatisticallySignificant,
 } from '../../src/flaky/classifier';
-import { FlakyTest, FlakyHistoryEntry, FlakyClassification } from '../../src/types';
+import { FlakyTest, FlakyHistoryEntry } from '../../src/types';
 
 function makeFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   return {
@@ -24,7 +24,10 @@ function makeFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   };
 }
 
-function makeHistory(statuses: Array<'passed' | 'failed' | 'timedout'>, baseTime = Date.now()): FlakyHistoryEntry[] {
+function makeHistory(
+  statuses: Array<'passed' | 'failed' | 'timedout'>,
+  baseTime = Date.now()
+): FlakyHistoryEntry[] {
   return statuses.map((status, i) => ({
     timestamp: baseTime - (statuses.length - i) * 3600000,
     status,
@@ -128,7 +131,10 @@ describe('isStatisticallySignificant', () => {
   });
 
   it('should return false for small sample with high variance', () => {
-    const test = makeFlakyTest({ totalRuns: 3, history: makeHistory(['failed', 'passed', 'failed']) });
+    const test = makeFlakyTest({
+      totalRuns: 3,
+      history: makeHistory(['failed', 'passed', 'failed']),
+    });
     expect(isStatisticallySignificant(test, 0.3, 3)).toBe(false);
   });
 
@@ -207,8 +213,16 @@ describe('classifyTest', () => {
 
   it('should classify as regression for recent failures after stable period', () => {
     const statuses: Array<'passed' | 'failed'> = [
-      'passed', 'passed', 'passed', 'passed', 'passed',
-      'failed', 'passed', 'failed', 'failed', 'passed',
+      'passed',
+      'passed',
+      'passed',
+      'passed',
+      'passed',
+      'failed',
+      'passed',
+      'failed',
+      'failed',
+      'passed',
     ];
     const test = makeFlakyTest({
       totalRuns: 10,
@@ -221,8 +235,16 @@ describe('classifyTest', () => {
 
   it('should classify as stable for very low failure rate', () => {
     const statuses: Array<'passed' | 'failed'> = [
-      'passed', 'passed', 'passed', 'passed', 'passed',
-      'passed', 'passed', 'passed', 'passed', 'failed',
+      'passed',
+      'passed',
+      'passed',
+      'passed',
+      'passed',
+      'passed',
+      'passed',
+      'passed',
+      'passed',
+      'failed',
     ];
     const test = makeFlakyTest({
       totalRuns: 10,
