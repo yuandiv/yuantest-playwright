@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  DEFAULTS,
-  FLAKY_CONFIG,
-  FILE_PATTERNS,
-} from '../constants';
+import { DEFAULTS, FLAKY_CONFIG, FILE_PATTERNS } from '../constants';
 
 const BrowserTypeSchema = z.enum(['chromium', 'firefox', 'webkit']);
 
