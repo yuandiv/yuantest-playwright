@@ -8,11 +8,9 @@
 
 English | [中文文档](README.zh.md)
 
-A powerful Playwright test orchestrator, executor, and reporter with CLI tools and Web Dashboard visualization, helping teams manage and analyze E2E tests more efficiently.
+yuantest-playwright is a comprehensive Playwright test orchestration, execution, and reporting platform with real-time Web Dashboard visualization. It provides intelligent test management capabilities that help teams efficiently manage, analyze, and debug E2E tests at scale.
 
 **Zero Learning Curve · Zero Migration Cost · Pure Playwright Ecosystem**
-
-**Native Playwright Integration · AI-Powered Analysis · Aggregated Reports & Trends**
 
 ## ✨ Core Features
 
@@ -33,43 +31,35 @@ A powerful Playwright test orchestrator, executor, and reporter with CLI tools a
 - **HTML reports** - Automatic generation of detailed test reports
 - **Historical trend analysis** - Track test pass rates and execution time trends
 
-### 🔍 Flaky Test Management
-- **Automatic detection** - Identify unstable tests based on historical data
-- **Smart quarantine** - One-click quarantine of flaky tests to avoid CI/CD disruption
-- **Statistical analysis** - Detailed flaky test statistics and trends
-- **Custom thresholds** - Flexible configuration of flaky detection standards
+### 🔍 Advanced Flaky Test Management
 
-### 🛠️ Failure Analysis & Debugging
-- **Automatic failure categorization** - Smart identification of timeouts, assertion failures, element not found, etc.
-- **Fix suggestions** - Targeted failure fix recommendations
-- **Trace management** - Automatic collection and management of Playwright trace files
-- **Artifact management** - Unified management of test screenshots, videos, and other artifacts
+- **Intelligent classification algorithm** — Automatically classifies tests as Flaky/Broken/Regression/Monitor/Stable
+- **Time-decay weighted failure rate** — Wilson confidence intervals for statistically accurate flaky detection
+- **Root cause analysis** — 7 automatic detection types for identifying failure patterns
+- **Progressive quarantine strategy** — 4-level quarantine system to prevent CI/CD disruption
+- **Health scoring system** — A-F grades for test suite health visibility
 
-### 🏷️ Advanced Features
-- **Annotation support** - Support for `@slow`, `@flaky`, `@skip` and other test annotations
-- **Tag management** - Flexible test tagging system
-- **Visual testing** - Integrated pixel-comparison visual regression testing
-- **Config hot reload** - Support for dynamic configuration file loading
+### 🤖 AI-Powered Failure Diagnosis
 
-## 🚀 Zero Barrier to Entry
+- **Context enrichment engine** — Automatically gathers source code, screenshots, logs, and traces for diagnosis
+- **Built-in Playwright knowledge base** — 18 error patterns for common Playwright failures
+- **Multi-round LLM reasoning** — Confidence-calibrated analysis with iterative refinement
+- **Streaming diagnosis** — Real-time SSE diagnosis with actionable fix suggestions
+- **Batch clustering** — Identifies common root causes across multiple failures
 
-### Zero Learning Curve
+### 🛠️ Comprehensive Test Management
 
-- All parameters are identical to Playwright CLI, no need to learn new commands
-- Web UI works out of the box with intuitive visual interface
-- Executes via Playwright CLI, fully consistent with official behavior
+- **Automatic failure categorization** — Timeout, assertion, element not found, network, and more
+- **Trace, screenshot, and video artifact management** — Unified management of all test artifacts
+- **Visual regression testing** — Pixel-comparison visual diff with configurable thresholds
+- **Test annotations and tagging system** — `@slow`, `@flaky`, `@skip` annotations and custom tags
+- **CI/CD integration ready** — CLI + REST API for seamless pipeline integration
 
-### Zero Migration Cost
+## 🎯 What Makes It Special
 
-- Pure Playwright commands, no proprietary APIs
-- Switch back to native Playwright anytime without modifying any test code
-- No binding to any proprietary data formats
-
-### Pure Playwright Ecosystem
-
-- Fully open source, MIT license, no barriers
-- Built on Playwright native capabilities, no compatibility issues with version upgrades
-- Fully compatible with Playwright community
+- **Zero Learning Curve** — All CLI parameters are identical to Playwright CLI. No new commands to learn.
+- **Zero Migration Cost** — Pure Playwright commands with no proprietary APIs. Switch back to native Playwright anytime without modifying test code.
+- **Pure Playwright Ecosystem** — Fully open-source (MIT), built on Playwright native capabilities with no compatibility issues.
 
 ## 💡 Core Capabilities
 
@@ -95,6 +85,15 @@ A powerful Playwright test orchestrator, executor, and reporter with CLI tools a
 - Supports data export and custom analysis
 
 ## 🌟 Core Advantages
+
+| Advantage | Benefit |
+|-----------|---------|
+| **All-in-One Solution** | Complete test lifecycle management without combining multiple tools |
+| **No Internal API Dependencies** | Executes via Playwright CLI, ensuring upgrade compatibility |
+| **Real-time Monitoring** | WebSocket push for live test progress visibility |
+| **Intelligent Flaky Management** | Automatic detection, quarantine, and statistical analysis |
+| **AI Failure Analysis** | Smart categorization with targeted fix suggestions |
+| **Internationalization** | Built-in Chinese/English support |
 
 ### 1. All-in-One Solution
 
@@ -224,6 +223,25 @@ npm link
 ```
 
 ## 🚀 Quick Start
+
+Get started in 30 seconds:
+
+```bash
+# Install
+npm install -g yuantest-playwright
+
+# Run tests
+yuantest run --test-dir ./
+
+# Start Web Dashboard
+yuantest ui
+
+# Analyze flaky tests
+yuantest flaky
+
+# AI-powered failure diagnosis
+yuantest analyze --id <run-id> --ai
+```
 
 ### 1. Run Tests
 
@@ -913,3 +931,5 @@ Thanks to the following open source projects:
 ---
 
 If this project helps you, please give it a ⭐️ Star!
+
+Made with ❤️ by [YuanDiv](https://github.com/yuandiv)
