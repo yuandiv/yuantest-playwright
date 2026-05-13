@@ -9,6 +9,50 @@ All notable changes to this project will be documented in this file. See [standa
 
 * 修复lint和test异常，解决web ui 和cli不统一的问题 ([348a900](https://github.com/yuandiv/yuantest-playwright/commit/348a900bc204f7506cb5edd05d7fcc09ea7751e3))
 
+### [1.0.9](https://github.com/yuandiv/yuantest-playwright/compare/v1.0.8...v1.0.9) (2026-05-09)
+
+
+### 🛠 变更
+
+#### 失败分析优化
+
+- **FailureAnalysis** - 优化失败分析与诊断增强
+  - 改进失败原因分类逻辑
+  - 增强诊断结果准确性
+  - 修复 FailureAnalysis 展示问题
+
+#### 不稳定用例分析优化
+
+- **Flaky 分析** - 优化稳定性用例分析
+  - 改进不稳定用例检测算法
+  - 修复 Flaky Test 展示问题
+  - 增强历史数据追踪
+
+#### 用例隔离增强
+
+- **隔离策略** - 增强用例隔离逻辑
+  - 支持自定义"不稳定用例"已隔离用例出入标准
+  - 优化隔离判定参数配置
+  - 改进隔离/释放操作流程
+
+#### AI 分析优化
+
+- **AI 诊断** - 优化 AI 诊断结果持久化存储
+  - 改进诊断结果存储机制
+  - 增强诊断结果持久化
+  - 优化 AI 分析结果展示
+
+#### 报告改进
+
+- **HTML 报告** - 优化报告展示
+  - 支持执行器中用例排序
+  - 优化 HTML 报告展示
+  - 修复报告详情中截图和视频打开错误
+
+### 🗑 移除
+
+- 删除无用文件
+
 ## [1.0.8] - 2026-05-06
 
 ### 新增
@@ -578,6 +622,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
+[1.0.9]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.9
 [1.0.8]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.8
 [1.0.7]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.7
 [1.0.6]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.6
