@@ -8,20 +8,20 @@ docs_dir: documentation
 
 theme:
   name: material
-  language: zh
+  language: en
   palette:
     - scheme: default
       primary: indigo
       accent: indigo
       toggle:
         icon: material/brightness-7
-        name: 切换到深色模式
+        name: Switch to dark mode
     - scheme: slate
       primary: indigo
       accent: indigo
       toggle:
         icon: material/brightness-4
-        name: 切换到浅色模式
+        name: Switch to light mode
   features:
     - navigation.instant
     - navigation.tracking
@@ -35,28 +35,28 @@ theme:
     - content.action.edit
 
 nav:
-  - 首页: index.md
-  - 快速开始: getting-started.md
-  - 架构概览: architecture.md
-  - 使用指南:
-      - 概述: usage/index.md
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Architecture: architecture.md
+  - Usage:
+      - Overview: usage/index.md
       - Web UI: usage/web-ui.md
-      - 命令行: usage/cli.md
-      - CI/CD 集成: usage/cicd.md
-  - 深度指南:
-      - Flaky 测试管理: guides/flaky-management.md
-      - AI 智能诊断: guides/ai-diagnosis.md
-  - API 参考:
-      - 概述: api/index.md
+      - CLI: usage/cli.md
+      - CI/CD Integration: usage/cicd.md
+  - Guides:
+      - Flaky Test Management: guides/flaky-management.md
+      - AI Diagnosis: guides/ai-diagnosis.md
+  - API Reference:
+      - Overview: api/index.md
       - Orchestrator: api/orchestrator.md
       - Executor: api/executor.md
       - Reporter: api/reporter.md
       - FlakyTestManager: api/flaky.md
       - DashboardServer: api/dashboard.md
-  - CLI 命令: cli.md
-  - 配置: configuration.md
-  - 更新日志: changelog.md
-  - 贡献指南: contributing.md
+  - CLI Commands: cli.md
+  - Configuration: configuration.md
+  - Changelog: changelog.md
+  - Contributing: contributing.md
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -76,9 +76,33 @@ markdown_extensions:
 plugins:
   - search:
       lang:
-        - zh
         - en
+        - zh
   - include-markdown
+  - i18n:
+      languages:
+        - locale: en
+          name: English
+          default: true
+        - locale: zh
+          name: 中文
+          nav_translations:
+            Home: 首页
+            Getting Started: 快速开始
+            Architecture: 架构概览
+            Usage: 使用指南
+            Guides: 深度指南
+            API Reference: API 参考
+            CLI Commands: CLI 命令
+            Configuration: 配置
+            Changelog: 更新日志
+            Contributing: 贡献指南
+            Overview: 概述
+            Web UI: Web UI
+            CLI: 命令行
+            CI/CD Integration: CI/CD 集成
+            Flaky Test Management: Flaky 测试管理
+            AI Diagnosis: AI 智能诊断
 
 extra:
   social:
@@ -86,13 +110,6 @@ extra:
       link: https://github.com/yuandiv/yuantest-playwright
     - icon: fontawesome/brands/npm
       link: https://www.npmjs.com/package/@yuantest/playwright
-  alternate:
-    - name: 中文
-      link: /
-      lang: zh
-    - name: English
-      link: /en/
-      lang: en
 
 extra_css:
   - stylesheets/extra.css

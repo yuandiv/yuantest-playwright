@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/architecture/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/architecture/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/changelog/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/changelog/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/cli/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/cli/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/cli/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/configuration/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/configuration/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/configuration/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/contributing/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/contributing/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/contributing/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/getting-started/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/api/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/api/dashboard/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/dashboard/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/dashboard/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/api/executor/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/executor/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/executor/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/api/flaky/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/flaky/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/flaky/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/api/orchestrator/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/orchestrator/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/orchestrator/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/api/reporter/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/reporter/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/reporter/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/guides/ai-diagnosis/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/guides/ai-diagnosis/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/guides/ai-diagnosis/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/guides/flaky-management/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/guides/flaky-management/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/guides/flaky-management/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/usage/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/usage/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/usage/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/usage/cicd/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/usage/cicd/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/usage/cicd/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/usage/cli/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/usage/cli/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/usage/cli/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/usage/web-ui/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/usage/web-ui/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/usage/web-ui/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/architecture/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/architecture/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/changelog/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/changelog/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/cli/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/cli/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/cli/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/configuration/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/configuration/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/configuration/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/contributing/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/contributing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/contributing/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/getting-started/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/api/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/api/dashboard/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/dashboard/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/dashboard/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/api/executor/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/executor/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/executor/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/api/flaky/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/flaky/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/flaky/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/api/orchestrator/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/orchestrator/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/orchestrator/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/api/reporter/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/api/reporter/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/api/reporter/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/guides/ai-diagnosis/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/guides/ai-diagnosis/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/guides/ai-diagnosis/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/guides/flaky-management/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/guides/flaky-management/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/guides/flaky-management/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/usage/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/usage/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/usage/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/usage/cicd/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/usage/cicd/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/usage/cicd/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/usage/cli/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/usage/cli/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/usage/cli/"/>
+    </url>
+    <url>
+        <loc>https://yuantest-playwright.readthedocs.io/zh/usage/web-ui/</loc>
+        <lastmod>2026-05-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://yuantest-playwright.readthedocs.io/zh/usage/web-ui/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://yuantest-playwright.readthedocs.io/usage/web-ui/"/>
+    </url>
+</urlset>

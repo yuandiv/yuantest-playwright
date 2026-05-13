@@ -1,129 +1,129 @@
-# 贡献指南
+# Contributing Guide
 
-感谢你对 YuanTest Playwright 的关注！欢迎贡献代码、报告问题或提出建议。
+Thank you for your interest in YuanTest Playwright! We welcome code contributions, bug reports, and suggestions.
 
-## 行为准则
+## Code of Conduct
 
-本项目采用贡献者公约作为行为准则。参与此项目即表示你同意遵守其条款。
+This project adopts the Contributor Covenant as its code of conduct. By participating in this project, you agree to abide by its terms.
 
-## 如何贡献
+## How to Contribute
 
-### 报告 Bug
+### Reporting Bugs
 
-如果你发现了 bug，请创建一个 [Issue](https://github.com/yuandiv/yuantest-playwright/issues)，包含：
+If you find a bug, please create an [Issue](https://github.com/yuandiv/yuantest-playwright/issues), including:
 
-1. 清晰的标题和描述
-2. 复现步骤
-3. 预期行为
-4. 实际行为
-5. 环境信息（Node.js 版本、操作系统等）
+1. Clear title and description
+2. Steps to reproduce
+3. Expected behavior
+4. Actual behavior
+5. Environment information (Node.js version, OS, etc.)
 
-### 提出新功能
+### Proposing New Features
 
-如果你有新功能的想法，请创建一个 [Issue](https://github.com/yuandiv/yuantest-playwright/issues)，包含：
+If you have an idea for a new feature, please create an [Issue](https://github.com/yuandiv/yuantest-playwright/issues), including:
 
-1. 功能描述
-2. 使用场景
-3. 可能的实现方式
+1. Feature description
+2. Use cases
+3. Possible implementation approach
 
-### 提交代码
+### Submitting Code
 
-1. Fork 本仓库
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+1. Fork this repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Create a Pull Request
 
-## 开发指南
+## Development Guide
 
-### 环境设置
+### Environment Setup
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/yuandiv/yuantest-playwright.git
 cd yuantest-playwright
 
-# 安装依赖
+# Install dependencies
 npm install
 
-# 构建
+# Build
 npm run build
 ```
 
-### 开发命令
+### Development Commands
 
 ```bash
-# 运行测试
+# Run tests
 npm test
 
-# 运行测试（带覆盖率）
+# Run tests with coverage
 npm run test:coverage
 
-# 代码检查
+# Lint code
 npm run lint
 
-# 代码格式化
+# Format code
 npm run format
 
-# 类型检查
+# Type check
 npm run typecheck
 
-# 生成文档
+# Generate documentation
 npm run docs
 ```
 
-### 代码风格
+### Code Style
 
-- 使用 TypeScript
-- 遵循 ESLint 规则
-- 使用 Prettier 格式化代码
-- 编写有意义的提交信息
+- Use TypeScript
+- Follow ESLint rules
+- Use Prettier for code formatting
+- Write meaningful commit messages
 
-### 提交信息规范
+### Commit Message Convention
 
-使用约定式提交：
+Use Conventional Commits:
 
-- `feat:` 新功能
-- `fix:` Bug 修复
-- `docs:` 文档更新
-- `style:` 代码格式（不影响功能）
-- `refactor:` 重构
-- `test:` 测试相关
-- `chore:` 构建/工具相关
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation update
+- `style:` Code formatting (does not affect functionality)
+- `refactor:` Refactoring
+- `test:` Test related
+- `chore:` Build/tool related
 
-示例：
+Example:
 ```
 feat: add AI-powered failure analysis
 fix: resolve WebSocket connection issue
 docs: update API reference
 ```
 
-### Pull Request 指南
+### Pull Request Guidelines
 
-1. 确保所有测试通过
-2. 更新相关文档
-3. 添加必要的测试
-4. 保持 PR 聚焦单一功能
-5. 编写清晰的 PR 描述
+1. Ensure all tests pass
+2. Update relevant documentation
+3. Add necessary tests
+4. Keep PR focused on a single feature
+5. Write a clear PR description
 
-## 项目结构
+## Project Structure
 
 ```
 yuantest-playwright/
-├── bin/              # CLI 入口
-├── dashboard/        # Web Dashboard 前端
-├── src/              # 源代码
-│   ├── orchestrator/ # 测试编排
-│   ├── executor/     # 测试执行
-│   ├── reporter/     # 报告生成
-│   ├── flaky/        # Flaky 管理
-│   ├── realtime/     # 实时报告
+├── bin/              # CLI entry point
+├── dashboard/        # Web Dashboard frontend
+├── src/              # Source code
+│   ├── orchestrator/ # Test orchestration
+│   ├── executor/     # Test execution
+│   ├── reporter/     # Report generation
+│   ├── flaky/        # Flaky management
+│   ├── realtime/     # Real-time reporting
 │   └── ...
-├── tests/            # 测试文件
-├── documentation/    # 文档源文件
-└── docs/             # API 文档输出
+├── tests/            # Test files
+├── documentation/    # Documentation source files
+└── docs/             # API documentation output
 ```
 
-## 许可证
+## License
 
-本项目采用 MIT 许可证。提交代码即表示你同意将代码以相同许可证授权。
+This project is licensed under the MIT License. By submitting code, you agree to license your code under the same license.

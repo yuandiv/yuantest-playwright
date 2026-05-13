@@ -140,6 +140,15 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
             onSaved={handleLLMConfigSaved}
           />
         )}
+        <a
+          href="https://yuantest-playwright.readthedocs.io/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+        >
+          <i className="fas fa-question-circle"></i>
+          <span>{t('helpDocs', lang)}</span>
+        </a>
         <div className="bg-white px-1.5 py-1 rounded-full shadow-sm flex border border-gray-100">
           <button
             className={`text-xs px-3 py-1 rounded-full cursor-pointer font-medium transition-all ${lang === 'zh' ? 'bg-indigo-600 text-white' : 'text-gray-500'}`}

@@ -1,124 +1,124 @@
-# Flaky 测试管理深度指南
+# Flaky Test Management In-Depth Guide
 
-本指南深入介绍 Flaky 测试管理系统的设计原理、核心算法和配置方式。所有内容均与项目源码实现保持一致。
-
----
-
-## 目录
-
-- [1. 系统架构概览](#1-系统架构概览)
-- [2. 分类算法](#2-分类算法)
-  - [2.1 六种分类](#21-六种分类)
-  - [2.2 时间衰减加权失败率](#22-时间衰减加权失败率)
-  - [2.3 Wilson 置信区间](#23-wilson-置信区间)
-  - [2.4 统计显著性检验](#24-统计显著性检验)
-  - [2.5 分类判定流程](#25-分类判定流程)
-- [3. 根因分析](#3-根因分析)
-  - [3.1 七种根因类型](#31-七种根因类型)
-  - [3.2 各检测器详解](#32-各检测器详解)
-  - [3.3 建议操作](#33-建议操作)
-- [4. 关联分析](#4-关联分析)
-  - [4.1 关联类型](#41-关联类型)
-  - [4.2 Jaccard 共现系数](#42-jaccard-共现系数)
-  - [4.3 并查集合并](#43-并查集合并)
-  - [4.4 关联类型判定](#44-关联类型判定)
-- [5. 趋势追踪](#5-趋势追踪)
-  - [5.1 时间序列聚合](#51-时间序列聚合)
-  - [5.2 趋势方向检测](#52-趋势方向检测)
-  - [5.3 变点检测](#53-变点检测)
-  - [5.4 季节模式检测](#54-季节模式检测)
-  - [5.5 代码变更关联](#55-代码变更关联)
-  - [5.6 趋势预测](#56-趋势预测)
-- [6. 隔离策略](#6-隔离策略)
-  - [6.1 隔离级别](#61-隔离级别)
-  - [6.2 策略类型](#62-策略类型)
-  - [6.3 分级隔离判定](#63-分级隔离判定)
-  - [6.4 根因感知重试策略](#64-根因感知重试策略)
-  - [6.5 预算控制](#65-预算控制)
-  - [6.6 自动释放与过期降级](#66-自动释放与过期降级)
-- [7. 健康评分](#7-健康评分)
-  - [7.1 四维评分模型](#71-四维评分模型)
-  - [7.2 等级映射](#72-等级映射)
-- [8. 因果图](#8-因果图)
-  - [8.1 节点类型](#81-节点类型)
-  - [8.2 边类型](#82-边类型)
-  - [8.3 图构建流程](#83-图构建流程)
-  - [8.4 根因识别](#84-根因识别)
-  - [8.5 影响分析](#85-影响分析)
-- [9. 参数自定义](#9-参数自定义)
-  - [9.1 FlakyCriteriaConfig（12 个参数）](#91-flakycriteriaconfig12-个参数)
-  - [9.2 QuarantineCriteriaConfig（9 个参数）](#92-quarantinecriteriaconfig9-个参数)
-  - [9.3 自定义方式](#93-自定义方式)
+This guide provides an in-depth introduction to the design principles, core algorithms, and configuration methods of the Flaky Test Management System. All content is consistent with the project's source code implementation.
 
 ---
 
-## 1. 系统架构概览
+## Table of Contents
 
-Flaky 测试管理系统由以下核心模块组成，对应源码 `src/flaky/` 目录：
-
-| 模块 | 源文件 | 职责 |
-|------|--------|------|
-| 分类器 | `classifier.ts` | 根据运行历史将测试分为 6 种分类 |
-| 根因分析 | `root-cause.ts` | 识别 7 种根因类型 |
-| 关联分析 | `correlation.ts` | 发现测试间的共现关联 |
-| 趋势追踪 | `trend.ts` | 时间序列分析、变点检测、预测 |
-| 隔离策略 | `quarantine-strategy.ts` | 分级隔离、重试策略、预算管理 |
-| 因果图 | `causal-graph.ts` | 构建因果依赖图、影响分析 |
-| 管理器 | `index.ts` | `FlakyTestManager` 统一调度所有模块 |
-| 配置合并 | `config-merge.ts` | 用户配置与默认值的安全合并 |
+- [1. System Architecture Overview](#1-system-architecture-overview)
+- [2. Classification Algorithm](#2-classification-algorithm)
+  - [2.1 Six Classifications](#21-six-classifications)
+  - [2.2 Time-Decay Weighted Failure Rate](#22-time-decay-weighted-failure-rate)
+  - [2.3 Wilson Confidence Interval](#23-wilson-confidence-interval)
+  - [2.4 Statistical Significance Test](#24-statistical-significance-test)
+  - [2.5 Classification Decision Flow](#25-classification-decision-flow)
+- [3. Root Cause Analysis](#3-root-cause-analysis)
+  - [3.1 Seven Root Cause Types](#31-seven-root-cause-types)
+  - [3.2 Detector Details](#32-detector-details)
+  - [3.3 Suggested Actions](#33-suggested-actions)
+- [4. Correlation Analysis](#4-correlation-analysis)
+  - [4.1 Correlation Types](#41-correlation-types)
+  - [4.2 Jaccard Co-occurrence Coefficient](#42-jaccard-co-occurrence-coefficient)
+  - [4.3 Union-Find Merging](#43-union-find-merging)
+  - [4.4 Correlation Type Determination](#44-correlation-type-determination)
+- [5. Trend Tracking](#5-trend-tracking)
+  - [5.1 Time Series Aggregation](#51-time-series-aggregation)
+  - [5.2 Trend Direction Detection](#52-trend-direction-detection)
+  - [5.3 Change Point Detection](#53-change-point-detection)
+  - [5.4 Seasonal Pattern Detection](#54-seasonal-pattern-detection)
+  - [5.5 Code Change Correlation](#55-code-change-correlation)
+  - [5.6 Trend Forecasting](#56-trend-forecasting)
+- [6. Quarantine Strategy](#6-quarantine-strategy)
+  - [6.1 Isolation Levels](#61-isolation-levels)
+  - [6.2 Strategy Types](#62-strategy-types)
+  - [6.3 Graduated Isolation Determination](#63-graduated-isolation-determination)
+  - [6.4 Root Cause-Aware Retry Strategy](#64-root-cause-aware-retry-strategy)
+  - [6.5 Budget Control](#65-budget-control)
+  - [6.6 Auto-Release and Expiry Downgrade](#66-auto-release-and-expiry-downgrade)
+- [7. Health Score](#7-health-score)
+  - [7.1 Four-Dimensional Scoring Model](#71-four-dimensional-scoring-model)
+  - [7.2 Grade Mapping](#72-grade-mapping)
+- [8. Causal Graph](#8-causal-graph)
+  - [8.1 Node Types](#81-node-types)
+  - [8.2 Edge Types](#82-edge-types)
+  - [8.3 Graph Construction Flow](#83-graph-construction-flow)
+  - [8.4 Root Cause Identification](#84-root-cause-identification)
+  - [8.5 Impact Analysis](#85-impact-analysis)
+- [9. Parameter Customization](#9-parameter-customization)
+  - [9.1 FlakyCriteriaConfig (12 Parameters)](#91-flakycriteriaconfig-12-parameters)
+  - [9.2 QuarantineCriteriaConfig (9 Parameters)](#92-quarantinecriteriaconfig-9-parameters)
+  - [9.3 Customization Methods](#93-customization-methods)
 
 ---
 
-## 2. 分类算法
+## 1. System Architecture Overview
 
-> 源码：`src/flaky/classifier.ts`
+The Flaky Test Management System consists of the following core modules, corresponding to the `src/flaky/` directory in the source code:
 
-### 2.1 六种分类
+| Module | Source File | Responsibility |
+|--------|-------------|----------------|
+| Classifier | `classifier.ts` | Classifies tests into 6 categories based on run history |
+| Root Cause Analysis | `root-cause.ts` | Identifies 7 root cause types |
+| Correlation Analysis | `correlation.ts` | Discovers co-occurrence correlations between tests |
+| Trend Tracking | `trend.ts` | Time series analysis, change point detection, forecasting |
+| Quarantine Strategy | `quarantine-strategy.ts` | Graduated isolation, retry strategies, budget management |
+| Causal Graph | `causal-graph.ts` | Builds causal dependency graph, impact analysis |
+| Manager | `index.ts` | `FlakyTestManager` orchestrates all modules |
+| Config Merge | `config-merge.ts` | Safe merging of user configuration with defaults |
 
-系统将测试分为以下 6 种分类（`FlakyClassification`）：
+---
 
-| 分类 | 含义 | 判定条件 |
-|------|------|----------|
-| `flaky` | 交替通过/失败 | 加权失败率 ≥ `flakyThreshold`（0.3）且 < `highThreshold`（0.5） |
-| `broken` | 持续失败 | 连续失败 ≥ `brokenConsecutiveThreshold`（5）次 |
-| `regression` | 回归 | 近期窗口失败率 ≥ `regressionRecentFailRate`（0.6）且早期失败率 ≤ `regressionOlderFailRate`（0.2） |
-| `monitor` | 需关注 | 加权失败率 ≥ `monitorThreshold`（0.1）且 < `flakyThreshold`（0.3） |
-| `stable` | 稳定 | 加权失败率 < `stableThreshold`（0.05） |
-| `insufficient_data` | 数据不足 | 运行次数 < `minimumRuns`（5） |
+## 2. Classification Algorithm
 
-### 2.2 时间衰减加权失败率
+> Source: `src/flaky/classifier.ts`
 
-函数 `calculateWeightedFailureRate(history, decayRate=0.1)` 使用指数衰减为历史记录赋权，使最近的结果对分类影响更大：
+### 2.1 Six Classifications
+
+The system classifies tests into the following 6 categories (`FlakyClassification`):
+
+| Classification | Meaning | Decision Criteria |
+|----------------|---------|-------------------|
+| `flaky` | Alternating pass/fail | Weighted failure rate ≥ `flakyThreshold` (0.3) and < `highThreshold` (0.5) |
+| `broken` | Consistently failing | Consecutive failures ≥ `brokenConsecutiveThreshold` (5) times |
+| `regression` | Regression | Recent window failure rate ≥ `regressionRecentFailRate` (0.6) and older failure rate ≤ `regressionOlderFailRate` (0.2) |
+| `monitor` | Needs attention | Weighted failure rate ≥ `monitorThreshold` (0.1) and < `flakyThreshold` (0.3) |
+| `stable` | Stable | Weighted failure rate < `stableThreshold` (0.05) |
+| `insufficient_data` | Insufficient data | Run count < `minimumRuns` (5) |
+
+### 2.2 Time-Decay Weighted Failure Rate
+
+The function `calculateWeightedFailureRate(history, decayRate=0.1)` uses exponential decay to weight historical records, making recent results have greater influence on classification:
 
 ```
 weight = exp(-decayRate × ageInDays)
 weightedFailureRate = Σ(weightedFailures) / Σ(weightedTotal)
 ```
 
-**衰减效果示例**（`decayRate = 0.1`）：
+**Decay Effect Example** (`decayRate = 0.1`):
 
-| 时间距离 | 权重 | 说明 |
-|----------|------|------|
-| 1 天前 | ~0.90 | 几乎全权重 |
-| 7 天前 | ~0.50 | 权重减半 |
-| 14 天前 | ~0.25 | 四分之一权重 |
-| 30 天前 | ~0.05 | 几乎无影响 |
+| Time Distance | Weight | Description |
+|---------------|--------|-------------|
+| 1 day ago | ~0.90 | Nearly full weight |
+| 7 days ago | ~0.50 | Weight halved |
+| 14 days ago | ~0.25 | Quarter weight |
+| 30 days ago | ~0.05 | Almost no influence |
 
-其中 `failed` 和 `timedout` 状态均计为失败。
+Both `failed` and `timedout` statuses are counted as failures.
 
-### 2.3 Wilson 置信区间
+### 2.3 Wilson Confidence Interval
 
-函数 `wilsonConfidenceInterval(failures, total, confidence=0.95)` 基于二项分布计算失败率的置信区间，避免小样本时过度自信地判定 Flaky。
+The function `wilsonConfidenceInterval(failures, total, confidence=0.95)` calculates the confidence interval for failure rate based on binomial distribution, avoiding overconfident flaky classification with small samples.
 
-**支持的置信水平与对应 Z 值**：
+**Supported Confidence Levels and Corresponding Z Values**:
 
-| 置信水平 | Z 值 |
-|----------|------|
+| Confidence Level | Z Value |
+|------------------|---------|
 | 0.90 | 1.645 |
 | 0.95 | 1.96 |
 | 0.99 | 2.576 |
 
-**核心公式**：
+**Core Formula**:
 
 ```
 denominator = 1 + z²/n
@@ -129,583 +129,583 @@ lower = max(0, (centre - margin) / denominator)
 upper = min(1, (centre + margin) / denominator)
 ```
 
-其中 `p = failures / total`。小样本时区间自动扩大，体现不确定性。
+Where `p = failures / total`. The interval automatically widens for small samples, reflecting uncertainty.
 
-### 2.4 统计显著性检验
+### 2.4 Statistical Significance Test
 
-函数 `isStatisticallySignificant(test, threshold, minRuns, confidence=0.95)` 判断失败率是否具有统计显著性：
+The function `isStatisticallySignificant(test, threshold, minRuns, confidence=0.95)` determines whether the failure rate is statistically significant:
 
-**判定条件**（需同时满足）：
-1. 运行次数 ≥ `minRuns`
-2. Wilson 置信区间**下界** ≥ `threshold`
+**Decision Criteria** (must satisfy all):
+1. Run count ≥ `minRuns`
+2. Wilson confidence interval **lower bound** ≥ `threshold`
 
-> 注意：源码中使用的是 `ci.lower >= threshold`，即置信区间下界超过阈值才认为显著，这确保了只有失败率确实足够高时才判定为显著。
+> Note: The source code uses `ci.lower >= threshold`, meaning the confidence interval lower bound must exceed the threshold to be considered significant. This ensures significance is only determined when the failure rate is definitively high enough.
 
-### 2.5 分类判定流程
+### 2.5 Classification Decision Flow
 
-`classifyTest(test, config)` 按以下优先级依次判定：
+`classifyTest(test, config)` determines classification in the following priority order:
 
 ```
-1. 运行次数 < minimumRuns → insufficient_data
-2. 连续失败 ≥ brokenConsecutiveThreshold 且最近 N 次全部失败 → broken
-3. 满足回归模式（近期失败率高、早期失败率低）→ regression
-4. 加权失败率 < stableThreshold → stable
-5. 加权失败率 ≥ flakyThreshold → flaky
-6. 加权失败率 ≥ monitorThreshold → monitor
-7. 原始失败率 ≥ flakyThreshold 但加权失败率 < flakyThreshold → stable（正在改善）
-8. 默认 → monitor
+1. Run count < minimumRuns → insufficient_data
+2. Consecutive failures ≥ brokenConsecutiveThreshold and last N runs all failed → broken
+3. Matches regression pattern (high recent failure rate, low older failure rate) → regression
+4. Weighted failure rate < stableThreshold → stable
+5. Weighted failure rate ≥ flakyThreshold → flaky
+6. Weighted failure rate ≥ monitorThreshold → monitor
+7. Raw failure rate ≥ flakyThreshold but weighted failure rate < flakyThreshold → stable (improving)
+8. Default → monitor
 ```
 
-> **关键细节**：步骤 7 是一个"正在改善"的判定——如果原始失败率高但时间衰减加权失败率已降低，说明测试正在恢复，归类为 `stable`。
+> **Key Detail**: Step 7 is an "improving" determination—if the raw failure rate is high but the time-decay weighted failure rate has decreased, it indicates the test is recovering, so it's classified as `stable`.
 
 ---
 
-## 3. 根因分析
+## 3. Root Cause Analysis
 
-> 源码：`src/flaky/root-cause.ts`
+> Source: `src/flaky/root-cause.ts`
 
-### 3.1 七种根因类型
+### 3.1 Seven Root Cause Types
 
-`RootCauseType` 包含以下 7 种类型 + 1 种兜底：
+`RootCauseType` contains the following 7 types + 1 fallback:
 
-| 根因类型 | 标识 | 核心判断依据 |
-|----------|------|-------------|
-| 时序问题 | `timing` | 错误含 timeout/waiting 关键词，持续时间变异系数 > 0.5 |
-| 数据竞争 | `data_race` | 不同分片间通过率差异 ≥ 0.3 |
-| 环境依赖 | `environment` | 失败时间呈聚集模式，或特定 CI 节点失败率 ≥ 50% |
-| 外部服务 | `external_service` | 错误含 network/fetch/ECONNREFUSED/5xx 关键词 |
-| 测试顺序 | `test_order` | 特定前置测试出现在 ≥ 50% 的失败中 |
-| 资源泄漏 | `resource_leak` | 持续时间趋势斜率 > 0.1，或内存相关错误 |
-| 断言不稳定 | `assertion_flaky` | 错误含 assertion/expect 关键词，且时序错误不多于断言错误 |
-| 未知 | `unknown` | 所有检测器均未匹配时的兜底类型 |
+| Root Cause Type | Identifier | Core Judgment Basis |
+|-----------------|------------|---------------------|
+| Timing Issue | `timing` | Error contains timeout/waiting keywords, duration coefficient of variation > 0.5 |
+| Data Race | `data_race` | Pass rate difference between shards ≥ 0.3 |
+| Environment Dependency | `environment` | Failure timestamps show clustering pattern, or specific CI node failure rate ≥ 50% |
+| External Service | `external_service` | Error contains network/fetch/ECONNREFUSED/5xx keywords |
+| Test Order | `test_order` | Specific preceding test appears in ≥ 50% of failures |
+| Resource Leak | `resource_leak` | Duration trend slope > 0.1, or memory-related errors |
+| Assertion Flaky | `assertion_flaky` | Error contains assertion/expect keywords, and timing errors ≤ assertion errors |
+| Unknown | `unknown` | Fallback type when all detectors fail to match |
 
-### 3.2 各检测器详解
+### 3.2 Detector Details
 
-#### 3.2.1 时序问题检测 `detectTimingIssue`
+#### 3.2.1 Timing Issue Detection `detectTimingIssue`
 
-**关键词列表**：`timeout`、`timed out`、`waiting for selector`、`waiting for element`、`exceeded`、`navigation`、`waiting for`、`slow`
+**Keyword List**: `timeout`, `timed out`, `waiting for selector`, `waiting for element`, `exceeded`, `navigation`, `waiting for`, `slow`
 
-**判定逻辑**：
-- 统计历史中包含上述关键词的错误次数 `keywordHits`
-- 计算持续时间的变异系数 `CV = 标准差 / 均值`
-- 如果 `keywordHits === 0` 且 `CV ≤ 0.5`，返回 null（未检测到）
-- 否则返回证据
+**Decision Logic**:
+- Count errors containing above keywords in history as `keywordHits`
+- Calculate duration coefficient of variation `CV = standard deviation / mean`
+- If `keywordHits === 0` and `CV ≤ 0.5`, return null (not detected)
+- Otherwise return evidence
 
-**置信度计算**：
+**Confidence Calculation**:
 ```
 confidence = min(1, (keywordHits / historyLength) × 0.7 + (CV > 0.5 ? 0.3 : 0))
 ```
 
-**持续时间变异系数阈值**：`DURATION_CV_THRESHOLD = 0.5`
+**Duration Coefficient of Variation Threshold**: `DURATION_CV_THRESHOLD = 0.5`
 
-#### 3.2.2 数据竞争检测 `detectDataRace`
+#### 3.2.2 Data Race Detection `detectDataRace`
 
-**判定逻辑**：
-- 需要上下文中的 `shardMap` 信息
-- 统计同一测试在不同分片的通过/失败次数
-- 计算各分片通过率，如果最大通过率与最小通过率差异 ≥ 0.3，判定为数据竞争
-- 至少需要 2 个分片才有意义
+**Decision Logic**:
+- Requires `shardMap` information in context
+- Count pass/fail occurrences for the same test across different shards
+- Calculate pass rate for each shard; if max pass rate - min pass rate ≥ 0.3, determine as data race
+- Requires at least 2 shards to be meaningful
 
-**置信度计算**：
+**Confidence Calculation**:
 ```
 confidence = min(1, divergence + 0.2)
 ```
 
-#### 3.2.3 环境依赖检测 `detectEnvironmentDependency`
+#### 3.2.3 Environment Dependency Detection `detectEnvironmentDependency`
 
-**两条检测路径**：
+**Two Detection Paths**:
 
-1. **时间聚集**：失败时间戳间隔显著小于期望间隔（短间隔占比 ≥ 50%），判定为时间聚集
-2. **节点聚集**：特定 CI 节点上的失败率 ≥ 50%（且该节点至少运行 2 次）
+1. **Time Clustering**: Failure timestamp intervals are significantly smaller than expected intervals (short interval ratio ≥ 50%), determined as time clustering
+2. **Node Clustering**: Failure rate on specific CI node ≥ 50% (and that node has at least 2 runs)
 
-**置信度计算**：
+**Confidence Calculation**:
 ```
 confidence = (timeClustered ? 0.4 : 0) + (nodeClustered ? 0.5 : 0)
 ```
 
-#### 3.2.4 外部服务检测 `detectExternalService`
+#### 3.2.4 External Service Detection `detectExternalService`
 
-**关键词列表**：`network`、`fetch`、`econnrefused`、`econnreset`、`enetunreach`、`err_connection`、`cors`、`5xx`、`500`、`502`、`503`、`504`、`service unavailable`、`gateway timeout`、`bad gateway`、`internal server error`
+**Keyword List**: `network`, `fetch`, `econnrefused`, `econnreset`, `enetunreach`, `err_connection`, `cors`, `5xx`, `500`, `502`, `503`, `504`, `service unavailable`, `gateway timeout`, `bad gateway`, `internal server error`
 
-**置信度计算**：
+**Confidence Calculation**:
 ```
 confidence = min(1, (keywordHits / historyLength) × 0.8 + 0.2)
 ```
 
-#### 3.2.5 测试顺序检测 `detectTestOrderDependency`
+#### 3.2.5 Test Order Detection `detectTestOrderDependency`
 
-**判定逻辑**：
-- 需要至少 2 次运行记录
-- 找出目标测试失败时，其前一个测试的 ID
-- 如果某个前置测试出现在 ≥ 50% 的失败中，且绝对次数 ≥ 2，判定为顺序依赖
+**Decision Logic**:
+- Requires at least 2 run records
+- Find the ID of the preceding test when the target test fails
+- If a specific preceding test appears in ≥ 50% of failures, and absolute count ≥ 2, determine as order dependency
 
-**置信度计算**：
+**Confidence Calculation**:
 ```
 confidence = min(1, (maxPrecedingCount / failCount) × 0.7 + 0.2)
 ```
 
-#### 3.2.6 资源泄漏检测 `detectResourceLeak`
+#### 3.2.6 Resource Leak Detection `detectResourceLeak`
 
-**关键词列表**：`memory`、`heap`、`out of memory`、`cannot allocate`、`too many open files`、`emfile`、`connection pool`、`max connections`、`resource`
+**Keyword List**: `memory`, `heap`, `out of memory`, `cannot allocate`, `too many open files`, `emfile`, `connection pool`, `max connections`, `resource`
 
-**判定逻辑**：
-- 统计内存/资源相关错误关键词命中次数
-- 计算持续时间的线性趋势斜率（归一化）
-- 如果 `keywordHits === 0` 且 `trendSlope ≤ 0.1`，返回 null
-- 持续时间趋势阈值：`DURATION_TREND_THRESHOLD = 0.1`
+**Decision Logic**:
+- Count memory/resource related error keyword hits
+- Calculate linear trend slope of duration (normalized)
+- If `keywordHits === 0` and `trendSlope ≤ 0.1`, return null
+- Duration trend threshold: `DURATION_TREND_THRESHOLD = 0.1`
 
-**置信度计算**：
+**Confidence Calculation**:
 ```
 confidence = min(1, (keywordHits > 0 ? 0.5 : 0) + (trendSlope > 0.1 ? 0.4 : 0))
 ```
 
-#### 3.2.7 断言不稳定检测 `detectAssertionFlaky`
+#### 3.2.7 Assertion Flaky Detection `detectAssertionFlaky`
 
-**关键词列表**：`assertion`、`assert`、`expect`、`to be`、`to equal`、`to match`、`received`、`expected`
+**Keyword List**: `assertion`, `assert`, `expect`, `to be`, `to equal`, `to match`, `received`, `expected`
 
-**判定逻辑**：
-- 统计断言相关关键词命中次数
-- 如果时序错误次数 > 断言错误次数，返回 null（更可能是时序问题而非断言问题）
-- 这确保了断言不稳定不会与时序问题混淆
+**Decision Logic**:
+- Count assertion-related keyword hits
+- If timing error count > assertion error count, return null (more likely timing issue than assertion issue)
+- This ensures assertion flaky doesn't get confused with timing issues
 
-**置信度计算**：
+**Confidence Calculation**:
 ```
 confidence = min(1, (keywordHits / historyLength) × 0.6 + 0.3)
 ```
 
-### 3.3 建议操作
+### 3.3 Suggested Actions
 
-`RootCauseAnalyzer.analyze()` 返回的 `suggestedActions` 根据根因类型自动生成：
+`RootCauseAnalyzer.analyze()` returns `suggestedActions` automatically generated based on root cause type:
 
-| 根因类型 | 建议操作 |
-|----------|----------|
-| `timing` | 增加超时时间、添加显式等待、检查页面加载性能、考虑 retry |
-| `data_race` | 检查共享状态、确保数据独立性、避免全局状态、使用 beforeEach 重置 |
-| `environment` | 检查 CI 环境差异、确保一致性、检查资源竞争、错峰运行 |
-| `external_service` | 添加健康检查、使用 mock、增加重试、检查 SLA |
-| `test_order` | 确保独立性、检查状态泄漏、使用 beforeEach/afterEach、合并或拆分 |
-| `resource_leak` | 检查未关闭连接、确保清理、监控内存、检查浏览器实例 |
-| `assertion_flaky` | 检查浮点数比较、避免精确时间匹配、使用宽松匹配器、检查动态内容 |
-| `unknown` | 收集更多数据、检查非确定性逻辑、添加日志 |
+| Root Cause Type | Suggested Actions |
+|-----------------|-------------------|
+| `timing` | Increase timeout, add explicit waits, check page load performance, consider retry |
+| `data_race` | Check shared state, ensure data independence, avoid global state, use beforeEach reset |
+| `environment` | Check CI environment differences, ensure consistency, check resource contention, stagger execution |
+| `external_service` | Add health checks, use mocks, increase retries, check SLA |
+| `test_order` | Ensure independence, check state leakage, use beforeEach/afterEach, merge or split tests |
+| `resource_leak` | Check unclosed connections, ensure cleanup, monitor memory, check browser instances |
+| `assertion_flaky` | Check floating-point comparisons, avoid exact time matching, use loose matchers, check dynamic content |
+| `unknown` | Collect more data, check non-deterministic logic, add logging |
 
 ---
 
-## 4. 关联分析
+## 4. Correlation Analysis
 
-> 源码：`src/flaky/correlation.ts`
+> Source: `src/flaky/correlation.ts`
 
-### 4.1 关联类型
+### 4.1 Correlation Types
 
-`CorrelationType` 包含 5 种关联类型：
+`CorrelationType` contains 5 correlation types:
 
-| 类型 | 含义 |
-|------|------|
-| `same_run` | 同一次运行中同时失败 |
-| `same_shard` | 同一分片中同时失败 |
-| `same_time_window` | 同一时间窗口内失败 |
-| `same_error_pattern` | 共享相同错误模式 |
-| `same_file` | 位于同一测试文件 |
+| Type | Meaning |
+|------|---------|
+| `same_run` | Failed together in the same run |
+| `same_shard` | Failed together in the same shard |
+| `same_time_window` | Failed within the same time window |
+| `same_error_pattern` | Share the same error pattern |
+| `same_file` | Located in the same test file |
 
-### 4.2 Jaccard 共现系数
+### 4.2 Jaccard Co-occurrence Coefficient
 
-使用 Jaccard 系数衡量两个测试在同一运行中同时失败的频率：
+Uses Jaccard coefficient to measure the frequency of two tests failing together in the same run:
 
 ```
 Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 ```
 
-其中 A 和 B 分别是两个测试失败的运行 ID 集合。
+Where A and B are the sets of run IDs where each test failed.
 
-**阈值**：`CORRELATION_CO_OCCURRENCE_THRESHOLD = 0.6`，即 Jaccard 系数 ≥ 0.6 才认为有关联。
+**Threshold**: `CORRELATION_CO_OCCURRENCE_THRESHOLD = 0.6`, i.e., Jaccard coefficient ≥ 0.6 is considered correlated.
 
-**最低运行次数**：`CORRELATION_MIN_RUNS = 3`，运行次数不足的测试不参与分析。
+**Minimum Run Count**: `CORRELATION_MIN_RUNS = 3`, tests with insufficient runs don't participate in analysis.
 
-### 4.3 并查集合并
+### 4.3 Union-Find Merging
 
-使用并查集（Union-Find）数据结构高效合并高共现的测试对，形成关联组：
+Uses Union-Find data structure to efficiently merge test pairs with high co-occurrence, forming correlation groups:
 
-- **路径压缩**：`find()` 操作带路径压缩，接近 O(1) 查找
-- **按秩合并**：`union()` 操作按秩合并，保持树平衡
+- **Path Compression**: `find()` operation with path compression, achieving near O(1) lookup
+- **Union by Rank**: `union()` operation with union by rank, keeping the tree balanced
 
-**流程**：
-1. 对所有符合条件的测试对计算 Jaccard 系数
-2. 系数 ≥ 0.6 的测试对执行 `union()` 合并
-3. 遍历所有测试，按 `find()` 根节点分组
-4. 只保留成员 ≥ 2 的组
-5. 计算组内平均共现系数和主导关联类型
+**Process**:
+1. Calculate Jaccard coefficient for all eligible test pairs
+2. Execute `union()` merge for pairs with coefficient ≥ 0.6
+3. Iterate all tests, group by `find()` root node
+4. Only keep groups with ≥ 2 members
+5. Calculate average co-occurrence coefficient and dominant correlation type within each group
 
-### 4.4 关联类型判定
+### 4.4 Correlation Type Determination
 
-`determineCorrelationType()` 按以下优先级判定两个测试间的关联类型：
+`determineCorrelationType()` determines the correlation type between two tests in the following priority order:
 
 ```
-1. 相同错误模式 → same_error_pattern
-2. 同一文件 → same_file
-3. 共现系数 ≥ 0.8 → same_run
-4. 默认 → same_time_window
+1. Same error pattern → same_error_pattern
+2. Same file → same_file
+3. Co-occurrence coefficient ≥ 0.8 → same_run
+4. Default → same_time_window
 ```
 
-**相同错误模式判定**：两个测试的错误关键词交集 ≥ 2 个，且交集占较大集合比例 ≥ 0.5。
+**Same Error Pattern Determination**: Two tests' error keyword intersection ≥ 2, and intersection ratio to larger set ≥ 0.5.
 
-**相同文件判定**：从错误堆栈中提取 `.spec.ts/.test.ts` 等文件路径，比较是否一致。
+**Same File Determination**: Extract `.spec.ts/.test.ts` etc. file paths from error stack traces, compare if they match.
 
 ---
 
-## 5. 趋势追踪
+## 5. Trend Tracking
 
-> 源码：`src/flaky/trend.ts`
+> Source: `src/flaky/trend.ts`
 
-### 5.1 时间序列聚合
+### 5.1 Time Series Aggregation
 
-`aggregateTimeSeries(history, windowDays=7)` 将历史记录聚合为按天的时间序列数据点：
+`aggregateTimeSeries(history, windowDays=7)` aggregates history records into daily time series data points:
 
-**每个数据点包含**：
-- `passRate`：当天通过率
-- `failRate`：当天失败率
-- `avgDuration`：当天平均持续时间
-- `flakyCount`：当天失败次数
-- `totalRuns`：当天总运行次数
+**Each Data Point Contains**:
+- `passRate`: Pass rate for that day
+- `failRate`: Failure rate for that day
+- `avgDuration`: Average duration for that day
+- `flakyCount`: Failure count for that day
+- `totalRuns`: Total run count for that day
 
-**移动平均平滑**：当 `windowDays > 1` 时，应用居中移动平均平滑，窗口大小为 `windowDays`，减少噪声突出趋势。
+**Moving Average Smoothing**: When `windowDays > 1`, applies centered moving average smoothing with window size of `windowDays`, reducing noise to highlight trends.
 
-### 5.2 趋势方向检测
+### 5.2 Trend Direction Detection
 
-`detectTrendDirection(dataPoints)` 返回 `TrendDirection`，包含 4 种方向：
+`detectTrendDirection(dataPoints)` returns `TrendDirection`, containing 4 directions:
 
-| 方向 | 含义 | 判定条件 |
-|------|------|----------|
-| `improving` | 改善中 | 线性回归斜率 < -0.02 |
-| `stable` | 稳定 | 斜率在 [-0.02, 0.02] 之间 |
-| `degrading` | 恶化中 | 斜率 > 0.02 |
-| `volatile` | 波动大 | R² < 0.3（线性拟合度差） |
+| Direction | Meaning | Decision Criteria |
+|-----------|---------|-------------------|
+| `improving` | Improving | Linear regression slope < -0.02 |
+| `stable` | Stable | Slope between [-0.02, 0.02] |
+| `degrading` | Degrading | Slope > 0.02 |
+| `volatile` | Volatile | R² < 0.3 (poor linear fit) |
 
-**线性回归**：使用最小二乘法拟合 `y = slope × x + intercept`，返回斜率、截距和 R² 决定系数。
+**Linear Regression**: Uses least squares method to fit `y = slope × x + intercept`, returning slope, intercept, and R² coefficient of determination.
 
-> 注意：数据点 < 3 时直接返回 `stable`。
+> Note: Returns `stable` directly when data points < 3.
 
-### 5.3 变点检测
+### 5.3 Change Point Detection
 
-`detectChangePoints(dataPoints, threshold=0.3)` 使用 CUSUM 算法检测失败率的突变点：
+`detectChangePoints(dataPoints, threshold=0.3)` uses CUSUM algorithm to detect sudden changes in failure rate:
 
-**算法流程**：
-1. 计算失败率序列的均值和标准差
-2. 对每个数据点计算累积和 `cusumPos`（正向偏移）和 `cusumNeg`（负向偏移）
-3. 当累积和超过 `threshold × 5` 时，检查前后窗口的失败率变化
-4. 如果变化幅度 ≥ `threshold`，记录为变点
-5. 重置累积和继续检测
+**Algorithm Flow**:
+1. Calculate mean and standard deviation of failure rate sequence
+2. For each data point, calculate cumulative sum `cusumPos` (positive deviation) and `cusumNeg` (negative deviation)
+3. When cumulative sum exceeds `threshold × 5`, check failure rate change in windows before and after
+4. If change magnitude ≥ `threshold`, record as change point
+5. Reset cumulative sum and continue detection
 
-**变点包含**：`timestamp`、`beforeRate`、`afterRate`、`magnitude`、`confidence`
+**Change Point Contains**: `timestamp`, `beforeRate`, `afterRate`, `magnitude`, `confidence`
 
-**默认阈值**：`TREND_CHANGE_POINT_THRESHOLD = 0.3`
+**Default Threshold**: `TREND_CHANGE_POINT_THRESHOLD = 0.3`
 
-### 5.4 季节模式检测
+### 5.4 Seasonal Pattern Detection
 
-`detectSeasonalPattern(history, minCycles=3)` 分析失败率是否呈周期性波动：
+`detectSeasonalPattern(history, minCycles=3)` analyzes whether failure rate shows periodic fluctuations:
 
-**检测维度**：
-- **按小时**：统计 24 小时各时段的失败率，如果振幅 > 总体失败率 × 0.5，识别高峰时段
-- **按星期**：统计 7 天各天的失败率，同样判断振幅
+**Detection Dimensions**:
+- **By Hour**: Statistics of failure rate for each of 24 hours; if amplitude > overall failure rate × 0.5, identify peak hours
+- **By Day of Week**: Statistics of failure rate for each of 7 days; same amplitude judgment
 
-**周期判定**：
-- 有高峰星期 → `weekly`
-- 有高峰小时 → `daily`
-- 否则 → `hourly`
+**Period Determination**:
+- Has peak day of week → `weekly`
+- Has peak hour → `daily`
+- Otherwise → `hourly`
 
-**最少周期数**：`TREND_SEASONAL_MIN_CYCLES = 3`，至少需要 3 个完整周期数据。
+**Minimum Cycle Count**: `TREND_SEASONAL_MIN_CYCLES = 3`, requires at least 3 complete cycles of data.
 
-**高峰判定**：某时段失败率 > 均值 × 1.5。
+**Peak Determination**: Failure rate for a time period > mean × 1.5.
 
-### 5.5 代码变更关联
+### 5.5 Code Change Correlation
 
-`correlateCodeChanges(changePoints, codeChanges)` 将变点与代码提交关联：
+`correlateCodeChanges(changePoints, codeChanges)` correlates change points with code commits:
 
-**关联条件**：
-- 代码提交时间与变点时间差 ≤ 3 天
-- 关联得分 = 时间接近度 × 变化幅度因子 ≥ 0.3
+**Correlation Conditions**:
+- Time difference between code commit and change point ≤ 3 days
+- Correlation score = time proximity × change magnitude factor ≥ 0.3
 
-**时间接近度**：`1 - timeDiff / (3 × MS_PER_DAY)`
+**Time Proximity**: `1 - timeDiff / (3 × MS_PER_DAY)`
 
-**变化幅度因子**：`min(1, magnitude × 2)`
+**Change Magnitude Factor**: `min(1, magnitude × 2)`
 
-### 5.6 趋势预测
+### 5.6 Trend Forecasting
 
-`generateForecast(dataPoints, direction, seasonalPattern)` 基于线性回归和季节模式预测未来 7 天趋势：
+`generateForecast(dataPoints, direction, seasonalPattern)` forecasts the next 7 days based on linear regression and seasonal pattern:
 
-**预测方法**：
-1. 使用线性回归外推基础失败率
-2. 如果存在季节模式，在高峰时段/高峰日叠加季节调整量 `amplitude × 0.3`
-3. 预测值限制在 [0, 1] 范围内
+**Forecasting Method**:
+1. Use linear regression to extrapolate base failure rate
+2. If seasonal pattern exists, add seasonal adjustment `amplitude × 0.3` during peak hours/days
+3. Forecast values clamped to [0, 1] range
 
-**预测方向**：斜率 < -0.01 → `improving`，斜率 > 0.01 → `degrading`，否则 → `stable`
+**Forecast Direction**: slope < -0.01 → `improving`, slope > 0.01 → `degrading`, otherwise → `stable`
 
-**预测置信度**：`min(1, R² × 0.8 + seasonalConfidence × 0.2)`
+**Forecast Confidence**: `min(1, R² × 0.8 + seasonalConfidence × 0.2)`
 
 ---
 
-## 6. 隔离策略
+## 6. Quarantine Strategy
 
-> 源码：`src/flaky/quarantine-strategy.ts`
+> Source: `src/flaky/quarantine-strategy.ts`
 
-### 6.1 隔离级别
+### 6.1 Isolation Levels
 
-`IsolationLevel` 包含 4 个级别，严重程度递增：
+`IsolationLevel` contains 4 levels, in increasing severity:
 
-| 级别 | 含义 | 说明 |
-|------|------|------|
-| `none` | 无隔离 | 正常执行 |
-| `monitor` | 监控 | 继续执行但增加观察 |
-| `soft_quarantine` | 软隔离 | 允许重试，不计入主流程 |
-| `hard_quarantine` | 硬隔离 | 完全跳过，不执行 |
+| Level | Meaning | Description |
+|-------|---------|-------------|
+| `none` | No isolation | Normal execution |
+| `monitor` | Monitor | Continue execution but with increased observation |
+| `soft_quarantine` | Soft quarantine | Retries allowed, not counted in main flow |
+| `hard_quarantine` | Hard quarantine | Completely skipped, not executed |
 
-### 6.2 策略类型
+### 6.2 Strategy Types
 
-`QuarantineStrategyType` 包含 5 种策略：
+`QuarantineStrategyType` contains 5 strategies:
 
-| 策略 | 对应隔离级别 | 说明 |
-|------|-------------|------|
-| `skip` | none | 不采取任何措施 |
-| `retry_only` | monitor | 仅重试，不隔离 |
-| `soft` | soft_quarantine | 软隔离 |
-| `hard` | hard_quarantine | 硬隔离 |
-| `graduated` | — | 分级策略，根据严重程度自动选择上述策略 |
+| Strategy | Corresponding Isolation Level | Description |
+|----------|------------------------------|-------------|
+| `skip` | none | Take no action |
+| `retry_only` | monitor | Retry only, no isolation |
+| `soft` | soft_quarantine | Soft quarantine |
+| `hard` | hard_quarantine | Hard quarantine |
+| `graduated` | — | Graduated strategy, automatically selects from above strategies based on severity |
 
-### 6.3 分级隔离判定
+### 6.3 Graduated Isolation Determination
 
-`determineIsolationLevel()` 在 `graduated` 策略下的判定逻辑：
+`determineIsolationLevel()` decision logic under `graduated` strategy:
 
 ```
 1. classification === 'broken' → hard_quarantine
-2. classification === 'stable' 或 'insufficient_data' → none
+2. classification === 'stable' or 'insufficient_data' → none
 3. classification === 'monitor' → monitor
 4. weightedFailureRate ≥ hardThreshold(0.4) → hard_quarantine
 5. weightedFailureRate ≥ softThreshold(0.15) → soft_quarantine
 6. weightedFailureRate > 0 → monitor
-7. 默认 → none
+7. Default → none
 ```
 
-**策略与隔离级别的映射**：
+**Strategy to Isolation Level Mapping**:
 
 | IsolationLevel | QuarantineStrategyType |
-|----------------|----------------------|
+|----------------|------------------------|
 | `none` | `skip` |
 | `monitor` | `retry_only` |
 | `soft_quarantine` | `soft` |
 | `hard_quarantine` | `hard` |
 
-### 6.4 根因感知重试策略
+### 6.4 Root Cause-Aware Retry Strategy
 
-`getRetryPolicyForRootCause()` 根据根因类型定制重试策略：
+`getRetryPolicyForRootCause()` customizes retry strategy based on root cause type:
 
-| 根因类型 | 最大重试 | 重试延迟 | 退避倍数 | 仅通过时重试 |
-|----------|---------|----------|---------|------------|
-| `timing` | retryMax(3) | retryDelayMs × 2 | backoff(2) | 否 |
-| `external_service` | retryMax(3) | retryDelayMs × 3 | backoff(2) | 否 |
-| `data_race` | 2 | retryDelayMs | 1 | 是 |
-| `environment` | retryMax(3) | retryDelayMs × 2 | backoff(2) | 否 |
-| `resource_leak` | 1 | retryDelayMs × 5 | 1 | 是 |
-| `test_order` | 0 | 0 | 1 | 是 |
-| `assertion_flaky` | 1 | retryDelayMs | 1 | 是 |
-| `unknown` | retryMax(3) | retryDelayMs | backoff(2) | 否 |
+| Root Cause Type | Max Retries | Retry Delay | Backoff Multiplier | Retry Only on Pass |
+|-----------------|-------------|-------------|--------------------|--------------------|
+| `timing` | retryMax(3) | retryDelayMs × 2 | backoff(2) | No |
+| `external_service` | retryMax(3) | retryDelayMs × 3 | backoff(2) | No |
+| `data_race` | 2 | retryDelayMs | 1 | Yes |
+| `environment` | retryMax(3) | retryDelayMs × 2 | backoff(2) | No |
+| `resource_leak` | 1 | retryDelayMs × 5 | 1 | Yes |
+| `test_order` | 0 | 0 | 1 | Yes |
+| `assertion_flaky` | 1 | retryDelayMs | 1 | Yes |
+| `unknown` | retryMax(3) | retryDelayMs | backoff(2) | No |
 
-**设计理念**：
-- 时序问题和外部服务问题适合重试（延迟加倍、退避递增）
-- 测试顺序问题不适合重试（maxRetries = 0）
-- 资源泄漏和断言不稳定重试收益有限（maxRetries = 1，仅通过时重试）
+**Design Philosophy**:
+- Timing issues and external service issues are suitable for retry (doubled delay, increasing backoff)
+- Test order issues are not suitable for retry (maxRetries = 0)
+- Resource leaks and assertion flaky have limited retry benefit (maxRetries = 1, retry only on pass)
 
-### 6.5 预算控制
+### 6.5 Budget Control
 
-`checkQuarantineBudget()` 限制被隔离测试占总测试数的比例：
+`checkQuarantineBudget()` limits the proportion of quarantined tests to total tests:
 
-- **最大隔离比例**：`maxQuarantineRatio = 0.2`（最多 20% 的测试可被隔离）
-- **最小可隔离数**：`minQuarantineCount = 3`（即使 20% 不足 3 个，也允许隔离 3 个）
-- **最大可隔离数**：`max(3, ceil(totalTests × 0.2))`
+- **Maximum Quarantine Ratio**: `maxQuarantineRatio = 0.2` (at most 20% of tests can be quarantined)
+- **Minimum Quarantine Count**: `minQuarantineCount = 3` (even if 20% is less than 3, allow quarantining 3)
+- **Maximum Quarantine Count**: `max(3, ceil(totalTests × 0.2))`
 
-**预算不足时的处理**：
-- `QuarantineStrategyManager.generateStrategiesWithBudget()` 会按优先级排序测试
-- 优先隔离 `hard_quarantine` > `soft_quarantine` > `monitor` > `none`
-- 同级别按加权失败率降序排列
-- 预算不足时，新测试降级为 `monitor`（retry_only），原因追加"隔离预算不足，降级为监控"
+**Handling Budget Insufficiency**:
+- `QuarantineStrategyManager.generateStrategiesWithBudget()` sorts tests by priority
+- Prioritize quarantining `hard_quarantine` > `soft_quarantine` > `monitor` > `none`
+- Within same level, sort by weighted failure rate descending
+- When budget insufficient, new tests are downgraded to `monitor` (retry_only), with reason appended "quarantine budget insufficient, downgraded to monitor"
 
-### 6.6 自动释放与过期降级
+### 6.6 Auto-Release and Expiry Downgrade
 
-#### 自动释放
+#### Auto-Release
 
-`checkAutoRelease()` 在隔离测试连续通过一定次数后自动释放：
+`checkAutoRelease()` automatically releases quarantined tests after consecutive passes:
 
-- **软隔离/监控**：连续通过 `autoReleaseAfterPasses`（3）次后释放
-- **硬隔离**：连续通过 `autoReleaseHardQuarantinePasses`（5）次后释放
+- **Soft Quarantine/Monitor**: Released after `autoReleaseAfterPasses` (3) consecutive passes
+- **Hard Quarantine**: Released after `autoReleaseHardQuarantinePasses` (5) consecutive passes
 
-释放时可选重置历史（`resetHistory: true`），清除所有统计数据重新开始。
+Optionally reset history on release (`resetHistory: true`), clearing all statistics to start fresh.
 
-#### 过期降级
+#### Expiry Downgrade
 
-`downgradeExpiredQuarantine()` 在隔离超过 `quarantineExpiryDays`（30 天）后自动降级：
+`downgradeExpiredQuarantine()` automatically downgrades after quarantine exceeds `quarantineExpiryDays` (30 days):
 
-- `hard_quarantine` → `monitor`（retry_only）
-- `soft_quarantine` → `monitor`（retry_only）
+- `hard_quarantine` → `monitor` (retry_only)
+- `soft_quarantine` → `monitor` (retry_only)
 
-> 注意：降级不会完全释放测试，而是降为监控模式继续观察。此功能由 `quarantineExpiryDowngrade`（默认 `true`）控制。
+> Note: Downgrade doesn't fully release the test, but reduces to monitor mode for continued observation. This feature is controlled by `quarantineExpiryDowngrade` (default `true`).
 
 ---
 
-## 7. 健康评分
+## 7. Health Score
 
-> 源码：`src/flaky/trend.ts` 中的 `calculateHealthScore()`
+> Source: `calculateHealthScore()` in `src/flaky/trend.ts`
 
-### 7.1 四维评分模型
+### 7.1 Four-Dimensional Scoring Model
 
-`FlakyHealthScore` 综合四个维度计算整体健康评分：
+`FlakyHealthScore` computes overall health score by combining four dimensions:
 
-| 维度 | 权重 | 计算方式 |
-|------|------|----------|
-| `stability`（稳定性） | 0.35 | `1 - weightedFailureRate` |
-| `trend`（趋势） | 0.25 | improving=1, stable=0.7, degrading=0.3, volatile=0.2 |
-| `recoverability`（可恢复性） | 0.20 | `min(1, (passes / totalRuns) × 1.5)` |
-| `predictability`（可预测性） | 0.20 | 趋势拟合的 R² 值 |
+| Dimension | Weight | Calculation |
+|-----------|--------|-------------|
+| `stability` | 0.35 | `1 - weightedFailureRate` |
+| `trend` | 0.25 | improving=1, stable=0.7, degrading=0.3, volatile=0.2 |
+| `recoverability` | 0.20 | `min(1, (passes / totalRuns) × 1.5)` |
+| `predictability` | 0.20 | R² value of trend fit |
 
-**综合评分公式**：
+**Overall Score Formula**:
 
 ```
 overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictability × 0.2
 ```
 
-### 7.2 等级映射
+### 7.2 Grade Mapping
 
-| 等级 | 分数范围 | 标签 |
-|------|----------|------|
-| A | ≥ 0.9 | 非常健康 |
-| B | ≥ 0.75 | 基本健康 |
-| C | ≥ 0.6 | 需要关注 |
-| D | ≥ 0.4 | 不健康 |
-| F | < 0.4 | 严重不健康 |
+| Grade | Score Range | Label |
+|-------|-------------|-------|
+| A | ≥ 0.9 | Very healthy |
+| B | ≥ 0.75 | Mostly healthy |
+| C | ≥ 0.6 | Needs attention |
+| D | ≥ 0.4 | Unhealthy |
+| F | < 0.4 | Severely unhealthy |
 
-> 注意：源码中等级 B 的阈值是 0.75，C 是 0.6，D 是 0.4，与用户需求中提到的 0.7/0.5/0.3 略有不同。实际以源码为准。
+> Note: In the source code, grade B threshold is 0.75, C is 0.6, D is 0.4, slightly different from the 0.7/0.5/0.3 mentioned in user requirements. The source code takes precedence.
 
-**项目级健康评分**：`FlakyTestManager.getOverallHealthScore()` 对所有测试的各维度取平均值，再按相同权重和等级映射计算项目级评分。无测试数据时返回满分 A（"无测试数据"）。
-
----
-
-## 8. 因果图
-
-> 源码：`src/flaky/causal-graph.ts`
-
-### 8.1 节点类型
-
-`CausalNode` 包含 4 种节点类型：
-
-| 类型 | 含义 | 来源 |
-|------|------|------|
-| `test` | 测试节点 | 每个 Flaky 测试对应一个节点 |
-| `infrastructure` | 基础设施节点 | 从关联组推断（timing/environment/resource_leak/unknown） |
-| `external_service` | 外部服务节点 | 从关联组推断（external_service 根因） |
-| `shared_state` | 共享状态节点 | 从关联组推断（data_race/test_order/assertion_flaky） |
-
-### 8.2 边类型
-
-`CausalEdge` 包含 5 种边类型：
-
-| 类型 | 含义 |
-|------|------|
-| `depends_on` | 依赖关系 |
-| `shares_resource` | 共享资源 |
-| `same_environment` | 同一环境 |
-| `sequential` | 顺序依赖 |
-| `correlated_failure` | 关联失败 |
-
-**实际构建中产生的边类型**：
-- 关联组中 `same_error_pattern` 类型 → `correlated_failure` 边
-- 关联组中其他类型 → `same_environment` 边
-- 运行结果中的共失败分析 → `correlated_failure` 边
-
-### 8.3 图构建流程
-
-`CausalGraphBuilder.build(tests, correlationGroups, recentRuns)` 的构建流程：
-
-1. **构建测试节点**：每个 Flaky 测试生成一个 `test` 类型节点
-2. **推断基础设施节点**：从关联组推断共享根因，创建 `infrastructure`/`external_service`/`shared_state` 节点
-3. **推断依赖边**：分析运行结果中的共失败模式，生成 `correlated_failure` 边
-4. **识别根因节点**：通过入度/出度分析识别根因
-5. **构建影响映射**：BFS 遍历计算每个节点的影响范围
-
-**配置参数**：
-- `minCorrelation = 0.4`：共失败关联度低于此值的边不生成
-- `maxDepth = 5`：影响映射遍历的最大深度
-
-### 8.4 根因识别
-
-`identifyRootCauses()` 使用入度/出度分析识别根因节点：
-
-**判定条件**（满足其一）：
-- 节点类型不是 `test`（基础设施/外部服务/共享状态节点）
-- 出度 > 入度 × 2 且出度 > 0.5
-
-**排序**：按出度降序排列，出度越大的节点越可能是根因。
-
-### 8.5 影响分析
-
-`analyzeImpact(testId, graph)` 计算指定测试的影响范围：
-
-| 指标 | 计算方式 |
-|------|----------|
-| 直接影响 | 从该节点出发的边指向的节点 |
-| 间接影响 | 影响映射中排除直接影响后的节点 |
-| 总影响分 | 直接影响数 × 2 + 间接影响数 |
-
-**风险等级**：
-
-| 总影响分 | 风险等级 | 建议 |
-|----------|----------|------|
-| ≥ 10 | `critical` | 最高优先级处理 |
-| ≥ 5 | `high` | 建议尽快修复 |
-| ≥ 2 | `medium` | 方便时修复 |
-| < 2 | `low` | 正常优先级 |
+**Project-Level Health Score**: `FlakyTestManager.getOverallHealthScore()` averages each dimension across all tests, then calculates project-level score using the same weights and grade mapping. Returns perfect score A ("no test data") when no test data exists.
 
 ---
 
-## 9. 参数自定义
+## 8. Causal Graph
 
-### 9.1 FlakyCriteriaConfig（12 个参数）
+> Source: `src/flaky/causal-graph.ts`
 
-> 源码：`src/constants/index.ts` 中的 `DEFAULT_FLAKY_CRITERIA`
+### 8.1 Node Types
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `minimumRuns` | 5 | 最低运行次数，少于此数分类为 insufficient_data |
-| `flakyThreshold` | 0.3 | Flaky 分类阈值，加权失败率 ≥ 此值分类为 flaky |
-| `monitorThreshold` | 0.1 | 监控阈值，加权失败率 ≥ 此值需关注 |
-| `stableThreshold` | 0.05 | 稳定阈值，加权失败率 < 此值分类为 stable |
-| `highThreshold` | 0.5 | 高失败率阈值，加权失败率 ≥ 此值触发检测 |
-| `brokenConsecutiveThreshold` | 5 | 连续失败次数阈值，达到此值分类为 broken |
-| `regressionWindow` | 5 | 回归检测窗口大小（最近 N 次运行） |
-| `regressionRecentFailRate` | 0.6 | 回归判定：近期窗口失败率阈值 |
-| `regressionOlderFailRate` | 0.2 | 回归判定：早期失败率阈值 |
-| `decayRate` | 0.1 | 时间衰减率，控制历史权重递减速度 |
-| `confidenceLevel` | 0.95 | Wilson 置信区间的置信水平 |
-| `autoReleaseAfterPasses` | 3 | 软隔离自动释放所需连续通过次数 |
+`CausalNode` contains 4 node types:
 
-### 9.2 QuarantineCriteriaConfig（9 个参数）
+| Type | Meaning | Source |
+|------|---------|--------|
+| `test` | Test node | Each flaky test corresponds to one node |
+| `infrastructure` | Infrastructure node | Inferred from correlation groups (timing/environment/resource_leak/unknown) |
+| `external_service` | External service node | Inferred from correlation groups (external_service root cause) |
+| `shared_state` | Shared state node | Inferred from correlation groups (data_race/test_order/assertion_flaky) |
 
-> 源码：`src/constants/index.ts` 中的 `DEFAULT_QUARANTINE_CRITERIA`
+### 8.2 Edge Types
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `softThreshold` | 0.15 | 软隔离阈值，加权失败率 ≥ 此值进入软隔离 |
-| `hardThreshold` | 0.4 | 硬隔离阈值，加权失败率 ≥ 此值进入硬隔离 |
-| `maxQuarantineRatio` | 0.2 | 最大隔离比例，被隔离测试不超过总测试的 20% |
-| `autoReleaseHardQuarantinePasses` | 5 | 硬隔离自动释放所需连续通过次数 |
-| `quarantineExpiryDays` | 30 | 隔离过期天数，超过后自动降级 |
-| `quarantineExpiryDowngrade` | true | 是否启用过期降级（降为 monitor 而非释放） |
-| `retryMax` | 3 | 默认最大重试次数 |
-| `retryDelayMs` | 1000 | 默认重试延迟（毫秒） |
-| `retryBackoff` | 2 | 重试退避倍数 |
+`CausalEdge` contains 5 edge types:
 
-### 9.3 自定义方式
+| Type | Meaning |
+|------|---------|
+| `depends_on` | Dependency relationship |
+| `shares_resource` | Shared resource |
+| `same_environment` | Same environment |
+| `sequential` | Sequential dependency |
+| `correlated_failure` | Correlated failure |
 
-系统提供三种方式自定义参数：
+**Edge Types Generated in Actual Construction**:
+- `same_error_pattern` type in correlation group → `correlated_failure` edge
+- Other types in correlation group → `same_environment` edge
+- Co-failure analysis in run results → `correlated_failure` edge
 
-#### 方式一：user-preferences.json 配置文件
+### 8.3 Graph Construction Flow
 
-在 `user-preferences.json` 中添加 `flakyCriteria` 和 `quarantineCriteria` 配置节：
+`CausalGraphBuilder.build(tests, correlationGroups, recentRuns)` construction flow:
+
+1. **Build Test Nodes**: Generate one `test` type node for each flaky test
+2. **Infer Infrastructure Nodes**: Infer shared root causes from correlation groups, create `infrastructure`/`external_service`/`shared_state` nodes
+3. **Infer Dependency Edges**: Analyze co-failure patterns in run results, generate `correlated_failure` edges
+4. **Identify Root Cause Nodes**: Identify root causes through in-degree/out-degree analysis
+5. **Build Impact Map**: BFS traversal to calculate impact scope for each node
+
+**Configuration Parameters**:
+- `minCorrelation = 0.4`: Edges with co-failure correlation below this value are not generated
+- `maxDepth = 5`: Maximum depth for impact map traversal
+
+### 8.4 Root Cause Identification
+
+`identifyRootCauses()` uses in-degree/out-degree analysis to identify root cause nodes:
+
+**Decision Criteria** (satisfy one):
+- Node type is not `test` (infrastructure/external_service/shared_state node)
+- Out-degree > in-degree × 2 and out-degree > 0.5
+
+**Sorting**: Sorted by out-degree descending; nodes with higher out-degree are more likely to be root causes.
+
+### 8.5 Impact Analysis
+
+`analyzeImpact(testId, graph)` calculates the impact scope of a specified test:
+
+| Metric | Calculation |
+|--------|-------------|
+| Direct Impact | Nodes pointed to by edges from this node |
+| Indirect Impact | Nodes in impact map excluding direct impact |
+| Total Impact Score | Direct impact count × 2 + indirect impact count |
+
+**Risk Level**:
+
+| Total Impact Score | Risk Level | Recommendation |
+|--------------------|------------|----------------|
+| ≥ 10 | `critical` | Highest priority to address |
+| ≥ 5 | `high` | Recommend fixing soon |
+| ≥ 2 | `medium` | Fix when convenient |
+| < 2 | `low` | Normal priority |
+
+---
+
+## 9. Parameter Customization
+
+### 9.1 FlakyCriteriaConfig (12 Parameters)
+
+> Source: `DEFAULT_FLAKY_CRITERIA` in `src/constants/index.ts`
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `minimumRuns` | 5 | Minimum run count; below this classified as insufficient_data |
+| `flakyThreshold` | 0.3 | Flaky classification threshold; weighted failure rate ≥ this value classified as flaky |
+| `monitorThreshold` | 0.1 | Monitor threshold; weighted failure rate ≥ this value needs attention |
+| `stableThreshold` | 0.05 | Stable threshold; weighted failure rate < this value classified as stable |
+| `highThreshold` | 0.5 | High failure rate threshold; weighted failure rate ≥ this value triggers detection |
+| `brokenConsecutiveThreshold` | 5 | Consecutive failure count threshold; reaching this value classified as broken |
+| `regressionWindow` | 5 | Regression detection window size (last N runs) |
+| `regressionRecentFailRate` | 0.6 | Regression detection: recent window failure rate threshold |
+| `regressionOlderFailRate` | 0.2 | Regression detection: older failure rate threshold |
+| `decayRate` | 0.1 | Time decay rate, controls how quickly historical weights decrease |
+| `confidenceLevel` | 0.95 | Confidence level for Wilson confidence interval |
+| `autoReleaseAfterPasses` | 3 | Consecutive passes required for soft quarantine auto-release |
+
+### 9.2 QuarantineCriteriaConfig (9 Parameters)
+
+> Source: `DEFAULT_QUARANTINE_CRITERIA` in `src/constants/index.ts`
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `softThreshold` | 0.15 | Soft quarantine threshold; weighted failure rate ≥ this value enters soft quarantine |
+| `hardThreshold` | 0.4 | Hard quarantine threshold; weighted failure rate ≥ this value enters hard quarantine |
+| `maxQuarantineRatio` | 0.2 | Maximum quarantine ratio; quarantined tests don't exceed 20% of total tests |
+| `autoReleaseHardQuarantinePasses` | 5 | Consecutive passes required for hard quarantine auto-release |
+| `quarantineExpiryDays` | 30 | Quarantine expiry days; auto-downgrade after exceeding |
+| `quarantineExpiryDowngrade` | true | Whether to enable expiry downgrade (downgrade to monitor instead of release) |
+| `retryMax` | 3 | Default maximum retry count |
+| `retryDelayMs` | 1000 | Default retry delay (milliseconds) |
+| `retryBackoff` | 2 | Retry backoff multiplier |
+
+### 9.3 Customization Methods
+
+The system provides three ways to customize parameters:
+
+#### Method 1: user-preferences.json Configuration File
+
+Add `flakyCriteria` and `quarantineCriteria` configuration sections in `user-preferences.json`:
 
 ```json
 {
@@ -721,15 +721,15 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 }
 ```
 
-> 配置合并由 `config-merge.ts` 中的 `mergeFlakyCriteria()` 和 `mergeQuarantineCriteria()` 处理，仅覆盖类型合法的字段，非法类型值使用默认值。
+> Configuration merging is handled by `mergeFlakyCriteria()` and `mergeQuarantineCriteria()` in `config-merge.ts`, only overwriting fields with valid types; invalid type values use defaults.
 
-#### 方式二：Dashboard UI 参数配置面板
+#### Method 2: Dashboard UI Parameter Configuration Panel
 
-通过 Dashboard 的 `CriteriaConfigDialog` 组件可视化调整参数，修改后实时生效。
+Visually adjust parameters through the Dashboard's `CriteriaConfigDialog` component; changes take effect immediately.
 
-#### 方式三：FlakyTestManager.setConfig() 方法
+#### Method 3: FlakyTestManager.setConfig() Method
 
-通过代码动态设置：
+Dynamically set through code:
 
 ```typescript
 flakyTestManager.setConfig({
@@ -743,10 +743,10 @@ flakyTestManager.setConfig({
 });
 ```
 
-`setConfig()` 方法会：
-1. 合并 `QuarantineConfig` 基础配置
-2. 调用 `mergeFlakyCriteria()` 合并 Flaky 判定参数
-3. 调用 `mergeQuarantineCriteria()` 合并隔离参数
-4. 使用新的隔离参数重建 `QuarantineStrategyManager` 实例
+The `setConfig()` method will:
+1. Merge `QuarantineConfig` base configuration
+2. Call `mergeFlakyCriteria()` to merge flaky criteria parameters
+3. Call `mergeQuarantineCriteria()` to merge quarantine parameters
+4. Rebuild `QuarantineStrategyManager` instance with new quarantine parameters
 
-可通过 `getEffectiveConfig()` 获取当前生效的完整配置（含默认值填充）。
+You can get the currently effective complete configuration (with defaults filled in) via `getEffectiveConfig()`.

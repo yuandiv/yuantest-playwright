@@ -1,84 +1,84 @@
-# 使用指南
+# Usage Guide
 
-本部分详细介绍 YuanTest Playwright 的各种使用方式。
+This section provides detailed information on various ways to use YuanTest Playwright.
 
-## 目录
+## Table of Contents
 
-- [Web UI 使用](web-ui.md) - Dashboard 可视化界面的详细使用指南
-- [命令行使用](cli.md) - CLI 命令的详细说明
-- [CI/CD 集成](cicd.md) - 集成到持续集成/持续部署流程
+- [Web UI Usage](web-ui.md) - Detailed guide for Dashboard visualization interface
+- [CLI Usage](cli.md) - Detailed CLI command documentation
+- [CI/CD Integration](cicd.md) - Integration into CI/CD pipelines
 
-## 深度指南
+## In-depth Guides
 
-如需了解特定领域的深入内容，请参考深度指南：
+For deeper content on specific areas, refer to these guides:
 
-- [Flaky 测试管理](../guides/flaky-management.md) - 分类算法、根因分析、关联分析、趋势追踪、隔离策略、健康评分、因果图、参数自定义
-- [AI 智能诊断](../guides/ai-diagnosis.md) - 上下文富集、知识库、Agent 推理、置信度校准、流式诊断、LLM 配置
+- [Flaky Test Management](../guides/flaky-management.md) - Classification algorithm, root cause analysis, correlation analysis, trend tracking, quarantine strategy, health score, causal graph, parameter customization
+- [AI Diagnosis](../guides/ai-diagnosis.md) - Context enrichment, knowledge base, Agent reasoning, confidence calibration, streaming diagnosis, LLM configuration
 
-## 推荐工作流程
+## Recommended Workflow
 
-### 开发阶段
+### Development Phase
 
-1. **使用 Web UI 快速调试**
-   - 启动 Dashboard：`yuantest ui`
-   - 在界面中选择要执行的测试
-   - 实时查看测试进度和结果
-   - 快速定位失败原因
+1. **Use Web UI for quick debugging**
+   - Start Dashboard: `yuantest ui`
+   - Select tests to execute in the interface
+   - View test progress and results in real-time
+   - Quickly identify failure causes
 
-2. **使用 --grep 参数运行特定测试**
+2. **Use --grep to run specific tests**
    ```bash
-   yuantest run --grep "登录功能" --output ./test-reports
+   yuantest run --grep "login feature" --output ./test-reports
    ```
 
-3. **查看详细报告**
-   - 在 Dashboard 中查看测试详情
-   - 查看 Trace 文件分析失败原因
-   - 查看截图和视频
+3. **View detailed reports**
+   - View test details in Dashboard
+   - View Trace files to analyze failure causes
+   - View screenshots and videos
 
-4. **AI 诊断失败测试**
-   - 在 Dashboard 中点击"AI 诊断"
-   - 或使用 CLI：`yuantest analyze --id <run-id> --ai`
+4. **AI diagnose failed tests**
+   - Click "AI Diagnosis" in Dashboard
+   - Or use CLI: `yuantest analyze --id <run-id> --ai`
 
-### CI/CD 阶段
+### CI/CD Phase
 
-1. **使用命令行执行完整测试套件**
+1. **Run full test suite via CLI**
    ```bash
    yuantest run --test-dir ./ --output ./test-reports --shards 4
    ```
 
-2. **检查 Flaky 测试健康度**
+2. **Check Flaky test health**
    ```bash
    yuantest health --json
    yuantest prediction --high-risk --json
    ```
 
-3. **上传报告作为 artifact**
+3. **Upload reports as artifacts**
    - GitHub Actions: `actions/upload-artifact`
    - GitLab CI: `artifacts`
 
-4. **可选：部署 Dashboard 服务器**
-   - 在服务器上运行 `yuantest ui`
-   - 团队成员可以随时查看历史报告
+4. **Optional: Deploy Dashboard server**
+   - Run `yuantest ui` on server
+   - Team members can view historical reports anytime
 
-### Flaky 测试治理
+### Flaky Test Governance
 
-1. **识别 Flaky 测试**
+1. **Identify Flaky tests**
    ```bash
    yuantest flaky --list --json
    yuantest correlations
    ```
 
-2. **分析根因**
+2. **Analyze root causes**
    ```bash
    yuantest analyze --id <run-id> --ai
    ```
 
-3. **隔离和监控**
-   - 在 Dashboard 中隔离 Flaky 测试
-   - 设置监控阈值和隔离参数
-   - 定期查看健康度评分
+3. **Quarantine and monitor**
+   - Quarantine Flaky tests in Dashboard
+   - Set monitoring thresholds and quarantine parameters
+   - Periodically check health scores
 
-4. **验证修复**
+4. **Verify fixes**
    ```bash
    yuantest rerun <run-id> <test-id>
    yuantest test-history <test-id>

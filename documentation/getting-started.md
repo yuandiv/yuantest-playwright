@@ -1,107 +1,104 @@
-# 快速开始
+# Getting Started
 
-本指南将帮助你在 5 分钟内上手 YuanTest Playwright。
+This guide will help you get started with YuanTest Playwright in 5 minutes.
 
-## 前置要求
+## Prerequisites
 
 - Node.js >= 16.0.0
 - npm >= 7.0.0
 - Playwright >= 1.40.0
 
-## 安装
+## Installation
 
 ```bash
-# 全局安装
+# Global installation
 npm install -g yuantest-playwright
 
-# 安装 Playwright 浏览器（如果尚未安装）
+# Install Playwright browsers (if not already installed)
 npx playwright install
 ```
 
-## 基本使用
+## Basic Usage
 
-### 1. 运行测试
+### 1. Run Tests
 
 ```bash
-# 基本用法
+# Basic usage
 yuantest run --test-dir ./
 
-# 指定项目名称和输出目录
+# Specify project name and output directory
 yuantest run --project my-app --test-dir ./e2e --output ./reports
 
-# 并行执行（4 个分片）
+# Parallel execution (4 shards)
 yuantest run --test-dir ./ --shards 4
 
-# 指定多个浏览器
+# Specify multiple browsers
 yuantest run --test-dir ./ --browsers chromium,firefox
 
-# 设置超时和重试
+# Set timeout and retries
 yuantest run --test-dir ./ --timeout 60000 --retries 2
 ```
 
-### 2. 启动 Web Dashboard
+### 2. Start Web Dashboard
 
 ```bash
-# 默认端口 5274
+# Default port 5274
 yuantest ui
 
-# 自定义端口
+# Custom port
 yuantest ui --port 8080
 
-# 指定报告和数据目录
+# Specify report and data directories
 yuantest ui --port 5274 --output ./reports --data ./test-data
 ```
 
-然后在浏览器中打开 **http://localhost:5274** 查看可视化界面。
+Then open **http://localhost:5274** in your browser.
 
-### 3. 管理 Flaky 测试
+### 3. Manage Flaky Tests
 
 ```bash
-# 查看 Flaky 统计
+# View Flaky statistics
 yuantest flaky
 
-# 列出所有 Flaky 测试
+# List all Flaky tests
 yuantest flaky --list
 
-# 隔离特定测试
+# Quarantine specific test
 yuantest flaky --quarantine <test-id>
 
-# 释放测试
+# Release test
 yuantest flaky --release <test-id>
 ```
 
-## 下一步
+## Next Steps
 
-- [Web UI 使用](usage/web-ui.md) - 了解 Dashboard 的详细功能
-- [命令行使用](usage/cli.md) - 掌握 CLI 命令
-- [CI/CD 集成](usage/cicd.md) - 集成到持续集成流程
-- [API 参考](api/index.md) - 编程接口文档
+- [Web UI Usage](usage/web-ui.md) - Learn about Dashboard features
+- [CLI Usage](usage/cli.md) - Master CLI commands
+- [CI/CD Integration](usage/cicd.md) - Integrate into CI/CD pipeline
+- [API Reference](api/index.md) - Programming interface documentation
 
-## 常见问题
+## FAQ
 
-### Q: Dashboard 无法显示测试结果？
+### Q: Dashboard not showing test results?
 
-确保测试执行和 Dashboard 使用相同的输出目录：
+Ensure test execution and Dashboard use the same output directory:
 
 ```bash
-# 测试执行
 yuantest run --output ./test-reports
-
-# 启动 Dashboard
 yuantest ui --output ./test-reports
 ```
 
-### Q: 如何只运行特定的测试文件？
+### Q: How to run only specific test files?
 
 ```bash
-# 方法一：直接指定文件路径
+# Method 1: Specify file path directly
 yuantest run tests/login.spec.ts --output ./test-reports
 
-# 方法二：使用 --grep 参数
-yuantest run --grep "登录测试" --output ./test-reports
+# Method 2: Use --grep parameter
+yuantest run --grep "login test" --output ./test-reports
 ```
 
-### Q: 如何查看帮助？
+### Q: How to view help?
 
 ```bash
 yuantest --help

@@ -1,28 +1,28 @@
-# DashboardServer API 参考文档
+# DashboardServer API Reference
 
-DashboardServer 提供 Web Dashboard 和 REST API 服务，用于管理测试运行、分析 Flaky 测试、AI 诊断等。
+DashboardServer provides Web Dashboard and REST API services for managing test runs, analyzing flaky tests, AI diagnostics, and more.
 
-所有 API 路径均使用 `/api/v1/` 前缀。
+All API paths use the `/api/v1/` prefix.
 
 ---
 
-## 构造函数
+## Constructor
 
 ```typescript
 new DashboardServer(config?: DashboardConfig)
 ```
 
-### DashboardConfig 类型
+### DashboardConfig Type
 
-| 字段 | 类型 | 默认值 | 说明 |
+| Field | Type | Default | Description |
 |------|------|--------|------|
-| `port` | `number` | `5274` | 服务器监听端口 |
-| `outputDir` | `string` | `'./test-reports'` | 测试报告输出目录 |
-| `dataDir` | `string` | `'./test-data'` | 持久化数据存储目录 |
-| `host` | `string` | `'localhost'` | 服务器监听地址 |
-| `openBrowser` | `boolean` | `false` | 启动时是否自动打开浏览器 |
+| `port` | `number` | `5274` | Server listening port |
+| `outputDir` | `string` | `'./test-reports'` | Test report output directory |
+| `dataDir` | `string` | `'./test-data'` | Persistent data storage directory |
+| `host` | `string` | `'localhost'` | Server listening address |
+| `openBrowser` | `boolean` | `false` | Whether to automatically open browser on startup |
 
-### 示例
+### Example
 
 ```typescript
 import { DashboardServer } from 'yuantest-playwright';
@@ -40,11 +40,11 @@ await server.start();
 
 ---
 
-## 实例方法
+## Instance Methods
 
 ### `start(): Promise<void>`
 
-启动 Dashboard 服务器。启动时会自动恢复用户偏好设置（testDir、autoQuarantine、flakyCriteria、quarantineCriteria）并加载自定义错误模式。
+Start the Dashboard server. On startup, it automatically restores user preferences (testDir, autoQuarantine, flakyCriteria, quarantineCriteria) and loads custom error patterns.
 
 ```typescript
 await server.start();
@@ -52,7 +52,7 @@ await server.start();
 
 ### `stop(): Promise<void>`
 
-停止 Dashboard 服务器，关闭 WebSocket 连接和 HTTP 服务。
+Stop the Dashboard server, closing WebSocket connections and HTTP services.
 
 ```typescript
 await server.stop();
@@ -60,7 +60,7 @@ await server.stop();
 
 ### `getRealtimeReporter(): RealtimeReporter`
 
-获取实时报告器实例，用于访问 WebSocket 广播方法。
+Get the realtime reporter instance for accessing WebSocket broadcast methods.
 
 ```typescript
 const reporter = server.getRealtimeReporter();
@@ -68,7 +68,7 @@ const reporter = server.getRealtimeReporter();
 
 ### `getFlakyManager(): FlakyTestManager`
 
-获取 Flaky 测试管理器实例。
+Get the Flaky test manager instance.
 
 ```typescript
 const flakyManager = server.getFlakyManager();
@@ -76,7 +76,7 @@ const flakyManager = server.getFlakyManager();
 
 ### `getReporter(): Reporter`
 
-获取报告生成器实例。
+Get the report generator instance.
 
 ```typescript
 const reporter = server.getReporter();
@@ -84,7 +84,7 @@ const reporter = server.getReporter();
 
 ### `getExecutor(): Executor | null`
 
-获取当前测试执行器实例，无运行中的执行器时返回 `null`。
+Get the current test executor instance, returns `null` when no executor is running.
 
 ```typescript
 const executor = server.getExecutor();
@@ -92,15 +92,15 @@ const executor = server.getExecutor();
 
 ---
 
-## REST API 端点
+## REST API Endpoints
 
-### 健康检查
+### Health Check
 
 #### `GET /api/v1/health`
 
-获取服务器健康状态。
+Get server health status.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -112,25 +112,25 @@ const executor = server.getExecutor();
 }
 ```
 
-**响应字段：**
+**Response Fields:**
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `status` | `string` | 服务状态，固定为 `'ok'` |
-| `uptime` | `number` | 服务运行时长（秒） |
-| `clients` | `number` | 当前 WebSocket 连接数 |
-| `isRunning` | `boolean` | 是否有测试正在运行 |
-| `timestamp` | `number` | 当前时间戳（毫秒） |
+| `status` | `string` | Service status, always `'ok'` |
+| `uptime` | `number` | Service uptime (seconds) |
+| `clients` | `number` | Current WebSocket connection count |
+| `isRunning` | `boolean` | Whether a test is currently running |
+| `timestamp` | `number` | Current timestamp (milliseconds) |
 
 ---
 
-### 统计
+### Statistics
 
 #### `GET /api/v1/stats`
 
-获取仪表盘整体统计数据。
+Get dashboard overall statistics.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -144,34 +144,34 @@ const executor = server.getExecutor();
 }
 ```
 
-**响应字段：**
+**Response Fields:**
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `totalRuns` | `number` | 总运行次数 |
-| `totalTests` | `number` | 总测试数 |
-| `passRate` | `number` | 通过率（百分比） |
-| `avgDuration` | `number` | 平均运行时长（毫秒） |
-| `flakyTests` | `number` | Flaky 测试数量 |
-| `quarantinedTests` | `number` | 已隔离测试数量 |
-| `recentRuns` | `RunResult[]` | 最近 10 次运行结果 |
+| `totalRuns` | `number` | Total run count |
+| `totalTests` | `number` | Total test count |
+| `passRate` | `number` | Pass rate (percentage) |
+| `avgDuration` | `number` | Average run duration (milliseconds) |
+| `flakyTests` | `number` | Flaky test count |
+| `quarantinedTests` | `number` | Quarantined test count |
+| `recentRuns` | `RunResult[]` | Last 10 run results |
 
 ---
 
-### 运行管理
+### Run Management
 
 #### `GET /api/v1/runs`
 
-获取运行列表，支持分页。
+Get run list with pagination support.
 
-**查询参数：**
+**Query Parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `page` | `number` | `1` | 页码（最小 1） |
-| `pageSize` | `number` | `20` | 每页数量（1-100） |
+| `page` | `number` | `1` | Page number (minimum 1) |
+| `pageSize` | `number` | `20` | Items per page (1-100) |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -200,15 +200,15 @@ const executor = server.getExecutor();
 
 #### `GET /api/v1/runs/:id`
 
-获取指定运行的详细信息。
+Get detailed information for a specific run.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `id` | `string` | 运行 ID |
+| `id` | `string` | Run ID |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -231,17 +231,17 @@ const executor = server.getExecutor();
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `404` | 运行不存在 |
+| `404` | Run not found |
 
 #### `POST /api/v1/runs`
 
-启动新的测试运行。
+Start a new test run.
 
-**请求体：**
+**Request Body:**
 
 ```json
 {
@@ -256,7 +256,7 @@ const executor = server.getExecutor();
   "testFiles": ["tests/example.spec.ts"],
   "testLocations": ["tests/example.spec.ts:10"],
   "testIds": ["test-id-1"],
-  "describePattern": "登录模块",
+  "describePattern": "Login Module",
   "grepPattern": "smoke",
   "tagFilter": ["@smoke"],
   "projectFilter": "chromium",
@@ -264,28 +264,28 @@ const executor = server.getExecutor();
 }
 ```
 
-**请求字段说明：**
+**Request Field Descriptions:**
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `version` | `string` | 版本号，默认 `'1.0.0'` |
-| `testDir` | `string` | 测试目录路径 |
-| `baseURL` | `string` | 测试基础 URL |
-| `retries` | `number` | 重试次数，默认 `0` |
-| `timeout` | `number` | 超时时间（毫秒），默认 `30000` |
-| `workers` | `number` | 并行工作进程数，默认 `1` |
-| `shards` | `number` | 分片数，默认 `1` |
-| `browsers` | `string[]` | 浏览器列表，默认 `['chromium']` |
-| `testFiles` | `string[]` | 指定测试文件列表 |
-| `testLocations` | `string[]` | 指定测试位置列表（格式：`file:line`） |
-| `testIds` | `string[]` | 指定测试 ID 列表 |
-| `describePattern` | `string` | describe 块匹配模式 |
-| `grepPattern` | `string` | 测试名称 grep 匹配模式 |
-| `tagFilter` | `string[]` | 标签过滤 |
-| `projectFilter` | `string` | 项目过滤 |
-| `updateSnapshots` | `boolean` | 是否更新快照 |
+| `version` | `string` | Version number, defaults to `'1.0.0'` |
+| `testDir` | `string` | Test directory path |
+| `baseURL` | `string` | Test base URL |
+| `retries` | `number` | Retry count, defaults to `0` |
+| `timeout` | `number` | Timeout (milliseconds), defaults to `30000` |
+| `workers` | `number` | Parallel worker count, defaults to `1` |
+| `shards` | `number` | Shard count, defaults to `1` |
+| `browsers` | `string[]` | Browser list, defaults to `['chromium']` |
+| `testFiles` | `string[]` | Specified test file list |
+| `testLocations` | `string[]` | Specified test location list (format: `file:line`) |
+| `testIds` | `string[]` | Specified test ID list |
+| `describePattern` | `string` | describe block match pattern |
+| `grepPattern` | `string` | Test name grep match pattern |
+| `tagFilter` | `string[]` | Tag filter |
+| `projectFilter` | `string` | Project filter |
+| `updateSnapshots` | `boolean` | Whether to update snapshots |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -294,24 +294,24 @@ const executor = server.getExecutor();
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `409` | 已有执行正在运行 |
-| `400` | 无效的 testDir 路径 |
+| `409` | An execution is already running |
+| `400` | Invalid testDir path |
 
 #### `DELETE /api/v1/runs/:id`
 
-取消/删除指定运行。
+Cancel/delete a specific run.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `id` | `string` | 运行 ID |
+| `id` | `string` | Run ID |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -320,24 +320,24 @@ const executor = server.getExecutor();
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `404` | 运行不存在或无法删除 |
+| `404` | Run not found or cannot be deleted |
 
 #### `POST /api/v1/runs/:runId/tests/:testId/rerun`
 
-重跑单个测试。
+Rerun a single test.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `runId` | `string` | 运行 ID |
-| `testId` | `string` | 测试 ID |
+| `runId` | `string` | Run ID |
+| `testId` | `string` | Test ID |
 
-**请求体：**
+**Request Body:**
 
 ```json
 {
@@ -345,13 +345,13 @@ const executor = server.getExecutor();
 }
 ```
 
-**请求字段说明：**
+**Request Field Descriptions:**
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |------|------|------|------|
-| `testLocation` | `string` | 是 | 测试位置（格式：`file:line`） |
+| `testLocation` | `string` | Yes | Test location (format: `file:line`) |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -360,25 +360,25 @@ const executor = server.getExecutor();
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `400` | 缺少 testLocation |
-| `404` | 运行或测试不存在 |
-| `409` | 已有执行正在运行 |
+| `400` | Missing testLocation |
+| `404` | Run or test not found |
+| `409` | An execution is already running |
 
 #### `POST /api/v1/runs/:runId/batch-rerun`
 
-批量重跑多个测试。
+Batch rerun multiple tests.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `runId` | `string` | 运行 ID |
+| `runId` | `string` | Run ID |
 
-**请求体：**
+**Request Body:**
 
 ```json
 {
@@ -395,13 +395,13 @@ const executor = server.getExecutor();
 }
 ```
 
-**请求字段说明：**
+**Request Field Descriptions:**
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |------|------|------|------|
-| `tests` | `Array<{testId: string, testLocation: string}>` | 是 | 测试列表，每项须包含 testId 和 testLocation |
+| `tests` | `Array<{testId: string, testLocation: string}>` | Yes | Test list, each item must contain testId and testLocation |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -411,36 +411,36 @@ const executor = server.getExecutor();
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `400` | tests 数组为空或缺少必填字段 |
-| `404` | 运行不存在 |
-| `409` | 已有执行正在运行 |
+| `400` | tests array is empty or missing required fields |
+| `404` | Run not found |
+| `409` | An execution is already running |
 
 ---
 
-### 测试
+### Tests
 
 #### `GET /api/v1/tests/:testId/history`
 
-获取指定测试的历史运行记录。
+Get history run records for a specific test.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-**查询参数：**
+**Query Parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `page` | `number` | `1` | 页码 |
-| `pageSize` | `number` | `10` | 每页数量（1-100） |
+| `page` | `number` | `1` | Page number |
+| `pageSize` | `number` | `10` | Items per page (1-100) |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -475,25 +475,25 @@ const executor = server.getExecutor();
 
 ---
 
-### Flaky 管理
+### Flaky Management
 
 #### `GET /api/v1/flaky`
 
-获取 Flaky 测试列表。
+Get flaky test list.
 
-**查询参数：**
+**Query Parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `threshold` | `number` | `0.3` | 失败率阈值（0-1） |
+| `threshold` | `number` | `0.3` | Failure rate threshold (0-1) |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 [
   {
     "testId": "test-id-1",
-    "title": "登录功能测试",
+    "title": "Login Function Test",
     "failureRate": 0.4,
     "isQuarantined": false
   }
@@ -502,9 +502,9 @@ const executor = server.getExecutor();
 
 #### `GET /api/v1/flaky/stats`
 
-获取 Flaky 测试统计信息。
+Get flaky test statistics.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -522,9 +522,9 @@ const executor = server.getExecutor();
 
 #### `GET /api/v1/flaky/trends`
 
-获取所有 Flaky 测试的趋势分析。
+Get trend analysis for all flaky tests.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -541,9 +541,9 @@ const executor = server.getExecutor();
 
 #### `GET /api/v1/flaky/health`
 
-获取 Flaky 测试整体健康评分。
+Get overall flaky test health score.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -555,15 +555,15 @@ const executor = server.getExecutor();
 
 #### `GET /api/v1/flaky/prediction/:testId`
 
-获取指定测试的失败预测结果。
+Get failure prediction for a specific test.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -573,23 +573,23 @@ const executor = server.getExecutor();
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `404` | 测试不存在或无预测数据 |
+| `404` | Test not found or no prediction data |
 
 #### `GET /api/v1/flaky/duration-anomalies`
 
-获取持续时间异常的测试列表。
+Get list of tests with duration anomalies.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 [
   {
     "testId": "test-id-1",
-    "title": "慢速测试",
+    "title": "Slow Test",
     "medianDuration": 5000,
     "anomalousDuration": 30000,
     "deviation": 6.0
@@ -599,19 +599,19 @@ const executor = server.getExecutor();
 
 ---
 
-### 隔离
+### Quarantine
 
 #### `POST /api/v1/quarantine/:testId`
 
-隔离指定测试。
+Quarantine a specific test.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -622,15 +622,15 @@ const executor = server.getExecutor();
 
 #### `DELETE /api/v1/quarantine/:testId`
 
-释放指定隔离测试。
+Release a quarantined test.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-**请求体（可选）：**
+**Request Body (Optional):**
 
 ```json
 {
@@ -638,13 +638,13 @@ const executor = server.getExecutor();
 }
 ```
 
-**请求字段说明：**
+**Request Field Descriptions:**
 
-| 字段 | 类型 | 默认值 | 说明 |
+| Field | Type | Default | Description |
 |------|------|--------|------|
-| `resetHistory` | `boolean` | `false` | 是否同时重置历史记录 |
+| `resetHistory` | `boolean` | `false` | Whether to also reset history records |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -655,13 +655,13 @@ const executor = server.getExecutor();
 
 ---
 
-### 因果图
+### Causal Graph
 
 #### `GET /api/v1/causal-graph`
 
-获取因果图数据。
+Get causal graph data.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -673,27 +673,27 @@ const executor = server.getExecutor();
 }
 ```
 
-**响应字段：**
+**Response Fields:**
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `nodes` | `GraphNode[]` | 因果图节点列表 |
-| `edges` | `GraphEdge[]` | 因果图边列表 |
-| `rootCauses` | `RootCause[]` | 根因列表 |
-| `impactMap` | `Record<string, unknown>` | 影响映射 |
-| `builtAt` | `number` | 因果图构建时间戳 |
+| `nodes` | `GraphNode[]` | Causal graph node list |
+| `edges` | `GraphEdge[]` | Causal graph edge list |
+| `rootCauses` | `RootCause[]` | Root cause list |
+| `impactMap` | `Record<string, unknown>` | Impact map |
+| `builtAt` | `number` | Causal graph build timestamp |
 
 #### `GET /api/v1/impact-analysis/:testId`
 
-获取指定测试的影响分析。
+Get impact analysis for a specific test.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -704,25 +704,25 @@ const executor = server.getExecutor();
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `404` | 测试不存在或无因果图数据 |
+| `404` | Test not found or no causal graph data |
 
 ---
 
-### AI 诊断
+### AI Diagnosis
 
 #### `POST /api/v1/diagnosis`
 
-对单个测试失败进行 AI 诊断。
+Perform AI diagnosis on a single test failure.
 
-**请求体：**
+**Request Body:**
 
 ```json
 {
-  "testTitle": "登录功能测试",
+  "testTitle": "Login Function Test",
   "error": "TimeoutError: Navigation timed out",
   "stackTrace": "at Context.<anonymous> (tests/login.spec.ts:10:5)",
   "file": "tests/login.spec.ts",
@@ -736,33 +736,33 @@ const executor = server.getExecutor();
 }
 ```
 
-**请求字段说明：**
+**Request Field Descriptions:**
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |------|------|------|------|
-| `testTitle` | `string` | 否 | 测试标题 |
-| `error` | `string` | 否 | 错误信息 |
-| `stackTrace` | `string` | 否 | 堆栈跟踪 |
-| `file` | `string` | 否 | 测试文件路径 |
-| `line` | `number` | 否 | 测试行号 |
-| `lang` | `string` | 否 | 诊断语言（`'zh'` 或 `'en'`），默认 `'zh'` |
-| `screenshots` | `string[]` | 否 | 截图路径列表 |
-| `logs` | `string[]` | 否 | 日志列表 |
-| `browser` | `string` | 否 | 浏览器名称 |
-| `runId` | `string` | 否 | 运行 ID（用于补充历史上下文） |
-| `testId` | `string` | 否 | 测试 ID（用于获取根因分析） |
+| `testTitle` | `string` | No | Test title |
+| `error` | `string` | No | Error message |
+| `stackTrace` | `string` | No | Stack trace |
+| `file` | `string` | No | Test file path |
+| `line` | `number` | No | Test line number |
+| `lang` | `string` | No | Diagnosis language (`'zh'` or `'en'`), defaults to `'zh'` |
+| `screenshots` | `string[]` | No | Screenshot path list |
+| `logs` | `string[]` | No | Log list |
+| `browser` | `string` | No | Browser name |
+| `runId` | `string` | No | Run ID (for additional history context) |
+| `testId` | `string` | No | Test ID (for root cause analysis) |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
   "enabled": true,
   "diagnosis": {
-    "rootCause": "页面加载超时，可能是网络延迟或服务端响应慢",
+    "rootCause": "Page load timeout, possibly due to network latency or slow server response",
     "suggestions": [
-      "增加导航超时时间",
-      "检查网络连接状态",
-      "验证服务端是否正常运行"
+      "Increase navigation timeout",
+      "Check network connection status",
+      "Verify server is running properly"
     ],
     "category": "timeout",
     "confidence": 0.85
@@ -770,7 +770,7 @@ const executor = server.getExecutor();
 }
 ```
 
-**LLM 未启用时的响应：**
+**Response when LLM is not enabled:**
 
 ```json
 {
@@ -781,70 +781,70 @@ const executor = server.getExecutor();
 
 #### `POST /api/v1/diagnosis/stream`
 
-流式 AI 诊断，使用 Server-Sent Events (SSE) 返回诊断结果。
+Streaming AI diagnosis using Server-Sent Events (SSE) to return diagnosis results.
 
-**请求体：** 与 `POST /api/v1/diagnosis` 相同。
+**Request Body:** Same as `POST /api/v1/diagnosis`.
 
-**响应：**
+**Response:**
 
 - `Content-Type: text/event-stream`
 - `Cache-Control: no-cache`
 - `Connection: keep-alive`
 - `X-Accel-Buffering: no`
 
-**SSE 数据格式：**
+**SSE Data Format:**
 
 ```
-data: {"content":"根据错误信息分析..."}
+data: {"content":"Analyzing error message..."}
 
-data: {"content":"可能的根因是..."}
+data: {"content":"Possible root cause is..."}
 
 data: {"type":"error","error":"Connection timeout"}
 ```
 
 #### `GET /api/v1/diagnosis/persisted`
 
-获取已保存的诊断结果。
+Get persisted diagnosis results.
 
-**查询参数：**
+**Query Parameters:**
 
-| 参数 | 类型 | 必填 | 说明 |
+| Parameter | Type | Required | Description |
 |------|------|------|------|
-| `runId` | `string` | 是 | 运行 ID |
-| `testId` | `string` | 是 | 测试 ID |
+| `runId` | `string` | Yes | Run ID |
+| `testId` | `string` | Yes | Test ID |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
   "found": true,
   "diagnosis": {
-    "rootCause": "页面加载超时",
-    "suggestions": ["增加超时时间"],
+    "rootCause": "Page load timeout",
+    "suggestions": ["Increase timeout"],
     "category": "timeout",
     "confidence": 0.85
   }
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `400` | 缺少 runId 或 testId |
+| `400` | Missing runId or testId |
 
 #### `POST /api/v1/diagnosis/cluster`
 
-批量聚类诊断，基于错误相似度进行聚类后对每个聚类的代表测试执行 AI 诊断。
+Batch cluster diagnosis, performing AI diagnosis on representative tests from each cluster based on error similarity.
 
-**请求体：**
+**Request Body:**
 
 ```json
 {
   "testResults": [
     {
       "id": "test-id-1",
-      "title": "登录测试",
+      "title": "Login Test",
       "error": "TimeoutError: Navigation timed out",
       "stackTrace": "...",
       "file": "tests/login.spec.ts",
@@ -855,7 +855,7 @@ data: {"type":"error","error":"Connection timeout"}
     },
     {
       "id": "test-id-2",
-      "title": "注册测试",
+      "title": "Register Test",
       "error": "TimeoutError: Waiting for selector timed out",
       "stackTrace": "...",
       "file": "tests/register.spec.ts",
@@ -866,14 +866,14 @@ data: {"type":"error","error":"Connection timeout"}
 }
 ```
 
-**请求字段说明：**
+**Request Field Descriptions:**
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Description |
 |------|------|------|------|
-| `testResults` | `Array` | 是 | 测试结果数组 |
-| `lang` | `string` | 否 | 诊断语言，默认 `'zh'` |
+| `testResults` | `Array` | Yes | Test result array |
+| `lang` | `string` | No | Diagnosis language, defaults to `'zh'` |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -886,8 +886,8 @@ data: {"type":"error","error":"Connection timeout"}
       "similarity": 0.92,
       "errorMessage": "TimeoutError",
       "diagnosis": {
-        "rootCause": "页面加载超时",
-        "suggestions": ["增加超时时间"],
+        "rootCause": "Page load timeout",
+        "suggestions": ["Increase timeout"],
         "category": "timeout",
         "confidence": 0.85,
         "relatedFailures": ["test-id-2"]
@@ -897,7 +897,7 @@ data: {"type":"error","error":"Connection timeout"}
 }
 ```
 
-**LLM 未启用时的响应：**
+**Response when LLM is not enabled:**
 
 ```json
 {
@@ -917,21 +917,21 @@ data: {"type":"error","error":"Connection timeout"}
 
 ---
 
-### 错误模式
+### Error Patterns
 
 #### `GET /api/v1/error-patterns`
 
-获取所有错误模式列表（含内置和自定义）。
+Get all error patterns list (including built-in and custom).
 
-**响应示例：**
+**Response Example:**
 
 ```json
 [
   {
     "id": "timeout-navigation",
     "category": "timeout",
-    "name": "导航超时",
-    "description": "页面导航超时",
+    "name": "Navigation Timeout",
+    "description": "Page navigation timeout",
     "regex": ["Navigation\\s+timed\\s+out", "page\\.goto.*timeout"],
     "isCustom": false,
     "rootCauseTemplate": { "zh": "页面加载超时", "en": "Page navigation timeout" },
@@ -946,16 +946,16 @@ data: {"type":"error","error":"Connection timeout"}
 
 #### `POST /api/v1/error-patterns`
 
-添加自定义错误模式。
+Add a custom error pattern.
 
-**请求体：**
+**Request Body:**
 
 ```json
 {
   "id": "custom-db-connection",
   "category": "network",
-  "name": "数据库连接失败",
-  "description": "数据库连接超时或拒绝",
+  "name": "Database Connection Failed",
+  "description": "Database connection timeout or refused",
   "regex": ["ECONNREFUSED.*3306", "database\\s+connection\\s+failed"],
   "rootCauseTemplate": { "zh": "数据库服务不可达", "en": "Database service unreachable" },
   "suggestionsTemplate": {
@@ -963,14 +963,14 @@ data: {"type":"error","error":"Connection timeout"}
     "en": ["Check database service", "Verify connection config"]
   },
   "docLinks": [
-    { "title": "数据库连接文档", "url": "https://example.com/docs" }
+    { "title": "Database Connection Docs", "url": "https://example.com/docs" }
   ]
 }
 ```
 
-**必填字段：** `id`、`category`、`name`、`regex`、`rootCauseTemplate`、`suggestionsTemplate`
+**Required Fields:** `id`, `category`, `name`, `regex`, `rootCauseTemplate`, `suggestionsTemplate`
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -979,23 +979,23 @@ data: {"type":"error","error":"Connection timeout"}
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `400` | 缺少必填字段 |
+| `400` | Missing required fields |
 
 #### `DELETE /api/v1/error-patterns/:id`
 
-删除自定义错误模式。
+Delete a custom error pattern.
 
-**路径参数：**
+**Path Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `id` | `string` | 错误模式 ID |
+| `id` | `string` | Error pattern ID |
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -1003,21 +1003,21 @@ data: {"type":"error","error":"Connection timeout"}
 }
 ```
 
-**错误响应：**
+**Error Response:**
 
-| 状态码 | 说明 |
+| Status Code | Description |
 |--------|------|
-| `404` | 错误模式不存在 |
+| `404` | Error pattern not found |
 
 ---
 
-### LLM 配置
+### LLM Configuration
 
 #### `GET /api/v1/llm/config`
 
-获取 LLM 配置（敏感信息已脱敏）。
+Get LLM configuration (sensitive information is masked).
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -1030,9 +1030,9 @@ data: {"type":"error","error":"Connection timeout"}
 
 #### `PUT /api/v1/llm/config`
 
-更新 LLM 配置。
+Update LLM configuration.
 
-**请求体：**
+**Request Body:**
 
 ```json
 {
@@ -1043,7 +1043,7 @@ data: {"type":"error","error":"Connection timeout"}
 }
 ```
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -1054,13 +1054,13 @@ data: {"type":"error","error":"Connection timeout"}
 }
 ```
 
-> 响应中 apiKey 已脱敏处理。
+> The apiKey in the response is masked.
 
 #### `GET /api/v1/llm/status`
 
-获取 LLM 服务状态。
+Get LLM service status.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -1072,9 +1072,9 @@ data: {"type":"error","error":"Connection timeout"}
 
 #### `POST /api/v1/llm/test-connection`
 
-测试 LLM 连接。
+Test LLM connection.
 
-**请求体（可选）：**
+**Request Body (Optional):**
 
 ```json
 {
@@ -1084,7 +1084,7 @@ data: {"type":"error","error":"Connection timeout"}
 }
 ```
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -1096,13 +1096,13 @@ data: {"type":"error","error":"Connection timeout"}
 
 ---
 
-### 健康指标
+### Health Metrics
 
 #### `GET /api/v1/health/metrics`
 
-获取健康指标数据，用于仪表盘图表展示。
+Get health metrics data for dashboard chart display.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 [
@@ -1132,28 +1132,28 @@ data: {"type":"error","error":"Connection timeout"}
 ]
 ```
 
-**响应字段说明：**
+**Response Field Descriptions:**
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `date` | `string` | 格式化日期（`YYYY-MM-DD HH:mm`） |
-| `timestamp` | `number` | 时间戳 |
-| `runStatus` | `object` | 运行状态统计（passed/failed/total/passRate） |
-| `runDuration` | `number` | 运行时长（毫秒） |
-| `testSuiteSize` | `object` | 测试套件规模 |
-| `testFlakiness` | `object` | Flaky 指标（flakyCount/flakyRate/totalRuns） |
-| `tags` | `string[]` | 标签列表 |
-| `branch` | `string` | 分支名称 |
+| `date` | `string` | Formatted date (`YYYY-MM-DD HH:mm`) |
+| `timestamp` | `number` | Timestamp |
+| `runStatus` | `object` | Run status statistics (passed/failed/total/passRate) |
+| `runDuration` | `number` | Run duration (milliseconds) |
+| `testSuiteSize` | `object` | Test suite size |
+| `testFlakiness` | `object` | Flaky metrics (flakyCount/flakyRate/totalRuns) |
+| `tags` | `string[]` | Tag list |
+| `branch` | `string` | Branch name |
 
 ---
 
-### 偏好配置
+### Preferences
 
 #### `GET /api/v1/preferences`
 
-获取用户偏好配置。
+Get user preference configuration.
 
-**响应示例：**
+**Response Example:**
 
 ```json
 {
@@ -1172,26 +1172,9 @@ data: {"type":"error","error":"Connection timeout"}
 
 #### `POST /api/v1/preferences`
 
-保存用户偏好配置。
+Save user preference configuration.
 
-**请求体：**
-
-```json
-{
-  "testDir": "./tests",
-  "autoQuarantine": true,
-  "flakyCriteria": {
-    "minRuns": 5,
-    "failureRateThreshold": 0.3
-  },
-  "quarantineCriteria": {
-    "minFailures": 3,
-    "failureRateThreshold": 0.5
-  }
-}
-```
-
-**响应示例：**
+**Request Body:**
 
 ```json
 {
@@ -1208,15 +1191,32 @@ data: {"type":"error","error":"Connection timeout"}
 }
 ```
 
-> 保存 flakyCriteria 或 quarantineCriteria 时会同步更新 FlakyTestManager 的运行时配置。
+**Response Example:**
+
+```json
+{
+  "testDir": "./tests",
+  "autoQuarantine": true,
+  "flakyCriteria": {
+    "minRuns": 5,
+    "failureRateThreshold": 0.3
+  },
+  "quarantineCriteria": {
+    "minFailures": 3,
+    "failureRateThreshold": 0.5
+  }
+}
+```
+
+> Saving flakyCriteria or quarantineCriteria will also update the FlakyTestManager's runtime configuration.
 
 ---
 
-## WebSocket 事件
+## WebSocket Events
 
-DashboardServer 通过 WebSocket（路径 `/ws`）推送实时事件。所有消息均为 JSON 格式，包含 `type`、`payload`、`timestamp`、`runId` 字段。
+DashboardServer pushes real-time events via WebSocket (path `/ws`). All messages are in JSON format, containing `type`, `payload`, `timestamp`, and `runId` fields.
 
-### 消息格式
+### Message Format
 
 ```typescript
 interface RealTimeMessage {
@@ -1227,11 +1227,11 @@ interface RealTimeMessage {
 }
 ```
 
-### 事件列表
+### Event List
 
 #### `connected`
 
-客户端连接成功时触发。
+Triggered when client connects successfully.
 
 ```json
 {
@@ -1244,7 +1244,7 @@ interface RealTimeMessage {
 
 #### `run_started`
 
-测试运行开始时触发。
+Triggered when a test run starts.
 
 ```json
 {
@@ -1261,7 +1261,7 @@ interface RealTimeMessage {
 
 #### `run_progress`
 
-运行进度更新时触发。
+Triggered when run progress updates.
 
 ```json
 {
@@ -1271,7 +1271,7 @@ interface RealTimeMessage {
     "status": "running",
     "progress": 60.5,
     "totalTests": 50,
-    "currentTest": "登录功能测试",
+    "currentTest": "Login Function Test",
     "passed": 28,
     "failed": 2,
     "skipped": 0,
@@ -1286,7 +1286,7 @@ interface RealTimeMessage {
 
 #### `run_completed`
 
-运行完成时触发。
+Triggered when run completes.
 
 ```json
 {
@@ -1308,14 +1308,14 @@ interface RealTimeMessage {
 
 #### `test_result`
 
-单个测试结果（已弃用批量模式，实际使用 `test_result_batch`）。
+Single test result (batch mode is deprecated, use `test_result_batch` instead).
 
 ```json
 {
   "type": "test_result",
   "payload": {
     "id": "test-id-1",
-    "title": "登录功能测试",
+    "title": "Login Function Test",
     "status": "passed",
     "duration": 1234,
     "currentProgress": { "runId": "run-001", "status": "running", "progress": 50 }
@@ -1327,7 +1327,7 @@ interface RealTimeMessage {
 
 #### `test_result_batch`
 
-批量测试结果推送。测试结果会按批次（最多 10 个或 100ms 间隔）聚合后推送。
+Batch test result push. Test results are aggregated in batches (up to 10 items or 100ms interval) before being pushed.
 
 ```json
 {
@@ -1336,13 +1336,13 @@ interface RealTimeMessage {
     "results": [
       {
         "id": "test-id-1",
-        "title": "登录功能测试",
+        "title": "Login Function Test",
         "status": "passed",
         "duration": 1234
       },
       {
         "id": "test-id-2",
-        "title": "注册功能测试",
+        "title": "Register Function Test",
         "status": "failed",
         "duration": 5678,
         "error": "AssertionError: expected true, got false"
@@ -1365,13 +1365,13 @@ interface RealTimeMessage {
 
 #### `suite_completed`
 
-测试套件完成时触发。
+Triggered when a test suite completes.
 
 ```json
 {
   "type": "suite_completed",
   "payload": {
-    "suiteName": "登录模块",
+    "suiteName": "Login Module",
     "timestamp": 1715673600000
   },
   "timestamp": 1715673600000,
@@ -1381,20 +1381,20 @@ interface RealTimeMessage {
 
 #### `flaky_detected`
 
-检测到 Flaky 测试时触发。
+Triggered when a flaky test is detected.
 
 ```json
 {
   "type": "flaky_detected",
   "payload": {
     "testId": "test-id-1",
-    "title": "登录功能测试",
+    "title": "Login Function Test",
     "failureRate": 0.5,
     "weightedFailureRate": 0.65,
     "classification": "timing",
     "rootCause": {
       "type": "race_condition",
-      "description": "测试存在竞态条件"
+      "description": "Test has race condition"
     },
     "timestamp": 1715673600000
   },
@@ -1403,21 +1403,21 @@ interface RealTimeMessage {
 }
 ```
 
-**payload 字段说明：**
+**payload Field Descriptions:**
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
-| `title` | `string` | 测试标题 |
-| `failureRate` | `number` | 失败率 |
-| `weightedFailureRate` | `number` | 加权失败率 |
-| `classification` | `FlakyClassification` | Flaky 分类 |
-| `rootCause` | `RootCauseType` | 根因分析（可选） |
-| `timestamp` | `number` | 检测时间戳 |
+| `testId` | `string` | Test ID |
+| `title` | `string` | Test title |
+| `failureRate` | `number` | Failure rate |
+| `weightedFailureRate` | `number` | Weighted failure rate |
+| `classification` | `FlakyClassification` | Flaky classification |
+| `rootCause` | `RootCauseType` | Root cause analysis (optional) |
+| `timestamp` | `number` | Detection timestamp |
 
 #### `quarantine_updated`
 
-隔离状态变更时触发。
+Triggered when quarantine status changes.
 
 ```json
 {
@@ -1434,13 +1434,13 @@ interface RealTimeMessage {
 
 #### `log`
 
-运行日志消息。
+Run log message.
 
 ```json
 {
   "type": "log",
   "payload": {
-    "message": "Running test: 登录功能测试",
+    "message": "Running test: Login Function Test",
     "timestamp": 1715673600000,
     "logType": "info"
   },
@@ -1449,11 +1449,11 @@ interface RealTimeMessage {
 }
 ```
 
-**logType 可选值：** `'stdout'`、`'stderr'`、`'info'`
+**logType Values:** `'stdout'`, `'stderr'`, `'info'`
 
 #### `report_created`
 
-测试报告创建时触发。
+Triggered when a test report is created.
 
 ```json
 {
@@ -1472,7 +1472,7 @@ interface RealTimeMessage {
 
 #### `report_updated`
 
-测试报告更新时触发。
+Triggered when a test report is updated.
 
 ```json
 {
@@ -1486,7 +1486,7 @@ interface RealTimeMessage {
     "status": "completed",
     "testResult": {
       "id": "test-id-1",
-      "title": "登录功能测试",
+      "title": "Login Function Test",
       "status": "passed"
     }
   },
@@ -1497,7 +1497,7 @@ interface RealTimeMessage {
 
 #### `error`
 
-运行错误时触发。
+Triggered when a run error occurs.
 
 ```json
 {
@@ -1512,15 +1512,15 @@ interface RealTimeMessage {
 
 ---
 
-## WebSocket 客户端示例
+## WebSocket Client Examples
 
-### 原生 WebSocket
+### Native WebSocket
 
 ```typescript
 const ws = new WebSocket('ws://localhost:5274/ws');
 
 ws.onopen = () => {
-  console.log('已连接到 Dashboard 实时服务');
+  console.log('Connected to Dashboard realtime service');
 };
 
 ws.onmessage = (event) => {
@@ -1528,28 +1528,28 @@ ws.onmessage = (event) => {
 
   switch (data.type) {
     case 'connected':
-      console.log('连接成功:', data.payload.message);
+      console.log('Connection successful:', data.payload.message);
       break;
     case 'run_started':
-      console.log(`运行开始: ${data.payload.runId}`);
+      console.log(`Run started: ${data.payload.runId}`);
       break;
     case 'test_result_batch':
-      console.log(`批量结果: ${data.payload.results.length} 个测试`);
+      console.log(`Batch results: ${data.payload.results.length} tests`);
       break;
     case 'run_completed':
-      console.log('运行完成!');
+      console.log('Run completed!');
       break;
     case 'flaky_detected':
-      console.log(`Flaky 检测: ${data.payload.title} (${data.payload.classification})`);
+      console.log(`Flaky detected: ${data.payload.title} (${data.payload.classification})`);
       break;
     case 'error':
-      console.error('错误:', data.payload.error);
+      console.error('Error:', data.payload.error);
       break;
   }
 };
 ```
 
-### 使用 RealtimeReporterClient
+### Using RealtimeReporterClient
 
 ```typescript
 import { RealtimeReporterClient } from 'yuantest-playwright';
@@ -1557,30 +1557,30 @@ import { RealtimeReporterClient } from 'yuantest-playwright';
 const client = new RealtimeReporterClient('ws://localhost:5274/ws');
 
 client.on('connected', (payload) => {
-  console.log('连接成功:', payload.message);
+  console.log('Connection successful:', payload.message);
 });
 
 client.on('run_started', (payload) => {
-  console.log(`运行开始: ${payload.runId}`);
+  console.log(`Run started: ${payload.runId}`);
 });
 
 client.on('run_completed', (payload) => {
-  console.log(`运行完成: ${payload.id}`);
+  console.log(`Run completed: ${payload.id}`);
 });
 
 client.on('flaky_detected', (payload) => {
-  console.log(`Flaky: ${payload.title}, 分类: ${payload.classification}`);
+  console.log(`Flaky: ${payload.title}, classification: ${payload.classification}`);
 });
 
 await client.connect();
 
-// 断开连接
+// Disconnect
 client.disconnect();
 ```
 
 ---
 
-## 类型定义
+## Type Definitions
 
 ```typescript
 interface DashboardConfig {

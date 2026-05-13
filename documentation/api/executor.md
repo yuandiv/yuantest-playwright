@@ -1,19 +1,19 @@
 # Executor API
 
-Executor 负责测试执行，通过 Playwright CLI 运行测试。继承自 `EventEmitter`，支持事件监听。
+The Executor is responsible for test execution, running tests through the Playwright CLI. It inherits from `EventEmitter` and supports event listening.
 
-## Executor 类
+## Executor Class
 
-### 构造函数
+### Constructor
 
 ```typescript
 constructor(config: TestConfig, storage?: StorageProvider, flakyManager?: FlakyTestManager)
 ```
 
-创建 Executor 实例。构造函数会对 `config` 进行默认值合并：
+Creates an Executor instance. The constructor merges default values for `config`:
 
-| 字段 | 默认值 |
-|------|--------|
+| Field | Default Value |
+|-------|---------------|
 | `retries` | `0` |
 | `timeout` | `30000` |
 | `workers` | `1` |
@@ -21,17 +21,17 @@ constructor(config: TestConfig, storage?: StorageProvider, flakyManager?: FlakyT
 | `browsers` | `['chromium']` |
 | `htmlReport` | `true` |
 
-构造时会根据配置自动初始化以下管理器（仅在对应配置 `enabled` 时创建）：
+During construction, the following managers are automatically initialized based on configuration (only created when the corresponding configuration has `enabled` set to true):
 
-- `TraceManager` — 追踪管理
-- `AnnotationManager` — 注解管理
-- `TagManager` — 标签管理
-- `ArtifactManager` — 产物管理
-- `VisualTestingManager` — 视觉测试管理
+- `TraceManager` — Trace management
+- `AnnotationManager` — Annotation management
+- `TagManager` — Tag management
+- `ArtifactManager` — Artifact management
+- `VisualTestingManager` — Visual testing management
 
 ### execute(options?)
 
-执行测试运行。
+Executes the test run.
 
 ```typescript
 async execute(options?: {
@@ -47,104 +47,104 @@ async execute(options?: {
 }): Promise<RunResult>
 ```
 
-#### 参数说明
+#### Parameter Description
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `shardIndex` | `number` | 分片索引（从 0 开始） |
-| `shardTotal` | `number` | 分片总数 |
-| `grepPattern` | `string` | 匹配测试标题的正则模式 |
-| `tagFilter` | `string[]` | 标签过滤器列表 |
-| `updateSnapshots` | `boolean` | 是否更新快照 |
-| `projectFilter` | `string` | Playwright 项目过滤器 |
-| `testFiles` | `string[]` | 指定测试文件列表 |
-| `testLocations` | `string[]` | 指定测试位置列表 |
-| `parentRunId` | `string` | 父运行 ID，用于重跑场景 |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `shardIndex` | `number` | Shard index (0-based) |
+| `shardTotal` | `number` | Total number of shards |
+| `grepPattern` | `string` | Regex pattern to match test titles |
+| `tagFilter` | `string[]` | List of tag filters |
+| `updateSnapshots` | `boolean` | Whether to update snapshots |
+| `projectFilter` | `string` | Playwright project filter |
+| `testFiles` | `string[]` | Specified list of test files |
+| `testLocations` | `string[]` | Specified list of test locations |
+| `parentRunId` | `string` | Parent run ID, used for rerun scenarios |
 
-#### 执行流程
+#### Execution Flow
 
-1. 检查是否已在运行，若正在运行则抛出 `PlaywrightRunnerError`（`ALREADY_RUNNING`）
-2. 生成运行 ID（格式：`run_YYYYMMDD_HHmmss_随机串`）
-3. 初始化 `RunResult` 对象
-4. 过滤隔离测试（quarantined tests）
-5. 准备运行环境（创建输出目录、初始化管理器、扫描注解和标签）
-6. 通过 Playwright CLI 执行测试
-7. 后处理（移动 HTML 报告、发现追踪文件、发现产物、运行视觉测试）
-8. 返回 `RunResult`
+1. Check if already running, throw `PlaywrightRunnerError` (`ALREADY_RUNNING`) if currently running
+2. Generate run ID (format: `run_YYYYMMDD_HHmmss_random_string`)
+3. Initialize `RunResult` object
+4. Filter quarantined tests
+5. Prepare run environment (create output directory, initialize managers, scan annotations and tags)
+6. Execute tests via Playwright CLI
+7. Post-processing (move HTML report, discover trace files, discover artifacts, run visual tests)
+8. Return `RunResult`
 
-如果执行过程中发生异常，`RunResult.status` 会被设为 `'failed'`。无论成功或失败，都会设置 `endTime` 和 `duration`，并触发 `run_completed` 事件。
+If an exception occurs during execution, `RunResult.status` will be set to `'failed'`. Regardless of success or failure, `endTime` and `duration` will be set, and the `run_completed` event will be triggered.
 
 ### cancel()
 
-取消当前正在运行的测试。
+Cancels the currently running test.
 
 ```typescript
 async cancel(): Promise<void>
 ```
 
-取消行为：
+Cancellation behavior:
 
-- 在 Windows 上使用 `taskkill /F /T /PID` 终止进程树
-- 在 Unix 上先发送 `SIGTERM`，3 秒后若进程仍在运行则发送 `SIGKILL`
-- 将 `RunResult.status` 设为 `'cancelled'`
-- 触发 `run_cancelled` 事件
+- On Windows, uses `taskkill /F /T /PID` to terminate the process tree
+- On Unix, sends `SIGTERM` first, then sends `SIGKILL` after 3 seconds if the process is still running
+- Sets `RunResult.status` to `'cancelled'`
+- Triggers `run_cancelled` event
 
-### 其他方法
+### Other Methods
 
-| 方法 | 返回类型 | 说明 |
-|------|----------|------|
-| `getCurrentStatus()` | `Promise<RunResult \| null>` | 获取当前运行结果 |
-| `isCurrentlyRunning()` | `boolean` | 检查是否正在执行 |
-| `getConfig()` | `TestConfig` | 获取配置副本 |
-| `getTestArtifacts(runId)` | `Promise<{ screenshots, videos, traces }>` | 获取指定运行的测试产物 |
-| `getTraceManager()` | `TraceManager \| null` | 获取追踪管理器 |
-| `getAnnotationManager()` | `AnnotationManager \| null` | 获取注解管理器 |
-| `getTagManager()` | `TagManager \| null` | 获取标签管理器 |
-| `getArtifactManager()` | `ArtifactManager \| null` | 获取产物管理器 |
-| `getVisualManager()` | `VisualTestingManager \| null` | 获取视觉测试管理器 |
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getCurrentStatus()` | `Promise<RunResult \| null>` | Get current run result |
+| `isCurrentlyRunning()` | `boolean` | Check if currently executing |
+| `getConfig()` | `TestConfig` | Get a copy of the configuration |
+| `getTestArtifacts(runId)` | `Promise<{ screenshots, videos, traces }>` | Get test artifacts for a specific run |
+| `getTraceManager()` | `TraceManager \| null` | Get the trace manager |
+| `getAnnotationManager()` | `AnnotationManager \| null` | Get the annotation manager |
+| `getTagManager()` | `TagManager \| null` | Get the tag manager |
+| `getArtifactManager()` | `ArtifactManager \| null` | Get the artifact manager |
+| `getVisualManager()` | `VisualTestingManager \| null` | Get the visual testing manager |
 
-### 属性
+### Properties
 
-| 属性 | 类型 | 说明 |
-|------|------|------|
-| `currentRun` | `RunResult \| null` | 当前运行结果（只读 getter） |
+| Property | Type | Description |
+|----------|------|-------------|
+| `currentRun` | `RunResult \| null` | Current run result (read-only getter) |
 
-## 事件
+## Events
 
-Executor 继承自 `EventEmitter`，支持以下事件：
+The Executor inherits from `EventEmitter` and supports the following events:
 
-| 事件 | 参数 | 说明 |
-|------|------|------|
-| `run_started` | `{ runId: string, timestamp: number }` | 运行开始 |
-| `test_result` | `TestResult` | 单个测试结果 |
-| `run_progress` | `RunProgress` | 运行进度更新 |
-| `run_completed` | `RunResult` | 运行完成 |
-| `run_cancelled` | `RunResult \| null` | 运行被取消 |
-| `output` | `{ data: string, timestamp: number, runId: string, type?: string }` | 输出数据（stdout/stderr/info） |
-| `error` | `{ error: string, runId: string }` | 错误事件 |
-| `annotations_scanned` | `{ runId: string, summary }` | 注解扫描完成 |
-| `tags_scanned` | `{ runId: string, summary }` | 标签扫描完成 |
+| Event | Parameter | Description |
+|-------|-----------|-------------|
+| `run_started` | `{ runId: string, timestamp: number }` | Run started |
+| `test_result` | `TestResult` | Individual test result |
+| `run_progress` | `RunProgress` | Run progress update |
+| `run_completed` | `RunResult` | Run completed |
+| `run_cancelled` | `RunResult \| null` | Run was cancelled |
+| `output` | `{ data: string, timestamp: number, runId: string, type?: string }` | Output data (stdout/stderr/info) |
+| `error` | `{ error: string, runId: string }` | Error event |
+| `annotations_scanned` | `{ runId: string, summary }` | Annotation scan completed |
+| `tags_scanned` | `{ runId: string, summary }` | Tag scan completed |
 
-## ParallelExecutor 类
+## ParallelExecutor Class
 
-并行执行器，创建多个 Executor 实例分片执行测试。
+A parallel executor that creates multiple Executor instances to run tests in shards.
 
-### 构造函数
+### Constructor
 
 ```typescript
 constructor(config: TestConfig, shardCount: number, storage?: StorageProvider)
 ```
 
-创建 `shardCount` 个 Executor 实例，每个分片使用独立的输出目录（`outputDir/shard-{i}`）。
+Creates `shardCount` Executor instances, each shard using an independent output directory (`outputDir/shard-{i}`).
 
-### 方法
+### Methods
 
-| 方法 | 返回类型 | 说明 |
-|------|----------|------|
-| `execute()` | `Promise<RunResult[]>` | 并行执行所有分片 |
-| `cancelAll()` | `Promise<void>` | 取消所有分片执行 |
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `execute()` | `Promise<RunResult[]>` | Execute all shards in parallel |
+| `cancelAll()` | `Promise<void>` | Cancel all shard executions |
 
-## 类型定义
+## Type Definitions
 
 ### TestConfig
 
@@ -357,9 +357,9 @@ interface RunMetadataGlobalError {
 }
 ```
 
-## 示例
+## Examples
 
-### 基本使用
+### Basic Usage
 
 ```typescript
 import { Executor } from 'yuantest-playwright';
@@ -374,7 +374,7 @@ const result = await executor.execute();
 console.log(`Passed: ${result.passed}/${result.totalTests}`);
 ```
 
-### 监听事件
+### Listening to Events
 
 ```typescript
 executor.on('run_started', (data) => {
@@ -402,7 +402,7 @@ executor.on('output', (data) => {
 });
 ```
 
-### 使用过滤选项
+### Using Filter Options
 
 ```typescript
 const result = await executor.execute({
@@ -414,7 +414,7 @@ const result = await executor.execute({
 });
 ```
 
-### 分片执行
+### Sharded Execution
 
 ```typescript
 const result = await executor.execute({
@@ -423,7 +423,7 @@ const result = await executor.execute({
 });
 ```
 
-### 取消执行
+### Canceling Execution
 
 ```typescript
 setTimeout(async () => {
@@ -434,7 +434,7 @@ setTimeout(async () => {
 }, 60000);
 ```
 
-### 并行执行
+### Parallel Execution
 
 ```typescript
 import { ParallelExecutor } from 'yuantest-playwright';

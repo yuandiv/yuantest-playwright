@@ -1,0 +1,2951 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Playwright test orchestrator, executor and reporter with web UI">
+      
+      
+      
+        <link rel="canonical" href="https://yuantest-playwright.readthedocs.io/api/orchestrator/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../executor/">
+      
+      
+        
+          <link rel="alternate" href="./" hreflang="en">
+        
+          <link rel="alternate" href="../../zh/api/orchestrator/" hreflang="zh">
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Orchestrator - YuanTest Playwright</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#orchestrator-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="YuanTest Playwright" class="md-header__button md-logo" aria-label="YuanTest Playwright" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            YuanTest Playwright
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Orchestrator
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="Select language">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="./" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="../../zh/api/orchestrator/" hreflang="zh" class="md-select__link">
+              中文
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/yuandiv/yuantest-playwright" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yuandiv/yuantest-playwright
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../usage/" class="md-tabs__link">
+          
+  
+  
+  Usage
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/flaky-management/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../cli/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  CLI Commands
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../configuration/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Configuration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="YuanTest Playwright" class="md-nav__button md-logo" aria-label="YuanTest Playwright" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    YuanTest Playwright
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/yuandiv/yuantest-playwright" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yuandiv/yuantest-playwright
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/web-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web UI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/cicd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/flaky-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Flaky Test Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ai-diagnosis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Diagnosis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Orchestrator
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#orchestrator-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Orchestrator Class
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Orchestrator Class">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constructor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constructor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initialize-promisevoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        initialize(): Promise&lt;void&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#orchestrate-promiseorchestrationconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orchestrate(): Promise&lt;OrchestrationConfig&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optimizesharding-promiseorchestrationconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        optimizeSharding(): Promise&lt;OrchestrationConfig&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getassignmentsforshardshardid-number-testassignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getAssignmentsForShard(shardId: number): TestAssignment[]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#updatedurationhistorytestfile-string-duration-number-void" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        updateDurationHistory(testFile: string, duration: number): void
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recordrunresultsresults-array-testid-string-duration-number-void" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        recordRunResults(results: Array&lt;{ testId: string; duration: number }&gt;): void
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recordshardfeedbackfeedback-shardpredictionfeedback-void" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        recordShardFeedback(feedback: ShardPredictionFeedback): void
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getcalibrationfactor-number" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getCalibrationFactor(): number
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getpredictionfeedback-shardpredictionfeedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getPredictionFeedback(): ShardPredictionFeedback[]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validateconfig-promiseboolean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        validateConfig(): Promise&lt;boolean&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getconfig-testconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getConfig(): TestConfig
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#createplaywrightconfig-promiseany" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        createPlaywrightConfig(): Promise&lt;any&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flush-promisevoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        flush(): Promise&lt;void&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Type Definitions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Type Definitions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#orchestrationconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OrchestrationConfig
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testassignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TestAssignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TestConfig
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shardpredictionfeedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ShardPredictionFeedback
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#orchestration-strategy-explanation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Orchestration Strategy Explanation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Orchestration Strategy Explanation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#distributed-even-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        distributed (Even Distribution)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#weighted-weighted-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        weighted (Weighted Distribution)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intelligent-intelligent-sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        intelligent (Intelligent Sharding)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shardoptimizer-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ShardOptimizer Class
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ShardOptimizer Class">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constructor_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constructor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#methods_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optimizeassignments-testassignment-totalshards-number-promisemapnumber-testassignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        optimize(assignments: TestAssignment[], totalShards: number): Promise&lt;Map&lt;number, TestAssignment[]&gt;&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getshardloads-number" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getShardLoads(): number[]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time-estimation-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Time Estimation Algorithm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Time Estimation Algorithm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-orchestration-distributed-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Orchestration (distributed strategy)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intelligent-sharding-intelligent-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intelligent Sharding (intelligent strategy)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-tests-for-a-specific-shard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get Tests for a Specific Shard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#record-run-results-and-feedback-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Record Run Results and Feedback Calibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-playwright-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate Playwright Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manually-update-historical-data-for-a-single-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manually Update Historical Data for a Single Test
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ensure-data-persistence-before-program-exit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ensure Data Persistence Before Program Exit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../executor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Executor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reporter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reporter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../flaky/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FlakyTestManager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DashboardServer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#orchestrator-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Orchestrator Class
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Orchestrator Class">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constructor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constructor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#initialize-promisevoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        initialize(): Promise&lt;void&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#orchestrate-promiseorchestrationconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orchestrate(): Promise&lt;OrchestrationConfig&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optimizesharding-promiseorchestrationconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        optimizeSharding(): Promise&lt;OrchestrationConfig&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getassignmentsforshardshardid-number-testassignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getAssignmentsForShard(shardId: number): TestAssignment[]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#updatedurationhistorytestfile-string-duration-number-void" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        updateDurationHistory(testFile: string, duration: number): void
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recordrunresultsresults-array-testid-string-duration-number-void" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        recordRunResults(results: Array&lt;{ testId: string; duration: number }&gt;): void
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recordshardfeedbackfeedback-shardpredictionfeedback-void" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        recordShardFeedback(feedback: ShardPredictionFeedback): void
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getcalibrationfactor-number" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getCalibrationFactor(): number
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getpredictionfeedback-shardpredictionfeedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getPredictionFeedback(): ShardPredictionFeedback[]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validateconfig-promiseboolean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        validateConfig(): Promise&lt;boolean&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getconfig-testconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getConfig(): TestConfig
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#createplaywrightconfig-promiseany" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        createPlaywrightConfig(): Promise&lt;any&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flush-promisevoid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        flush(): Promise&lt;void&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Type Definitions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Type Definitions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#orchestrationconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OrchestrationConfig
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testassignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TestAssignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TestConfig
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shardpredictionfeedback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ShardPredictionFeedback
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#orchestration-strategy-explanation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Orchestration Strategy Explanation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Orchestration Strategy Explanation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#distributed-even-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        distributed (Even Distribution)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#weighted-weighted-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        weighted (Weighted Distribution)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intelligent-intelligent-sharding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        intelligent (Intelligent Sharding)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shardoptimizer-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ShardOptimizer Class
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ShardOptimizer Class">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constructor_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constructor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#methods_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optimizeassignments-testassignment-totalshards-number-promisemapnumber-testassignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        optimize(assignments: TestAssignment[], totalShards: number): Promise&lt;Map&lt;number, TestAssignment[]&gt;&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getshardloads-number" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        getShardLoads(): number[]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time-estimation-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Time Estimation Algorithm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Time Estimation Algorithm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-orchestration-distributed-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Orchestration (distributed strategy)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intelligent-sharding-intelligent-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intelligent Sharding (intelligent strategy)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-tests-for-a-specific-shard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get Tests for a Specific Shard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#record-run-results-and-feedback-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Record Run Results and Feedback Calibration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-playwright-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate Playwright Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manually-update-historical-data-for-a-single-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manually Update Historical Data for a Single Test
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ensure-data-persistence-before-program-exit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ensure Data Persistence Before Program Exit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/yuandiv/yuantest-playwright/edit/main/documentation/api/orchestrator.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="orchestrator-api">Orchestrator API<a class="headerlink" href="#orchestrator-api" title="Permanent link">&para;</a></h1>
+<p>The Orchestrator is responsible for test orchestration, including test discovery, shard assignment, load balancing, and historical execution time analysis. It inherits from <code>ManagedManager</code> (based on <code>EventEmitter</code>), supporting asynchronous initialization and automatic persistence.</p>
+<hr />
+<h2 id="orchestrator-class">Orchestrator Class<a class="headerlink" href="#orchestrator-class" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Orchestrator</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;yuantest-playwright&#39;</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="constructor">Constructor<a class="headerlink" href="#constructor" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="ow">new</span><span class="w"> </span><span class="nx">Orchestrator</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TestConfig</span><span class="p">,</span><span class="w"> </span><span class="nx">storage?</span><span class="o">:</span><span class="w"> </span><span class="kt">StorageProvider</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config</code></td>
+<td><code>TestConfig</code></td>
+<td>Yes</td>
+<td>-</td>
+<td>Test configuration object</td>
+</tr>
+<tr>
+<td><code>storage</code></td>
+<td><code>StorageProvider</code></td>
+<td>No</td>
+<td><code>getStorage()</code></td>
+<td>Storage provider for reading and writing persistent data</td>
+</tr>
+</tbody>
+</table>
+<p>The constructor internally fills missing optional fields in <code>config</code> using the <code>DEFAULTS</code> constant:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>retries</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td><code>30000</code></td>
+</tr>
+<tr>
+<td><code>workers</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>shards</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>browsers</code></td>
+<td><code>['chromium']</code></td>
+</tr>
+</tbody>
+</table>
+<p>It also sets the save delay to <code>CACHE_CONFIG.SAVE_DELAY_MS</code> (1000ms).</p>
+<hr />
+<h3 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h3>
+<h4 id="initialize-promisevoid"><code>initialize(): Promise&lt;void&gt;</code><a class="headerlink" href="#initialize-promisevoid" title="Permanent link">&para;</a></h4>
+<p>Initializes the orchestrator. Calls the parent class <code>BaseManager.initialize()</code> to complete basic initialization (loading historical execution time data) and validates required configuration items.</p>
+<ul>
+<li>If <code>config.version</code> is not set, throws <code>PlaywrightRunnerError('Version is required', ErrorCode.INVALID_CONFIG)</code></li>
+<li>If <code>config.testDir</code> is not set, throws <code>PlaywrightRunnerError('Test directory is required', ErrorCode.INVALID_CONFIG)</code></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">initialize</span><span class="p">();</span>
+</code></pre></div>
+<h4 id="orchestrate-promiseorchestrationconfig"><code>orchestrate(): Promise&lt;OrchestrationConfig&gt;</code><a class="headerlink" href="#orchestrate-promiseorchestrationconfig" title="Permanent link">&para;</a></h4>
+<p>Performs basic test orchestration (distributed strategy). The process is as follows:</p>
+<ol>
+<li>Calls <code>discoverTests()</code> to discover test files</li>
+<li>Calls <code>distributeTests()</code> to evenly distribute tests across shards (round-robin method)</li>
+<li>Returns <code>OrchestrationConfig</code> with <code>strategy</code> set to <code>'distributed'</code></li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">orchestrate</span><span class="p">();</span>
+</code></pre></div>
+<h4 id="optimizesharding-promiseorchestrationconfig"><code>optimizeSharding(): Promise&lt;OrchestrationConfig&gt;</code><a class="headerlink" href="#optimizesharding-promiseorchestrationconfig" title="Permanent link">&para;</a></h4>
+<p>Performs intelligent shard orchestration (intelligent strategy). The process is as follows:</p>
+<ol>
+<li>Calls <code>discoverTests()</code> to discover test files</li>
+<li>Calls <code>estimateTestDurationDetailed()</code> for each test file to get enhanced time estimates</li>
+<li>Uses <code>ShardOptimizer</code> for variance-aware load balancing optimization</li>
+<li>Returns <code>OrchestrationConfig</code> with <code>strategy</code> set to <code>'intelligent'</code></li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">optimizeSharding</span><span class="p">();</span>
+</code></pre></div>
+<h4 id="getassignmentsforshardshardid-number-testassignment"><code>getAssignmentsForShard(shardId: number): TestAssignment[]</code><a class="headerlink" href="#getassignmentsforshardshardid-number-testassignment" title="Permanent link">&para;</a></h4>
+<p>Gets the test assignment list for a specified shard.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>shardId</code></td>
+<td><code>number</code></td>
+<td>Shard ID</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">shardTests</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">getAssignmentsForShard</span><span class="p">(</span><span class="mf">0</span><span class="p">);</span>
+</code></pre></div>
+<h4 id="updatedurationhistorytestfile-string-duration-number-void"><code>updateDurationHistory(testFile: string, duration: number): void</code><a class="headerlink" href="#updatedurationhistorytestfile-string-duration-number-void" title="Permanent link">&para;</a></h4>
+<p>Updates the historical execution time for a single test file. Uses the Welford online algorithm to calculate variance, EMA for time decay, while maintaining percentiles and extreme values. Automatically schedules persistence save after update.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>testFile</code></td>
+<td><code>string</code></td>
+<td>Test file path</td>
+</tr>
+<tr>
+<td><code>duration</code></td>
+<td><code>number</code></td>
+<td>Execution duration in milliseconds</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">updateDurationHistory</span><span class="p">(</span><span class="s1">&#39;login.spec.ts&#39;</span><span class="p">,</span><span class="w"> </span><span class="mf">1520</span><span class="p">);</span>
+</code></pre></div>
+<h4 id="recordrunresultsresults-array-testid-string-duration-number-void"><code>recordRunResults(results: Array&lt;{ testId: string; duration: number }&gt;): void</code><a class="headerlink" href="#recordrunresultsresults-array-testid-string-duration-number-void" title="Permanent link">&para;</a></h4>
+<p>Batch records test run results, calling <code>updateDurationHistory()</code> for each result.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>results</code></td>
+<td><code>Array&lt;{ testId: string; duration: number }&gt;</code></td>
+<td>List of test results</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">recordRunResults</span><span class="p">([</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">testId</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;login.spec.ts&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">duration</span><span class="o">:</span><span class="w"> </span><span class="kt">1520</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">testId</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;cart.spec.ts&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">duration</span><span class="o">:</span><span class="w"> </span><span class="kt">3200</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="p">]);</span>
+</code></pre></div>
+<h4 id="recordshardfeedbackfeedback-shardpredictionfeedback-void"><code>recordShardFeedback(feedback: ShardPredictionFeedback): void</code><a class="headerlink" href="#recordshardfeedbackfeedback-shardpredictionfeedback-void" title="Permanent link">&para;</a></h4>
+<p>Records shard prediction feedback and performs automatic calibration. Compares the predicted total duration with the actual total duration for each shard, using a learning rate to adjust the calibration factor. Only the most recent 20 feedback entries are retained, with calibration factor range <code>[0.5, 2.0]</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feedback</code></td>
+<td><code>ShardPredictionFeedback</code></td>
+<td>Shard prediction feedback</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">recordShardFeedback</span><span class="p">({</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nx">shardId</span><span class="o">:</span><span class="w"> </span><span class="kt">0</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nx">predictedDuration</span><span class="o">:</span><span class="w"> </span><span class="kt">10000</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nx">actualDuration</span><span class="o">:</span><span class="w"> </span><span class="kt">12000</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nx">timestamp</span><span class="o">:</span><span class="w"> </span><span class="kt">Date.now</span><span class="p">(),</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">});</span>
+</code></pre></div>
+<h4 id="getcalibrationfactor-number"><code>getCalibrationFactor(): number</code><a class="headerlink" href="#getcalibrationfactor-number" title="Permanent link">&para;</a></h4>
+<p>Gets the current calibration factor.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">factor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">getCalibrationFactor</span><span class="p">();</span>
+</code></pre></div>
+<h4 id="getpredictionfeedback-shardpredictionfeedback"><code>getPredictionFeedback(): ShardPredictionFeedback[]</code><a class="headerlink" href="#getpredictionfeedback-shardpredictionfeedback" title="Permanent link">&para;</a></h4>
+<p>Gets a copy of all prediction feedback records.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">feedbacks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">getPredictionFeedback</span><span class="p">();</span>
+</code></pre></div>
+<h4 id="validateconfig-promiseboolean"><code>validateConfig(): Promise&lt;boolean&gt;</code><a class="headerlink" href="#validateconfig-promiseboolean" title="Permanent link">&para;</a></h4>
+<p>Validates whether the configuration is complete. Requires <code>version</code>, <code>testDir</code>, and <code>outputDir</code> to all be set.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">valid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">validateConfig</span><span class="p">();</span>
+</code></pre></div>
+<h4 id="getconfig-testconfig"><code>getConfig(): TestConfig</code><a class="headerlink" href="#getconfig-testconfig" title="Permanent link">&para;</a></h4>
+<p>Gets a shallow copy of the current configuration.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">getConfig</span><span class="p">();</span>
+</code></pre></div>
+<h4 id="createplaywrightconfig-promiseany"><code>createPlaywrightConfig(): Promise&lt;any&gt;</code><a class="headerlink" href="#createplaywrightconfig-promiseany" title="Permanent link">&para;</a></h4>
+<p>Generates a Playwright configuration object based on the current configuration.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">pwConfig</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">createPlaywrightConfig</span><span class="p">();</span>
+</code></pre></div>
+<p>Generated configuration structure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nx">testDir</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nx">timeout</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nx">retries</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="nx">workers</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span><span class="nx">use</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="nx">baseURL</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">undefined</span><span class="p">;</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="nx">trace</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;on-first-retry&#39;</span><span class="p">;</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">    </span><span class="nx">screenshot</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;only-on-failure&#39;</span><span class="p">;</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">    </span><span class="nx">video</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;retain-on-failure&#39;</span><span class="p">;</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">  </span><span class="p">};</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">  </span><span class="nx">projects</span><span class="o">:</span><span class="w"> </span><span class="kt">Array</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">use</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">browserName</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="w">  </span><span class="nx">reporter</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="p">[[</span><span class="s1">&#39;list&#39;</span><span class="p">]];</span>
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="flush-promisevoid"><code>flush(): Promise&lt;void&gt;</code><a class="headerlink" href="#flush-promisevoid" title="Permanent link">&para;</a></h4>
+<p>Immediately persists pending historical data to disk. Clears all delayed save timers and executes the save directly.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">flush</span><span class="p">();</span>
+</code></pre></div>
+<hr />
+<h2 id="type-definitions">Type Definitions<a class="headerlink" href="#type-definitions" title="Permanent link">&para;</a></h2>
+<h3 id="orchestrationconfig">OrchestrationConfig<a class="headerlink" href="#orchestrationconfig" title="Permanent link">&para;</a></h3>
+<p>Orchestration configuration, describing shard assignment results.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kd">interface</span><span class="w"> </span><span class="nx">OrchestrationConfig</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="cm">/** Total number of shards */</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nx">totalShards</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="cm">/** Current shard index (default is 0) */</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nx">shardIndex</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span><span class="cm">/** Test assignment list */</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">  </span><span class="nx">testAssignment</span><span class="o">:</span><span class="w"> </span><span class="kt">TestAssignment</span><span class="p">[];</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span><span class="cm">/** Orchestration strategy */</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">  </span><span class="nx">strategy</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;distributed&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;weighted&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;intelligent&#39;</span><span class="p">;</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">  </span><span class="cm">/** List of flaky test IDs (optional) */</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">  </span><span class="nx">flakyTests?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">  </span><span class="cm">/** List of quarantined test IDs (optional) */</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">  </span><span class="nx">quarantinedTests?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="testassignment">TestAssignment<a class="headerlink" href="#testassignment" title="Permanent link">&para;</a></h3>
+<p>Test assignment information, describing the mapping between a single test and a shard.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kd">interface</span><span class="w"> </span><span class="nx">TestAssignment</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="cm">/** Test file identifier (relative path) */</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nx">testId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="cm">/** Assigned shard ID */</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span><span class="nx">shardId</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="cm">/** Priority (default is 1) */</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">  </span><span class="nx">priority</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">  </span><span class="cm">/** Estimated execution time (milliseconds) */</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">  </span><span class="nx">estimatedDuration?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">  </span><span class="cm">/** Estimation confidence (0~1, higher is more reliable) */</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">  </span><span class="nx">durationConfidence?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">  </span><span class="cm">/** Execution time variance (milliseconds²) */</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">  </span><span class="nx">durationVariance?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="w">  </span><span class="cm">/** Estimation source */</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a><span class="w">  </span><span class="nx">estimationSource</span><span class="o">?:</span><span class="w"> </span><span class="s1">&#39;history&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;ema&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;similar&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;default&#39;</span><span class="p">;</span>
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>estimationSource explanation:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>'history'</code></td>
+<td>Based on simple historical average (when run count &lt; 3)</td>
+</tr>
+<tr>
+<td><code>'ema'</code></td>
+<td>Based on exponential moving average (when run count ≥ 3, highest confidence)</td>
+</tr>
+<tr>
+<td><code>'similar'</code></td>
+<td>Inferred from similar tests (tests with historical data in the same directory)</td>
+</tr>
+<tr>
+<td><code>'default'</code></td>
+<td>Uses default timeout as estimate (no historical data available)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="testconfig">TestConfig<a class="headerlink" href="#testconfig" title="Permanent link">&para;</a></h3>
+<p>Test configuration, required parameter for the Orchestrator constructor.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kd">interface</span><span class="w"> </span><span class="nx">TestConfig</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="cm">/** Version identifier (required) */</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nx">version</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="cm">/** Test directory (required) */</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="nx">testDir</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="cm">/** Output directory (required) */</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">  </span><span class="nx">outputDir</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">  </span><span class="cm">/** Base URL */</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">  </span><span class="nx">baseURL?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">  </span><span class="cm">/** Number of retries, default 0 */</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">  </span><span class="nx">retries?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">  </span><span class="cm">/** Timeout (ms), default 30000 */</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">  </span><span class="nx">timeout?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">  </span><span class="cm">/** Number of workers, default 1 */</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="w">  </span><span class="nx">workers?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="w">  </span><span class="cm">/** Number of shards, default 1 */</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="w">  </span><span class="nx">shards?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="w">  </span><span class="cm">/** Reporter list */</span>
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="w">  </span><span class="nx">reporters?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="w">  </span><span class="cm">/** Browser list, default [&#39;chromium&#39;] */</span>
+<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a><span class="w">  </span><span class="nx">browsers?</span><span class="o">:</span><span class="w"> </span><span class="kt">BrowserType</span><span class="p">[];</span>
+<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="w">  </span><span class="cm">/** Custom request headers */</span>
+<a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a><span class="w">  </span><span class="nx">headers?</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a><span class="w">  </span><span class="cm">/** Flaky test threshold */</span>
+<a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a><span class="w">  </span><span class="nx">flakyThreshold?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-18-26" name="__codelineno-18-26" href="#__codelineno-18-26"></a><span class="w">  </span><span class="cm">/** Whether to isolate flaky tests */</span>
+<a id="__codelineno-18-27" name="__codelineno-18-27" href="#__codelineno-18-27"></a><span class="w">  </span><span class="nx">isolateFlaky?</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<a id="__codelineno-18-28" name="__codelineno-18-28" href="#__codelineno-18-28"></a><span class="w">  </span><span class="cm">/** Test file match patterns */</span>
+<a id="__codelineno-18-29" name="__codelineno-18-29" href="#__codelineno-18-29"></a><span class="w">  </span><span class="nx">testMatch?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<a id="__codelineno-18-30" name="__codelineno-18-30" href="#__codelineno-18-30"></a><span class="w">  </span><span class="cm">/** Test file ignore patterns */</span>
+<a id="__codelineno-18-31" name="__codelineno-18-31" href="#__codelineno-18-31"></a><span class="w">  </span><span class="nx">testIgnore?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<a id="__codelineno-18-32" name="__codelineno-18-32" href="#__codelineno-18-32"></a><span class="w">  </span><span class="cm">/** Ignored directories */</span>
+<a id="__codelineno-18-33" name="__codelineno-18-33" href="#__codelineno-18-33"></a><span class="w">  </span><span class="nx">ignoreDirs?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<a id="__codelineno-18-34" name="__codelineno-18-34" href="#__codelineno-18-34"></a><span class="w">  </span><span class="c1">// ... other optional configurations</span>
+<a id="__codelineno-18-35" name="__codelineno-18-35" href="#__codelineno-18-35"></a><span class="p">}</span>
+<a id="__codelineno-18-36" name="__codelineno-18-36" href="#__codelineno-18-36"></a>
+<a id="__codelineno-18-37" name="__codelineno-18-37" href="#__codelineno-18-37"></a><span class="kr">type</span><span class="w"> </span><span class="nx">BrowserType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;chromium&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;firefox&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;webkit&#39;</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="shardpredictionfeedback">ShardPredictionFeedback<a class="headerlink" href="#shardpredictionfeedback" title="Permanent link">&para;</a></h3>
+<p>Shard prediction feedback, used for calibrating time estimates.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kd">interface</span><span class="w"> </span><span class="nx">ShardPredictionFeedback</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="cm">/** Shard ID */</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nx">shardId</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="cm">/** Predicted duration (milliseconds) */</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nx">predictedDuration</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">  </span><span class="cm">/** Actual duration (milliseconds) */</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">  </span><span class="nx">actualDuration</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">  </span><span class="cm">/** Feedback timestamp */</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">  </span><span class="nx">timestamp</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h2 id="orchestration-strategy-explanation">Orchestration Strategy Explanation<a class="headerlink" href="#orchestration-strategy-explanation" title="Permanent link">&para;</a></h2>
+<h3 id="distributed-even-distribution">distributed (Even Distribution)<a class="headerlink" href="#distributed-even-distribution" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Usage</strong>: Call <code>orchestrate()</code></li>
+<li><strong>Algorithm</strong>: Round-robin assignment, distributing test files sequentially across shards</li>
+<li><strong>Characteristics</strong>: Simple and fast, does not depend on historical data; each test still calculates time estimates, but they do not affect assignment decisions</li>
+<li><strong>Use Cases</strong>: First run, no historical data, test cases have similar execution times</li>
+</ul>
+<h3 id="weighted-weighted-distribution">weighted (Weighted Distribution)<a class="headerlink" href="#weighted-weighted-distribution" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Current Status</strong>: Reserved in type definitions, not yet implemented as an independent strategy in code</li>
+<li><strong>Design Intent</strong>: Weighted assignment based on historical execution times to balance total duration across shards</li>
+</ul>
+<h3 id="intelligent-intelligent-sharding">intelligent (Intelligent Sharding)<a class="headerlink" href="#intelligent-intelligent-sharding" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Usage</strong>: Call <code>optimizeSharding()</code></li>
+<li><strong>Algorithm</strong>: Variance-aware load balancing based on <code>ShardOptimizer</code>, with core features including:</li>
+<li><strong>Risk-aware Load Calculation</strong>: Shard load = Σ(estimatedDuration) + riskPenalty × Σ(√variance), explicitly modeling uncertainty</li>
+<li><strong>Multi-objective Optimization</strong>: Primary objective is minimizing maximum shard load (makespan), secondary objective is minimizing variance risk difference between shards</li>
+<li><strong>Confidence Weighting</strong>: Tests with low confidence have higher uncertainty in estimated time, receiving larger risk penalties during assignment</li>
+<li><strong>Two-phase Assignment</strong>:<ul>
+<li>Phase 1: High-risk tests are assigned first, selecting the shard with minimum cumulative variance (risk dispersion)</li>
+<li>Phase 2: Stable tests are assigned using LPT (Longest Processing Time first) to the shard with lowest effective load</li>
+</ul>
+</li>
+<li><strong>Pairwise Swap Rebalancing</strong>: After assignment, attempts to reduce inter-shard load differences by swapping tests</li>
+<li><strong>Use Cases</strong>: Has historical execution data, test cases have large execution time differences, requires precise load balancing</li>
+</ul>
+<hr />
+<h2 id="shardoptimizer-class">ShardOptimizer Class<a class="headerlink" href="#shardoptimizer-class" title="Permanent link">&para;</a></h2>
+<p>Variance-aware intelligent shard optimizer, used internally by <code>Orchestrator.optimizeSharding()</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">ShardOptimizer</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;yuantest-playwright&#39;</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="constructor_1">Constructor<a class="headerlink" href="#constructor_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="ow">new</span><span class="w"> </span><span class="nx">ShardOptimizer</span><span class="p">(</span><span class="nx">durationHistory?</span><span class="o">:</span><span class="w"> </span><span class="kt">Map</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">TestDurationHistory</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="nx">calibrationFactor?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>durationHistory</code></td>
+<td><code>Map&lt;string, TestDurationHistory&gt;</code></td>
+<td>No</td>
+<td><code>new Map()</code></td>
+<td>Historical execution time data</td>
+</tr>
+<tr>
+<td><code>calibrationFactor</code></td>
+<td><code>number</code></td>
+<td>No</td>
+<td><code>1.0</code></td>
+<td>Calibration factor</td>
+</tr>
+</tbody>
+</table>
+<h3 id="methods_1">Methods<a class="headerlink" href="#methods_1" title="Permanent link">&para;</a></h3>
+<h4 id="optimizeassignments-testassignment-totalshards-number-promisemapnumber-testassignment"><code>optimize(assignments: TestAssignment[], totalShards: number): Promise&lt;Map&lt;number, TestAssignment[]&gt;&gt;</code><a class="headerlink" href="#optimizeassignments-testassignment-totalshards-number-promisemapnumber-testassignment" title="Permanent link">&para;</a></h4>
+<p>Performs variance-aware shard optimization, returning a mapping from shard ID to test assignment list.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>assignments</code></td>
+<td><code>TestAssignment[]</code></td>
+<td>Test assignment list (must include estimatedDuration, durationConfidence, durationVariance)</td>
+</tr>
+<tr>
+<td><code>totalShards</code></td>
+<td><code>number</code></td>
+<td>Total number of shards</td>
+</tr>
+</tbody>
+</table>
+<h4 id="getshardloads-number"><code>getShardLoads(): number[]</code><a class="headerlink" href="#getshardloads-number" title="Permanent link">&para;</a></h4>
+<p>Gets the load for each shard after the most recent optimization (milliseconds).</p>
+<hr />
+<h2 id="time-estimation-algorithm">Time Estimation Algorithm<a class="headerlink" href="#time-estimation-algorithm" title="Permanent link">&para;</a></h2>
+<p>The Orchestrator uses enhanced time estimation (<code>estimateTestDurationDetailed</code>), with the following decision logic:</p>
+<ol>
+<li><strong>No historical data</strong> (<code>runCount === 0</code>):</li>
+<li>Attempts to infer from similar tests (≥2 tests with sufficient history in the same directory)</li>
+<li>Inference successful: Uses median, confidence <code>0.3</code>, source <code>'similar'</code></li>
+<li>
+<p>Inference failed: Uses <code>DEFAULTS.TEST_TIMEOUT</code>, confidence <code>0.1</code>, source <code>'default'</code></p>
+</li>
+<li>
+<p><strong>Insufficient historical data</strong> (<code>runCount &lt; 3</code>):</p>
+</li>
+<li>Blends historical average with similar inference (weighted by run count)</li>
+<li>Confidence calculated based on coefficient of variation and run count, max <code>0.5</code></li>
+<li>
+<p>Source <code>'history'</code></p>
+</li>
+<li>
+<p><strong>Sufficient historical data</strong> (<code>runCount ≥ 3</code>):</p>
+</li>
+<li>Uses EMA (exponential moving average, α = 0.3)</li>
+<li>Confidence calculated based on coefficient of variation and run count, max <code>1.0</code></li>
+<li>Source <code>'ema'</code></li>
+</ol>
+<p>All estimates are multiplied by the calibration factor (<code>calibrationFactor</code>), which is automatically adjusted through <code>recordShardFeedback()</code>.</p>
+<h3 id="key-constants">Key Constants<a class="headerlink" href="#key-constants" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EMA_ALPHA</code></td>
+<td><code>0.3</code></td>
+<td>EMA smoothing coefficient</td>
+</tr>
+<tr>
+<td><code>MIN_RUNS_FOR_CONFIDENCE</code></td>
+<td><code>3</code></td>
+<td>Minimum run count required for high confidence</td>
+</tr>
+<tr>
+<td><code>HIGH_VARIANCE_THRESHOLD</code></td>
+<td><code>0.4</code></td>
+<td>Threshold for identifying high-risk tests</td>
+</tr>
+<tr>
+<td><code>CALIBRATION_LEARNING_RATE</code></td>
+<td><code>0.2</code></td>
+<td>Calibration factor learning rate</td>
+</tr>
+<tr>
+<td><code>MAX_CALIBRATION_FACTOR</code></td>
+<td><code>2.0</code></td>
+<td>Calibration factor upper limit</td>
+</tr>
+<tr>
+<td><code>MIN_CALIBRATION_FACTOR</code></td>
+<td><code>0.5</code></td>
+<td>Calibration factor lower limit</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="usage-examples">Usage Examples<a class="headerlink" href="#usage-examples" title="Permanent link">&para;</a></h2>
+<h3 id="basic-orchestration-distributed-strategy">Basic Orchestration (distributed strategy)<a class="headerlink" href="#basic-orchestration-distributed-strategy" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Orchestrator</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;yuantest-playwright&#39;</span><span class="p">;</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">orchestrator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Orchestrator</span><span class="p">({</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span><span class="nx">version</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;1.0.0&#39;</span><span class="p">,</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">  </span><span class="nx">testDir</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;./e2e&#39;</span><span class="p">,</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">  </span><span class="nx">outputDir</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;./test-output&#39;</span><span class="p">,</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">  </span><span class="nx">shards</span><span class="o">:</span><span class="w"> </span><span class="kt">4</span><span class="p">,</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">  </span><span class="nx">browsers</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;chromium&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;firefox&#39;</span><span class="p">],</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="p">});</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">initialize</span><span class="p">();</span>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="kd">const</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">orchestrate</span><span class="p">();</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="sb">`Total shards: </span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">totalShards</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="sb">`Orchestration strategy: </span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="sb">`Test assignment count: </span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">testAssignment</span><span class="p">.</span><span class="nx">length</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="intelligent-sharding-intelligent-strategy">Intelligent Sharding (intelligent strategy)<a class="headerlink" href="#intelligent-sharding-intelligent-strategy" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Orchestrator</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;yuantest-playwright&#39;</span><span class="p">;</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">orchestrator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Orchestrator</span><span class="p">({</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nx">version</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;1.0.0&#39;</span><span class="p">,</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nx">testDir</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;./e2e&#39;</span><span class="p">,</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">  </span><span class="nx">outputDir</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;./test-output&#39;</span><span class="p">,</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="w">  </span><span class="nx">shards</span><span class="o">:</span><span class="w"> </span><span class="kt">4</span><span class="p">,</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="p">});</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">initialize</span><span class="p">();</span>
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="kd">const</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">optimizeSharding</span><span class="p">();</span>
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>
+<a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="sb">`Orchestration strategy: </span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="nx">config</span><span class="p">.</span><span class="nx">testAssignment</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">assignment</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a><span class="w">  </span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span>
+<a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a><span class="w">    </span><span class="sb">`Test: </span><span class="si">${</span><span class="nx">assignment</span><span class="p">.</span><span class="nx">testId</span><span class="si">}</span><span class="sb">, `</span><span class="w"> </span><span class="o">+</span>
+<a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a><span class="w">    </span><span class="sb">`Shard: </span><span class="si">${</span><span class="nx">assignment</span><span class="p">.</span><span class="nx">shardId</span><span class="si">}</span><span class="sb">, `</span><span class="w"> </span><span class="o">+</span>
+<a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a><span class="w">    </span><span class="sb">`Estimated duration: </span><span class="si">${</span><span class="nx">assignment</span><span class="p">.</span><span class="nx">estimatedDuration</span><span class="si">}</span><span class="sb">ms, `</span><span class="w"> </span><span class="o">+</span>
+<a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a><span class="w">    </span><span class="sb">`Confidence: </span><span class="si">${</span><span class="nx">assignment</span><span class="p">.</span><span class="nx">durationConfidence</span><span class="si">}</span><span class="sb">, `</span><span class="w"> </span><span class="o">+</span>
+<a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a><span class="w">    </span><span class="sb">`Source: </span><span class="si">${</span><span class="nx">assignment</span><span class="p">.</span><span class="nx">estimationSource</span><span class="si">}</span><span class="sb">`</span>
+<a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a><span class="w">  </span><span class="p">);</span>
+<a id="__codelineno-23-22" name="__codelineno-23-22" href="#__codelineno-23-22"></a><span class="p">});</span>
+</code></pre></div>
+<h3 id="get-tests-for-a-specific-shard">Get Tests for a Specific Shard<a class="headerlink" href="#get-tests-for-a-specific-shard" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">shard0Tests</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">getAssignmentsForShard</span><span class="p">(</span><span class="mf">0</span><span class="p">);</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="sb">`Shard 0 contains </span><span class="si">${</span><span class="nx">shard0Tests</span><span class="p">.</span><span class="nx">length</span><span class="si">}</span><span class="sb"> tests`</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="record-run-results-and-feedback-calibration">Record Run Results and Feedback Calibration<a class="headerlink" href="#record-run-results-and-feedback-calibration" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1">// Record test run results</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">recordRunResults</span><span class="p">([</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">testId</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;login.spec.ts&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">duration</span><span class="o">:</span><span class="w"> </span><span class="kt">1520</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">testId</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;cart.spec.ts&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">duration</span><span class="o">:</span><span class="w"> </span><span class="kt">3200</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">testId</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;checkout.spec.ts&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">duration</span><span class="o">:</span><span class="w"> </span><span class="kt">5800</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="p">]);</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="c1">// Record shard prediction feedback, triggers automatic calibration</span>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">recordShardFeedback</span><span class="p">({</span>
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="w">  </span><span class="nx">shardId</span><span class="o">:</span><span class="w"> </span><span class="kt">0</span><span class="p">,</span>
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="w">  </span><span class="nx">predictedDuration</span><span class="o">:</span><span class="w"> </span><span class="kt">10000</span><span class="p">,</span>
+<a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a><span class="w">  </span><span class="nx">actualDuration</span><span class="o">:</span><span class="w"> </span><span class="kt">12000</span><span class="p">,</span>
+<a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="w">  </span><span class="nx">timestamp</span><span class="o">:</span><span class="w"> </span><span class="kt">Date.now</span><span class="p">(),</span>
+<a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a><span class="p">});</span>
+<a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a>
+<a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a><span class="c1">// View current calibration factor</span>
+<a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="sb">`Calibration factor: </span><span class="si">${</span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">getCalibrationFactor</span><span class="p">()</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="generate-playwright-configuration">Generate Playwright Configuration<a class="headerlink" href="#generate-playwright-configuration" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">pwConfig</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">createPlaywrightConfig</span><span class="p">();</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="c1">// pwConfig can be used directly with Playwright Test Runner</span>
+</code></pre></div>
+<h3 id="manually-update-historical-data-for-a-single-test">Manually Update Historical Data for a Single Test<a class="headerlink" href="#manually-update-historical-data-for-a-single-test" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">updateDurationHistory</span><span class="p">(</span><span class="s1">&#39;login.spec.ts&#39;</span><span class="p">,</span><span class="w"> </span><span class="mf">1520</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="ensure-data-persistence-before-program-exit">Ensure Data Persistence Before Program Exit<a class="headerlink" href="#ensure-data-persistence-before-program-exit" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="k">await</span><span class="w"> </span><span class="nx">orchestrator</span><span class="p">.</span><span class="nx">flush</span><span class="p">();</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/yuandiv/yuantest-playwright" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.npmjs.com/package/@yuantest/playwright" target="_blank" rel="noopener" title="www.npmjs.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M288 288h-32v-64h32zm288-128v192H288v32H160v-32H0V160zm-416 32H32v128h64v-96h32v96h32zm160 0H192v160h64v-32h64zm224 0H352v128h64v-96h32v96h32v-96h32v96h32z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

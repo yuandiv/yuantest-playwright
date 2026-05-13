@@ -1,57 +1,57 @@
-# FlakyTestManager API 参考
+# FlakyTestManager API Reference
 
-FlakyTestManager 负责不稳定测试的检测、隔离、根因分析、趋势追踪和失败预测。它继承自 `ManagedManager`，提供完整的生命周期管理（初始化、延迟保存、刷新）。
+FlakyTestManager is responsible for flaky test detection, isolation, root cause analysis, trend tracking, and failure prediction. It inherits from `ManagedManager`, providing complete lifecycle management (initialization, delayed save, refresh).
 
 ---
 
-## 构造函数
+## Constructor
 
 ```typescript
 new FlakyTestManager(storagePath?: string, config?: Partial<QuarantineConfig>, storage?: StorageProvider)
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `storagePath` | `string` | `'./test-data'` | 数据存储目录路径，历史文件将保存在此目录下的 `flaky-history.json` |
-| `config` | `Partial<QuarantineConfig>` | `{}` | 隔离配置，支持部分覆盖，未指定的字段使用默认值 |
-| `storage` | `StorageProvider` | `getStorage()` | 存储提供者，用于文件读写操作，默认使用内置存储实现 |
+| `storagePath` | `string` | `'./test-data'` | Data storage directory path, history files will be saved in `flaky-history.json` under this directory |
+| `config` | `Partial<QuarantineConfig>` | `{}` | Quarantine configuration, supports partial override, unspecified fields use default values |
+| `storage` | `StorageProvider` | `getStorage()` | Storage provider for file read/write operations, defaults to built-in storage implementation |
 
-### 默认配置值
+### Default Configuration Values
 
-构造函数内部会合并以下默认值（来自 `FLAKY_CONFIG` 常量）：
+The constructor internally merges the following default values (from `FLAKY_CONFIG` constant):
 
-| 字段 | 默认值 | 说明 |
+| Field | Default Value | Description |
 |------|--------|------|
-| `enabled` | `true` | 是否启用 Flaky 管理 |
-| `threshold` | `0.3` | Flaky 检测阈值（加权失败率） |
-| `autoQuarantine` | `true` | 是否自动隔离检测到的 Flaky 测试 |
-| `minimumRuns` | `5` | 触发隔离所需的最少运行次数 |
-| `autoReleaseAfterPasses` | `3` | 自动释放所需的连续通过次数 |
-| `quarantineExpiryDays` | `30` | 隔离过期天数 |
-| `decayRate` | `0.1` | 加权衰减率 |
-| `confidenceLevel` | `0.95` | 统计显著性置信水平 |
-| `brokenThreshold` | `5` | 判定为 broken 的连续失败阈值 |
-| `regressionWindow` | `5` | 回归分析窗口大小 |
-| `enableRootCauseAnalysis` | `true` | 是否启用根因分析 |
-| `enableCorrelationAnalysis` | `true` | 是否启用关联分析 |
-| `enableTrendTracking` | `true` | 是否启用趋势追踪 |
-| `enablePrediction` | `true` | 是否启用失败预测 |
-| `enableCausalGraph` | `true` | 是否启用因果图 |
-| `quarantineStrategy` | `'graduated'` | 隔离策略类型 |
-| `maxQuarantineRatio` | `0.2` | 最大隔离比例 |
-| `predictionSensitivity` | `0.5` | 预测灵敏度 |
+| `enabled` | `true` | Whether to enable Flaky management |
+| `threshold` | `0.3` | Flaky detection threshold (weighted failure rate) |
+| `autoQuarantine` | `true` | Whether to automatically quarantine detected Flaky tests |
+| `minimumRuns` | `5` | Minimum number of runs required to trigger quarantine |
+| `autoReleaseAfterPasses` | `3` | Number of consecutive passes required for auto-release |
+| `quarantineExpiryDays` | `30` | Quarantine expiry days |
+| `decayRate` | `0.1` | Weighted decay rate |
+| `confidenceLevel` | `0.95` | Statistical significance confidence level |
+| `brokenThreshold` | `5` | Consecutive failure threshold for broken classification |
+| `regressionWindow` | `5` | Regression analysis window size |
+| `enableRootCauseAnalysis` | `true` | Whether to enable root cause analysis |
+| `enableCorrelationAnalysis` | `true` | Whether to enable correlation analysis |
+| `enableTrendTracking` | `true` | Whether to enable trend tracking |
+| `enablePrediction` | `true` | Whether to enable failure prediction |
+| `enableCausalGraph` | `true` | Whether to enable causal graph |
+| `quarantineStrategy` | `'graduated'` | Quarantine strategy type |
+| `maxQuarantineRatio` | `0.2` | Maximum quarantine ratio |
+| `predictionSensitivity` | `0.5` | Prediction sensitivity |
 
-### 示例
+### Example
 
 ```typescript
 import { FlakyTestManager } from 'yuantest-playwright';
 
-// 使用默认配置
+// Use default configuration
 const manager = new FlakyTestManager();
 
-// 自定义配置
+// Custom configuration
 const manager = new FlakyTestManager('./test-data', {
   threshold: 0.4,
   autoQuarantine: false,
@@ -61,277 +61,277 @@ const manager = new FlakyTestManager('./test-data', {
 
 ---
 
-## 核心方法
+## Core Methods
 
 ### recordTestResult()
 
-记录单条测试结果，更新测试历史、分类、加权失败率，并触发 Flaky 检测和自动隔离逻辑。
+Records a single test result, updates test history, classification, weighted failure rate, and triggers Flaky detection and auto-quarantine logic.
 
 ```typescript
 async recordTestResult(result: TestResult): Promise<void>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `result` | `TestResult` | 测试结果对象 |
+| `result` | `TestResult` | Test result object |
 
-#### 行为说明
+#### Behavior
 
-- 如果测试已存在，追加历史记录（最多保留 50 条），重新计算失败率、加权失败率、连续失败/通过次数和分类
-- 如果测试不存在，创建新的 `FlakyTest` 记录
-- 当测试结果为 `failed` 或 `timedout` 时，触发 Flaky 检测
-- 如果启用了预测且历史记录足够（≥8 条），检测持续时间异常
-- 如果测试已被隔离且本次通过，递增连续通过计数并检查是否满足自动释放条件
-- 每次调用后会检查并降级过期的隔离测试
-- 清空因果图缓存并调度延迟保存
+- If the test already exists, appends history record (maximum 50 entries retained), recalculates failure rate, weighted failure rate, consecutive failures/passes, and classification
+- If the test does not exist, creates a new `FlakyTest` record
+- When test result is `failed` or `timedout`, triggers Flaky detection
+- If prediction is enabled and history is sufficient (≥8 entries), detects duration anomalies
+- If the test is quarantined and passes this time, increments consecutive pass count and checks if auto-release conditions are met
+- After each call, checks and downgrades expired quarantined tests
+- Clears causal graph cache and schedules delayed save
 
 ---
 
 ### recordRunResults()
 
-记录一次完整运行的所有测试结果，将运行结果缓存到最近运行列表中。
+Records all test results from a complete run, caches the run result to the recent runs list.
 
 ```typescript
 async recordRunResults(runResult: RunResult): Promise<void>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `runResult` | `RunResult` | 运行结果对象，包含 suites 及其下的 tests |
+| `runResult` | `RunResult` | Run result object, containing suites and their tests |
 
-#### 行为说明
+#### Behavior
 
-- 将运行结果追加到 `recentRuns` 缓存（最多保留 20 条）
-- 遍历所有 suite 中的 test，逐条调用 `recordTestResult()`
+- Appends run result to `recentRuns` cache (maximum 20 entries retained)
+- Iterates through all tests in suites, calls `recordTestResult()` for each
 
 ---
 
 ### getFlakyTests()
 
-获取符合阈值的 Flaky 测试列表，排除 `broken`、`insufficient_data` 和 `stable` 分类的测试。
+Gets the list of Flaky tests that meet the threshold, excluding tests classified as `broken`, `insufficient_data`, and `stable`.
 
 ```typescript
 getFlakyTests(threshold?: number): FlakyTest[]
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `threshold` | `number` | `0.1`（`MONITOR_THRESHOLD`） | 加权失败率阈值 |
+| `threshold` | `number` | `0.1` (`MONITOR_THRESHOLD`) | Weighted failure rate threshold |
 
-#### 返回值
+#### Return Value
 
-`FlakyTest[]` — 按加权失败率降序排列的 Flaky 测试列表
+`FlakyTest[]` — List of Flaky tests sorted by weighted failure rate in descending order
 
 ---
 
 ### getAllFlakyTests()
 
-获取所有有过失败记录的测试（失败率 > 0）。
+Gets all tests that have failure records (failure rate > 0).
 
 ```typescript
 getAllFlakyTests(): FlakyTest[]
 ```
 
-#### 返回值
+#### Return Value
 
-`FlakyTest[]` — 按加权失败率降序排列的测试列表
+`FlakyTest[]` — List of tests sorted by weighted failure rate in descending order
 
 ---
 
 ### getTestById()
 
-根据测试 ID 获取 Flaky 测试记录。
+Gets a Flaky test record by test ID.
 
 ```typescript
 getTestById(testId: string): FlakyTest | undefined
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-#### 返回值
+#### Return Value
 
-`FlakyTest | undefined` — 测试记录，不存在时返回 `undefined`
+`FlakyTest | undefined` — Test record, returns `undefined` if not found
 
 ---
 
 ### isQuarantined()
 
-检查指定测试是否处于隔离状态。
+Checks if a specified test is in quarantine status.
 
 ```typescript
 isQuarantined(testId: string): boolean
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-#### 返回值
+#### Return Value
 
-`boolean` — 是否被隔离
+`boolean` — Whether the test is quarantined
 
 ---
 
 ### quarantineTest()
 
-将指定测试加入隔离，受隔离预算限制。
+Adds a specified test to quarantine, subject to quarantine budget limits.
 
 ```typescript
 async quarantineTest(testId: string): Promise<boolean>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-#### 返回值
+#### Return Value
 
-`Promise<boolean>` — 是否成功隔离。测试不存在或超出预算时返回 `false`
+`Promise<boolean>` — Whether quarantine was successful. Returns `false` if test doesn't exist or exceeds budget
 
-#### 行为说明
+#### Behavior
 
-- 测试不存在时返回 `false`
-- 检查隔离预算，超出最大比例且测试未被隔离时返回 `false`
-- 设置隔离状态、隔离时间和连续通过计数归零
-- 如果隔离策略为 `graduated`，根据策略生成隔离级别（`none`/`monitor` 会被提升为 `soft_quarantine`）；否则设为 `hard_quarantine`
-- 触发 `quarantine_updated` 事件并立即保存历史
+- Returns `false` if test doesn't exist
+- Checks quarantine budget, returns `false` if exceeds maximum ratio and test is not already quarantined
+- Sets quarantine status, quarantine time, and resets consecutive pass count to zero
+- If quarantine strategy is `graduated`, generates quarantine level based on strategy (`none`/`monitor` will be promoted to `soft_quarantine`); otherwise sets to `hard_quarantine`
+- Triggers `quarantine_updated` event and immediately saves history
 
 ---
 
 ### releaseTest()
 
-释放指定测试的隔离状态。
+Releases the quarantine status of a specified test.
 
 ```typescript
 async releaseTest(testId: string, options?: { resetHistory?: boolean }): Promise<boolean>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
-| `options` | `{ resetHistory?: boolean }` | 可选配置 |
-| `options.resetHistory` | `boolean` | 是否重置历史记录，默认 `false`。设为 `true` 时清空历史、失败率、分类、根因、趋势、健康评分等所有分析数据 |
+| `testId` | `string` | Test ID |
+| `options` | `{ resetHistory?: boolean }` | Optional configuration |
+| `options.resetHistory` | `boolean` | Whether to reset history records, defaults to `false`. When set to `true`, clears history, failure rate, classification, root cause, trend, health score, and all analysis data |
 
-#### 返回值
+#### Return Value
 
-`Promise<boolean>` — 是否成功释放。测试未被隔离时返回 `false`
+`Promise<boolean>` — Whether release was successful. Returns `false` if test is not quarantined
 
-#### 行为说明
+#### Behavior
 
-- 重置隔离状态、隔离级别、连续通过计数
-- 如果 `resetHistory` 为 `true`，清空所有统计数据
-- 触发 `quarantine_updated` 事件并立即保存历史
+- Resets quarantine status, quarantine level, and consecutive pass count
+- If `resetHistory` is `true`, clears all statistical data
+- Triggers `quarantine_updated` event and immediately saves history
 
 ---
 
 ### getQuarantinedTests()
 
-获取所有处于隔离状态的测试列表。
+Gets the list of all tests in quarantine status.
 
 ```typescript
 getQuarantinedTests(): FlakyTest[]
 ```
 
-#### 返回值
+#### Return Value
 
-`FlakyTest[]` — 隔离测试列表
+`FlakyTest[]` — List of quarantined tests
 
 ---
 
 ### getQuarantinedTestTitles()
 
-获取所有隔离测试的标题列表，过滤掉空标题。
+Gets the list of titles of all quarantined tests, filtering out empty titles.
 
 ```typescript
 getQuarantinedTestTitles(): string[]
 ```
 
-#### 返回值
+#### Return Value
 
-`string[]` — 隔离测试标题列表
+`string[]` — List of quarantined test titles
 
 ---
 
 ### buildGrepInvertPattern()
 
-构建用于 Playwright `--grep-invert` 的正则模式，排除 `hard_quarantine` 和 `soft_quarantine` 级别的隔离测试。
+Builds a regex pattern for Playwright `--grep-invert`, excluding tests with `hard_quarantine` and `soft_quarantine` isolation levels.
 
 ```typescript
 buildGrepInvertPattern(): string | null
 ```
 
-#### 返回值
+#### Return Value
 
-`string | null` — 正则模式字符串，无隔离测试时返回 `null`。标题中的正则特殊字符会被转义
+`string | null` — Regex pattern string, returns `null` if no quarantined tests. Regex special characters in titles will be escaped
 
 ---
 
 ### clearHistory()
 
-清除测试历史记录。
+Clears test history records.
 
 ```typescript
 async clearHistory(testId?: string): Promise<void>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 可选，指定测试 ID。不传则清除所有测试历史 |
+| `testId` | `string` | Optional, specifies test ID. If not provided, clears all test history |
 
-#### 行为说明
+#### Behavior
 
-- 指定 `testId` 时，仅删除该测试记录和隔离状态
-- 不指定时，清空所有测试记录和隔离集合
-- 清空因果图缓存并立即保存历史
+- When `testId` is specified, only deletes that test record and quarantine status
+- When not specified, clears all test records and quarantine sets
+- Clears causal graph cache and immediately saves history
 
 ---
 
-## 分析方法
+## Analysis Methods
 
 ### analyzeRootCause()
 
-对指定测试进行根因分析，综合运行历史和上下文信息判断 Flaky 的根本原因。
+Performs root cause analysis on a specified test, combining run history and context information to determine the root cause of Flaky behavior.
 
 ```typescript
 async analyzeRootCause(testId: string, context?: AnalysisContext): Promise<RootCauseAnalysis | null>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
-| `context` | `AnalysisContext` | 可选，分析上下文。不传时使用内部缓存的 `recentRuns` |
+| `testId` | `string` | Test ID |
+| `context` | `AnalysisContext` | Optional, analysis context. If not provided, uses internally cached `recentRuns` |
 
-#### 返回值
+#### Return Value
 
-`Promise<RootCauseAnalysis | null>` — 根因分析结果。未启用根因分析、测试不存在或无历史时返回 `null`
+`Promise<RootCauseAnalysis | null>` — Root cause analysis result. Returns `null` if root cause analysis is disabled, test doesn't exist, or has no history
 
-#### AnalysisContext 类型
+#### AnalysisContext Type
 
 ```typescript
 interface AnalysisContext {
-  recentRuns: RunResult[];       // 最近 N 次运行结果
-  shardMap?: Map<string, number>; // 分片信息映射：testId -> shardId
-  ciNodeInfo?: Map<string, string>; // CI 节点信息：runId -> nodeLabel
+  recentRuns: RunResult[];       // Recent N run results
+  shardMap?: Map<string, number>; // Shard info mapping: testId -> shardId
+  ciNodeInfo?: Map<string, string>; // CI node info: runId -> nodeLabel
 }
 ```
 
@@ -339,28 +339,28 @@ interface AnalysisContext {
 
 ### analyzeCorrelations()
 
-分析同次运行中多个 Flaky 测试的关联性，如果多个测试频繁在同一次运行中一起失败，可能是环境问题。
+Analyzes correlations between multiple Flaky tests in the same run. If multiple tests frequently fail together in the same run, it may indicate an environment issue.
 
 ```typescript
 analyzeCorrelations(config?: Partial<CorrelationConfig>): CorrelationGroup[]
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `config` | `Partial<CorrelationConfig>` | 可选，关联分析配置 |
+| `config` | `Partial<CorrelationConfig>` | Optional, correlation analysis configuration |
 
-#### 返回值
+#### Return Value
 
-`CorrelationGroup[]` — 关联组列表。未启用关联分析时返回空数组
+`CorrelationGroup[]` — List of correlation groups. Returns empty array if correlation analysis is disabled
 
-#### CorrelationConfig 类型
+#### CorrelationConfig Type
 
 ```typescript
 interface CorrelationConfig {
-  coOccurrenceThreshold: number; // 共现阈值（Jaccard 系数），默认 0.6
-  minRuns: number;               // 最少运行次数，默认 3
+  coOccurrenceThreshold: number; // Co-occurrence threshold (Jaccard coefficient), default 0.6
+  minRuns: number;               // Minimum number of runs, default 3
 }
 ```
 
@@ -368,161 +368,161 @@ interface CorrelationConfig {
 
 ### analyzeTrend()
 
-对指定测试进行趋势分析，包括时间序列聚合、趋势方向、变点检测、季节模式和预测。
+Performs trend analysis on a specified test, including time series aggregation, trend direction, change point detection, seasonal patterns, and forecasting.
 
 ```typescript
 async analyzeTrend(testId: string, codeChanges?: CodeChangeCorrelation[]): Promise<TrendAnalysis | null>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
-| `codeChanges` | `CodeChangeCorrelation[]` | 可选，代码变更记录，用于关联分析 |
+| `testId` | `string` | Test ID |
+| `codeChanges` | `CodeChangeCorrelation[]` | Optional, code change records for correlation analysis |
 
-#### 返回值
+#### Return Value
 
-`Promise<TrendAnalysis | null>` — 趋势分析结果。未启用趋势追踪、测试不存在或历史数据不足（<5 条）时返回 `null`
+`Promise<TrendAnalysis | null>` — Trend analysis result. Returns `null` if trend tracking is disabled, test doesn't exist, or insufficient history data (<5 entries)
 
-#### 行为说明
+#### Behavior
 
-- 分析完成后更新测试的 `trendAnalysis` 和 `healthScore`
-- 调度延迟保存
+- After analysis completes, updates test's `trendAnalysis` and `healthScore`
+- Schedules delayed save
 
 ---
 
 ### analyzeAllTrends()
 
-对所有 Flaky 测试进行批量趋势分析。
+Performs batch trend analysis on all Flaky tests.
 
 ```typescript
 async analyzeAllTrends(codeChanges?: CodeChangeCorrelation[]): Promise<Map<string, TrendAnalysis>>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `codeChanges` | `CodeChangeCorrelation[]` | 可选，代码变更记录 |
+| `codeChanges` | `CodeChangeCorrelation[]` | Optional, code change records |
 
-#### 返回值
+#### Return Value
 
-`Promise<Map<string, TrendAnalysis>>` — 测试 ID 到趋势分析结果的映射。仅分析历史数据 ≥5 条的测试
+`Promise<Map<string, TrendAnalysis>>` — Map of test ID to trend analysis results. Only analyzes tests with ≥5 history entries
 
 ---
 
 ### predictTestFailure()
 
-对指定测试进行失败预测，基于持续时间异常、失败模式、环境偏移、资源压力等信号。
+Performs failure prediction on a specified test, based on signals like duration anomalies, failure patterns, environment shifts, and resource pressure.
 
 ```typescript
 async predictTestFailure(testId: string): Promise<PredictionResult | null>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-#### 返回值
+#### Return Value
 
-`Promise<PredictionResult | null>` — 预测结果。未启用预测、测试不存在或历史不足（<8 条）时返回 `null`
+`Promise<PredictionResult | null>` — Prediction result. Returns `null` if prediction is disabled, test doesn't exist, or insufficient history (<8 entries)
 
-#### 行为说明
+#### Behavior
 
-- 预测完成后更新测试的 `lastPrediction` 和 `durationAnomaly`
-- 调度延迟保存
+- After prediction completes, updates test's `lastPrediction` and `durationAnomaly`
+- Schedules delayed save
 
 ---
 
 ### getHighRiskTests()
 
-批量获取高风险测试预测结果。
+Batch gets high-risk test prediction results.
 
 ```typescript
 async getHighRiskTests(): Promise<PredictionResult[]>
 ```
 
-#### 返回值
+#### Return Value
 
-`Promise<PredictionResult[]>` — 预测将失败的测试列表。未启用预测时返回空数组
+`Promise<PredictionResult[]>` — List of tests predicted to fail. Returns empty array if prediction is disabled
 
 ---
 
 ### getDurationAnomalies()
 
-获取所有持续时间异常的测试。
+Gets all tests with duration anomalies.
 
 ```typescript
 async getDurationAnomalies(): Promise<DurationAnomaly[]>
 ```
 
-#### 返回值
+#### Return Value
 
-`Promise<DurationAnomaly[]>` — 异常列表。未启用预测时返回空数组
+`Promise<DurationAnomaly[]>` — List of anomalies. Returns empty array if prediction is disabled
 
 ---
 
 ### buildCausalGraph()
 
-构建因果依赖图，综合测试数据、关联组和运行结果。
+Builds a causal dependency graph, combining test data, correlation groups, and run results.
 
 ```typescript
 async buildCausalGraph(): Promise<CausalGraph>
 ```
 
-#### 返回值
+#### Return Value
 
-`Promise<CausalGraph>` — 因果图。未启用因果图时返回空图（`{ nodes: [], edges: [], rootCauses: [], impactMap: new Map(), builtAt: Date.now() }`）
+`Promise<CausalGraph>` — Causal graph. Returns empty graph if causal graph is disabled (`{ nodes: [], edges: [], rootCauses: [], impactMap: new Map(), builtAt: Date.now() }`)
 
-#### 行为说明
+#### Behavior
 
-- 使用缓存机制，数据未变更时返回缓存的因果图
-- 构建新图时自动调用 `analyzeCorrelations()` 获取关联数据
+- Uses caching mechanism, returns cached causal graph if data hasn't changed
+- When building a new graph, automatically calls `analyzeCorrelations()` to get correlation data
 
 ---
 
 ### analyzeImpact()
 
-分析指定测试的影响范围。
+Analyzes the impact scope of a specified test.
 
 ```typescript
 async analyzeImpact(testId: string): Promise<ImpactAnalysis | null>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-#### 返回值
+#### Return Value
 
-`Promise<ImpactAnalysis | null>` — 影响分析结果。未启用因果图时返回 `null`
+`Promise<ImpactAnalysis | null>` — Impact analysis result. Returns `null` if causal graph is disabled
 
 ---
 
 ### getRootCauses()
 
-获取因果图的根因节点列表。
+Gets the list of root cause nodes from the causal graph.
 
 ```typescript
 async getRootCauses(): Promise<CausalNode[]>
 ```
 
-#### 返回值
+#### Return Value
 
-`Promise<CausalNode[]>` — 根因节点列表
+`Promise<CausalNode[]>` — List of root cause nodes
 
 ---
 
-## 统计方法
+## Statistics Methods
 
 ### getQuarantineStats()
 
-获取隔离统计信息。
+Gets quarantine statistics.
 
 ```typescript
 getQuarantineStats(): {
@@ -537,102 +537,102 @@ getQuarantineStats(): {
 }
 ```
 
-#### 返回值
+#### Return Value
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `totalTests` | `number` | 追踪的测试总数 |
-| `quarantined` | `number` | 隔离中的测试数量 |
-| `flakyRate` | `number` | Flaky 测试占比（百分比） |
-| `topFlaky` | `FlakyTest[]` | 失败率最高的前 10 个测试 |
-| `expiredQuarantined` | `number` | 过期隔离的测试数量 |
-| `classificationBreakdown` | `Record<FlakyClassification, number>` | 各分类的测试数量统计 |
-| `budgetUtilization` | `number` | 隔离预算使用率 |
-| `avgHealthScore` | `number` | 平均健康评分 |
+| `totalTests` | `number` | Total number of tracked tests |
+| `quarantined` | `number` | Number of tests in quarantine |
+| `flakyRate` | `number` | Flaky test ratio (percentage) |
+| `topFlaky` | `FlakyTest[]` | Top 10 tests with highest failure rates |
+| `expiredQuarantined` | `number` | Number of tests with expired quarantine |
+| `classificationBreakdown` | `Record<FlakyClassification, number>` | Test count statistics by classification |
+| `budgetUtilization` | `number` | Quarantine budget utilization rate |
+| `avgHealthScore` | `number` | Average health score |
 
 ---
 
 ### getOverallHealthScore()
 
-获取项目整体健康评分，综合所有测试的健康评分计算项目级评分。
+Gets the overall project health score, calculating a project-level score based on all test health scores.
 
 ```typescript
 async getOverallHealthScore(): Promise<FlakyHealthScore>
 ```
 
-#### 返回值
+#### Return Value
 
-`Promise<FlakyHealthScore>` — 健康评分对象
+`Promise<FlakyHealthScore>` — Health score object
 
-#### 评分计算
+#### Score Calculation
 
-- **stability**（权重 0.35）：基于加权失败率的稳定性
-- **trend**（权重 0.25）：趋势方向评分
-- **recoverability**（权重 0.2）：恢复能力评分
-- **predictability**（权重 0.2）：可预测性评分
+- **stability** (weight 0.35): Stability based on weighted failure rate
+- **trend** (weight 0.25): Trend direction score
+- **recoverability** (weight 0.2): Recoverability score
+- **predictability** (weight 0.2): Predictability score
 
-#### 等级映射
+#### Grade Mapping
 
-| 分数范围 | 等级 | 标签 |
+| Score Range | Grade | Label |
 |----------|------|------|
-| ≥ 0.9 | A | 非常健康 |
-| ≥ 0.75 | B | 基本健康 |
-| ≥ 0.6 | C | 需要关注 |
-| ≥ 0.4 | D | 不健康 |
-| < 0.4 | F | 严重不健康 |
+| ≥ 0.9 | A | Very Healthy |
+| ≥ 0.75 | B | Mostly Healthy |
+| ≥ 0.6 | C | Needs Attention |
+| ≥ 0.4 | D | Unhealthy |
+| < 0.4 | F | Severely Unhealthy |
 
-#### 特殊情况
+#### Special Case
 
-无测试数据时返回 `{ overall: 1, breakdown: { stability: 1, trend: 0.7, recoverability: 1, predictability: 0.5 }, grade: 'A', label: '无测试数据' }`
+When there is no test data, returns `{ overall: 1, breakdown: { stability: 1, trend: 0.7, recoverability: 1, predictability: 0.5 }, grade: 'A', label: 'No test data' }`
 
 ---
 
 ### getFailureAnalysis()
 
-获取失败分析结果，支持按类型过滤。
+Gets failure analysis results, supports filtering by type.
 
 ```typescript
 async getFailureAnalysis(filter?: 'persistent' | 'emerging' | 'immediate'): Promise<FailureAnalysisResult>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `filter` | `'persistent' \| 'emerging' \| 'immediate'` | 可选，过滤类型 |
+| `filter` | `'persistent' \| 'emerging' \| 'immediate'` | Optional, filter type |
 
-#### 返回值
+#### Return Value
 
-`Promise<FailureAnalysisResult>` — 根据过滤条件返回不同类型：
+`Promise<FailureAnalysisResult>` — Returns different types based on filter condition:
 
-| 过滤条件 | 返回类型 | 说明 |
+| Filter Condition | Return Type | Description |
 |----------|----------|------|
-| 不传 | `FailureAnalysisSummary` | 失败分析汇总 |
-| `'persistent'` | `FlakyTest[]` | 持续失败的测试（分类为 `broken`） |
-| `'emerging'` | `FlakyTest[]` | 新兴失败测试（连续失败 ≥2 次） |
-| `'immediate'` | `ImmediateFailure[]` | 最近一次运行中的首次失败 |
+| Not provided | `FailureAnalysisSummary` | Failure analysis summary |
+| `'persistent'` | `FlakyTest[]` | Persistently failing tests (classified as `broken`) |
+| `'emerging'` | `FlakyTest[]` | Emerging failure tests (consecutive failures ≥2) |
+| `'immediate'` | `ImmediateFailure[]` | First-time failures in the most recent run |
 
 ---
 
 ### getImmediateFailures()
 
-获取最近一次运行中的首次失败测试（无历史记录的失败）。
+Gets first-time failure tests in the most recent run (failures with no history).
 
 ```typescript
 async getImmediateFailures(): Promise<ImmediateFailure[]>
 ```
 
-#### 返回值
+#### Return Value
 
-`Promise<ImmediateFailure[]>` — 首次失败列表。无运行记录时返回空数组
+`Promise<ImmediateFailure[]>` — List of first-time failures. Returns empty array if no run records
 
 ---
 
-## 配置方法
+## Configuration Methods
 
 ### setConfig()
 
-更新管理器配置，支持同时更新 Flaky 判定标准和隔离标准。
+Updates manager configuration, supports updating both Flaky criteria and quarantine criteria.
 
 ```typescript
 setConfig(config: Partial<QuarantineConfig> & {
@@ -641,37 +641,37 @@ setConfig(config: Partial<QuarantineConfig> & {
 }): void
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `config` | `Partial<QuarantineConfig> & { flakyCriteria?, quarantineCriteria? }` | 配置对象，支持部分覆盖 |
+| `config` | `Partial<QuarantineConfig> & { flakyCriteria?, quarantineCriteria? }` | Configuration object, supports partial override |
 
-#### 行为说明
+#### Behavior
 
-- `QuarantineConfig` 部分直接合并覆盖
-- `flakyCriteria` 通过 `mergeFlakyCriteria()` 合并，保留未指定的默认值
-- `quarantineCriteria` 通过 `mergeQuarantineCriteria()` 合并，并重建 `QuarantineStrategyManager`
+- `QuarantineConfig` part is directly merged and overridden
+- `flakyCriteria` is merged via `mergeFlakyCriteria()`, retaining unspecified default values
+- `quarantineCriteria` is merged via `mergeQuarantineCriteria()`, and rebuilds `QuarantineStrategyManager`
 
 ---
 
 ### getConfig()
 
-获取当前隔离配置的副本。
+Gets a copy of the current quarantine configuration.
 
 ```typescript
 getConfig(): QuarantineConfig
 ```
 
-#### 返回值
+#### Return Value
 
-`QuarantineConfig` — 当前配置的浅拷贝
+`QuarantineConfig` — Shallow copy of current configuration
 
 ---
 
 ### getEffectiveConfig()
 
-获取当前生效的完整配置，包含默认值填充后的 Flaky 判定标准和隔离标准。
+Gets the currently effective complete configuration, including Flaky criteria and quarantine criteria with default values filled in.
 
 ```typescript
 getEffectiveConfig(): {
@@ -681,188 +681,188 @@ getEffectiveConfig(): {
 }
 ```
 
-#### 返回值
+#### Return Value
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `config` | `QuarantineConfig` | 隔离配置 |
-| `flakyCriteria` | `FlakyCriteriaConfig` | Flaky 判定标准配置 |
-| `quarantineCriteria` | `QuarantineCriteriaConfig` | 隔离标准配置 |
+| `config` | `QuarantineConfig` | Quarantine configuration |
+| `flakyCriteria` | `FlakyCriteriaConfig` | Flaky criteria configuration |
+| `quarantineCriteria` | `QuarantineCriteriaConfig` | Quarantine criteria configuration |
 
 ---
 
-## 隔离策略方法
+## Quarantine Strategy Methods
 
 ### getQuarantineStrategy()
 
-获取指定测试的隔离策略。
+Gets the quarantine strategy for a specified test.
 
 ```typescript
 async getQuarantineStrategy(testId: string): Promise<QuarantineStrategy | null>
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-#### 返回值
+#### Return Value
 
-`Promise<QuarantineStrategy | null>` — 隔离策略。测试不存在时返回 `null`
+`Promise<QuarantineStrategy | null>` — Quarantine strategy. Returns `null` if test doesn't exist
 
-#### 行为说明
+#### Behavior
 
-- 如果测试已有 `quarantineStrategy`，直接返回
-- 否则通过 `generateQuarantineStrategy()` 动态生成
+- If test already has `quarantineStrategy`, returns it directly
+- Otherwise, dynamically generates via `generateQuarantineStrategy()`
 
 ---
 
 ### getQuarantineBudget()
 
-获取隔离预算使用情况。
+Gets quarantine budget usage.
 
 ```typescript
 getQuarantineBudget(): { allowed: boolean; remaining: number; utilization: number }
 ```
 
-#### 返回值
+#### Return Value
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Description |
 |------|------|------|
-| `allowed` | `boolean` | 是否允许继续隔离 |
-| `remaining` | `number` | 剩余可隔离数量 |
-| `utilization` | `number` | 当前隔离使用率 |
+| `allowed` | `boolean` | Whether further quarantine is allowed |
+| `remaining` | `number` | Remaining quarantine capacity |
+| `utilization` | `number` | Current quarantine utilization rate |
 
 ---
 
 ### getTestsByIsolationLevel()
 
-获取按隔离级别分组的测试。
+Gets tests grouped by isolation level.
 
 ```typescript
 getTestsByIsolationLevel(): Record<IsolationLevel, FlakyTest[]>
 ```
 
-#### 返回值
+#### Return Value
 
-`Record<IsolationLevel, FlakyTest[]>` — 各隔离级别的测试列表映射，包含 `none`、`monitor`、`soft_quarantine`、`hard_quarantine` 四个分组
+`Record<IsolationLevel, FlakyTest[]>` — Map of test lists by isolation level, containing `none`, `monitor`, `soft_quarantine`, `hard_quarantine` groups
 
 ---
 
 ### getTestsByClassification()
 
-按分类获取测试列表。
+Gets test list by classification.
 
 ```typescript
 getTestsByClassification(classification: FlakyClassification): FlakyTest[]
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `classification` | `FlakyClassification` | 分类类型 |
+| `classification` | `FlakyClassification` | Classification type |
 
-#### 返回值
+#### Return Value
 
-`FlakyTest[]` — 匹配分类的测试列表，按加权失败率降序排列
+`FlakyTest[]` — List of tests matching the classification, sorted by weighted failure rate in descending order
 
 ---
 
 ### getTestsToSkip()
 
-获取需要跳过的测试 ID 列表（隔离级别为 `hard_quarantine` 或 `soft_quarantine` 的测试）。
+Gets the list of test IDs to skip (tests with isolation level `hard_quarantine` or `soft_quarantine`).
 
 ```typescript
 getTestsToSkip(): string[]
 ```
 
-#### 返回值
+#### Return Value
 
-`string[]` — 需要跳过的测试 ID 列表
+`string[]` — List of test IDs to skip
 
 ---
 
 ### isQuarantineExpired()
 
-检查指定测试的隔离是否已过期。
+Checks if the quarantine for a specified test has expired.
 
 ```typescript
 isQuarantineExpired(testId: string): boolean
 ```
 
-#### 参数
+#### Parameters
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testId` | `string` | 测试 ID |
+| `testId` | `string` | Test ID |
 
-#### 返回值
+#### Return Value
 
-`boolean` — 隔离是否已过期。测试不存在或未被隔离时返回 `false`
+`boolean` — Whether quarantine has expired. Returns `false` if test doesn't exist or is not quarantined
 
-#### 过期判定
+#### Expiration Criteria
 
-隔离时间超过 `quarantineExpiryDays`（默认 30 天）即视为过期
+Quarantine is considered expired if quarantine time exceeds `quarantineExpiryDays` (default 30 days)
 
 ---
 
 ### getExpiredQuarantinedTests()
 
-获取所有隔离已过期的测试列表。
+Gets the list of all tests with expired quarantine.
 
 ```typescript
 getExpiredQuarantinedTests(): FlakyTest[]
 ```
 
-#### 返回值
+#### Return Value
 
-`FlakyTest[]` — 过期隔离测试列表
+`FlakyTest[]` — List of expired quarantine tests
 
 ---
 
-## 事件
+## Events
 
-FlakyTestManager 继承自 `ManagedManager`（EventEmitter），会触发以下事件：
+FlakyTestManager inherits from `ManagedManager` (EventEmitter) and emits the following events:
 
-| 事件名 | 触发时机 | Payload |
+| Event Name | Trigger Condition | Payload |
 |--------|----------|---------|
-| `flaky_detected` | 检测到 Flaky 测试时 | `{ testId, title, failureRate, weightedFailureRate, classification, rootCause, isolationLevel, timestamp }` |
-| `quarantine_updated` | 隔离状态变更时 | `{ testId, action: 'quarantined' \| 'released', flakyTest }` |
-| `auto_released` | 自动释放隔离测试时 | `{ testId, title, consecutivePasses }` |
-| `quarantine_downgraded` | 隔离级别降级时 | `{ testId, title, fromLevel, toLevel }` |
+| `flaky_detected` | When a Flaky test is detected | `{ testId, title, failureRate, weightedFailureRate, classification, rootCause, isolationLevel, timestamp }` |
+| `quarantine_updated` | When quarantine status changes | `{ testId, action: 'quarantined' \| 'released', flakyTest }` |
+| `auto_released` | When a quarantined test is auto-released | `{ testId, title, consecutivePasses }` |
+| `quarantine_downgraded` | When quarantine level is downgraded | `{ testId, title, fromLevel, toLevel }` |
 
 ---
 
-## 完整类型定义
+## Complete Type Definitions
 
 ### FlakyTest
 
 ```typescript
 interface FlakyTest {
-  testId: string;                              // 测试唯一标识
-  title: string;                               // 测试标题
-  failureRate: number;                         // 原始失败率（0-1）
-  totalRuns: number;                           // 总运行次数
-  lastFailure?: number;                        // 最后一次失败的时间戳
-  isQuarantined: boolean;                      // 是否处于隔离状态
-  quarantinedAt?: number;                      // 隔离开始时间戳
-  consecutivePassesSinceQuarantine?: number;   // 隔离后连续通过次数
-  history: FlakyHistoryEntry[];                // 历史记录
-  classification: FlakyClassification;         // 测试分类
-  weightedFailureRate: number;                 // 加权失败率（近期权重更高）
-  consecutiveFailures: number;                 // 当前连续失败次数
-  consecutivePasses: number;                   // 当前连续通过次数
-  lastClassifiedAt?: number;                   // 最后分类时间戳
-  rootCause?: RootCauseAnalysis;               // 根因分析结果
-  isolationLevel?: IsolationLevel;             // 隔离级别
-  quarantineStrategy?: QuarantineStrategy;     // 隔离策略
-  trendAnalysis?: TrendAnalysis;               // 趋势分析结果
-  healthScore?: FlakyHealthScore;              // 健康评分
-  durationAnomaly?: DurationAnomaly;           // 持续时间异常
-  lastPrediction?: PredictionResult;           // 最近一次预测结果
-  aiDiagnosis?: AIDiagnosis;                   // AI 诊断结果
+  testId: string;                              // Unique test identifier
+  title: string;                               // Test title
+  failureRate: number;                         // Raw failure rate (0-1)
+  totalRuns: number;                           // Total run count
+  lastFailure?: number;                        // Last failure timestamp
+  isQuarantined: boolean;                      // Whether in quarantine status
+  quarantinedAt?: number;                      // Quarantine start timestamp
+  consecutivePassesSinceQuarantine?: number;   // Consecutive passes since quarantine
+  history: FlakyHistoryEntry[];                // History records
+  classification: FlakyClassification;         // Test classification
+  weightedFailureRate: number;                 // Weighted failure rate (recent weights higher)
+  consecutiveFailures: number;                 // Current consecutive failure count
+  consecutivePasses: number;                   // Current consecutive pass count
+  lastClassifiedAt?: number;                   // Last classification timestamp
+  rootCause?: RootCauseAnalysis;               // Root cause analysis result
+  isolationLevel?: IsolationLevel;             // Isolation level
+  quarantineStrategy?: QuarantineStrategy;     // Quarantine strategy
+  trendAnalysis?: TrendAnalysis;               // Trend analysis result
+  healthScore?: FlakyHealthScore;              // Health score
+  durationAnomaly?: DurationAnomaly;           // Duration anomaly
+  lastPrediction?: PredictionResult;           // Most recent prediction result
+  aiDiagnosis?: AIDiagnosis;                   // AI diagnosis result
 }
 ```
 
@@ -870,10 +870,10 @@ interface FlakyTest {
 
 ```typescript
 interface FlakyHistoryEntry {
-  timestamp: number;                                    // 时间戳
-  status: 'passed' | 'failed' | 'skipped' | 'timedout'; // 运行状态
-  duration: number;                                     // 运行耗时（毫秒）
-  error?: string;                                       // 错误信息
+  timestamp: number;                                    // Timestamp
+  status: 'passed' | 'failed' | 'skipped' | 'timedout'; // Run status
+  duration: number;                                     // Run duration (milliseconds)
+  error?: string;                                       // Error message
 }
 ```
 
@@ -881,57 +881,57 @@ interface FlakyHistoryEntry {
 
 ```typescript
 type FlakyClassification =
-  | 'flaky'              // 不稳定：通过和失败交替出现
-  | 'broken'             // 损坏：持续失败（连续失败 ≥5 次）
-  | 'regression'         // 回归：近期失败率显著高于早期
-  | 'monitor'            // 监控：失败率较低但值得关注
-  | 'stable'             // 稳定：失败率极低
-  | 'insufficient_data'; // 数据不足：运行次数不够判定
+  | 'flaky'              // Unstable: passes and failures alternate
+  | 'broken'             // Broken: persistently failing (consecutive failures ≥5)
+  | 'regression'         // Regression: recent failure rate significantly higher than earlier
+  | 'monitor'            // Monitor: low failure rate but worth watching
+  | 'stable'             // Stable: very low failure rate
+  | 'insufficient_data'; // Insufficient data: not enough runs to determine
 ```
 
 ### IsolationLevel
 
 ```typescript
 type IsolationLevel =
-  | 'none'              // 无隔离
-  | 'monitor'           // 监控模式
-  | 'soft_quarantine'   // 软隔离（重试策略）
-  | 'hard_quarantine';  // 硬隔离（跳过测试）
+  | 'none'              // No isolation
+  | 'monitor'           // Monitor mode
+  | 'soft_quarantine'   // Soft quarantine (retry strategy)
+  | 'hard_quarantine';  // Hard quarantine (skip test)
 ```
 
 ### QuarantineStrategyType
 
 ```typescript
 type QuarantineStrategyType =
-  | 'skip'       // 跳过测试
-  | 'retry_only' // 仅重试
-  | 'soft'       // 软隔离
-  | 'hard'       // 硬隔离
-  | 'graduated'; // 渐进式隔离
+  | 'skip'       // Skip test
+  | 'retry_only' // Retry only
+  | 'soft'       // Soft quarantine
+  | 'hard'       // Hard quarantine
+  | 'graduated'; // Graduated quarantine
 ```
 
 ### QuarantineConfig
 
 ```typescript
 interface QuarantineConfig {
-  enabled: boolean;                       // 是否启用 Flaky 管理
-  threshold: number;                      // Flaky 检测阈值
-  autoQuarantine: boolean;                // 是否自动隔离
-  minimumRuns?: number;                   // 最少运行次数
-  autoReleaseAfterPasses?: number;        // 自动释放所需连续通过次数
-  quarantineExpiryDays?: number;          // 隔离过期天数
-  decayRate?: number;                     // 加权衰减率
-  confidenceLevel?: number;               // 统计显著性置信水平
-  brokenThreshold?: number;               // broken 判定阈值
-  regressionWindow?: number;              // 回归分析窗口
-  enableRootCauseAnalysis?: boolean;      // 启用根因分析
-  enableCorrelationAnalysis?: boolean;    // 启用关联分析
-  enableTrendTracking?: boolean;          // 启用趋势追踪
-  enablePrediction?: boolean;             // 启用失败预测
-  enableCausalGraph?: boolean;            // 启用因果图
-  quarantineStrategy?: QuarantineStrategyType; // 隔离策略类型
-  maxQuarantineRatio?: number;            // 最大隔离比例
-  predictionSensitivity?: number;         // 预测灵敏度
+  enabled: boolean;                       // Whether to enable Flaky management
+  threshold: number;                      // Flaky detection threshold
+  autoQuarantine: boolean;                // Whether to auto-quarantine
+  minimumRuns?: number;                   // Minimum run count
+  autoReleaseAfterPasses?: number;        // Consecutive passes required for auto-release
+  quarantineExpiryDays?: number;          // Quarantine expiry days
+  decayRate?: number;                     // Weighted decay rate
+  confidenceLevel?: number;               // Statistical significance confidence level
+  brokenThreshold?: number;               // Broken classification threshold
+  regressionWindow?: number;              // Regression analysis window
+  enableRootCauseAnalysis?: boolean;      // Enable root cause analysis
+  enableCorrelationAnalysis?: boolean;    // Enable correlation analysis
+  enableTrendTracking?: boolean;          // Enable trend tracking
+  enablePrediction?: boolean;             // Enable failure prediction
+  enableCausalGraph?: boolean;            // Enable causal graph
+  quarantineStrategy?: QuarantineStrategyType; // Quarantine strategy type
+  maxQuarantineRatio?: number;            // Maximum quarantine ratio
+  predictionSensitivity?: number;         // Prediction sensitivity
 }
 ```
 
@@ -939,12 +939,12 @@ interface QuarantineConfig {
 
 ```typescript
 interface QuarantineStrategy {
-  testId: string;                         // 测试 ID
-  strategy: QuarantineStrategyType;       // 策略类型
-  isolationLevel: IsolationLevel;         // 隔离级别
-  retryPolicy: RetryPolicy;               // 重试策略
-  reason: string;                         // 隔离原因
-  expiresAt?: number;                     // 过期时间戳
+  testId: string;                         // Test ID
+  strategy: QuarantineStrategyType;       // Strategy type
+  isolationLevel: IsolationLevel;         // Isolation level
+  retryPolicy: RetryPolicy;               // Retry policy
+  reason: string;                         // Quarantine reason
+  expiresAt?: number;                     // Expiry timestamp
 }
 ```
 
@@ -952,10 +952,10 @@ interface QuarantineStrategy {
 
 ```typescript
 interface RetryPolicy {
-  maxRetries: number;         // 最大重试次数
-  retryDelay: number;         // 重试延迟（毫秒）
-  backoffMultiplier: number;  // 退避倍数
-  retryOnPassOnly: boolean;   // 是否仅在通过时重试
+  maxRetries: number;         // Maximum retry count
+  retryDelay: number;         // Retry delay (milliseconds)
+  backoffMultiplier: number;  // Backoff multiplier
+  retryOnPassOnly: boolean;   // Whether to retry only on pass
 }
 ```
 
@@ -963,12 +963,12 @@ interface RetryPolicy {
 
 ```typescript
 interface RootCauseAnalysis {
-  testId: string;                   // 测试 ID
-  primaryCause: RootCauseType;      // 主要根因类型
-  confidence: number;               // 置信度（0-1）
-  evidence: RootCauseEvidence[];     // 证据列表
-  suggestedActions: string[];        // 建议操作
-  analyzedAt: number;                // 分析时间戳
+  testId: string;                   // Test ID
+  primaryCause: RootCauseType;      // Primary root cause type
+  confidence: number;               // Confidence (0-1)
+  evidence: RootCauseEvidence[];     // Evidence list
+  suggestedActions: string[];        // Suggested actions
+  analyzedAt: number;                // Analysis timestamp
 }
 ```
 
@@ -976,24 +976,24 @@ interface RootCauseAnalysis {
 
 ```typescript
 type RootCauseType =
-  | 'timing'            // 时序问题
-  | 'data_race'         // 数据竞争
-  | 'environment'       // 环境问题
-  | 'external_service'  // 外部服务
-  | 'test_order'        // 测试顺序
-  | 'resource_leak'     // 资源泄漏
-  | 'assertion_flaky'   // 断言不稳定
-  | 'unknown';          // 未知原因
+  | 'timing'            // Timing issue
+  | 'data_race'         // Data race
+  | 'environment'       // Environment issue
+  | 'external_service'  // External service
+  | 'test_order'        // Test order
+  | 'resource_leak'     // Resource leak
+  | 'assertion_flaky'   // Assertion instability
+  | 'unknown';          // Unknown cause
 ```
 
 ### RootCauseEvidence
 
 ```typescript
 interface RootCauseEvidence {
-  type: RootCauseType;       // 根因类型
-  indicators: string[];      // 指标列表
-  confidence: number;        // 置信度（0-1）
-  description: string;       // 描述
+  type: RootCauseType;       // Root cause type
+  indicators: string[];      // Indicator list
+  confidence: number;        // Confidence (0-1)
+  description: string;       // Description
 }
 ```
 
@@ -1001,11 +1001,11 @@ interface RootCauseEvidence {
 
 ```typescript
 interface CorrelationGroup {
-  groupId: string;                  // 关联组 ID
-  testIds: string[];                // 关联的测试 ID 列表
-  correlationType: CorrelationType; // 关联类型
-  confidence: number;               // 置信度（0-1）
-  evidence: string;                 // 证据描述
+  groupId: string;                  // Correlation group ID
+  testIds: string[];                // List of correlated test IDs
+  correlationType: CorrelationType; // Correlation type
+  confidence: number;               // Confidence (0-1)
+  evidence: string;                 // Evidence description
 }
 ```
 
@@ -1013,27 +1013,27 @@ interface CorrelationGroup {
 
 ```typescript
 type CorrelationType =
-  | 'same_run'            // 同次运行
-  | 'same_shard'          // 同分片
-  | 'same_time_window'    // 同时间窗口
-  | 'same_error_pattern'  // 同错误模式
-  | 'same_file';          // 同文件
+  | 'same_run'            // Same run
+  | 'same_shard'          // Same shard
+  | 'same_time_window'    // Same time window
+  | 'same_error_pattern'  // Same error pattern
+  | 'same_file';          // Same file
 ```
 
 ### TrendAnalysis
 
 ```typescript
 interface TrendAnalysis {
-  testId: string;                           // 测试 ID
-  direction: TrendDirection;                // 趋势方向
-  slope: number;                            // 斜率
-  r2: number;                               // R² 拟合度
-  dataPoints: TrendDataPoint[];             // 数据点
-  changePoints: ChangePoint[];              // 变点列表
-  seasonalPattern: SeasonalPattern | null;  // 季节模式
-  codeChangeCorrelations: CodeChangeCorrelation[]; // 代码变更关联
-  forecast: TrendForecast;                  // 预测
-  analyzedAt: number;                       // 分析时间戳
+  testId: string;                           // Test ID
+  direction: TrendDirection;                // Trend direction
+  slope: number;                            // Slope
+  r2: number;                               // R² goodness of fit
+  dataPoints: TrendDataPoint[];             // Data points
+  changePoints: ChangePoint[];              // Change points
+  seasonalPattern: SeasonalPattern | null;  // Seasonal pattern
+  codeChangeCorrelations: CodeChangeCorrelation[]; // Code change correlations
+  forecast: TrendForecast;                  // Forecast
+  analyzedAt: number;                       // Analysis timestamp
 }
 ```
 
@@ -1041,22 +1041,22 @@ interface TrendAnalysis {
 
 ```typescript
 type TrendDirection =
-  | 'improving'  // 改善中
-  | 'stable'     // 稳定
-  | 'degrading'  // 恶化中
-  | 'volatile';  // 波动
+  | 'improving'  // Improving
+  | 'stable'     // Stable
+  | 'degrading'  // Degrading
+  | 'volatile';  // Volatile
 ```
 
 ### TrendDataPoint
 
 ```typescript
 interface TrendDataPoint {
-  timestamp: number;    // 时间戳
-  passRate: number;     // 通过率
-  failRate: number;     // 失败率
-  avgDuration: number;  // 平均耗时
-  flakyCount: number;   // Flaky 数量
-  totalRuns: number;    // 总运行次数
+  timestamp: number;    // Timestamp
+  passRate: number;     // Pass rate
+  failRate: number;     // Fail rate
+  avgDuration: number;  // Average duration
+  flakyCount: number;   // Flaky count
+  totalRuns: number;    // Total run count
 }
 ```
 
@@ -1064,11 +1064,11 @@ interface TrendDataPoint {
 
 ```typescript
 interface ChangePoint {
-  timestamp: number;    // 变点时间戳
-  beforeRate: number;   // 变点前失败率
-  afterRate: number;    // 变点后失败率
-  magnitude: number;    // 变化幅度
-  confidence: number;   // 置信度
+  timestamp: number;    // Change point timestamp
+  beforeRate: number;   // Failure rate before change point
+  afterRate: number;    // Failure rate after change point
+  magnitude: number;    // Change magnitude
+  confidence: number;   // Confidence
 }
 ```
 
@@ -1076,11 +1076,11 @@ interface ChangePoint {
 
 ```typescript
 interface SeasonalPattern {
-  period: 'hourly' | 'daily' | 'weekly'; // 周期类型
-  peakHours: number[];                     // 高峰时段
-  peakDays: number[];                      // 高峰日期
-  amplitude: number;                       // 振幅
-  confidence: number;                      // 置信度
+  period: 'hourly' | 'daily' | 'weekly'; // Period type
+  peakHours: number[];                     // Peak hours
+  peakDays: number[];                      // Peak days
+  amplitude: number;                       // Amplitude
+  confidence: number;                      // Confidence
 }
 ```
 
@@ -1088,14 +1088,14 @@ interface SeasonalPattern {
 
 ```typescript
 interface CodeChangeCorrelation {
-  commitHash: string;       // 提交哈希
-  commitMessage: string;    // 提交信息
-  timestamp: number;        // 提交时间戳
-  author: string;           // 作者
-  affectedFiles: string[];  // 影响的文件列表
-  correlationScore: number; // 关联评分
-  flakyRateBefore: number;  // 变更前失败率
-  flakyRateAfter: number;   // 变更后失败率
+  commitHash: string;       // Commit hash
+  commitMessage: string;    // Commit message
+  timestamp: number;        // Commit timestamp
+  author: string;           // Author
+  affectedFiles: string[];  // List of affected files
+  correlationScore: number; // Correlation score
+  flakyRateBefore: number;  // Failure rate before change
+  flakyRateAfter: number;   // Failure rate after change
 }
 ```
 
@@ -1103,9 +1103,9 @@ interface CodeChangeCorrelation {
 
 ```typescript
 interface TrendForecast {
-  next7Days: TrendDataPoint[];    // 未来 7 天预测
-  confidence: number;              // 预测置信度
-  projectedDirection: TrendDirection; // 预测趋势方向
+  next7Days: TrendDataPoint[];    // Next 7 days forecast
+  confidence: number;              // Forecast confidence
+  projectedDirection: TrendDirection; // Projected trend direction
 }
 ```
 
@@ -1113,15 +1113,15 @@ interface TrendForecast {
 
 ```typescript
 interface FlakyHealthScore {
-  overall: number;            // 综合评分（0-1）
+  overall: number;            // Overall score (0-1)
   breakdown: {
-    stability: number;        // 稳定性评分
-    trend: number;            // 趋势评分
-    recoverability: number;   // 恢复能力评分
-    predictability: number;   // 可预测性评分
+    stability: number;        // Stability score
+    trend: number;            // Trend score
+    recoverability: number;   // Recoverability score
+    predictability: number;   // Predictability score
   };
-  grade: 'A' | 'B' | 'C' | 'D' | 'F'; // 等级
-  label: string;              // 等级标签
+  grade: 'A' | 'B' | 'C' | 'D' | 'F'; // Grade
+  label: string;              // Grade label
 }
 ```
 
@@ -1129,13 +1129,13 @@ interface FlakyHealthScore {
 
 ```typescript
 interface PredictionResult {
-  testId: string;              // 测试 ID
-  willFail: boolean;           // 是否预测失败
-  probability: number;         // 失败概率
-  confidence: number;          // 预测置信度
-  signals: PredictionSignal[]; // 预测信号列表
-  recommendedAction: string;   // 建议操作
-  predictedAt: number;         // 预测时间戳
+  testId: string;              // Test ID
+  willFail: boolean;           // Whether failure is predicted
+  probability: number;         // Failure probability
+  confidence: number;          // Prediction confidence
+  signals: PredictionSignal[]; // Prediction signal list
+  recommendedAction: string;   // Recommended action
+  predictedAt: number;         // Prediction timestamp
 }
 ```
 
@@ -1144,9 +1144,9 @@ interface PredictionResult {
 ```typescript
 interface PredictionSignal {
   type: 'duration_anomaly' | 'failure_pattern' | 'environment_shift' | 'code_change' | 'resource_pressure';
-  strength: number;                   // 信号强度
-  description: string;                // 信号描述
-  data: Record<string, unknown>;      // 信号数据
+  strength: number;                   // Signal strength
+  description: string;                // Signal description
+  data: Record<string, unknown>;      // Signal data
 }
 ```
 
@@ -1154,13 +1154,13 @@ interface PredictionSignal {
 
 ```typescript
 interface DurationAnomaly {
-  testId: string;       // 测试 ID
-  baseline: number;     // 基线耗时
-  current: number;      // 当前耗时
-  deviation: number;    // 偏差
-  isAnomaly: boolean;   // 是否异常
-  zScore: number;       // Z 分数
-  detectedAt: number;   // 检测时间戳
+  testId: string;       // Test ID
+  baseline: number;     // Baseline duration
+  current: number;      // Current duration
+  deviation: number;    // Deviation
+  isAnomaly: boolean;   // Whether anomaly
+  zScore: number;       // Z-score
+  detectedAt: number;   // Detection timestamp
 }
 ```
 
@@ -1168,11 +1168,11 @@ interface DurationAnomaly {
 
 ```typescript
 interface CausalGraph {
-  nodes: CausalNode[];              // 因果节点列表
-  edges: CausalEdge[];              // 因果边列表
-  rootCauses: CausalNode[];         // 根因节点列表
-  impactMap: Map<string, string[]>; // 影响映射：节点 ID -> 受影响的节点 ID 列表
-  builtAt: number;                  // 构建时间戳
+  nodes: CausalNode[];              // Causal node list
+  edges: CausalEdge[];              // Causal edge list
+  rootCauses: CausalNode[];         // Root cause node list
+  impactMap: Map<string, string[]>; // Impact map: node ID -> list of affected node IDs
+  builtAt: number;                  // Build timestamp
 }
 ```
 
@@ -1180,10 +1180,10 @@ interface CausalGraph {
 
 ```typescript
 interface CausalNode {
-  id: string;                                                    // 节点 ID
-  type: 'test' | 'infrastructure' | 'external_service' | 'shared_state'; // 节点类型
-  label: string;                                                 // 节点标签
-  metadata: Record<string, unknown>;                             // 节点元数据
+  id: string;                                                    // Node ID
+  type: 'test' | 'infrastructure' | 'external_service' | 'shared_state'; // Node type
+  label: string;                                                 // Node label
+  metadata: Record<string, unknown>;                             // Node metadata
 }
 ```
 
@@ -1191,11 +1191,11 @@ interface CausalNode {
 
 ```typescript
 interface CausalEdge {
-  from: string;           // 起始节点 ID
-  to: string;             // 目标节点 ID
-  weight: number;         // 权重
+  from: string;           // Source node ID
+  to: string;             // Target node ID
+  weight: number;         // Weight
   type: 'depends_on' | 'shares_resource' | 'same_environment' | 'sequential' | 'correlated_failure';
-  confidence: number;     // 置信度
+  confidence: number;     // Confidence
 }
 ```
 
@@ -1203,12 +1203,12 @@ interface CausalEdge {
 
 ```typescript
 interface ImpactAnalysis {
-  testId: string;                           // 测试 ID
-  directlyAffected: string[];               // 直接受影响的测试 ID 列表
-  indirectlyAffected: string[];             // 间接受影响的测试 ID 列表
-  totalImpact: number;                      // 总影响数
-  riskLevel: 'low' | 'medium' | 'high' | 'critical'; // 风险等级
-  recommendation: string;                   // 建议
+  testId: string;                           // Test ID
+  directlyAffected: string[];               // Directly affected test ID list
+  indirectlyAffected: string[];             // Indirectly affected test ID list
+  totalImpact: number;                      // Total impact count
+  riskLevel: 'low' | 'medium' | 'high' | 'critical'; // Risk level
+  recommendation: string;                   // Recommendation
 }
 ```
 
@@ -1216,12 +1216,12 @@ interface ImpactAnalysis {
 
 ```typescript
 interface ImmediateFailure {
-  testId: string;       // 测试 ID
-  title: string;        // 测试标题
-  error?: string;       // 错误信息
-  status: string;       // 运行状态
-  timestamp: number;    // 时间戳
-  duration?: number;    // 运行耗时
+  testId: string;       // Test ID
+  title: string;        // Test title
+  error?: string;       // Error message
+  status: string;       // Run status
+  timestamp: number;    // Timestamp
+  duration?: number;    // Run duration
 }
 ```
 
@@ -1229,11 +1229,11 @@ interface ImmediateFailure {
 
 ```typescript
 interface FailureAnalysisSummary {
-  total: number;                          // 总测试数
-  persistent: number;                     // 持续失败数
-  emerging: number;                       // 新兴失败数
-  firstTimeFailures: number;              // 首次失败数
-  byClassification: Record<string, number>; // 各分类统计
+  total: number;                          // Total test count
+  persistent: number;                     // Persistent failure count
+  emerging: number;                       // Emerging failure count
+  firstTimeFailures: number;              // First-time failure count
+  byClassification: Record<string, number>; // Statistics by classification
 }
 ```
 
@@ -1241,27 +1241,27 @@ interface FailureAnalysisSummary {
 
 ```typescript
 type FailureAnalysisResult =
-  | FailureAnalysisSummary   // 不传 filter 时
-  | FlakyTest[]              // filter 为 'persistent' 或 'emerging' 时
-  | ImmediateFailure[];      // filter 为 'immediate' 时
+  | FailureAnalysisSummary   // When filter is not provided
+  | FlakyTest[]              // When filter is 'persistent' or 'emerging'
+  | ImmediateFailure[];      // When filter is 'immediate'
 ```
 
 ### FlakyCriteriaConfig
 
 ```typescript
 interface FlakyCriteriaConfig {
-  minimumRuns: number;                  // 最少运行次数，默认 5
-  flakyThreshold: number;               // Flaky 阈值，默认 0.3
-  monitorThreshold: number;             // 监控阈值，默认 0.1
-  stableThreshold: number;              // 稳定阈值，默认 0.05
-  highThreshold: number;                // 高风险阈值，默认 0.5
-  brokenConsecutiveThreshold: number;   // broken 连续失败阈值，默认 5
-  regressionWindow: number;             // 回归窗口，默认 5
-  regressionRecentFailRate: number;     // 回归近期失败率阈值，默认 0.6
-  regressionOlderFailRate: number;      // 回归早期失败率阈值，默认 0.2
-  decayRate: number;                    // 衰减率，默认 0.1
-  confidenceLevel: number;              // 置信水平，默认 0.95
-  autoReleaseAfterPasses: number;       // 自动释放通过次数，默认 3
+  minimumRuns: number;                  // Minimum run count, default 5
+  flakyThreshold: number;               // Flaky threshold, default 0.3
+  monitorThreshold: number;             // Monitor threshold, default 0.1
+  stableThreshold: number;              // Stable threshold, default 0.05
+  highThreshold: number;                // High risk threshold, default 0.5
+  brokenConsecutiveThreshold: number;   // Broken consecutive failure threshold, default 5
+  regressionWindow: number;             // Regression window, default 5
+  regressionRecentFailRate: number;     // Regression recent failure rate threshold, default 0.6
+  regressionOlderFailRate: number;      // Regression older failure rate threshold, default 0.2
+  decayRate: number;                    // Decay rate, default 0.1
+  confidenceLevel: number;              // Confidence level, default 0.95
+  autoReleaseAfterPasses: number;       // Auto-release pass count, default 3
 }
 ```
 
@@ -1269,15 +1269,15 @@ interface FlakyCriteriaConfig {
 
 ```typescript
 interface QuarantineCriteriaConfig {
-  softThreshold: number;                      // 软隔离阈值，默认 0.15
-  hardThreshold: number;                      // 硬隔离阈值，默认 0.4
-  maxQuarantineRatio: number;                 // 最大隔离比例，默认 0.2
-  autoReleaseHardQuarantinePasses: number;    // 硬隔离自动释放通过次数，默认 5
-  quarantineExpiryDays: number;               // 隔离过期天数，默认 30
-  quarantineExpiryDowngrade: boolean;         // 过期是否降级，默认 true
-  retryMax: number;                           // 最大重试次数，默认 3
-  retryDelayMs: number;                       // 重试延迟（毫秒），默认 1000
-  retryBackoff: number;                       // 重试退避倍数，默认 2
+  softThreshold: number;                      // Soft quarantine threshold, default 0.15
+  hardThreshold: number;                      // Hard quarantine threshold, default 0.4
+  maxQuarantineRatio: number;                 // Maximum quarantine ratio, default 0.2
+  autoReleaseHardQuarantinePasses: number;    // Hard quarantine auto-release pass count, default 5
+  quarantineExpiryDays: number;               // Quarantine expiry days, default 30
+  quarantineExpiryDowngrade: boolean;         // Whether to downgrade on expiry, default true
+  retryMax: number;                           // Maximum retry count, default 3
+  retryDelayMs: number;                       // Retry delay (milliseconds), default 1000
+  retryBackoff: number;                       // Retry backoff multiplier, default 2
 }
 ```
 
@@ -1285,26 +1285,26 @@ interface QuarantineCriteriaConfig {
 
 ```typescript
 interface TestResult {
-  id: string;                                          // 测试 ID
-  title: string;                                       // 测试标题
-  fullTitle?: string;                                  // 完整标题
-  file?: string;                                       // 文件路径
-  line?: number;                                       // 行号
-  column?: number;                                     // 列号
-  status: 'passed' | 'failed' | 'skipped' | 'timedout'; // 运行状态
-  duration: number;                                    // 运行耗时（毫秒）
-  error?: string;                                      // 错误信息
-  retries: number;                                     // 重试次数
-  manualReruns?: number;                               // 手动重跑次数
-  runHistory?: TestRunHistory[];                       // 运行历史
-  timestamp: number;                                   // 时间戳
-  browser: BrowserType;                                // 浏览器类型
-  shard?: number;                                      // 分片编号
-  screenshots?: string[];                              // 截图路径
-  videos?: string[];                                   // 视频路径
-  traces?: string[];                                   // Trace 路径
-  logs?: string[];                                     // 日志
-  stackTrace?: string;                                 // 堆栈跟踪
+  id: string;                                          // Test ID
+  title: string;                                       // Test title
+  fullTitle?: string;                                  // Full title
+  file?: string;                                       // File path
+  line?: number;                                       // Line number
+  column?: number;                                     // Column number
+  status: 'passed' | 'failed' | 'skipped' | 'timedout'; // Run status
+  duration: number;                                    // Run duration (milliseconds)
+  error?: string;                                      // Error message
+  retries: number;                                     // Retry count
+  manualReruns?: number;                               // Manual rerun count
+  runHistory?: TestRunHistory[];                       // Run history
+  timestamp: number;                                   // Timestamp
+  browser: BrowserType;                                // Browser type
+  shard?: number;                                      // Shard number
+  screenshots?: string[];                              // Screenshot paths
+  videos?: string[];                                   // Video paths
+  traces?: string[];                                   // Trace paths
+  logs?: string[];                                     // Logs
+  stackTrace?: string;                                 // Stack trace
 }
 ```
 
@@ -1312,19 +1312,19 @@ interface TestResult {
 
 ```typescript
 interface RunResult {
-  id: string;                                          // 运行 ID
-  version: string;                                     // 版本号
-  status: 'success' | 'failed' | 'cancelled' | 'running'; // 运行状态
-  startTime: number;                                   // 开始时间戳
-  endTime?: number;                                    // 结束时间戳
-  duration?: number;                                   // 总耗时
-  suites: SuiteResult[];                               // 测试套件列表
-  totalTests: number;                                  // 总测试数
-  passed: number;                                      // 通过数
-  failed: number;                                      // 失败数
-  skipped: number;                                     // 跳过数
-  flakyTests: TestResult[];                            // Flaky 测试列表
-  metadata?: RunMetadata;                              // 运行元数据
+  id: string;                                          // Run ID
+  version: string;                                     // Version number
+  status: 'success' | 'failed' | 'cancelled' | 'running'; // Run status
+  startTime: number;                                   // Start timestamp
+  endTime?: number;                                    // End timestamp
+  duration?: number;                                   // Total duration
+  suites: SuiteResult[];                               // Test suite list
+  totalTests: number;                                  // Total test count
+  passed: number;                                      // Pass count
+  failed: number;                                      // Fail count
+  skipped: number;                                     // Skip count
+  flakyTests: TestResult[];                            // Flaky test list
+  metadata?: RunMetadata;                              // Run metadata
 }
 ```
 
@@ -1332,57 +1332,57 @@ interface RunResult {
 
 ```typescript
 interface SuiteResult {
-  name: string;           // 套件名称
-  totalTests: number;     // 总测试数
-  passed: number;         // 通过数
-  failed: number;         // 失败数
-  skipped: number;        // 跳过数
-  duration: number;       // 耗时
-  tests: TestResult[];    // 测试结果列表
-  timestamp: number;      // 时间戳
+  name: string;           // Suite name
+  totalTests: number;     // Total test count
+  passed: number;         // Pass count
+  failed: number;         // Fail count
+  skipped: number;        // Skip count
+  duration: number;       // Duration
+  tests: TestResult[];    // Test result list
+  timestamp: number;      // Timestamp
 }
 ```
 
 ---
 
-## 常量默认值
+## Constant Default Values
 
-以下常量来自 `FLAKY_CONFIG`，定义了各功能模块的默认参数：
+The following constants are from `FLAKY_CONFIG`, defining default parameters for each functional module:
 
-| 常量 | 值 | 说明 |
+| Constant | Value | Description |
 |------|----|------|
-| `DEFAULT_THRESHOLD` | `0.3` | Flaky 检测默认阈值 |
-| `MONITOR_THRESHOLD` | `0.1` | 监控阈值 |
-| `HIGH_THRESHOLD` | `0.5` | 高风险阈值 |
-| `MAX_HISTORY_ENTRIES` | `50` | 最大历史记录条数 |
-| `MINIMUM_RUNS_FOR_QUARANTINE` | `5` | 隔离所需最少运行次数 |
-| `AUTO_RELEASE_AFTER_PASSES` | `3` | 自动释放连续通过次数 |
-| `AUTO_RELEASE_HARD_QUARANTINE_PASSES` | `5` | 硬隔离自动释放通过次数 |
-| `QUARANTINE_EXPIRY_DAYS` | `30` | 隔离过期天数 |
-| `QUARANTINE_EXPIRY_DOWNGRADE` | `true` | 过期是否降级 |
-| `DECAY_RATE` | `0.1` | 加权衰减率 |
-| `CONFIDENCE_LEVEL` | `0.95` | 统计置信水平 |
-| `BROKEN_CONSECUTIVE_THRESHOLD` | `5` | broken 连续失败阈值 |
-| `REGRESSION_WINDOW` | `5` | 回归分析窗口 |
-| `CORRELATION_CO_OCCURRENCE_THRESHOLD` | `0.6` | 关联共现阈值 |
-| `CORRELATION_MIN_RUNS` | `3` | 关联分析最少运行次数 |
-| `TREND_AGGREGATION_WINDOW_DAYS` | `7` | 趋势聚合窗口（天） |
-| `TREND_MIN_DATA_POINTS` | `5` | 趋势分析最少数据点 |
-| `TREND_CHANGE_POINT_THRESHOLD` | `0.3` | 变点检测阈值 |
-| `TREND_SEASONAL_MIN_CYCLES` | `3` | 季节模式最少周期数 |
-| `PREDICTION_WINDOW_RUNS` | `10` | 预测窗口运行次数 |
-| `PREDICTION_DURATION_ANOMALY_ZSCORE` | `2.0` | 持续时间异常 Z 分数阈值 |
-| `PREDICTION_MIN_HISTORY` | `8` | 预测所需最少历史记录 |
-| `PREDICTION_SENSITIVITY` | `0.5` | 预测灵敏度 |
-| `QUARANTINE_MAX_RATIO` | `0.2` | 最大隔离比例 |
-| `QUARANTINE_SOFT_THRESHOLD` | `0.15` | 软隔离阈值 |
-| `QUARANTINE_HARD_THRESHOLD` | `0.4` | 硬隔离阈值 |
-| `QUARANTINE_RETRY_MAX` | `3` | 隔离重试最大次数 |
-| `QUARANTINE_RETRY_DELAY_MS` | `1000` | 隔离重试延迟 |
-| `QUARANTINE_RETRY_BACKOFF` | `2` | 隔离重试退避倍数 |
-| `CAUSAL_MIN_CORRELATION` | `0.4` | 因果图最小关联度 |
-| `CAUSAL_MAX_DEPTH` | `5` | 因果图最大深度 |
-| `HEALTH_SCORE_WEIGHTS.stability` | `0.35` | 稳定性权重 |
-| `HEALTH_SCORE_WEIGHTS.trend` | `0.25` | 趋势权重 |
-| `HEALTH_SCORE_WEIGHTS.recoverability` | `0.2` | 恢复能力权重 |
-| `HEALTH_SCORE_WEIGHTS.predictability` | `0.2` | 可预测性权重 |
+| `DEFAULT_THRESHOLD` | `0.3` | Default Flaky detection threshold |
+| `MONITOR_THRESHOLD` | `0.1` | Monitor threshold |
+| `HIGH_THRESHOLD` | `0.5` | High risk threshold |
+| `MAX_HISTORY_ENTRIES` | `50` | Maximum history entries |
+| `MINIMUM_RUNS_FOR_QUARANTINE` | `5` | Minimum runs required for quarantine |
+| `AUTO_RELEASE_AFTER_PASSES` | `3` | Auto-release consecutive pass count |
+| `AUTO_RELEASE_HARD_QUARANTINE_PASSES` | `5` | Hard quarantine auto-release pass count |
+| `QUARANTINE_EXPIRY_DAYS` | `30` | Quarantine expiry days |
+| `QUARANTINE_EXPIRY_DOWNGRADE` | `true` | Whether to downgrade on expiry |
+| `DECAY_RATE` | `0.1` | Weighted decay rate |
+| `CONFIDENCE_LEVEL` | `0.95` | Statistical confidence level |
+| `BROKEN_CONSECUTIVE_THRESHOLD` | `5` | Broken consecutive failure threshold |
+| `REGRESSION_WINDOW` | `5` | Regression analysis window |
+| `CORRELATION_CO_OCCURRENCE_THRESHOLD` | `0.6` | Correlation co-occurrence threshold |
+| `CORRELATION_MIN_RUNS` | `3` | Minimum runs for correlation analysis |
+| `TREND_AGGREGATION_WINDOW_DAYS` | `7` | Trend aggregation window (days) |
+| `TREND_MIN_DATA_POINTS` | `5` | Minimum data points for trend analysis |
+| `TREND_CHANGE_POINT_THRESHOLD` | `0.3` | Change point detection threshold |
+| `TREND_SEASONAL_MIN_CYCLES` | `3` | Minimum cycles for seasonal pattern |
+| `PREDICTION_WINDOW_RUNS` | `10` | Prediction window run count |
+| `PREDICTION_DURATION_ANOMALY_ZSCORE` | `2.0` | Duration anomaly Z-score threshold |
+| `PREDICTION_MIN_HISTORY` | `8` | Minimum history required for prediction |
+| `PREDICTION_SENSITIVITY` | `0.5` | Prediction sensitivity |
+| `QUARANTINE_MAX_RATIO` | `0.2` | Maximum quarantine ratio |
+| `QUARANTINE_SOFT_THRESHOLD` | `0.15` | Soft quarantine threshold |
+| `QUARANTINE_HARD_THRESHOLD` | `0.4` | Hard quarantine threshold |
+| `QUARANTINE_RETRY_MAX` | `3` | Maximum quarantine retry count |
+| `QUARANTINE_RETRY_DELAY_MS` | `1000` | Quarantine retry delay |
+| `QUARANTINE_RETRY_BACKOFF` | `2` | Quarantine retry backoff multiplier |
+| `CAUSAL_MIN_CORRELATION` | `0.4` | Causal graph minimum correlation |
+| `CAUSAL_MAX_DEPTH` | `5` | Causal graph maximum depth |
+| `HEALTH_SCORE_WEIGHTS.stability` | `0.35` | Stability weight |
+| `HEALTH_SCORE_WEIGHTS.trend` | `0.25` | Trend weight |
+| `HEALTH_SCORE_WEIGHTS.recoverability` | `0.2` | Recoverability weight |
+| `HEALTH_SCORE_WEIGHTS.predictability` | `0.2` | Predictability weight |

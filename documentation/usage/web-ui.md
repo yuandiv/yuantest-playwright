@@ -1,351 +1,351 @@
-# Web UI 使用
+# Web UI Usage
 
-YuanTest Playwright 提供了强大的 Web Dashboard，让测试管理更加直观高效。
+YuanTest Playwright provides a powerful Web Dashboard for more intuitive and efficient test management.
 
-## 启动 Dashboard
+## Starting the Dashboard
 
 ```bash
-# 默认端口 5274
+# Default port 5274
 yuantest ui
 
-# 自定义端口
+# Custom port
 yuantest ui --port 8080
 
-# 指定报告和数据目录
+# Specify report and data directories
 yuantest ui --port 5274 --output ./test-reports --data ./test-data
 
-# 不自动打开浏览器
+# Do not auto-open browser
 yuantest ui --no-open
 ```
 
-启动后访问 **http://localhost:5274** 查看可视化界面。
+After starting, visit **http://localhost:5274** to view the visual interface.
 
 ---
 
-## Dashboard 功能介绍
+## Dashboard Features
 
-### 1. 概览页面
+### 1. Overview Page
 
-Dashboard 首页展示关键指标：
+The Dashboard homepage displays key metrics:
 
-- **测试运行统计**：总运行次数、通过率趋势
-- **Flaky 测试统计**：不稳定测试数量和占比，按分类（Flaky/Broken/Regression/Monitor）分布
-- **执行时间趋势**：平均执行时间变化
-- **最近运行记录**：快速查看最近的测试结果
-- **健康度评分**：A/B/C/D/F 等级，4 维评分（稳定性/趋势/可恢复性/可预测性）
+- **Test Run Statistics**: Total run count, pass rate trend
+- **Flaky Test Statistics**: Unstable test count and percentage, distribution by category (Flaky/Broken/Regression/Monitor)
+- **Execution Time Trend**: Average execution time changes
+- **Recent Run Records**: Quick view of recent test results
+- **Health Score**: A/B/C/D/F grade, 4-dimensional scoring (stability/trend/recoverability/predictability)
 
-### 2. Test Runs（测试运行记录）
+### 2. Test Runs
 
-查看所有历史测试运行：
+View all historical test runs:
 
-- **运行列表**：显示每次运行的详细信息
-- **筛选和搜索**：按状态、时间筛选测试运行
-- **运行详情**：点击查看完整的测试结果
-- **报告下载**：下载 HTML 或 JSON 格式的报告
-- **测试重跑**：支持重跑单个测试或批量重跑
+- **Run List**: Displays detailed information for each run
+- **Filter and Search**: Filter test runs by status, time
+- **Run Details**: Click to view complete test results
+- **Report Download**: Download reports in HTML or JSON format
+- **Test Rerun**: Support rerunning single tests or batch reruns
 
-### 3. Flaky Tests（不稳定用例管理）
+### 3. Flaky Tests
 
-智能管理不稳定用例，提供 6 种分类标签：
+Intelligent management of unstable test cases, providing 6 classification tags:
 
-| 分类 | 含义 |
-|------|------|
-| Flaky | 真正的间歇性失败 |
-| Broken | 持续失败的真实 Bug |
-| Regression | 新引入的回归 |
-| Monitor | 需要关注，可能发展为 Flaky |
-| Stable | 基本稳定 |
-| Insufficient Data | 数据不足，无法判定 |
+| Category | Meaning |
+|----------|---------|
+| Flaky | True intermittent failures |
+| Broken | Real bugs with persistent failures |
+| Regression | Newly introduced regressions |
+| Monitor | Needs attention, may develop into Flaky |
+| Stable | Basically stable |
+| Insufficient Data | Insufficient data to determine |
 
-功能：
+Features:
 
-- **自动检测**：基于加权失败率和 Wilson 置信区间自动识别 Flaky 测试
-- **分类标签**：每个 Flaky 测试显示分类（Broken/Flaky/Regression/Monitor）
-- **加权失败率**：展示时间衰减加权失败率，最近的运行权重更高
-- **根因分析**：7 种根因类型（timing/data_race/environment/external_service/test_order/resource_leak/assertion_flaky）
-- **一键隔离**：隔离不稳定的测试，支持 4 级隔离（none/monitor/soft_quarantine/hard_quarantine）
-- **释放测试**：将隔离的测试重新加入测试套件
-- **趋势追踪**：查看测试通过率趋势方向（improving/stable/degrading/volatile）
+- **Auto Detection**: Automatically identify Flaky tests based on weighted failure rate and Wilson confidence interval
+- **Classification Tags**: Each Flaky test displays its category (Broken/Flaky/Regression/Monitor)
+- **Weighted Failure Rate**: Shows time-decay weighted failure rate, recent runs have higher weight
+- **Root Cause Analysis**: 7 root cause types (timing/data_race/environment/external_service/test_order/resource_leak/assertion_flaky)
+- **One-click Quarantine**: Quarantine unstable tests, supports 4 quarantine levels (none/monitor/soft_quarantine/hard_quarantine)
+- **Release Tests**: Re-add quarantined tests to the test suite
+- **Trend Tracking**: View test pass rate trend direction (improving/stable/degrading/volatile)
 
-### 4. Failure Analysis（失败分析）
+### 4. Failure Analysis
 
-深度分析失败原因：
+Deep analysis of failure causes:
 
-- **自动分类**：智能识别超时、断言失败、元素未找到、网络错误、Frame 错误、认证错误等 7 类
-- **失败统计**：显示各类失败的数量和占比
-- **修复建议**：提供针对性的失败修复建议
-- **历史趋势**：追踪失败原因的变化趋势
-- **AI 诊断**：一键触发 AI 智能分析
+- **Auto Classification**: Intelligently identify 7 types: timeout, assertion failure, element not found, network error, frame error, auth error, etc.
+- **Failure Statistics**: Show count and percentage of each failure type
+- **Fix Suggestions**: Provide targeted failure fix recommendations
+- **Historical Trend**: Track trends of failure causes
+- **AI Diagnosis**: One-click trigger AI intelligent analysis
 
-### 5. 实时进度
+### 5. Real-time Progress
 
-测试执行时实时监控：
+Real-time monitoring during test execution:
 
-- **进度条**：显示测试执行进度
-- **实时日志**：查看测试输出日志
-- **测试状态**：实时更新通过、失败、跳过的测试数量
-- **当前测试**：显示正在执行的测试
-- **Flaky 检测推送**：实时推送 Flaky 测试检测结果
-
----
-
-## Web UI 执行测试
-
-### 通过界面执行测试
-
-1. **选择测试目录**
-   - 在 Dashboard 左侧点击"设置"
-   - 输入测试目录路径
-   - 系统会自动扫描测试文件
-
-2. **选择测试文件**
-   - 在测试列表中勾选要执行的测试
-   - 支持按文件、按描述块、按单个测试选择
-   - 支持搜索和筛选
-
-3. **配置执行参数**
-
-   | 参数 | 说明 | 默认值 |
-   |------|------|--------|
-   | 浏览器 | 选择 Chromium / Firefox / WebKit（多选） | chromium |
-   | 重试次数 | 设置失败重试次数 | 0 |
-   | 超时时间 | 设置测试超时时间（毫秒） | 30000 |
-   | Worker 数量 | 设置并行 Worker 数量 | 1 |
-   | 分片数量 | 设置测试分片数 | 1 |
-   | Base URL | 设置测试基础 URL | |
-
-4. **执行测试**
-   - 点击"运行测试"按钮
-   - 实时查看测试进度
-   - 查看控制台输出
-
-5. **查看测试报告**
-   - 测试完成后自动跳转到报告页面
-   - 查看详细的测试结果
-   - 查看失败测试的错误信息和堆栈
-   - 查看 Trace、截图、视频等附件
+- **Progress Bar**: Display test execution progress
+- **Real-time Logs**: View test output logs
+- **Test Status**: Real-time update of passed, failed, skipped test counts
+- **Current Test**: Display currently executing test
+- **Flaky Detection Push**: Real-time push of Flaky test detection results
 
 ---
 
-## AI 诊断功能
+## Running Tests via Web UI
 
-### 单次诊断
+### Running Tests through the Interface
 
-1. 在测试详情页面点击"AI 诊断"按钮
-2. 系统自动收集上下文信息（源代码、截图、控制台日志、堆栈跟踪、环境信息、历史数据）
-3. 匹配 Playwright 知识库中的已知错误模式
-4. LLM 进行分析并返回诊断结果
-5. 查看诊断摘要、根因、修复建议、置信度
+1. **Select Test Directory**
+   - Click "Settings" on the left side of the Dashboard
+   - Enter the test directory path
+   - The system will automatically scan for test files
 
-### 流式诊断
+2. **Select Test Files**
+   - Check the tests to execute in the test list
+   - Support selection by file, by describe block, by individual test
+   - Support search and filtering
 
-1. 点击"AI 诊断（流式）"按钮
-2. 实时查看 AI 推理过程
-3. 支持 Agent 多轮推理模式（LLM 可主动读取源码、查询历史）
-4. 查看推理步骤和工具调用
+3. **Configure Execution Parameters**
 
-### 诊断结果
+   | Parameter | Description | Default |
+   |-----------|-------------|---------|
+   | Browser | Select Chromium / Firefox / WebKit (multiple selection) | chromium |
+   | Retries | Set failure retry count | 0 |
+   | Timeout | Set test timeout (milliseconds) | 30000 |
+   | Workers | Set parallel worker count | 1 |
+   | Shards | Set test shard count | 1 |
+   | Base URL | Set test base URL | |
 
-诊断结果包含：
+4. **Execute Tests**
+   - Click "Run Tests" button
+   - View test progress in real-time
+   - View console output
 
-| 字段 | 说明 |
-|------|------|
-| 摘要 | 失败原因概述 |
-| 根因 | 根本原因分析 |
-| 修复建议 | 可操作的修复步骤 |
-| 置信度 | 校准后的置信度（0-1） |
-| 分类 | timeout/selector/assertion/network/frame/auth/unknown |
-| 代码 Diff | 建议的代码修改（unified diff 格式） |
-| 文档链接 | 关联的 Playwright 官方文档 |
-| 推理步骤 | Agent 推理过程（仅 Agent 模式） |
-| 关联失败 | 同根因的其他失败测试 |
-
-### 批量聚类诊断
-
-当同一次运行中有多个测试失败时：
-
-1. 系统自动识别相似错误模式
-2. 对代表性失败调用 LLM
-3. 其他失败引用同一诊断
-4. 标注"影响 N 个测试的共因失败"
+5. **View Test Report**
+   - Automatically navigate to report page after test completion
+   - View detailed test results
+   - View error messages and stack traces for failed tests
+   - View attachments like Trace, screenshots, videos
 
 ---
 
-## 错误模式管理
+## AI Diagnosis Features
 
-### 查看内置模式
+### Single Diagnosis
 
-系统内置 6 大类 18 个 Playwright 错误模式：
+1. Click "AI Diagnosis" button on the test details page
+2. System automatically collects context information (source code, screenshots, console logs, stack traces, environment info, historical data)
+3. Match known error patterns from Playwright knowledge base
+4. LLM analyzes and returns diagnosis results
+5. View diagnosis summary, root cause, fix suggestions, confidence
 
-| 类别 | 典型模式 |
-|------|----------|
-| TimeoutError | 元素未出现、导航超时、API 响应超时 |
-| SelectorError | 元素不存在、选择器歧义、iframe 内选择器 |
-| AssertionError | 文本不匹配、可见性断言、属性断言 |
-| NetworkError | 请求失败、CORS、DNS 解析失败 |
-| FrameError | Frame detached、跨 Frame 操作 |
-| AuthError | Token 过期、未登录重定向 |
+### Streaming Diagnosis
 
-### 添加自定义模式
+1. Click "AI Diagnosis (Streaming)" button
+2. View AI reasoning process in real-time
+3. Support Agent multi-round reasoning mode (LLM can actively read source code, query history)
+4. View reasoning steps and tool calls
 
-1. 在错误模式管理页面点击"添加模式"
-2. 填写模式名称、匹配正则、分类
-3. 保存后立即生效，后续诊断会匹配自定义模式
-4. 自定义模式标注 `[custom]` 标记
+### Diagnosis Results
 
----
+Diagnosis results include:
 
-## LLM 配置
+| Field | Description |
+|-------|-------------|
+| Summary | Overview of failure cause |
+| Root Cause | Root cause analysis |
+| Fix Suggestions | Actionable fix steps |
+| Confidence | Calibrated confidence (0-1) |
+| Category | timeout/selector/assertion/network/frame/auth/unknown |
+| Code Diff | Suggested code changes (unified diff format) |
+| Doc Links | Related Playwright official documentation |
+| Reasoning Steps | Agent reasoning process (Agent mode only) |
+| Related Failures | Other failed tests with same root cause |
 
-### 配置 API Key
+### Batch Clustering Diagnosis
 
-1. 在 Dashboard 设置页面找到"LLM 配置"
-2. 填写以下信息：
+When multiple tests fail in the same run:
 
-   | 配置项 | 说明 | 示例 |
-   |--------|------|------|
-   | API Key | LLM 服务的 API Key | sk-xxx |
-   | Base URL | LLM 服务地址 | https://api.openai.com/v1 |
-   | Model | 模型名称 | gpt-4 |
-   | Max Tokens | 最大输出 Token 数 | 4096 |
-   | Temperature | 生成温度 | 0.3 |
-
-3. 点击"保存"
-
-### 兼容的 LLM 服务
-
-支持所有 OpenAI API 兼容接口：
-
-- **OpenAI**：GPT-4、GPT-3.5 等
-- **Ollama**：本地部署的开源模型
-- **vLLM**：高性能推理服务
-- **Azure OpenAI**：微软 Azure 托管的 OpenAI 服务
-
-### 测试连接
-
-1. 配置完成后点击"测试连接"
-2. 系统发送测试请求验证配置
-3. 显示连接状态（绿色/黄色/红色）
+1. System automatically identifies similar error patterns
+2. Call LLM for representative failures
+3. Other failures reference the same diagnosis
+4. Mark as "common cause failure affecting N tests"
 
 ---
 
-## 参数配置面板
+## Error Pattern Management
 
-### Flaky 判定参数
+### View Built-in Patterns
 
-在 Dashboard 设置面板中可调整以下参数：
+System has 6 categories with 18 built-in Playwright error patterns:
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| 最低运行次数 | 5 | 低于此数不判定 |
-| Flaky 阈值 | 0.3 | 加权失败率 ≥ 此值判定为 Flaky |
-| Monitor 阈值 | 0.1 | 加权失败率 ≥ 此值判定为 Monitor |
-| Stable 阈值 | 0.05 | 加权失败率 < 此值判定为 Stable |
-| 高风险阈值 | 0.5 | 加权失败率 ≥ 此值触发高优先级 |
-| 连续失败阈值 | 5 | 连续失败次数 ≥ 此值判定为 Broken |
-| 回归窗口 | 5 | 回归检测窗口大小 |
-| 时间衰减率 | 0.1 | 指数衰减率 |
-| 置信水平 | 0.95 | Wilson 置信区间置信水平 |
-| 自动释放通过次数 | 3 | 软隔离自动释放所需连续通过次数 |
+| Category | Typical Patterns |
+|----------|------------------|
+| TimeoutError | Element not appeared, navigation timeout, API response timeout |
+| SelectorError | Element not exists, selector ambiguity, selector in iframe |
+| AssertionError | Text mismatch, visibility assertion, attribute assertion |
+| NetworkError | Request failed, CORS, DNS resolution failed |
+| FrameError | Frame detached, cross-frame operation |
+| AuthError | Token expired, unauthorized redirect |
 
-### 隔离参数
+### Add Custom Patterns
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| 软隔离阈值 | 0.15 | 加权失败率 ≥ 此值进入软隔离 |
-| 硬隔离阈值 | 0.4 | 加权失败率 ≥ 此值进入硬隔离 |
-| 隔离预算比例 | 0.2 | 最多隔离 20% 的测试 |
-| 硬隔离释放通过次数 | 5 | 硬隔离自动释放所需连续通过次数 |
-| 隔离过期天数 | 30 | 隔离自动过期天数 |
-| 过期后降级 | true | 隔离过期后自动降级而非释放 |
-
-### 重置为默认值
-
-点击"重置为默认值"按钮，将对应配置节从 `user-preferences.json` 中移除，恢复使用默认值。
+1. Click "Add Pattern" on the error pattern management page
+2. Fill in pattern name, matching regex, category
+3. Takes effect immediately after saving, subsequent diagnoses will match custom patterns
+4. Custom patterns are marked with `[custom]` tag
 
 ---
 
-## 测试历史查看
+## LLM Configuration
 
-1. 在测试详情页面点击"历史记录"
-2. 查看该测试的完整运行历史
-3. 包含每次运行的：状态、持续时间、错误信息、截图
-4. 显示稳定性统计：通过率、总运行次数、最近通过/失败时间
+### Configure API Key
+
+1. Find "LLM Configuration" in Dashboard settings page
+2. Fill in the following information:
+
+   | Config Item | Description | Example |
+   |-------------|-------------|---------|
+   | API Key | API Key for LLM service | sk-xxx |
+   | Base URL | LLM service address | https://api.openai.com/v1 |
+   | Model | Model name | gpt-4 |
+   | Max Tokens | Maximum output token count | 4096 |
+   | Temperature | Generation temperature | 0.3 |
+
+3. Click "Save"
+
+### Compatible LLM Services
+
+Supports all OpenAI API compatible interfaces:
+
+- **OpenAI**: GPT-4, GPT-3.5, etc.
+- **Ollama**: Locally deployed open-source models
+- **vLLM**: High-performance inference service
+- **Azure OpenAI**: Microsoft Azure hosted OpenAI service
+
+### Test Connection
+
+1. Click "Test Connection" after configuration
+2. System sends test request to verify configuration
+3. Display connection status (green/yellow/red)
 
 ---
 
-## 健康度仪表盘
+## Parameter Configuration Panel
 
-Dashboard 提供测试健康度概览：
+### Flaky Detection Parameters
 
-- **整体健康评分**：A/B/C/D/F 等级
-- **4 维评分**：
-  - 稳定性（权重 35%）：基于加权失败率
-  - 趋势（权重 25%）：基于通过率趋势方向
-  - 可恢复性（权重 20%）：基于失败后恢复能力
-  - 可预测性（权重 20%）：基于预测模型准确度
-- **Flaky 测试分布**：按分类统计
-- **高风险测试列表**：预测可能失败的测试
+The following parameters can be adjusted in the Dashboard settings panel:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Minimum Run Count | 5 | Do not judge below this count |
+| Flaky Threshold | 0.3 | Weighted failure rate ≥ this value is judged as Flaky |
+| Monitor Threshold | 0.1 | Weighted failure rate ≥ this value is judged as Monitor |
+| Stable Threshold | 0.05 | Weighted failure rate < this value is judged as Stable |
+| High Risk Threshold | 0.5 | Weighted failure rate ≥ this value triggers high priority |
+| Consecutive Failure Threshold | 5 | Consecutive failures ≥ this value is judged as Broken |
+| Regression Window | 5 | Regression detection window size |
+| Time Decay Rate | 0.1 | Exponential decay rate |
+| Confidence Level | 0.95 | Wilson confidence interval confidence level |
+| Auto Release Pass Count | 3 | Consecutive passes required for soft quarantine auto release |
+
+### Quarantine Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Soft Quarantine Threshold | 0.15 | Weighted failure rate ≥ this value enters soft quarantine |
+| Hard Quarantine Threshold | 0.4 | Weighted failure rate ≥ this value enters hard quarantine |
+| Quarantine Budget Ratio | 0.2 | Maximum 20% of tests can be quarantined |
+| Hard Quarantine Release Pass Count | 5 | Consecutive passes required for hard quarantine auto release |
+| Quarantine Expiry Days | 30 | Quarantine auto expiry days |
+| Downgrade on Expiry | true | Auto downgrade on quarantine expiry instead of release |
+
+### Reset to Default Values
+
+Click "Reset to Default Values" button to remove the corresponding config section from `user-preferences.json` and restore default values.
 
 ---
 
-## 高级功能
+## Test History View
 
-### Flaky 测试隔离
+1. Click "History" on the test details page
+2. View the complete run history of the test
+3. Includes for each run: status, duration, error message, screenshots
+4. Display stability statistics: pass rate, total run count, last pass/fail time
 
-1. 在 Flaky Tests 页面查看不稳定用例列表
-2. 点击测试旁边的"隔离"按钮
-3. 系统根据加权失败率自动选择隔离级别：
-   - **Monitor**：仅监控，不跳过
-   - **Soft Quarantine**：隔离但保留重试
-   - **Hard Quarantine**：完全跳过
-4. 被隔离的测试不会在后续运行中执行
-5. 可以在"已隔离用例"中查看和管理
+---
 
-### 失败分析
+## Health Dashboard
 
-1. 在 Test Runs 页面点击某次运行
-2. 切换到"失败分析"标签
-3. 查看失败原因分类和统计
-4. 查看每个失败测试的详细信息和建议
+Dashboard provides test health overview:
 
-### Trace 查看
+- **Overall Health Score**: A/B/C/D/F grade
+- **4-Dimensional Score**:
+  - Stability (weight 35%): Based on weighted failure rate
+  - Trend (weight 25%): Based on pass rate trend direction
+  - Recoverability (weight 20%): Based on post-failure recovery ability
+  - Predictability (weight 20%): Based on prediction model accuracy
+- **Flaky Test Distribution**: Statistics by category
+- **High Risk Test List**: Tests predicted to potentially fail
 
-1. 在测试详情页面点击"Trace"按钮
-2. 自动打开 Playwright Trace Viewer
-3. 查看测试执行的完整时间线
-4. 查看每个步骤的截图和 DOM 快照
+---
 
-### 产物管理
+## Advanced Features
 
-- **截图**：自动收集失败测试的截图
-- **视频**：自动收集失败测试的视频
-- **Trace**：自动收集测试执行轨迹
-- **统一存储**：所有产物统一存储在 `test-reports/` 目录
+### Flaky Test Quarantine
 
-### 因果图
+1. View unstable test list on Flaky Tests page
+2. Click "Quarantine" button next to a test
+3. System automatically selects quarantine level based on weighted failure rate:
+   - **Monitor**: Only monitor, do not skip
+   - **Soft Quarantine**: Quarantine but keep retries
+   - **Hard Quarantine**: Completely skip
+4. Quarantined tests will not be executed in subsequent runs
+5. Can view and manage in "Quarantined Tests"
 
-1. 在 Dashboard 中查看因果图
-2. 展示测试之间的依赖关系和关联失败
-3. 识别根因节点（infrastructure/external_service/shared_state）
-4. 影响分析：查看修复某个测试会影响哪些其他测试
+### Failure Analysis
+
+1. Click on a run in Test Runs page
+2. Switch to "Failure Analysis" tab
+3. View failure cause classification and statistics
+4. View detailed information and suggestions for each failed test
+
+### Trace Viewer
+
+1. Click "Trace" button on test details page
+2. Automatically opens Playwright Trace Viewer
+3. View complete timeline of test execution
+4. View screenshots and DOM snapshots for each step
+
+### Artifacts Management
+
+- **Screenshots**: Automatically collect screenshots of failed tests
+- **Videos**: Automatically collect videos of failed tests
+- **Trace**: Automatically collect test execution traces
+- **Unified Storage**: All artifacts stored in `test-reports/` directory
+
+### Causal Graph
+
+1. View causal graph in Dashboard
+2. Display dependencies and related failures between tests
+3. Identify root cause nodes (infrastructure/external_service/shared_state)
+4. Impact analysis: View which other tests are affected by fixing a test
 
 ---
 
 ## REST API
 
-Dashboard 提供 RESTful API，方便与其他系统集成。完整的 API 文档请参考 [DashboardServer API 参考](../api/dashboard.md)。
+Dashboard provides RESTful API for integration with other systems. For complete API documentation, refer to [DashboardServer API Reference](../api/dashboard.md).
 
-常用端点：
+Common endpoints:
 
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| GET | `/api/v1/health` | 健康检查 |
-| GET | `/api/v1/stats` | 整体统计 |
-| GET | `/api/v1/runs` | 运行列表 |
-| POST | `/api/v1/runs` | 启动测试运行 |
-| GET | `/api/v1/flaky` | Flaky 测试列表 |
-| POST | `/api/v1/diagnosis` | AI 诊断 |
-| POST | `/api/v1/diagnosis/stream` | AI 诊断（流式） |
-| GET | `/api/v1/preferences` | 用户偏好 |
-| POST | `/api/v1/preferences` | 保存偏好 |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/health` | Health check |
+| GET | `/api/v1/stats` | Overall statistics |
+| GET | `/api/v1/runs` | Run list |
+| POST | `/api/v1/runs` | Start test run |
+| GET | `/api/v1/flaky` | Flaky test list |
+| POST | `/api/v1/diagnosis` | AI diagnosis |
+| POST | `/api/v1/diagnosis/stream` | AI diagnosis (streaming) |
+| GET | `/api/v1/preferences` | User preferences |
+| POST | `/api/v1/preferences` | Save preferences |

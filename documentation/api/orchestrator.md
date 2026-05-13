@@ -1,29 +1,29 @@
 # Orchestrator API
 
-Orchestrator 负责测试编排，包括测试发现、分片分配、负载均衡和历史执行时间分析。它继承自 `ManagedManager`（基于 `EventEmitter`），支持异步初始化和自动持久化。
+The Orchestrator is responsible for test orchestration, including test discovery, shard assignment, load balancing, and historical execution time analysis. It inherits from `ManagedManager` (based on `EventEmitter`), supporting asynchronous initialization and automatic persistence.
 
 ---
 
-## Orchestrator 类
+## Orchestrator Class
 
 ```typescript
 import { Orchestrator } from 'yuantest-playwright';
 ```
 
-### 构造函数
+### Constructor
 
 ```typescript
 new Orchestrator(config: TestConfig, storage?: StorageProvider)
 ```
 
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
+| Parameter | Type | Required | Default | Description |
 |------|------|------|--------|------|
-| `config` | `TestConfig` | 是 | - | 测试配置对象 |
-| `storage` | `StorageProvider` | 否 | `getStorage()` | 存储提供者，用于读写持久化数据 |
+| `config` | `TestConfig` | Yes | - | Test configuration object |
+| `storage` | `StorageProvider` | No | `getStorage()` | Storage provider for reading and writing persistent data |
 
-构造函数内部会用 `DEFAULTS` 常量填充 `config` 中缺失的可选字段：
+The constructor internally fills missing optional fields in `config` using the `DEFAULTS` constant:
 
-| 字段 | 默认值 |
+| Field | Default Value |
 |------|--------|
 | `retries` | `0` |
 | `timeout` | `30000` |
@@ -31,18 +31,18 @@ new Orchestrator(config: TestConfig, storage?: StorageProvider)
 | `shards` | `1` |
 | `browsers` | `['chromium']` |
 
-同时会将保存延迟设置为 `CACHE_CONFIG.SAVE_DELAY_MS`（1000ms）。
+It also sets the save delay to `CACHE_CONFIG.SAVE_DELAY_MS` (1000ms).
 
 ---
 
-### 方法
+### Methods
 
 #### `initialize(): Promise<void>`
 
-初始化编排器。调用父类 `BaseManager.initialize()` 完成基础初始化（加载历史执行时间数据），并校验必要配置项。
+Initializes the orchestrator. Calls the parent class `BaseManager.initialize()` to complete basic initialization (loading historical execution time data) and validates required configuration items.
 
-- 如果 `config.version` 未设置，抛出 `PlaywrightRunnerError('Version is required', ErrorCode.INVALID_CONFIG)`
-- 如果 `config.testDir` 未设置，抛出 `PlaywrightRunnerError('Test directory is required', ErrorCode.INVALID_CONFIG)`
+- If `config.version` is not set, throws `PlaywrightRunnerError('Version is required', ErrorCode.INVALID_CONFIG)`
+- If `config.testDir` is not set, throws `PlaywrightRunnerError('Test directory is required', ErrorCode.INVALID_CONFIG)`
 
 ```typescript
 await orchestrator.initialize();
@@ -50,11 +50,11 @@ await orchestrator.initialize();
 
 #### `orchestrate(): Promise<OrchestrationConfig>`
 
-执行基础测试编排（distributed 策略）。流程如下：
+Performs basic test orchestration (distributed strategy). The process is as follows:
 
-1. 调用 `discoverTests()` 发现测试文件
-2. 调用 `distributeTests()` 将测试均匀分配到各分片（轮询方式）
-3. 返回 `OrchestrationConfig`，其中 `strategy` 为 `'distributed'`
+1. Calls `discoverTests()` to discover test files
+2. Calls `distributeTests()` to evenly distribute tests across shards (round-robin method)
+3. Returns `OrchestrationConfig` with `strategy` set to `'distributed'`
 
 ```typescript
 const config = await orchestrator.orchestrate();
@@ -62,12 +62,12 @@ const config = await orchestrator.orchestrate();
 
 #### `optimizeSharding(): Promise<OrchestrationConfig>`
 
-执行智能分片编排（intelligent 策略）。流程如下：
+Performs intelligent shard orchestration (intelligent strategy). The process is as follows:
 
-1. 调用 `discoverTests()` 发现测试文件
-2. 对每个测试文件调用 `estimateTestDurationDetailed()` 获取增强版时间估算
-3. 使用 `ShardOptimizer` 进行方差感知负载均衡优化
-4. 返回 `OrchestrationConfig`，其中 `strategy` 为 `'intelligent'`
+1. Calls `discoverTests()` to discover test files
+2. Calls `estimateTestDurationDetailed()` for each test file to get enhanced time estimates
+3. Uses `ShardOptimizer` for variance-aware load balancing optimization
+4. Returns `OrchestrationConfig` with `strategy` set to `'intelligent'`
 
 ```typescript
 const config = await orchestrator.optimizeSharding();
@@ -75,11 +75,11 @@ const config = await orchestrator.optimizeSharding();
 
 #### `getAssignmentsForShard(shardId: number): TestAssignment[]`
 
-获取指定分片的测试分配列表。
+Gets the test assignment list for a specified shard.
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `shardId` | `number` | 分片 ID |
+| `shardId` | `number` | Shard ID |
 
 ```typescript
 const shardTests = orchestrator.getAssignmentsForShard(0);
@@ -87,12 +87,12 @@ const shardTests = orchestrator.getAssignmentsForShard(0);
 
 #### `updateDurationHistory(testFile: string, duration: number): void`
 
-更新单个测试文件的历史执行时间。使用 Welford 在线算法计算方差，EMA 进行时间衰减，同时维护百分位数和极值。更新后自动调度持久化保存。
+Updates the historical execution time for a single test file. Uses the Welford online algorithm to calculate variance, EMA for time decay, while maintaining percentiles and extreme values. Automatically schedules persistence save after update.
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `testFile` | `string` | 测试文件路径 |
-| `duration` | `number` | 本次执行耗时（毫秒） |
+| `testFile` | `string` | Test file path |
+| `duration` | `number` | Execution duration in milliseconds |
 
 ```typescript
 orchestrator.updateDurationHistory('login.spec.ts', 1520);
@@ -100,11 +100,11 @@ orchestrator.updateDurationHistory('login.spec.ts', 1520);
 
 #### `recordRunResults(results: Array<{ testId: string; duration: number }>): void`
 
-批量记录测试运行结果，对每个结果调用 `updateDurationHistory()`。
+Batch records test run results, calling `updateDurationHistory()` for each result.
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `results` | `Array<{ testId: string; duration: number }>` | 测试结果列表 |
+| `results` | `Array<{ testId: string; duration: number }>` | List of test results |
 
 ```typescript
 orchestrator.recordRunResults([
@@ -115,11 +115,11 @@ orchestrator.recordRunResults([
 
 #### `recordShardFeedback(feedback: ShardPredictionFeedback): void`
 
-记录分片预测反馈并自动校准。对比每个分片的预测总耗时与实际总耗时，使用学习率调整校准因子。仅保留最近 20 条反馈，校准因子范围为 `[0.5, 2.0]`。
+Records shard prediction feedback and performs automatic calibration. Compares the predicted total duration with the actual total duration for each shard, using a learning rate to adjust the calibration factor. Only the most recent 20 feedback entries are retained, with calibration factor range `[0.5, 2.0]`.
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `feedback` | `ShardPredictionFeedback` | 分片预测反馈 |
+| `feedback` | `ShardPredictionFeedback` | Shard prediction feedback |
 
 ```typescript
 orchestrator.recordShardFeedback({
@@ -132,7 +132,7 @@ orchestrator.recordShardFeedback({
 
 #### `getCalibrationFactor(): number`
 
-获取当前校准因子。
+Gets the current calibration factor.
 
 ```typescript
 const factor = orchestrator.getCalibrationFactor();
@@ -140,7 +140,7 @@ const factor = orchestrator.getCalibrationFactor();
 
 #### `getPredictionFeedback(): ShardPredictionFeedback[]`
 
-获取所有预测反馈记录的副本。
+Gets a copy of all prediction feedback records.
 
 ```typescript
 const feedbacks = orchestrator.getPredictionFeedback();
@@ -148,7 +148,7 @@ const feedbacks = orchestrator.getPredictionFeedback();
 
 #### `validateConfig(): Promise<boolean>`
 
-校验配置是否完整。要求 `version`、`testDir`、`outputDir` 均已设置。
+Validates whether the configuration is complete. Requires `version`, `testDir`, and `outputDir` to all be set.
 
 ```typescript
 const valid = await orchestrator.validateConfig();
@@ -156,7 +156,7 @@ const valid = await orchestrator.validateConfig();
 
 #### `getConfig(): TestConfig`
 
-获取当前配置的浅拷贝。
+Gets a shallow copy of the current configuration.
 
 ```typescript
 const config = orchestrator.getConfig();
@@ -164,13 +164,13 @@ const config = orchestrator.getConfig();
 
 #### `createPlaywrightConfig(): Promise<any>`
 
-基于当前配置生成 Playwright 配置对象。
+Generates a Playwright configuration object based on the current configuration.
 
 ```typescript
 const pwConfig = await orchestrator.createPlaywrightConfig();
 ```
 
-生成的配置结构：
+Generated configuration structure:
 
 ```typescript
 {
@@ -191,7 +191,7 @@ const pwConfig = await orchestrator.createPlaywrightConfig();
 
 #### `flush(): Promise<void>`
 
-立即将待保存的历史数据持久化到磁盘。清除所有延迟保存定时器，直接执行保存。
+Immediately persists pending historical data to disk. Clears all delayed save timers and executes the save directly.
 
 ```typescript
 await orchestrator.flush();
@@ -199,100 +199,100 @@ await orchestrator.flush();
 
 ---
 
-## 类型定义
+## Type Definitions
 
 ### OrchestrationConfig
 
-编排配置，描述分片分配结果。
+Orchestration configuration, describing shard assignment results.
 
 ```typescript
 interface OrchestrationConfig {
-  /** 总分片数 */
+  /** Total number of shards */
   totalShards: number;
-  /** 当前分片索引（默认为 0） */
+  /** Current shard index (default is 0) */
   shardIndex: number;
-  /** 测试分配列表 */
+  /** Test assignment list */
   testAssignment: TestAssignment[];
-  /** 编排策略 */
+  /** Orchestration strategy */
   strategy: 'distributed' | 'weighted' | 'intelligent';
-  /** 不稳定测试 ID 列表（可选） */
+  /** List of flaky test IDs (optional) */
   flakyTests?: string[];
-  /** 隔离测试 ID 列表（可选） */
+  /** List of quarantined test IDs (optional) */
   quarantinedTests?: string[];
 }
 ```
 
 ### TestAssignment
 
-测试分配信息，描述单个测试与分片的映射关系。
+Test assignment information, describing the mapping between a single test and a shard.
 
 ```typescript
 interface TestAssignment {
-  /** 测试文件标识（相对路径） */
+  /** Test file identifier (relative path) */
   testId: string;
-  /** 分配到的分片 ID */
+  /** Assigned shard ID */
   shardId: number;
-  /** 优先级（默认为 1） */
+  /** Priority (default is 1) */
   priority: number;
-  /** 预估执行时间（毫秒） */
+  /** Estimated execution time (milliseconds) */
   estimatedDuration?: number;
-  /** 预估置信度（0~1，越高越可靠） */
+  /** Estimation confidence (0~1, higher is more reliable) */
   durationConfidence?: number;
-  /** 执行时间方差（毫秒²） */
+  /** Execution time variance (milliseconds²) */
   durationVariance?: number;
-  /** 估算来源 */
+  /** Estimation source */
   estimationSource?: 'history' | 'ema' | 'similar' | 'default';
 }
 ```
 
-**estimationSource 说明：**
+**estimationSource explanation:**
 
-| 来源 | 说明 |
+| Source | Description |
 |------|------|
-| `'history'` | 基于历史简单平均（运行次数 < 3 时） |
-| `'ema'` | 基于指数移动平均（运行次数 ≥ 3 时，置信度最高） |
-| `'similar'` | 基于同类测试推断（同目录下有历史数据的测试） |
-| `'default'` | 使用默认超时时间作为估算（无任何历史数据） |
+| `'history'` | Based on simple historical average (when run count < 3) |
+| `'ema'` | Based on exponential moving average (when run count ≥ 3, highest confidence) |
+| `'similar'` | Inferred from similar tests (tests with historical data in the same directory) |
+| `'default'` | Uses default timeout as estimate (no historical data available) |
 
 ### TestConfig
 
-测试配置，Orchestrator 构造函数的必需参数。
+Test configuration, required parameter for the Orchestrator constructor.
 
 ```typescript
 interface TestConfig {
-  /** 版本标识（必填） */
+  /** Version identifier (required) */
   version: string;
-  /** 测试目录（必填） */
+  /** Test directory (required) */
   testDir: string;
-  /** 输出目录（必填） */
+  /** Output directory (required) */
   outputDir: string;
-  /** 基础 URL */
+  /** Base URL */
   baseURL?: string;
-  /** 重试次数，默认 0 */
+  /** Number of retries, default 0 */
   retries?: number;
-  /** 超时时间(ms)，默认 30000 */
+  /** Timeout (ms), default 30000 */
   timeout?: number;
-  /** Worker 数量，默认 1 */
+  /** Number of workers, default 1 */
   workers?: number;
-  /** 分片数量，默认 1 */
+  /** Number of shards, default 1 */
   shards?: number;
-  /** 报告器列表 */
+  /** Reporter list */
   reporters?: string[];
-  /** 浏览器列表，默认 ['chromium'] */
+  /** Browser list, default ['chromium'] */
   browsers?: BrowserType[];
-  /** 自定义请求头 */
+  /** Custom request headers */
   headers?: Record<string, string>;
-  /** 不稳定测试阈值 */
+  /** Flaky test threshold */
   flakyThreshold?: number;
-  /** 是否隔离不稳定测试 */
+  /** Whether to isolate flaky tests */
   isolateFlaky?: boolean;
-  /** 测试文件匹配模式 */
+  /** Test file match patterns */
   testMatch?: string[];
-  /** 测试文件忽略模式 */
+  /** Test file ignore patterns */
   testIgnore?: string[];
-  /** 忽略的目录 */
+  /** Ignored directories */
   ignoreDirs?: string[];
-  // ... 其他可选配置
+  // ... other optional configurations
 }
 
 type BrowserType = 'chromium' | 'firefox' | 'webkit';
@@ -300,125 +300,125 @@ type BrowserType = 'chromium' | 'firefox' | 'webkit';
 
 ### ShardPredictionFeedback
 
-分片预测反馈，用于校准时间估算。
+Shard prediction feedback, used for calibrating time estimates.
 
 ```typescript
 interface ShardPredictionFeedback {
-  /** 分片 ID */
+  /** Shard ID */
   shardId: number;
-  /** 预测耗时（毫秒） */
+  /** Predicted duration (milliseconds) */
   predictedDuration: number;
-  /** 实际耗时（毫秒） */
+  /** Actual duration (milliseconds) */
   actualDuration: number;
-  /** 反馈时间戳 */
+  /** Feedback timestamp */
   timestamp: number;
 }
 ```
 
 ---
 
-## 编排策略说明
+## Orchestration Strategy Explanation
 
-### distributed（均匀分配）
+### distributed (Even Distribution)
 
-- **使用方法**：调用 `orchestrate()`
-- **算法**：轮询分配（Round-Robin），将测试文件按顺序依次分配到各分片
-- **特点**：简单快速，不依赖历史数据；每个测试仍会计算时间估算，但不影响分配决策
-- **适用场景**：首次运行、无历史数据、测试用例执行时间差异不大
+- **Usage**: Call `orchestrate()`
+- **Algorithm**: Round-robin assignment, distributing test files sequentially across shards
+- **Characteristics**: Simple and fast, does not depend on historical data; each test still calculates time estimates, but they do not affect assignment decisions
+- **Use Cases**: First run, no historical data, test cases have similar execution times
 
-### weighted（加权分配）
+### weighted (Weighted Distribution)
 
-- **当前状态**：类型定义中已预留，暂未在代码中实现独立策略
-- **设计意图**：按历史执行时间加权分配，使各分片总耗时趋于均衡
+- **Current Status**: Reserved in type definitions, not yet implemented as an independent strategy in code
+- **Design Intent**: Weighted assignment based on historical execution times to balance total duration across shards
 
-### intelligent（智能分片）
+### intelligent (Intelligent Sharding)
 
-- **使用方法**：调用 `optimizeSharding()`
-- **算法**：基于 `ShardOptimizer` 的方差感知负载均衡，核心特性包括：
-  1. **风险感知负载计算**：分片负载 = Σ(estimatedDuration) + riskPenalty × Σ(√variance)，显式建模不确定性
-  2. **多目标优化**：主目标为最小化最大分片负载（makespan），次目标为最小化分片间方差风险差异
-  3. **置信度加权**：低置信度测试的预估时间不确定性更高，分配时给予更大的风险惩罚
-  4. **两阶段分配**：
-     - 第一阶段：高风险测试优先分配，选择方差累计最小的分片（风险分散）
-     - 第二阶段：稳定测试按 LPT（最长处理时间优先）分配到有效负载最低的分片
-  5. **两两交换重平衡**：分配完成后，尝试通过交换测试来减少分片间负载差异
-- **适用场景**：有历史执行数据、测试用例执行时间差异大、需要精确负载均衡
+- **Usage**: Call `optimizeSharding()`
+- **Algorithm**: Variance-aware load balancing based on `ShardOptimizer`, with core features including:
+  1. **Risk-aware Load Calculation**: Shard load = Σ(estimatedDuration) + riskPenalty × Σ(√variance), explicitly modeling uncertainty
+  2. **Multi-objective Optimization**: Primary objective is minimizing maximum shard load (makespan), secondary objective is minimizing variance risk difference between shards
+  3. **Confidence Weighting**: Tests with low confidence have higher uncertainty in estimated time, receiving larger risk penalties during assignment
+  4. **Two-phase Assignment**:
+     - Phase 1: High-risk tests are assigned first, selecting the shard with minimum cumulative variance (risk dispersion)
+     - Phase 2: Stable tests are assigned using LPT (Longest Processing Time first) to the shard with lowest effective load
+  5. **Pairwise Swap Rebalancing**: After assignment, attempts to reduce inter-shard load differences by swapping tests
+- **Use Cases**: Has historical execution data, test cases have large execution time differences, requires precise load balancing
 
 ---
 
-## ShardOptimizer 类
+## ShardOptimizer Class
 
-方差感知智能分片优化器，被 `Orchestrator.optimizeSharding()` 内部使用。
+Variance-aware intelligent shard optimizer, used internally by `Orchestrator.optimizeSharding()`.
 
 ```typescript
 import { ShardOptimizer } from 'yuantest-playwright';
 ```
 
-### 构造函数
+### Constructor
 
 ```typescript
 new ShardOptimizer(durationHistory?: Map<string, TestDurationHistory>, calibrationFactor?: number)
 ```
 
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
+| Parameter | Type | Required | Default | Description |
 |------|------|------|--------|------|
-| `durationHistory` | `Map<string, TestDurationHistory>` | 否 | `new Map()` | 历史执行时间数据 |
-| `calibrationFactor` | `number` | 否 | `1.0` | 校准因子 |
+| `durationHistory` | `Map<string, TestDurationHistory>` | No | `new Map()` | Historical execution time data |
+| `calibrationFactor` | `number` | No | `1.0` | Calibration factor |
 
-### 方法
+### Methods
 
 #### `optimize(assignments: TestAssignment[], totalShards: number): Promise<Map<number, TestAssignment[]>>`
 
-执行方差感知的分片优化，返回分片 ID → 测试分配列表的映射。
+Performs variance-aware shard optimization, returning a mapping from shard ID to test assignment list.
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `assignments` | `TestAssignment[]` | 测试分配列表（需包含 estimatedDuration、durationConfidence、durationVariance） |
-| `totalShards` | `number` | 总分片数 |
+| `assignments` | `TestAssignment[]` | Test assignment list (must include estimatedDuration, durationConfidence, durationVariance) |
+| `totalShards` | `number` | Total number of shards |
 
 #### `getShardLoads(): number[]`
 
-获取最近一次优化后的各分片负载（毫秒）。
+Gets the load for each shard after the most recent optimization (milliseconds).
 
 ---
 
-## 时间估算算法
+## Time Estimation Algorithm
 
-Orchestrator 使用增强版时间估算（`estimateTestDurationDetailed`），决策逻辑如下：
+The Orchestrator uses enhanced time estimation (`estimateTestDurationDetailed`), with the following decision logic:
 
-1. **无历史数据**（`runCount === 0`）：
-   - 尝试从同类测试推断（同目录下有 ≥2 个历史充足的测试）
-   - 推断成功：使用中位数，置信度 `0.3`，来源 `'similar'`
-   - 推断失败：使用 `DEFAULTS.TEST_TIMEOUT`，置信度 `0.1`，来源 `'default'`
+1. **No historical data** (`runCount === 0`):
+   - Attempts to infer from similar tests (≥2 tests with sufficient history in the same directory)
+   - Inference successful: Uses median, confidence `0.3`, source `'similar'`
+   - Inference failed: Uses `DEFAULTS.TEST_TIMEOUT`, confidence `0.1`, source `'default'`
 
-2. **历史数据不足**（`runCount < 3`）：
-   - 混合历史平均与同类推断（按运行次数加权）
-   - 置信度基于变异系数和运行次数计算，上限 `0.5`
-   - 来源 `'history'`
+2. **Insufficient historical data** (`runCount < 3`):
+   - Blends historical average with similar inference (weighted by run count)
+   - Confidence calculated based on coefficient of variation and run count, max `0.5`
+   - Source `'history'`
 
-3. **历史数据充足**（`runCount ≥ 3`）：
-   - 使用 EMA（指数移动平均，α = 0.3）
-   - 置信度基于变异系数和运行次数计算，上限 `1.0`
-   - 来源 `'ema'`
+3. **Sufficient historical data** (`runCount ≥ 3`):
+   - Uses EMA (exponential moving average, α = 0.3)
+   - Confidence calculated based on coefficient of variation and run count, max `1.0`
+   - Source `'ema'`
 
-所有估算结果都会乘以校准因子（`calibrationFactor`），该因子通过 `recordShardFeedback()` 自动调整。
+All estimates are multiplied by the calibration factor (`calibrationFactor`), which is automatically adjusted through `recordShardFeedback()`.
 
-### 关键常量
+### Key Constants
 
-| 常量 | 值 | 说明 |
+| Constant | Value | Description |
 |------|----|------|
-| `EMA_ALPHA` | `0.3` | EMA 平滑系数 |
-| `MIN_RUNS_FOR_CONFIDENCE` | `3` | 达到高置信度所需的最小运行次数 |
-| `HIGH_VARIANCE_THRESHOLD` | `0.4` | 高风险测试判定阈值 |
-| `CALIBRATION_LEARNING_RATE` | `0.2` | 校准因子学习率 |
-| `MAX_CALIBRATION_FACTOR` | `2.0` | 校准因子上限 |
-| `MIN_CALIBRATION_FACTOR` | `0.5` | 校准因子下限 |
+| `EMA_ALPHA` | `0.3` | EMA smoothing coefficient |
+| `MIN_RUNS_FOR_CONFIDENCE` | `3` | Minimum run count required for high confidence |
+| `HIGH_VARIANCE_THRESHOLD` | `0.4` | Threshold for identifying high-risk tests |
+| `CALIBRATION_LEARNING_RATE` | `0.2` | Calibration factor learning rate |
+| `MAX_CALIBRATION_FACTOR` | `2.0` | Calibration factor upper limit |
+| `MIN_CALIBRATION_FACTOR` | `0.5` | Calibration factor lower limit |
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 基本编排（distributed 策略）
+### Basic Orchestration (distributed strategy)
 
 ```typescript
 import { Orchestrator } from 'yuantest-playwright';
@@ -434,12 +434,12 @@ const orchestrator = new Orchestrator({
 await orchestrator.initialize();
 const config = await orchestrator.orchestrate();
 
-console.log(`总分片数: ${config.totalShards}`);
-console.log(`编排策略: ${config.strategy}`);
-console.log(`测试分配数量: ${config.testAssignment.length}`);
+console.log(`Total shards: ${config.totalShards}`);
+console.log(`Orchestration strategy: ${config.strategy}`);
+console.log(`Test assignment count: ${config.testAssignment.length}`);
 ```
 
-### 智能分片（intelligent 策略）
+### Intelligent Sharding (intelligent strategy)
 
 ```typescript
 import { Orchestrator } from 'yuantest-playwright';
@@ -454,36 +454,36 @@ const orchestrator = new Orchestrator({
 await orchestrator.initialize();
 const config = await orchestrator.optimizeSharding();
 
-console.log(`编排策略: ${config.strategy}`);
+console.log(`Orchestration strategy: ${config.strategy}`);
 config.testAssignment.forEach((assignment) => {
   console.log(
-    `测试: ${assignment.testId}, ` +
-    `分片: ${assignment.shardId}, ` +
-    `预估耗时: ${assignment.estimatedDuration}ms, ` +
-    `置信度: ${assignment.durationConfidence}, ` +
-    `来源: ${assignment.estimationSource}`
+    `Test: ${assignment.testId}, ` +
+    `Shard: ${assignment.shardId}, ` +
+    `Estimated duration: ${assignment.estimatedDuration}ms, ` +
+    `Confidence: ${assignment.durationConfidence}, ` +
+    `Source: ${assignment.estimationSource}`
   );
 });
 ```
 
-### 获取指定分片的测试
+### Get Tests for a Specific Shard
 
 ```typescript
 const shard0Tests = orchestrator.getAssignmentsForShard(0);
-console.log(`分片 0 包含 ${shard0Tests.length} 个测试`);
+console.log(`Shard 0 contains ${shard0Tests.length} tests`);
 ```
 
-### 记录运行结果并反馈校准
+### Record Run Results and Feedback Calibration
 
 ```typescript
-// 记录测试运行结果
+// Record test run results
 orchestrator.recordRunResults([
   { testId: 'login.spec.ts', duration: 1520 },
   { testId: 'cart.spec.ts', duration: 3200 },
   { testId: 'checkout.spec.ts', duration: 5800 },
 ]);
 
-// 记录分片预测反馈，触发自动校准
+// Record shard prediction feedback, triggers automatic calibration
 orchestrator.recordShardFeedback({
   shardId: 0,
   predictedDuration: 10000,
@@ -491,24 +491,24 @@ orchestrator.recordShardFeedback({
   timestamp: Date.now(),
 });
 
-// 查看当前校准因子
-console.log(`校准因子: ${orchestrator.getCalibrationFactor()}`);
+// View current calibration factor
+console.log(`Calibration factor: ${orchestrator.getCalibrationFactor()}`);
 ```
 
-### 生成 Playwright 配置
+### Generate Playwright Configuration
 
 ```typescript
 const pwConfig = await orchestrator.createPlaywrightConfig();
-// pwConfig 可直接用于 Playwright Test Runner
+// pwConfig can be used directly with Playwright Test Runner
 ```
 
-### 手动更新单个测试的历史数据
+### Manually Update Historical Data for a Single Test
 
 ```typescript
 orchestrator.updateDurationHistory('login.spec.ts', 1520);
 ```
 
-### 程序退出前确保数据持久化
+### Ensure Data Persistence Before Program Exit
 
 ```typescript
 await orchestrator.flush();

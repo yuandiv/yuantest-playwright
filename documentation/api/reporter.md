@@ -1,10 +1,10 @@
 # Reporter API
 
-Reporter 负责生成和管理测试报告，支持 HTML 和 JSON 格式，并提供失败分析和仪表盘统计功能。
+The Reporter is responsible for generating and managing test reports, supporting HTML and JSON formats, and providing failure analysis and dashboard statistics functionality.
 
-## Reporter 类
+## Reporter Class
 
-### 构造函数
+### Constructor
 
 ```typescript
 constructor(
@@ -15,71 +15,71 @@ constructor(
 )
 ```
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
-| `outputDir` | `string` | `'./reports'` | 报告输出目录 |
-| `storage` | `StorageProvider` | 默认存储提供者 | 存储抽象层 |
-| `diagnosisService` | `DiagnosisService` | `null` | AI 诊断服务，用于失败分析 |
-| `flakyManager` | `FlakyTestManager` | `undefined` | 不稳定测试管理器，用于根因分析 |
+| `outputDir` | `string` | `'./reports'` | Report output directory |
+| `storage` | `StorageProvider` | Default storage provider | Storage abstraction layer |
+| `diagnosisService` | `DiagnosisService` | `null` | AI diagnosis service for failure analysis |
+| `flakyManager` | `FlakyTestManager` | `undefined` | Flaky test manager for root cause analysis |
 
-构造时会自动创建输出目录，并初始化内存缓存（最大缓存数量由 `CACHE_CONFIG.MAX_REPORT_CACHE_SIZE` 决定）。
+During construction, the output directory is automatically created, and an in-memory cache is initialized (maximum cache size is determined by `CACHE_CONFIG.MAX_REPORT_CACHE_SIZE`).
 
 ### generateReport(runResult)
 
-生成测试报告，输出 JSON 文件和 HTML 文件。
+Generates a test report, outputting JSON and HTML files.
 
 ```typescript
 async generateReport(runResult: RunResult): Promise<string>
 ```
 
-**参数：**
+**Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `runResult` | `RunResult` | 测试运行结果 |
+| `runResult` | `RunResult` | Test run result |
 
-**返回值：** HTML 报告文件路径（`string`）
+**Return Value:** HTML report file path (`string`)
 
-**行为：**
+**Behavior:**
 
-1. 将运行结果写入 `{outputDir}/{runId}.json`
-2. 若 HTML 报告不存在，从模板生成 `{outputDir}/{runId}.html`
-3. 将结果加入内存缓存
-4. 返回 HTML 报告路径
+1. Writes the run result to `{outputDir}/{runId}.json`
+2. If HTML report does not exist, generates `{outputDir}/{runId}.html` from template
+3. Adds the result to in-memory cache
+4. Returns the HTML report path
 
 ### analyzeFailures(runResult)
 
-分析运行结果中的失败测试，返回失败分析列表。
+Analyzes failed tests in the run result and returns a list of failure analyses.
 
 ```typescript
 async analyzeFailures(runResult: RunResult): Promise<FailureAnalysis[]>
 ```
 
-**参数：**
+**Parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Description |
 |------|------|------|
-| `runResult` | `RunResult` | 测试运行结果 |
+| `runResult` | `RunResult` | Test run result |
 
-**返回值：** `FailureAnalysis[]`
+**Return Value:** `FailureAnalysis[]`
 
-**行为：**
+**Behavior:**
 
-1. 遍历所有 suite 中状态为 `failed` 的测试
-2. 对每个失败测试进行错误分类（`categorizeError`）和生成建议（`generateSuggestions`）
-3. 如果配置了 `diagnosisService` 且已启用，则对每个失败分析进行 AI 诊断
-4. AI 诊断会结合 `flakyManager` 中的根因分析数据
-5. 诊断结果会回写到 `flakyManager` 中对应的不稳定测试记录
+1. Iterates through all tests with `failed` status in all suites
+2. For each failed test, performs error classification (`categorizeError`) and generates suggestions (`generateSuggestions`)
+3. If `diagnosisService` is configured and enabled, performs AI diagnosis for each failure analysis
+4. AI diagnosis incorporates root cause analysis data from `flakyManager`
+5. Diagnosis results are written back to the corresponding flaky test records in `flakyManager`
 
 ### generateDashboard()
 
-生成仪表盘统计数据。
+Generates dashboard statistics.
 
 ```typescript
 async generateDashboard(): Promise<DashboardStats>
 ```
 
-**返回值：** `DashboardStats`
+**Return Value:** `DashboardStats`
 
 ```typescript
 interface DashboardStats {
@@ -95,7 +95,7 @@ interface DashboardStats {
 
 ### getReport(reportId)
 
-获取指定运行的报告。
+Retrieves the report for a specific run.
 
 ```typescript
 async getReport(reportId: string): Promise<RunResult | null>
@@ -103,7 +103,7 @@ async getReport(reportId: string): Promise<RunResult | null>
 
 ### deleteReport(reportId)
 
-删除指定运行的报告（包括 JSON、HTML 和 Playwright HTML 报告目录）。
+Deletes the report for a specific run (including JSON, HTML, and Playwright HTML report directory).
 
 ```typescript
 async deleteReport(reportId: string): Promise<boolean>
@@ -111,17 +111,17 @@ async deleteReport(reportId: string): Promise<boolean>
 
 ### deleteAllReports()
 
-删除所有报告。
+Deletes all reports.
 
 ```typescript
 async deleteAllReports(): Promise<number>
 ```
 
-**返回值：** 已删除的报告数量
+**Return Value:** Number of deleted reports
 
 ### getAllReports()
 
-获取所有报告。
+Retrieves all reports.
 
 ```typescript
 async getAllReports(): Promise<RunResult[]>
@@ -129,7 +129,7 @@ async getAllReports(): Promise<RunResult[]>
 
 ### clearCache()
 
-清除内存缓存，强制下次调用 `getAllReports` 时重新从文件系统加载。
+Clears the in-memory cache, forcing the next `getAllReports` call to reload from the file system.
 
 ```typescript
 clearCache(): void
@@ -137,32 +137,32 @@ clearCache(): void
 
 ### createPendingReport(runId, version)
 
-创建待定报告（用于实时更新场景）。
+Creates a pending report (for real-time update scenarios).
 
 ```typescript
 async createPendingReport(runId: string, version: string): Promise<RunResult>
 ```
 
-**行为：** 创建一个状态为 `'running'` 的初始 `RunResult`，写入 JSON 文件并加入缓存。
+**Behavior:** Creates an initial `RunResult` with status `'running'`, writes it to a JSON file, and adds it to the cache.
 
 ### updatePendingReport(runId, testResult, suiteName)
 
-更新待定报告中的测试结果。
+Updates the test result in a pending report.
 
 ```typescript
 async updatePendingReport(runId: string, testResult: TestResult, suiteName: string): Promise<void>
 ```
 
-**行为：**
+**Behavior:**
 
-1. 查找待定报告，若不存在则跳过
-2. 查找或创建对应 suite
-3. 若测试已存在则更新，否则添加新测试
-4. 更新 suite 和报告的统计计数
+1. Finds the pending report; if not found, skips
+2. Finds or creates the corresponding suite
+3. If the test already exists, updates it; otherwise, adds the new test
+4. Updates suite and report statistics
 
 ### finalizePendingReport(runId, status)
 
-完成待定报告，设置最终状态并生成完整报告。
+Finalizes the pending report, sets the final status, and generates the complete report.
 
 ```typescript
 async finalizePendingReport(
@@ -171,17 +171,17 @@ async finalizePendingReport(
 ): Promise<string>
 ```
 
-**行为：**
+**Behavior:**
 
-1. 设置报告状态、`endTime` 和 `duration`
-2. 调用 `generateReport` 生成完整报告
-3. 更新 JSON 文件
-4. 从待定报告中移除
-5. 返回 HTML 报告路径
+1. Sets the report status, `endTime`, and `duration`
+2. Calls `generateReport` to generate the complete report
+3. Updates the JSON file
+4. Removes from pending reports
+5. Returns the HTML report path
 
 ### getPendingReport(runId)
 
-获取待定报告。
+Retrieves a pending report.
 
 ```typescript
 getPendingReport(runId: string): RunResult | undefined
@@ -189,7 +189,7 @@ getPendingReport(runId: string): RunResult | undefined
 
 ### hasPendingReport(runId)
 
-检查是否存在待定报告。
+Checks if a pending report exists.
 
 ```typescript
 hasPendingReport(runId: string): boolean
@@ -197,35 +197,35 @@ hasPendingReport(runId: string): boolean
 
 ### updateTestResult(runId, testId, newResult)
 
-更新报告中指定测试的结果（用于手动重跑场景）。
+Updates the result of a specific test in a report (for manual rerun scenarios).
 
 ```typescript
 async updateTestResult(runId: string, testId: string, newResult: TestResult): Promise<boolean>
 ```
 
-**行为：**
+**Behavior:**
 
-1. 查找报告和对应测试
-2. 将旧结果保存到 `runHistory` 中
-3. 递增 `manualReruns` 计数
-4. 用新结果替换旧结果（保留 `id`、`retries`、`manualReruns`、`runHistory`）
-5. 更新 suite 和报告的统计计数
-6. 写入 JSON 文件
-7. 返回是否成功
+1. Finds the report and corresponding test
+2. Saves the old result to `runHistory`
+3. Increments the `manualReruns` count
+4. Replaces the old result with the new result (preserving `id`, `retries`, `manualReruns`, `runHistory`)
+5. Updates suite and report statistics
+6. Writes to JSON file
+7. Returns whether successful
 
-## JSONReporter 类
+## JSONReporter Class
 
-继承自 `Reporter`，提供 JSON 格式报告生成。
+Inherits from `Reporter`, provides JSON format report generation.
 
 ### generateJSONReport(runResult)
 
-生成 JSON 格式的报告字符串。
+Generates a JSON format report string.
 
 ```typescript
 async generateJSONReport(runResult: RunResult): Promise<string>
 ```
 
-## 类型定义
+## Type Definitions
 
 ### FailureAnalysis
 
@@ -294,7 +294,7 @@ interface ReportFailureItem {
 type FailureAnalysisResult = FailureAnalysisSummary | FlakyTest[] | ImmediateFailure[];
 ```
 
-联合类型，可以是失败分析摘要、不稳定测试列表或即时失败列表。
+Union type, can be a failure analysis summary, a list of flaky tests, or a list of immediate failures.
 
 ### ReportFailureResult
 
@@ -302,7 +302,7 @@ type FailureAnalysisResult = FailureAnalysisSummary | FlakyTest[] | ImmediateFai
 type ReportFailureResult = ReportFailureSummary | ReportFailureItem[];
 ```
 
-联合类型，可以是报告失败摘要或报告失败项列表。
+Union type, can be a report failure summary or a list of report failure items.
 
 ### ImmediateFailure
 
@@ -396,21 +396,21 @@ interface ReasoningStep {
 }
 ```
 
-## 示例
+## Examples
 
-### 基本使用
+### Basic Usage
 
 ```typescript
 import { Reporter } from 'yuantest-playwright';
 
 const reporter = new Reporter('./reports');
 
-// 生成报告
+// Generate report
 const reportPath = await reporter.generateReport(result);
 console.log(`Report generated: ${reportPath}`);
 ```
 
-### 失败分析
+### Failure Analysis
 
 ```typescript
 const analysis = await reporter.analyzeFailures(result);
@@ -426,7 +426,7 @@ analysis.forEach((failure) => {
 });
 ```
 
-### 仪表盘统计
+### Dashboard Statistics
 
 ```typescript
 const dashboard = await reporter.generateDashboard();
@@ -436,7 +436,7 @@ console.log(`Average duration: ${dashboard.avgDuration.toFixed(0)}ms`);
 console.log(`Flaky tests: ${dashboard.flakyTests}`);
 ```
 
-### 查看历史报告
+### Viewing Historical Reports
 
 ```typescript
 const reports = await reporter.getAllReports();
@@ -451,22 +451,22 @@ if (report) {
 }
 ```
 
-### 实时报告（待定报告）
+### Real-time Reporting (Pending Reports)
 
 ```typescript
-// 创建待定报告
+// Create pending report
 const pendingReport = await reporter.createPendingReport('run_123', '1.0.0');
 
-// 随着测试执行更新
+// Update as tests execute
 await reporter.updatePendingReport('run_123', testResult1, 'Login Suite');
 await reporter.updatePendingReport('run_123', testResult2, 'Login Suite');
 
-// 完成报告
+// Finalize report
 const htmlPath = await reporter.finalizePendingReport('run_123', 'success');
 console.log(`Final report: ${htmlPath}`);
 ```
 
-### 手动重跑更新
+### Manual Rerun Update
 
 ```typescript
 const updated = await reporter.updateTestResult('run_123', 'test_456', newTestResult);
@@ -475,19 +475,19 @@ if (updated) {
 }
 ```
 
-### 删除报告
+### Deleting Reports
 
 ```typescript
-// 删除单个报告
+// Delete a single report
 const deleted = await reporter.deleteReport('run_123');
 console.log(`Deleted: ${deleted}`);
 
-// 删除所有报告
+// Delete all reports
 const count = await reporter.deleteAllReports();
 console.log(`Deleted ${count} reports`);
 ```
 
-### JSON 报告
+### JSON Report
 
 ```typescript
 import { JSONReporter } from 'yuantest-playwright';

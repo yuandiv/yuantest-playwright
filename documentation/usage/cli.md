@@ -1,8 +1,8 @@
-# 命令行使用
+# Command Line Usage
 
-YuanTest Playwright 提供完整的 CLI 工具，支持测试执行、编排、报告、Flaky 管理、AI 诊断、Trace 管理等功能。
+YuanTest Playwright provides a complete CLI tool that supports test execution, orchestration, reporting, flaky management, AI diagnostics, trace management, and more.
 
-## 查看帮助
+## View Help
 
 ```bash
 yuantest --help
@@ -12,405 +12,405 @@ yuantest flaky --help
 
 ---
 
-## 测试执行
+## Test Execution
 
-### 基本用法
+### Basic Usage
 
 ```bash
-# 运行所有测试
+# Run all tests
 yuantest run --test-dir ./ --output ./test-reports
 
-# 运行特定测试文件
+# Run specific test file
 yuantest run tests/login.spec.ts --output ./test-reports
 
-# 运行匹配的测试
-yuantest run --grep "登录测试" --output ./test-reports
+# Run matching tests
+yuantest run --grep "login test" --output ./test-reports
 
-# 指定浏览器
+# Specify browsers
 yuantest run --browsers chromium,firefox --output ./test-reports
 
-# 设置并行度和重试
+# Set parallelism and retries
 yuantest run --shards 4 --workers 2 --retries 2 --output ./test-reports
 ```
 
-### 执行参数
+### Execution Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--config` | `-c` | 配置文件路径 | |
-| `--project` | `-p` | 项目名称 | test-project |
-| `--test-dir` | `-t` | 测试文件目录 | ./ |
-| `--output` | `-o` | 输出目录 | ./test-reports |
-| `--shards` | `-s` | 分片数量 | 1 |
-| `--workers` | `-w` | Worker 数量 | 1 |
-| `--browsers` | `-b` | 浏览器列表（逗号分隔） | chromium |
-| `--base-url` | | 测试基础 URL | |
-| `--timeout` | | 测试超时时间（毫秒） | 30000 |
-| `--retries` | | 重试次数 | 0 |
-| `--trace` | | Trace 模式 | on-first-retry |
-| `--screenshot` | | 截图模式 | only-on-failure |
-| `--video` | | 视频模式 | retain-on-failure |
-| `--tags` | | 仅运行包含指定标签的测试 | |
-| `--grep` | | 通过正则匹配过滤测试 | |
-| `--project-filter` | | 仅运行指定浏览器项目 | |
-| `--update-snapshots` | | 更新视觉测试快照 | false |
-| `--visual-threshold` | | 视觉差异阈值（0-1） | 0.2 |
-| `--annotations` | | 启用注解扫描 | false |
-| `--html-report` | | 生成 HTML 报告 | false |
-| `--html-report-dir` | | HTML 报告输出目录 | |
+| `--config` | `-c` | Configuration file path | |
+| `--project` | `-p` | Project name | test-project |
+| `--test-dir` | `-t` | Test file directory | ./ |
+| `--output` | `-o` | Output directory | ./test-reports |
+| `--shards` | `-s` | Number of shards | 1 |
+| `--workers` | `-w` | Number of workers | 1 |
+| `--browsers` | `-b` | Browser list (comma-separated) | chromium |
+| `--base-url` | | Test base URL | |
+| `--timeout` | | Test timeout (milliseconds) | 30000 |
+| `--retries` | | Number of retries | 0 |
+| `--trace` | | Trace mode | on-first-retry |
+| `--screenshot` | | Screenshot mode | only-on-failure |
+| `--video` | | Video mode | retain-on-failure |
+| `--tags` | | Only run tests with specified tags | |
+| `--grep` | | Filter tests by regex match | |
+| `--project-filter` | | Only run specified browser projects | |
+| `--update-snapshots` | | Update visual test snapshots | false |
+| `--visual-threshold` | | Visual difference threshold (0-1) | 0.2 |
+| `--annotations` | | Enable annotation scanning | false |
+| `--html-report` | | Generate HTML report | false |
+| `--html-report-dir` | | HTML report output directory | |
 
-### 高级执行示例
+### Advanced Execution Examples
 
 ```bash
-# 启用 Trace 和截图
+# Enable trace and screenshots
 yuantest run --trace on --screenshot on --video on
 
-# 仅运行带 @smoke 标签的测试
+# Only run tests with @smoke tag
 yuantest run --tags smoke
 
-# 视觉测试并更新基线
+# Visual testing with baseline update
 yuantest run --update-snapshots --visual-threshold 0.1
 
-# 启用注解扫描
+# Enable annotation scanning
 yuantest run --annotations
 
-# 多浏览器 + 分片
+# Multi-browser + sharding
 yuantest run --browsers chromium,firefox,webkit --shards 4 --workers 2
 ```
 
 ---
 
-## 编排预览
+## Orchestration Preview
 
-查看测试分片分配计划（不执行测试）：
+View test shard allocation plan (without executing tests):
 
 ```bash
-# 查看测试分片分配计划
+# View test shard allocation plan
 yuantest orchestrate --test-dir ./ --shards 4
 
-# 使用智能编排策略
+# Use intelligent orchestration strategy
 yuantest orchestrate --test-dir ./ --shards 4 --strategy intelligent
 
-# 输出编排结果到文件
+# Output orchestration results to file
 yuantest orchestrate --test-dir ./ --shards 4 --output orchestration.json
 ```
 
-编排策略：
+Orchestration strategies:
 
-| 策略 | 说明 |
+| Strategy | Description |
 |------|------|
-| `distributed` | 均匀分配测试到各分片 |
-| `weighted` | 按历史执行时间加权分配 |
-| `intelligent` | 综合考虑执行时间、Flaky 状态、依赖关系 |
+| `distributed` | Evenly distribute tests across shards |
+| `weighted` | Weighted distribution based on historical execution time |
+| `intelligent` | Comprehensively consider execution time, flaky status, and dependencies |
 
 ---
 
-## 查看报告
+## View Reports
 
 ```bash
-# 查看最近报告
+# View recent report
 yuantest report --output ./test-reports
 
-# 生成 HTML 报告
+# Generate HTML report
 yuantest report --html-report --html-report-dir ./html-report
 
-# 打开 HTML 报告
+# Open HTML report
 yuantest show-report
 ```
 
 ---
 
-## Flaky 测试管理
+## Flaky Test Management
 
-### 查看和管理 Flaky 测试
+### View and Manage Flaky Tests
 
 ```bash
-# 查看 Flaky 统计
+# View flaky statistics
 yuantest flaky
 
-# 列出所有 Flaky 测试（JSON 格式）
+# List all flaky tests (JSON format)
 yuantest flaky --list --json
 
-# 列出已隔离的测试
+# List quarantined tests
 yuantest flaky --quarantined
 
-# 隔离特定测试
+# Quarantine specific test
 yuantest flaky --quarantine <test-id>
 
-# 释放特定测试
+# Release specific test
 yuantest flaky --release <test-id>
 
-# 自定义阈值
+# Custom threshold
 yuantest flaky --list --threshold 0.5
 ```
 
-### 健康度指标
+### Health Metrics
 
 ```bash
-# 查看测试健康度
+# View test health
 yuantest health
 
-# JSON 格式输出
+# JSON format output
 yuantest health --json
 ```
 
-### 失败预测
+### Failure Prediction
 
 ```bash
-# 查看高风险测试
+# View high-risk tests
 yuantest prediction --high-risk
 
-# 查看指定测试的预测结果
+# View prediction results for specific test
 yuantest prediction --test <test-id>
 
-# 查看执行时间异常的测试
+# View tests with execution time anomalies
 yuantest prediction --duration-anomalies
 
-# JSON 格式输出
+# JSON format output
 yuantest prediction --high-risk --json
 ```
 
-### 关联分析
+### Correlation Analysis
 
 ```bash
-# 查看测试关联分析
+# View test correlation analysis
 yuantest correlations
 
-# JSON 格式输出
+# JSON format output
 yuantest correlations --json
 ```
 
-### 测试历史
+### Test History
 
 ```bash
-# 查看指定测试的历史记录
+# View history for specific test
 yuantest test-history <test-id>
 
-# 分页查看
+# Paginated view
 yuantest test-history <test-id> --page 2 --page-size 20
 
-# JSON 格式输出
+# JSON format output
 yuantest test-history <test-id> --json
 ```
 
 ---
 
-## AI 诊断
+## AI Diagnostics
 
-### 分析测试结果
+### Analyze Test Results
 
 ```bash
-# 分析特定运行的失败原因
+# Analyze failure reasons for specific run
 yuantest analyze --id run_20240101_120000_abc123
 
-# 使用 AI 诊断
+# Use AI diagnostics
 yuantest analyze --id run_20240101_120000_abc123 --ai
 
-# JSON 格式输出
+# JSON format output
 yuantest analyze --id run_20240101_120000_abc123 --ai --json
 ```
 
-### LLM 配置管理
+### LLM Configuration Management
 
 ```bash
-# 查看当前 LLM 配置（API Key 脱敏）
+# View current LLM configuration (API Key masked)
 yuantest llm-config --show
 
-# 设置 LLM 配置
+# Set LLM configuration
 yuantest llm-config --set '{"apiKey":"sk-xxx","baseUrl":"https://api.openai.com/v1","model":"gpt-4"}'
 
-# 测试 LLM 连接
+# Test LLM connection
 yuantest llm-config --test
 
-# 查看 LLM 状态
+# View LLM status
 yuantest llm-config --status
 ```
 
-### 错误模式管理
+### Error Pattern Management
 
 ```bash
-# 列出所有错误模式
+# List all error patterns
 yuantest error-patterns --list
 
-# 仅列出自定义模式
+# List only custom patterns
 yuantest error-patterns --custom
 
-# 添加自定义错误模式
-yuantest error-patterns --add '{"name":"自定义模式","pattern":"CustomError","category":"unknown"}'
+# Add custom error pattern
+yuantest error-patterns --add '{"name":"Custom Pattern","pattern":"CustomError","category":"unknown"}'
 
-# 删除自定义错误模式
+# Delete custom error pattern
 yuantest error-patterns --delete <pattern-id>
 
-# JSON 格式输出
+# JSON format output
 yuantest error-patterns --list --json
 ```
 
 ---
 
-## 测试重跑
+## Test Rerun
 
 ```bash
-# 重跑指定测试
+# Rerun specific test
 yuantest rerun <run-id> <test-id>
 ```
 
-系统会从报告中查找指定测试的文件和行信息，以 `testLocations` 方式重新执行该测试，并更新原报告中的结果。
+The system will find the file and line information for the specified test from the report, re-execute the test using `testLocations`, and update the results in the original report.
 
 ---
 
-## Trace 管理
+## Trace Management
 
 ```bash
-# 列出所有 Trace 文件
+# List all trace files
 yuantest trace list
 
-# 查看 Trace 详情
+# View trace details
 yuantest trace show <trace-id>
 
-# 删除 Trace 文件
+# Delete trace file
 yuantest trace delete <trace-id>
 ```
 
 ---
 
-## 注解和标签
+## Annotations and Tags
 
-### 注解扫描
+### Annotation Scanning
 
 ```bash
-# 扫描测试文件中的注解
+# Scan annotations in test files
 yuantest annotations --scan
 
-# JSON 格式输出
+# JSON format output
 yuantest annotations --json
 ```
 
-支持的注解类型：`@skip`、`@only`、`@fail`、`@slow`、`@fixme`、`@todo`、`@serial`、`@parallel`
+Supported annotation types: `@skip`, `@only`, `@fail`, `@slow`, `@fixme`, `@todo`, `@serial`, `@parallel`
 
-### 标签管理
+### Tag Management
 
 ```bash
-# 列出所有标签
+# List all tags
 yuantest tags --list
 
-# JSON 格式输出
+# JSON format output
 yuantest tags --json
 ```
 
 ---
 
-## 产物管理
+## Artifact Management
 
 ```bash
-# 列出所有产物
+# List all artifacts
 yuantest artifacts list
 
-# 下载产物
+# Download artifact
 yuantest artifacts download <artifact-id>
 
-# 删除产物
+# Delete artifact
 yuantest artifacts delete <artifact-id>
 ```
 
-产物类型：截图（screenshot）、视频（video）、下载（download）、Trace（trace）、附件（attachment）
+Artifact types: screenshot, video, download, trace, attachment
 
 ---
 
-## 视觉测试
+## Visual Testing
 
 ```bash
-# 比较视觉测试结果
+# Compare visual test results
 yuantest visual compare
 
-# 审批视觉差异
+# Approve visual differences
 yuantest visual approve <test-id>
 
-# 更新基线
+# Update baseline
 yuantest visual baseline <test-id>
 ```
 
 ---
 
-## 启动 Dashboard
+## Start Dashboard
 
 ```bash
-# 默认端口 5274
+# Default port 5274
 yuantest ui
 
-# 自定义端口
+# Custom port
 yuantest ui --port 8080
 
-# 指定目录
+# Specify directories
 yuantest ui --port 5274 --output ./test-reports --data ./test-data
 
-# 不自动打开浏览器
+# Do not auto-open browser
 yuantest ui --no-open
 ```
 
 ---
 
-## 最佳实践
+## Best Practices
 
-### 开发调试
+### Development and Debugging
 
 ```bash
-# 运行单个测试文件
+# Run single test file
 yuantest run tests/login.spec.ts
 
-# 运行匹配的测试
-yuantest run --grep "登录"
+# Run matching tests
+yuantest run --grep "login"
 
-# 启用 Trace 和截图便于调试
+# Enable trace and screenshots for debugging
 yuantest run --trace on --screenshot on
 
-# 启动 Dashboard 查看结果
+# Start dashboard to view results
 yuantest ui
 ```
 
-### CI/CD 环境
+### CI/CD Environment
 
 ```bash
-# 完整测试套件
+# Full test suite
 yuantest run --test-dir ./e2e --shards 4 --retries 2 --output ./test-reports
 
-# 检查 Flaky 测试健康度
+# Check flaky test health
 yuantest health --json
 
-# 查看高风险测试
+# View high-risk tests
 yuantest prediction --high-risk --json
 
-# AI 诊断失败测试
+# AI diagnostics for failed tests
 yuantest analyze --id $RUN_ID --ai --json
 ```
 
-### 多浏览器测试
+### Multi-Browser Testing
 
 ```bash
-# 在所有浏览器上运行
+# Run on all browsers
 yuantest run --test-dir ./e2e --browsers chromium,firefox,webkit
 
-# 仅在特定浏览器上运行
+# Run on specific browser only
 yuantest run --test-dir ./e2e --browsers chromium
 
-# 指定浏览器项目过滤
+# Specify browser project filter
 yuantest run --project-filter chromium
 ```
 
-### Flaky 测试治理
+### Flaky Test Governance
 
 ```bash
-# 1. 查看当前 Flaky 状态
+# 1. View current flaky status
 yuantest flaky --list --json
 
-# 2. 查看健康度
+# 2. View health metrics
 yuantest health
 
-# 3. 查看关联分析（找出共因失败）
+# 3. View correlation analysis (find common-cause failures)
 yuantest correlations
 
-# 4. 查看失败预测
+# 4. View failure predictions
 yuantest prediction --high-risk
 
-# 5. AI 诊断根因
+# 5. AI diagnostics for root cause
 yuantest analyze --id $RUN_ID --ai
 ```

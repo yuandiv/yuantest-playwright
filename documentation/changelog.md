@@ -1,75 +1,74 @@
-# 更新日志
+# Changelog
 
-本文件记录了项目的所有重要变更。
+This file records all important changes to the project.
 
-格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
-本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.8] - 2026-05-06
 
-### 新增
+### Added
 
-#### AI 智能诊断
+#### AI Intelligent Diagnosis
 
-- **Diagnosis 模块** - 完整的 AI 智能诊断功能模块
-  - `cluster.ts` - 失败测试聚类分析
-  - `context-enricher.ts` - 测试上下文信息增强
-  - `knowledge-base.ts` - 知识库管理
-  - 智能失败原因分析和修复建议
-  - 支持多维度失败模式识别
+- **Diagnosis Module** - Complete AI intelligent diagnosis functionality module
+  - `cluster.ts` - Failed test cluster analysis
+  - `context-enricher.ts` - Test context information enrichment
+  - `knowledge-base.ts` - Knowledge base management
+  - Intelligent failure cause analysis and fix suggestions
+  - Support for multi-dimensional failure pattern recognition
 
-#### Flaky 测试智能分析
+#### Flaky Test Intelligent Analysis
 
-- **Flaky 分析增强** - Flaky 测试智能分析系统优化
-  - `causal-graph.ts` - 因果关系图分析
-  - `predictor.ts` - Flaky 测试预测器
-  - `quarantine-strategy.ts` - 隔离策略管理
-  - `trend.ts` - 趋势分析
-  - `classifier.ts` - Flaky 测试分类器
-  - `correlation.ts` - 相关性分析
-  - `root-cause.ts` - 根本原因分析
+- **Flaky Analysis Enhancement** - Flaky test intelligent analysis system optimization
+  - `causal-graph.ts` - Causal graph analysis
+  - `predictor.ts` - Flaky test predictor
+  - `quarantine-strategy.ts` - Quarantine strategy management
+  - `trend.ts` - Trend analysis
+  - `classifier.ts` - Flaky test classifier
+  - `correlation.ts` - Correlation analysis
+  - `root-cause.ts` - Root cause analysis
 
 ---
 
 ## [1.0.7] - 2026-04-29
 
-### 新增
+### Added
 
-#### Flaky 测试管理增强
+#### Flaky Test Management Enhancement
 
-- **Flaky 模块** - 增强 Flaky 测试管理功能
-  - 改进不稳定用例检测算法
-  - 优化隔离策略
-  - 增强历史数据追踪
+- **Flaky Module** - Enhanced Flaky test management functionality
+  - Improved unstable test case detection algorithm
+  - Optimized quarantine strategy
+  - Enhanced historical data tracking
 
 ---
 
 ## [1.0.6] - 2026-04-24
 
-### 新增
+### Added
 
-#### 实时报告
+#### Real-time Reporting
 
-- **Realtime 模块** - 新增实时报告功能
-  - 实时测试进度推送
-  - WebSocket 连接管理
-  - 事件广播机制
+- **Realtime Module** - Added real-time reporting functionality
+  - Real-time test progress push
+  - WebSocket connection management
+  - Event broadcasting mechanism
 
 ---
 
 ## [1.0.0] - 2026-04-11
 
-### 新增
+### Added
 
-#### 核心功能
+#### Core Features
 
-- **Orchestrator** - 智能测试编排，支持自动测试发现和智能分片
-- **Executor** - 通过 Playwright CLI 的测试执行引擎
-- **Reporter** - 全面的测试报告系统
-- **FlakyTestManager** - 自动检测和隔离不稳定用例
-- **Web Dashboard** - 测试管理的可视化界面
-- **CLI 工具** - 完整的命令行界面
+- **Orchestrator** - Intelligent test orchestration, supports automatic test discovery and smart sharding
+- **Executor** - Test execution engine via Playwright CLI
+- **Reporter** - Comprehensive test reporting system
+- **FlakyTestManager** - Automatic detection and quarantine of unstable test cases
+- **Web Dashboard** - Visual interface for test management
+- **CLI Tool** - Complete command-line interface
 
 ---
 
-查看完整更新日志请访问 [GitHub Releases](https://github.com/yuandiv/yuantest-playwright/releases)。
+For the complete changelog, visit [GitHub Releases](https://github.com/yuandiv/yuantest-playwright/releases).

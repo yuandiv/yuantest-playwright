@@ -1,41 +1,41 @@
-# YuanTest Playwright 系统架构概览
+# YuanTest Playwright System Architecture Overview
 
-## 1. 系统架构总览
+## 1. System Architecture Overview
 
-YuanTest Playwright 是一个智能化的端到端测试编排与执行平台，围绕测试生命周期提供从发现、编排、执行到分析、诊断、展示的完整闭环能力。
+YuanTest Playwright is an intelligent end-to-end test orchestration and execution platform that provides a complete closed-loop capability around the test lifecycle, from discovery, orchestration, execution to analysis, diagnosis, and visualization.
 
-### 1.1 核心架构图
+### 1.1 Core Architecture Diagram
 
 ```mermaid
 graph TB
-    subgraph 核心引擎
-        ORC[Orchestrator<br/>测试编排]
-        EXE[Executor<br/>测试执行]
-        RPT[Reporter<br/>报告生成]
+    subgraph Core Engine
+        ORC[Orchestrator<br/>Test Orchestration]
+        EXE[Executor<br/>Test Execution]
+        RPT[Reporter<br/>Report Generation]
     end
 
-    subgraph 智能分析
-        FTM[FlakyTestManager<br/>不稳定测试管理]
-        DIA[DiagnosisService<br/>AI智能诊断]
+    subgraph Intelligent Analysis
+        FTM[FlakyTestManager<br/>Flaky Test Management]
+        DIA[DiagnosisService<br/>AI Intelligent Diagnosis]
     end
 
-    subgraph 实时服务
-        RTS[RealtimeService<br/>实时推送]
-        DSB[DashboardServer<br/>Web UI 服务]
+    subgraph Realtime Services
+        RTS[RealtimeService<br/>Realtime Push]
+        DSB[DashboardServer<br/>Web UI Service]
     end
 
-    subgraph 存储层
-        STO[StorageProvider<br/>存储抽象层]
+    subgraph Storage Layer
+        STO[StorageProvider<br/>Storage Abstraction Layer]
     end
 
-    ORC -->|分片分配| EXE
-    EXE -->|进度与结果| RPT
-    RPT -->|测试结果| FTM
-    FTM -->|Flaky分析结果| DIA
-    DIA -->|诊断报告| DSB
-    RPT -->|报告数据| DSB
-    EXE -->|执行事件| RTS
-    RTS -->|WebSocket推送| DSB
+    ORC -->|Shard Assignment| EXE
+    EXE -->|Progress & Results| RPT
+    RPT -->|Test Results| FTM
+    FTM -->|Flaky Analysis Results| DIA
+    DIA -->|Diagnosis Report| DSB
+    RPT -->|Report Data| DSB
+    EXE -->|Execution Events| RTS
+    RTS -->|WebSocket Push| DSB
     ORC --> STO
     EXE --> STO
     RPT --> STO
@@ -43,18 +43,18 @@ graph TB
     DIA --> STO
 ```
 
-## 2. 数据流说明
+## 2. Data Flow Description
 
-系统遵循以下数据流管线，从测试发现到最终展示形成完整闭环：
+The system follows the data flow pipeline below, forming a complete closed loop from test discovery to final visualization:
 
 ```mermaid
 flowchart LR
-    A[测试发现] --> B[编排]
-    B --> C[执行]
-    C --> D[结果收集]
-    D --> E[报告生成]
-    E --> F[Flaky分析]
-    F --> G[Dashboard展示]
+    A[Test Discovery] --> B[Orchestration]
+    B --> C[Execution]
+    C --> D[Result Collection]
+    D --> E[Report Generation]
+    E --> F[Flaky Analysis]
+    F --> G[Dashboard Display]
 
     style A fill:#e1f5fe
     style B fill:#b3e5fc
@@ -65,72 +65,72 @@ flowchart LR
     style G fill:#0277bd
 ```
 
-| 阶段 | 说明 | 涉及模块 |
-|------|------|----------|
-| 测试发现 | 扫描项目中的测试文件，识别可执行测试用例 | Orchestrator |
-| 编排 | 根据 distributed/weighted/intelligent 策略进行分片分配 | Orchestrator |
-| 执行 | 调用 Playwright CLI 运行测试，支持多浏览器与分片并行 | Executor |
-| 结果收集 | 收集测试进度、通过/失败状态、错误信息等 | Executor → Reporter |
-| 报告生成 | 生成 HTML 报告，对失败用例进行 6 类分类分析 | Reporter |
-| Flaky分析 | 对不稳定测试进行分类、根因分析、趋势预测与隔离 | FlakyTestManager |
-| Dashboard展示 | 通过 Web UI 展示报告、诊断结果，实时推送执行状态 | DashboardServer + RealtimeService |
+| Phase | Description | Involved Modules |
+|-------|-------------|------------------|
+| Test Discovery | Scan test files in the project and identify executable test cases | Orchestrator |
+| Orchestration | Perform shard assignment based on distributed/weighted/intelligent strategies | Orchestrator |
+| Execution | Call Playwright CLI to run tests, supporting multi-browser and shard parallelism | Executor |
+| Result Collection | Collect test progress, pass/fail status, error information, etc. | Executor → Reporter |
+| Report Generation | Generate HTML reports, perform 6-category classification analysis for failed cases | Reporter |
+| Flaky Analysis | Classify flaky tests, perform root cause analysis, trend prediction, and isolation | FlakyTestManager |
+| Dashboard Display | Display reports and diagnosis results through Web UI, push execution status in real-time | DashboardServer + RealtimeService |
 
-## 3. 各模块职责说明
+## 3. Module Responsibilities
 
-### 3.1 Orchestrator — 测试编排
+### 3.1 Orchestrator — Test Orchestration
 
-- **源码位置**：[src/orchestrator/index.ts](file:///d:/Coding/yuantest-playwright/src/orchestrator/index.ts)
-- **核心职责**：负责测试任务的编排与调度，决定测试如何分配到不同分片执行
-- **关键能力**：
-  - **distributed 策略**：均匀分配测试用例到各分片
-  - **weighted 策略**：根据历史执行时长加权分配，平衡分片负载
-  - **intelligent 策略**：结合历史数据与 Flaky 信息智能编排，优先执行高价值测试
-  - **分片分配**：支持多分片并行执行，提升整体吞吐量
+- **Source Location**: [src/orchestrator/index.ts](file:///d:/Coding/yuantest-playwright/src/orchestrator/index.ts)
+- **Core Responsibility**: Responsible for test task orchestration and scheduling, determining how tests are assigned to different shards for execution
+- **Key Capabilities**:
+  - **distributed strategy**: Evenly distribute test cases to each shard
+  - **weighted strategy**: Weighted distribution based on historical execution duration to balance shard load
+  - **intelligent strategy**: Intelligent orchestration combining historical data and Flaky information, prioritizing high-value tests
+  - **Shard Assignment**: Support multi-shard parallel execution to improve overall throughput
 
-### 3.2 Executor — 测试执行
+### 3.2 Executor — Test Execution
 
-- **源码位置**：[src/executor/index.ts](file:///d:/Coding/yuantest-playwright/src/executor/index.ts)
-- **核心职责**：调用 Playwright CLI 执行测试，收集执行进度与结果
-- **关键能力**：
-  - 调用 Playwright CLI 运行测试用例
-  - 支持多浏览器并行执行（Chromium、Firefox、WebKit）
-  - 支持分片（shard）模式执行
-  - 实时收集执行进度与测试结果
-  - 将执行事件推送至 RealtimeService
+- **Source Location**: [src/executor/index.ts](file:///d:/Coding/yuantest-playwright/src/executor/index.ts)
+- **Core Responsibility**: Call Playwright CLI to execute tests, collect execution progress and results
+- **Key Capabilities**:
+  - Call Playwright CLI to run test cases
+  - Support multi-browser parallel execution (Chromium, Firefox, WebKit)
+  - Support shard mode execution
+  - Real-time collection of execution progress and test results
+  - Push execution events to RealtimeService
 
-### 3.3 Reporter — 报告生成
+### 3.3 Reporter — Report Generation
 
-- **源码位置**：[src/reporter/index.ts](file:///d:/Coding/yuantest-playwright/src/reporter/index.ts)
-- **核心职责**：生成测试报告，对失败用例进行分类分析
-- **关键能力**：
-  - 生成 HTML 格式的可视化测试报告
-  - 失败用例 6 类分类分析：
-    | 分类 | 说明 |
-    |------|------|
-    | assertion | 断言失败，预期与实际不符 |
-    | timeout | 执行超时，未在规定时间内完成 |
-    | network | 网络问题，请求失败或响应异常 |
-    | selector | 选择器失效，元素定位失败 |
-    | frame | 页面框架问题，iframe 或导航异常 |
-    | auth | 认证授权问题，登录态失效 |
+- **Source Location**: [src/reporter/index.ts](file:///d:/Coding/yuantest-playwright/src/reporter/index.ts)
+- **Core Responsibility**: Generate test reports, perform classification analysis for failed cases
+- **Key Capabilities**:
+  - Generate HTML format visualized test reports
+  - Failed case 6-category classification analysis:
+    | Category | Description |
+    |----------|-------------|
+    | assertion | Assertion failure, expected value does not match actual value |
+    | timeout | Execution timeout, not completed within specified time |
+    | network | Network issue, request failed or abnormal response |
+    | selector | Selector failure, element location failed |
+    | frame | Page frame issue, iframe or navigation abnormality |
+    | auth | Authentication/authorization issue, login state expired |
 
-### 3.4 FlakyTestManager — 不稳定测试管理
+### 3.4 FlakyTestManager — Flaky Test Management
 
-- **源码位置**：[src/flaky/index.ts](file:///d:/Coding/yuantest-playwright/src/flaky/index.ts)
-- **核心职责**：识别、分析和管理不稳定（Flaky）测试
-- **子模块说明**：
+- **Source Location**: [src/flaky/index.ts](file:///d:/Coding/yuantest-playwright/src/flaky/index.ts)
+- **Core Responsibility**: Identify, analyze, and manage flaky tests
+- **Submodule Description**:
 
 ```mermaid
 graph TB
     FTM[FlakyTestManager]
 
-    FTM --> CLS[classifier.ts<br/>分类器]
-    FTM --> RC[root-cause.ts<br/>根因分析]
-    FTM --> COR[correlation.ts<br/>关联分析]
-    FTM --> TRD[trend.ts<br/>趋势分析]
-    FTM --> PRD[predictor.ts<br/>预测]
-    FTM --> CG[causal-graph.ts<br/>因果图]
-    FTM --> QS[quarantine-strategy.ts<br/>隔离策略]
+    FTM --> CLS[classifier.ts<br/>Classifier]
+    FTM --> RC[root-cause.ts<br/>Root Cause Analysis]
+    FTM --> COR[correlation.ts<br/>Correlation Analysis]
+    FTM --> TRD[trend.ts<br/>Trend Analysis]
+    FTM --> PRD[predictor.ts<br/>Predictor]
+    FTM --> CG[causal-graph.ts<br/>Causal Graph]
+    FTM --> QS[quarantine-strategy.ts<br/>Quarantine Strategy]
 
     style FTM fill:#ff8a65
     style CLS fill:#ffab91
@@ -142,76 +142,76 @@ graph TB
     style QS fill:#ffab91
 ```
 
-| 子模块 | 职责 |
-|--------|------|
-| classifier.ts | 对不稳定测试进行分类，识别 Flaky 模式 |
-| root-cause.ts | 深入分析不稳定测试的根本原因 |
-| correlation.ts | 分析测试之间的关联性，识别级联失败 |
-| trend.ts | 追踪不稳定测试的历史趋势变化 |
-| predictor.ts | 基于历史数据预测测试的稳定性概率 |
-| causal-graph.ts | 构建因果关系图，揭示失败传播路径 |
-| quarantine-strategy.ts | 制定隔离策略，将高 Flaky 测试隔离执行 |
+| Submodule | Responsibility |
+|-----------|----------------|
+| classifier.ts | Classify flaky tests and identify Flaky patterns |
+| root-cause.ts | Deep analysis of root causes for flaky tests |
+| correlation.ts | Analyze correlations between tests, identify cascade failures |
+| trend.ts | Track historical trend changes of flaky tests |
+| predictor.ts | Predict test stability probability based on historical data |
+| causal-graph.ts | Build causal relationship graphs, reveal failure propagation paths |
+| quarantine-strategy.ts | Develop quarantine strategies, isolate high Flaky tests for execution |
 
-### 3.5 DiagnosisService — AI 智能诊断
+### 3.5 DiagnosisService — AI Intelligent Diagnosis
 
-- **源码位置**：[src/diagnosis/index.ts](file:///d:/Coding/yuantest-playwright/src/diagnosis/index.ts)
-- **核心职责**：利用 AI Agent 对测试失败进行智能诊断
-- **关键能力**：
-  - **context-enricher.ts**：上下文富集，为诊断提供充分的上下文信息（代码片段、执行日志、环境信息等）
-  - **knowledge-base.ts**：知识库，积累历史诊断经验与常见模式
-  - **Agent 多轮推理**：通过多轮对话式推理，逐步缩小问题范围，给出诊断结论与修复建议
+- **Source Location**: [src/diagnosis/index.ts](file:///d:/Coding/yuantest-playwright/src/diagnosis/index.ts)
+- **Core Responsibility**: Use AI Agent for intelligent diagnosis of test failures
+- **Key Capabilities**:
+  - **context-enricher.ts**: Context enrichment, providing sufficient context information for diagnosis (code snippets, execution logs, environment information, etc.)
+  - **knowledge-base.ts**: Knowledge base, accumulating historical diagnosis experience and common patterns
+  - **Agent Multi-turn Reasoning**: Through multi-turn conversational reasoning, gradually narrow down the problem scope and provide diagnosis conclusions and fix suggestions
 
-### 3.6 DashboardServer — Web UI 服务
+### 3.6 DashboardServer — Web UI Service
 
-- **源码位置**：[src/ui/server.ts](file:///d:/Coding/yuantest-playwright/src/ui/server.ts)
-- **核心职责**：提供 Web 界面，展示测试报告、诊断结果与实时状态
-- **关键能力**：
-  - REST API（`/api/v1/`）提供数据查询接口
-  - WebSocket 实时推送测试执行状态
-  - 可视化展示报告、Flaky 分析、诊断结果
+- **Source Location**: [src/ui/server.ts](file:///d:/Coding/yuantest-playwright/src/ui/server.ts)
+- **Core Responsibility**: Provide Web interface to display test reports, diagnosis results, and real-time status
+- **Key Capabilities**:
+  - REST API (`/api/v1/`) provides data query interfaces
+  - WebSocket real-time push of test execution status
+  - Visualized display of reports, Flaky analysis, and diagnosis results
 
-### 3.7 RealtimeService — 实时推送服务
+### 3.7 RealtimeService — Realtime Push Service
 
-- **源码位置**：[src/realtime/index.ts](file:///d:/Coding/yuantest-playwright/src/realtime/index.ts)
-- **核心职责**：通过 WebSocket 将测试执行事件实时推送给客户端
-- **关键能力**：
-  - WebSocket 事件驱动架构
-  - 测试开始、进度更新、测试完成等事件推送
-  - 与 DashboardServer 协同工作
+- **Source Location**: [src/realtime/index.ts](file:///d:/Coding/yuantest-playwright/src/realtime/index.ts)
+- **Core Responsibility**: Push test execution events to clients in real-time via WebSocket
+- **Key Capabilities**:
+  - WebSocket event-driven architecture
+  - Test start, progress update, test completion event push
+  - Collaborate with DashboardServer
 
-### 3.8 StorageProvider — 存储抽象层
+### 3.8 StorageProvider — Storage Abstraction Layer
 
-- **源码位置**：[src/storage/index.ts](file:///d:/Coding/yuantest-playwright/src/storage/index.ts)
-- **核心职责**：提供统一的存储抽象接口，屏蔽底层存储实现细节
-- **关键能力**：
-  - 文件存储实现
-  - 统一的读写接口，各模块通过 StorageProvider 访问数据
-  - 支持未来扩展至数据库等其他存储后端
+- **Source Location**: [src/storage/index.ts](file:///d:/Coding/yuantest-playwright/src/storage/index.ts)
+- **Core Responsibility**: Provide unified storage abstraction interface, shielding underlying storage implementation details
+- **Key Capabilities**:
+  - File storage implementation
+  - Unified read/write interface, all modules access data through StorageProvider
+  - Support future extension to databases and other storage backends
 
-## 4. 存储架构说明
+## 4. Storage Architecture
 
-### 4.1 目录布局
+### 4.1 Directory Layout
 
 ```
-项目根目录/
-├── test-data/                  # 运行数据
-│   ├── flaky-history.json      # 不稳定测试历史记录
-│   └── user-preferences.json   # 用户偏好配置
-├── test-reports/               # 测试报告
-│   ├── *.json                  # JSON 格式报告数据
-│   └── *.html                  # HTML 格式可视化报告
-└── test-output/                # 默认输出目录
+Project Root/
+├── test-data/                  # Runtime Data
+│   ├── flaky-history.json      # Flaky Test History Records
+│   └── user-preferences.json   # User Preference Configuration
+├── test-reports/               # Test Reports
+│   ├── *.json                  # JSON Format Report Data
+│   └── *.html                  # HTML Format Visualized Reports
+└── test-output/                # Default Output Directory
 ```
 
-### 4.2 各目录职责
+### 4.2 Directory Responsibilities
 
-| 目录 | 用途 | 读写模块 |
-|------|------|----------|
-| `./test-data/` | 存储运行时产生的持久化数据，包括 Flaky 历史记录和用户偏好 | FlakyTestManager、Orchestrator |
-| `./test-reports/` | 存储测试报告，包含 JSON 结构化数据和 HTML 可视化报告 | Reporter、DashboardServer |
-| `./test-output/` | 默认输出目录，存放执行过程中的临时输出 | Executor |
+| Directory | Purpose | Read/Write Modules |
+|-----------|---------|-------------------|
+| `./test-data/` | Store persistent data generated at runtime, including Flaky history records and user preferences | FlakyTestManager, Orchestrator |
+| `./test-reports/` | Store test reports, including JSON structured data and HTML visualized reports | Reporter, DashboardServer |
+| `./test-output/` | Default output directory, storing temporary output during execution | Executor |
 
-### 4.3 存储访问模式
+### 4.3 Storage Access Pattern
 
 ```mermaid
 flowchart TB
@@ -221,7 +221,7 @@ flowchart TB
     FTM[FlakyTestManager] --> STO
     DIA[DiagnosisService] --> STO
 
-    STO --> FS[文件系统]
+    STO --> FS[File System]
 
     subgraph test-data
         FH[flaky-history.json]
@@ -229,12 +229,12 @@ flowchart TB
     end
 
     subgraph test-reports
-        JR[JSON 报告]
-        HR[HTML 报告]
+        JR[JSON Reports]
+        HR[HTML Reports]
     end
 
     subgraph test-output
-        TO[执行输出]
+        TO[Execution Output]
     end
 
     FS --> test-data
@@ -242,4 +242,4 @@ flowchart TB
     FS --> test-output
 ```
 
-所有模块通过 StorageProvider 统一访问存储层，避免直接操作文件系统，确保数据一致性与可扩展性。当前实现基于文件存储，未来可替换为数据库或其他存储后端，无需修改业务模块代码。
+All modules access the storage layer uniformly through StorageProvider, avoiding direct file system operations to ensure data consistency and extensibility. The current implementation is based on file storage, which can be replaced with databases or other storage backends in the future without modifying business module code.

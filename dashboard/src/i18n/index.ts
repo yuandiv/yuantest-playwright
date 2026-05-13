@@ -393,6 +393,7 @@ const zh: Record<string, string> = {
   viewFailureAnalysis: '失败分析',
   backToFlakyTests: '不稳定用例',
   paginationInfo: '显示第 {start}-{end} 条，共 {total} 条',
+  helpDocs: '帮助文档',
 };
 
 const en: Record<string, string> = {
@@ -791,6 +792,7 @@ const en: Record<string, string> = {
   viewFailureAnalysis: 'Failure Analysis',
   backToFlakyTests: 'Flaky Tests',
   paginationInfo: 'Showing {start}-{end} of {total} entries',
+  helpDocs: 'Help',
 };
 
 const translations: Record<string, Record<string, string>> = { zh, en };

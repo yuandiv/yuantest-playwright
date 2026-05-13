@@ -1,799 +1,799 @@
-# CLI 命令参考
+# CLI Command Reference
 
-YuanTest Playwright 提供完整的命令行工具，用于测试编排、执行、报告和分析。
+YuanTest Playwright provides a complete command-line tool for test orchestration, execution, reporting, and analysis.
 
-## 全局选项
+## Global Options
 
 ```bash
-yuantest --help       # 查看帮助
-yuantest --version    # 查看版本（1.0.0）
+yuantest --help       # View help
+yuantest --version    # View version (1.0.0)
 ```
 
-不带任何参数运行 `yuantest` 将显示帮助信息。
+Running `yuantest` without any parameters will display the help information.
 
 ---
 
-## 1. run - 执行测试
+## 1. run - Execute Tests
 
-运行 Playwright 测试，支持编排、重试、多浏览器、Trace、截图、视频等功能。
+Run Playwright tests with support for orchestration, retries, multiple browsers, traces, screenshots, videos, and more.
 
-### 用法
+### Usage
 
 ```bash
 yuantest run [testFiles...] [options]
 ```
 
-`testFiles` 为可选的位置参数，指定要运行的测试文件路径。若不指定，则运行配置目录下的所有测试。
+`testFiles` is an optional positional parameter specifying the test file paths to run. If not specified, all tests in the configuration directory will be run.
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--config` | `-c` | 配置文件路径 | |
-| `--project` | `-p` | 项目名称 | |
-| `--test-dir` | `-t` | 测试文件目录 | |
-| `--output` | `-o` | 输出目录 | ./test-reports |
-| `--shards` | `-s` | 分片数量 | 1 |
-| `--workers` | `-w` | Worker 数量 | 1 |
-| `--browsers` | `-b` | 浏览器列表（逗号分隔） | chromium |
-| `--base-url` | | 测试基础 URL | |
-| `--timeout` | | 测试超时时间（毫秒） | 30000 |
-| `--retries` | | 重试次数 | 0 |
-| `--trace` | | Trace 模式：off, on, retain-on-failure, on-first-retry | on-first-retry |
-| `--screenshot` | | 截图模式：off, on, only-on-failure | only-on-failure |
-| `--video` | | 视频模式：off, on, retain-on-failure, on-first-retry | retain-on-failure |
-| `--tags` | | 仅运行包含指定标签的测试（逗号分隔） | |
-| `--grep` | | 通过正则匹配过滤测试 | |
-| `--project-filter` | | 仅运行指定浏览器项目 | |
-| `--update-snapshots` | | 更新视觉测试快照 | false |
-| `--visual-threshold` | | 视觉差异阈值（0-1） | 0.2 |
-| `--annotations` | | 启用注解扫描 | false |
-| `--html-report` | | 生成 Playwright HTML 报告 | true |
+| `--config` | `-c` | Configuration file path | |
+| `--project` | `-p` | Project name | |
+| `--test-dir` | `-t` | Test file directory | |
+| `--output` | `-o` | Output directory | ./test-reports |
+| `--shards` | `-s` | Number of shards | 1 |
+| `--workers` | `-w` | Number of workers | 1 |
+| `--browsers` | `-b` | Browser list (comma-separated) | chromium |
+| `--base-url` | | Test base URL | |
+| `--timeout` | | Test timeout (milliseconds) | 30000 |
+| `--retries` | | Number of retries | 0 |
+| `--trace` | | Trace mode: off, on, retain-on-failure, on-first-retry | on-first-retry |
+| `--screenshot` | | Screenshot mode: off, on, only-on-failure | only-on-failure |
+| `--video` | | Video mode: off, on, retain-on-failure, on-first-retry | retain-on-failure |
+| `--tags` | | Only run tests with specified tags (comma-separated) | |
+| `--grep` | | Filter tests by regex match | |
+| `--project-filter` | | Only run specified browser projects | |
+| `--update-snapshots` | | Update visual test snapshots | false |
+| `--visual-threshold` | | Visual difference threshold (0-1) | 0.2 |
+| `--annotations` | | Enable annotation scanning | false |
+| `--html-report` | | Generate Playwright HTML report | true |
 
-### 示例
+### Examples
 
 ```bash
-# 基本用法
+# Basic usage
 yuantest run --test-dir ./
 
-# 指定项目名称和输出目录
+# Specify project name and output directory
 yuantest run --project my-app --test-dir ./e2e --output ./reports
 
-# 并行执行（4 分片，2 Worker）
+# Parallel execution (4 shards, 2 workers)
 yuantest run --test-dir ./ --shards 4 --workers 2
 
-# 多浏览器测试
+# Multi-browser testing
 yuantest run --test-dir ./ --browsers chromium,firefox,webkit
 
-# 运行匹配的测试
+# Run matching tests
 yuantest run --test-dir ./ --grep "smoke"
 
-# 设置超时和重试
+# Set timeout and retries
 yuantest run --test-dir ./ --timeout 60000 --retries 2
 
-# 按标签过滤
+# Filter by tags
 yuantest run --test-dir ./ --tags smoke,regression
 
-# 启用 Trace 和视频
+# Enable trace and video
 yuantest run --test-dir ./ --trace on --video on
 
-# 启用注解扫描
+# Enable annotation scanning
 yuantest run --test-dir ./ --annotations
 
-# 更新视觉测试快照
+# Update visual test snapshots
 yuantest run --test-dir ./ --update-snapshots --visual-threshold 0.1
 
-# 指定特定测试文件
+# Specify specific test files
 yuantest run tests/login.spec.ts tests/cart.spec.ts
 
-# 仅运行特定浏览器项目
+# Only run specific browser projects
 yuantest run --test-dir ./ --project-filter chromium
 ```
 
 ---
 
-## 2. orchestrate - 编排测试
+## 2. orchestrate - Orchestrate Tests
 
-预览测试分片分配计划，不实际执行测试。
+Preview test shard allocation plan without actually executing tests.
 
-### 用法
+### Usage
 
 ```bash
 yuantest orchestrate [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--test-dir` | `-t` | 测试文件目录 | ./ |
-| `--shards` | `-s` | 分片数量 | 1 |
+| `--test-dir` | `-t` | Test file directory | ./ |
+| `--shards` | `-s` | Number of shards | 1 |
 
-### 示例
+### Examples
 
 ```bash
-# 查看默认目录的分片分配
+# View shard allocation for default directory
 yuantest orchestrate
 
-# 查看指定目录的 4 分片分配计划
+# View 4-shard allocation plan for specified directory
 yuantest orchestrate --test-dir ./e2e --shards 4
 ```
 
 ---
 
-## 3. report - 查看报告
+## 3. report - View Reports
 
-查看测试运行报告。
+View test run reports.
 
-### 用法
+### Usage
 
 ```bash
 yuantest report [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--limit` | `-l` | 显示最近报告数量 | 10 |
-| `--id` | `-i` | 查看特定运行 ID 的报告 | |
-| `--open` | `-o` | 在浏览器中打开报告 | |
+| `--limit` | `-l` | Number of recent reports to show | 10 |
+| `--id` | `-i` | View report for specific run ID | |
+| `--open` | `-o` | Open report in browser | |
 
-### 示例
+### Examples
 
 ```bash
-# 查看最近 10 条报告
+# View recent 10 reports
 yuantest report --limit 10
 
-# 查看特定运行的详细报告
+# View detailed report for specific run
 yuantest report --id run_20240101_120000_abc123
 
-# 在浏览器中打开报告
+# Open report in browser
 yuantest report --id run_20240101_120000_abc123 --open
 ```
 
 ---
 
-## 4. flaky - Flaky 测试管理
+## 4. flaky - Flaky Test Management
 
-管理和查看不稳定（Flaky）测试，支持隔离和释放操作。
+Manage and view flaky tests, supporting quarantine and release operations.
 
-### 用法
+### Usage
 
 ```bash
 yuantest flaky [options]
 ```
 
-不带任何选项时，显示 Flaky 测试统计信息。
+When run without any options, displays flaky test statistics.
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--list` | `-l` | 列出所有 Flaky 测试 | |
-| `--quarantined` | `-q` | 列出已隔离的测试 | |
-| `--quarantine` | | 隔离指定测试（传入测试 ID） | |
-| `--release` | | 释放指定测试（传入测试 ID） | |
-| `--threshold` | | Flaky 阈值（0-1），失败率超过此值视为 Flaky | 0.3 |
+| `--list` | `-l` | List all flaky tests | |
+| `--quarantined` | `-q` | List quarantined tests | |
+| `--quarantine` | | Quarantine specified test (pass test ID) | |
+| `--release` | | Release specified test (pass test ID) | |
+| `--threshold` | | Flaky threshold (0-1), tests with failure rate above this are considered flaky | 0.3 |
 
-### 示例
+### Examples
 
 ```bash
-# 查看 Flaky 测试统计
+# View flaky test statistics
 yuantest flaky
 
-# 列出所有 Flaky 测试
+# List all flaky tests
 yuantest flaky --list
 
-# 列出所有 Flaky 测试（自定义阈值 50%）
+# List all flaky tests (custom threshold 50%)
 yuantest flaky --list --threshold 0.5
 
-# 列出已隔离的测试
+# List quarantined tests
 yuantest flaky --quarantined
 
-# 隔离特定测试
+# Quarantine specific test
 yuantest flaky --quarantine test-id-123
 
-# 释放特定测试
+# Release specific test
 yuantest flaky --release test-id-123
 ```
 
 ---
 
-## 5. ui - 启动 Dashboard
+## 5. ui - Launch Dashboard
 
-启动 Web Dashboard 可视化界面。
+Launch the Web Dashboard visual interface.
 
-### 用法
+### Usage
 
 ```bash
 yuantest ui [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--port` | `-p` | 服务端口 | 5274 |
-| `--output` | `-o` | 报告目录 | |
-| `--data` | `-d` | 数据目录 | |
+| `--port` | `-p` | Server port | 5274 |
+| `--output` | `-o` | Report directory | |
+| `--data` | `-d` | Data directory | |
 
-> 若未指定 `--output` 和 `--data`，将从配置文件加载 Dashboard 配置。
+> If `--output` and `--data` are not specified, Dashboard configuration will be loaded from the configuration file.
 
-### 示例
+### Examples
 
 ```bash
-# 默认端口启动
+# Start with default port
 yuantest ui
 
-# 自定义端口
+# Custom port
 yuantest ui --port 8080
 
-# 指定报告和数据目录
+# Specify report and data directories
 yuantest ui --port 5274 --output ./reports --data ./test-data
 ```
 
 ---
 
-## 6. analyze - 分析测试结果
+## 6. analyze - Analyze Test Results
 
-分析测试失败原因，支持 AI 诊断和聚类分析。
+Analyze test failure causes with support for AI diagnostics and cluster analysis.
 
-### 用法
+### Usage
 
 ```bash
 yuantest analyze [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--id` | `-i` | 运行 ID（必填） | |
-| `--json` | | 以 JSON 格式输出 | |
-| `--ai` | | 启用 AI 诊断每个失败 | |
-| `--cluster` | | 对失败进行聚类分析 | |
-| `--filter` | | 按类别过滤失败（timeout/selector/network/assertion/frame/auth/unknown） | |
+| `--id` | `-i` | Run ID (required) | |
+| `--json` | | Output in JSON format | |
+| `--ai` | | Enable AI diagnostics for each failure | |
+| `--cluster` | | Perform cluster analysis on failures | |
+| `--filter` | | Filter failures by category (timeout/selector/network/assertion/frame/auth/unknown) | |
 
-### 示例
+### Examples
 
 ```bash
-# 分析特定运行的失败原因
+# Analyze failures for specific run
 yuantest analyze --id run_20240101_120000_abc123
 
-# 启用 AI 诊断
+# Enable AI diagnostics
 yuantest analyze --id run_20240101_120000_abc123 --ai
 
-# 以 JSON 格式输出
+# Output in JSON format
 yuantest analyze --id run_20240101_120000_abc123 --json
 
-# 按类别过滤
+# Filter by category
 yuantest analyze --id run_20240101_120000_abc123 --filter timeout
 
-# 聚类分析
+# Cluster analysis
 yuantest analyze --id run_20240101_120000_abc123 --cluster
 
-# 组合使用：AI 诊断 + 聚类分析 + JSON 输出
+# Combined usage: AI diagnostics + cluster analysis + JSON output
 yuantest analyze --id run_20240101_120000_abc123 --ai --cluster --json
 ```
 
 ---
 
-## 7. trace - Trace 文件管理
+## 7. trace - Trace File Management
 
-管理和查看 Playwright Trace 文件。
+Manage and view Playwright trace files.
 
-### 用法
+### Usage
 
 ```bash
 yuantest trace [options]
 ```
 
-不带任何选项时，列出所有 Trace 文件（最多显示 20 条）。
+When run without any options, lists all trace files (up to 20).
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--list` | `-l` | 列出所有 Trace 文件 | |
-| `--dir` | | Trace 文件目录 | ./traces |
-| `--view` | | 在查看器中打开指定 Trace 文件 | |
-| `--port` | | Trace 查看器端口 | 9323 |
-| `--clean` | | 清理 7 天前的旧 Trace 文件 | false |
-| `--stats` | | 显示 Trace 统计信息 | false |
+| `--list` | `-l` | List all trace files | |
+| `--dir` | | Trace file directory | ./traces |
+| `--view` | | Open specified trace file in viewer | |
+| `--port` | | Trace viewer port | 9323 |
+| `--clean` | | Clean trace files older than 7 days | false |
+| `--stats` | | Display trace statistics | false |
 
-### 示例
+### Examples
 
 ```bash
-# 列出所有 Trace 文件
+# List all trace files
 yuantest trace
 
-# 指定 Trace 目录
+# Specify trace directory
 yuantest trace --dir ./my-traces
 
-# 在查看器中打开 Trace 文件
+# Open trace file in viewer
 yuantest trace --view ./traces/login-failure.zip
 
-# 指定查看器端口
+# Specify viewer port
 yuantest trace --view ./traces/login-failure.zip --port 9999
 
-# 清理旧 Trace 文件
+# Clean old trace files
 yuantest trace --clean
 
-# 查看 Trace 统计信息
+# View trace statistics
 yuantest trace --stats
 ```
 
 ---
 
-## 8. annotations - 注解扫描和管理
+## 8. annotations - Annotation Scanning and Management
 
-扫描和管理测试注解（@skip、@fixme、@fail、@slow 等）。
+Scan and manage test annotations (@skip, @fixme, @fail, @slow, etc.).
 
-### 用法
+### Usage
 
 ```bash
 yuantest annotations [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--test-dir` | `-t` | 测试文件目录 | ./ |
-| `--output` | `-o` | 输出报告路径 | ./annotation-report.json |
+| `--test-dir` | `-t` | Test file directory | ./ |
+| `--output` | `-o` | Output report path | ./annotation-report.json |
 
-### 示例
+### Examples
 
 ```bash
-# 扫描当前目录的注解
+# Scan annotations in current directory
 yuantest annotations
 
-# 指定测试目录
+# Specify test directory
 yuantest annotations --test-dir ./e2e
 
-# 指定输出报告路径
+# Specify output report path
 yuantest annotations --test-dir ./e2e --output ./reports/annotations.json
 ```
 
 ---
 
-## 9. tags - 标签管理
+## 9. tags - Tag Management
 
-扫描和管理测试标签。
+Scan and manage test tags.
 
-### 用法
+### Usage
 
 ```bash
 yuantest tags [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--test-dir` | `-t` | 测试文件目录 | ./ |
-| `--output` | `-o` | 输出报告路径 | ./tag-report.json |
-| `--run` | | 运行指定标签的测试（逗号分隔） | |
+| `--test-dir` | `-t` | Test file directory | ./ |
+| `--output` | `-o` | Output report path | ./tag-report.json |
+| `--run` | | Run tests with specified tags (comma-separated) | |
 
-### 示例
+### Examples
 
 ```bash
-# 扫描当前目录的标签
+# Scan tags in current directory
 yuantest tags
 
-# 指定测试目录
+# Specify test directory
 yuantest tags --test-dir ./e2e
 
-# 指定输出报告路径
+# Specify output report path
 yuantest tags --test-dir ./e2e --output ./reports/tags.json
 
-# 运行指定标签的测试
+# Run tests with specified tags
 yuantest tags --test-dir ./e2e --run smoke,regression
 ```
 
 ---
 
-## 10. artifacts - 产物管理
+## 10. artifacts - Artifact Management
 
-管理测试产物（截图、视频等）。
+Manage test artifacts (screenshots, videos, etc.).
 
-### 用法
+### Usage
 
 ```bash
 yuantest artifacts [options]
 ```
 
-不带任何选项时，列出所有产物。
+When run without any options, lists all artifacts.
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--list` | `-l` | 列出所有产物 | |
-| `--dir` | | 产物目录 | ./artifacts |
-| `--stats` | | 显示产物统计信息 | false |
-| `--clean` | | 清理 7 天前的旧产物 | false |
-| `--run-id` | | 按运行 ID 过滤产物 | |
+| `--list` | `-l` | List all artifacts | |
+| `--dir` | | Artifact directory | ./artifacts |
+| `--stats` | | Display artifact statistics | false |
+| `--clean` | | Clean artifacts older than 7 days | false |
+| `--run-id` | | Filter artifacts by run ID | |
 
-### 示例
+### Examples
 
 ```bash
-# 列出所有产物
+# List all artifacts
 yuantest artifacts
 
-# 指定产物目录
+# Specify artifact directory
 yuantest artifacts --dir ./my-artifacts
 
-# 查看产物统计信息
+# View artifact statistics
 yuantest artifacts --stats
 
-# 按运行 ID 过滤
+# Filter by run ID
 yuantest artifacts --run-id run_20240101_120000_abc123
 
-# 清理旧产物
+# Clean old artifacts
 yuantest artifacts --clean
 ```
 
 ---
 
-## 11. visual - 视觉测试管理
+## 11. visual - Visual Test Management
 
-视觉测试管理，包括截图对比和基线管理。
+Visual test management, including screenshot comparison and baseline management.
 
-### 用法
+### Usage
 
 ```bash
 yuantest visual [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 说明 | 默认值 |
+| Parameter | Description | Default |
 |------|------|--------|
-| `--dir` | 视觉测试目录 | ./visual-testing |
-| `--threshold` | 差异阈值（0-1） | 0.2 |
-| `--update` | 使用当前截图更新所有基线 | false |
-| `--report` | 生成视觉测试报告 | ./visual-report.json |
-| `--stats` | 显示视觉测试统计信息 | false |
+| `--dir` | Visual test directory | ./visual-testing |
+| `--threshold` | Difference threshold (0-1) | 0.2 |
+| `--update` | Update all baselines with current screenshots | false |
+| `--report` | Generate visual test report | ./visual-report.json |
+| `--stats` | Display visual test statistics | false |
 
-### 示例
+### Examples
 
 ```bash
-# 查看视觉测试结果
+# View visual test results
 yuantest visual
 
-# 指定视觉测试目录
+# Specify visual test directory
 yuantest visual --dir ./screenshots
 
-# 自定义差异阈值
+# Custom difference threshold
 yuantest visual --threshold 0.1
 
-# 更新所有基线
+# Update all baselines
 yuantest visual --update
 
-# 生成视觉测试报告
+# Generate visual test report
 yuantest visual --report ./reports/visual.json
 
-# 查看统计信息
+# View statistics
 yuantest visual --stats
 ```
 
 ---
 
-## 12. show-report - 打开 HTML 报告
+## 12. show-report - Open HTML Report
 
-在浏览器中打开 Playwright HTML 报告。
+Open Playwright HTML report in browser.
 
-### 用法
+### Usage
 
 ```bash
 yuantest show-report [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--path` | `-p` | HTML 报告路径 | ./test-output/html-report |
+| `--path` | `-p` | HTML report path | ./test-output/html-report |
 
-### 示例
+### Examples
 
 ```bash
-# 打开默认路径的 HTML 报告
+# Open HTML report at default path
 yuantest show-report
 
-# 指定报告路径
+# Specify report path
 yuantest show-report --path ./reports/html-report
 ```
 
 ---
 
-## 13. test-history - 查看测试历史
+## 13. test-history - View Test History
 
-查看指定测试的运行历史记录。
+View run history for a specific test.
 
-### 用法
+### Usage
 
 ```bash
 yuantest test-history <testId> [options]
 ```
 
-`testId` 为必填的位置参数，指定要查看历史的测试 ID。
+`testId` is a required positional parameter specifying the test ID to view history for.
 
-### 参数
+### Parameters
 
-| 参数 | 说明 | 默认值 |
+| Parameter | Description | Default |
 |------|------|--------|
-| `--page` | 页码 | 1 |
-| `--page-size` | 每页条数 | 10 |
-| `--json` | 以 JSON 格式输出 | |
+| `--page` | Page number | 1 |
+| `--page-size` | Items per page | 10 |
+| `--json` | Output in JSON format | |
 
-### 示例
+### Examples
 
 ```bash
-# 查看测试历史
+# View test history
 yuantest test-history login-test-001
 
-# 查看第 2 页
+# View page 2
 yuantest test-history login-test-001 --page 2
 
-# 自定义每页条数
+# Custom items per page
 yuantest test-history login-test-001 --page 1 --page-size 20
 
-# 以 JSON 格式输出
+# Output in JSON format
 yuantest test-history login-test-001 --json
 ```
 
 ---
 
-## 14. error-patterns - 错误模式管理
+## 14. error-patterns - Error Pattern Management
 
-管理错误模式，支持查看、添加和删除自定义错误模式。
+Manage error patterns with support for viewing, adding, and deleting custom error patterns.
 
-### 用法
+### Usage
 
 ```bash
 yuantest error-patterns [options]
 ```
 
-不带任何选项时，列出所有错误模式。
+When run without any options, lists all error patterns.
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--list` | `-l` | 列出所有错误模式 | |
-| `--custom` | | 仅列出自定义错误模式 | |
-| `--add` | | 添加自定义错误模式（JSON 字符串） | |
-| `--delete` | | 删除指定 ID 的自定义错误模式 | |
+| `--list` | `-l` | List all error patterns | |
+| `--custom` | | Only list custom error patterns | |
+| `--add` | | Add custom error pattern (JSON string) | |
+| `--delete` | | Delete custom error pattern by ID | |
 
-### 添加错误模式的 JSON 格式
+### JSON Format for Adding Error Patterns
 
-添加错误模式时，`--add` 参数需要传入 JSON 字符串，包含以下必填字段：
+When adding an error pattern, the `--add` parameter requires a JSON string with the following required fields:
 
-| 字段 | 说明 |
+| Field | Description |
 |------|------|
-| `id` | 模式唯一标识 |
-| `category` | 错误类别 |
-| `name` | 模式名称 |
-| `regex` | 正则表达式数组 |
-| `rootCauseTemplate` | 根因模板 |
-| `suggestionsTemplate` | 建议模板 |
-| `description` | 描述（可选） |
-| `docLinks` | 文档链接（可选） |
+| `id` | Unique pattern identifier |
+| `category` | Error category |
+| `name` | Pattern name |
+| `regex` | Array of regular expressions |
+| `rootCauseTemplate` | Root cause template |
+| `suggestionsTemplate` | Suggestions template |
+| `description` | Description (optional) |
+| `docLinks` | Documentation links (optional) |
 
-### 示例
+### Examples
 
 ```bash
-# 列出所有错误模式
+# List all error patterns
 yuantest error-patterns
 
-# 仅列出自定义错误模式
+# Only list custom error patterns
 yuantest error-patterns --custom
 
-# 添加自定义错误模式
-yuantest error-patterns --add '{"id":"custom-001","category":"network","name":"DNS解析失败","regex":["dns resolve failed","ENOTFOUND"],"rootCauseTemplate":"DNS解析失败：{hostname}","suggestionsTemplate":["检查DNS配置","验证网络连接"]}'
+# Add custom error pattern
+yuantest error-patterns --add '{"id":"custom-001","category":"network","name":"DNS Resolution Failed","regex":["dns resolve failed","ENOTFOUND"],"rootCauseTemplate":"DNS resolution failed: {hostname}","suggestionsTemplate":["Check DNS configuration","Verify network connection"]}'
 
-# 删除自定义错误模式
+# Delete custom error pattern
 yuantest error-patterns --delete custom-001
 ```
 
 ---
 
-## 15. llm-config - LLM 配置管理
+## 15. llm-config - LLM Configuration Management
 
-管理 LLM 诊断配置，支持查看、设置、测试连接和查看状态。
+Manage LLM diagnostic configuration with support for viewing, setting, testing connections, and viewing status.
 
-### 用法
+### Usage
 
 ```bash
 yuantest llm-config [options]
 ```
 
-不带任何选项时，显示当前 LLM 配置信息（API Key 会被脱敏显示）。
+When run without any options, displays current LLM configuration (API Key will be masked).
 
-### 参数
+### Parameters
 
-| 参数 | 说明 | 默认值 |
+| Parameter | Description | Default |
 |------|------|--------|
-| `--show` | 显示当前 LLM 配置 | |
-| `--set` | 更新 LLM 配置（JSON 字符串） | |
-| `--test` | 测试 LLM 连接 | |
-| `--status` | 查看 LLM 状态 | |
+| `--show` | Show current LLM configuration | |
+| `--set` | Update LLM configuration (JSON string) | |
+| `--test` | Test LLM connection | |
+| `--status` | View LLM status | |
 
-### 示例
+### Examples
 
 ```bash
-# 查看当前 LLM 配置
+# View current LLM configuration
 yuantest llm-config
 
-# 更新 LLM 配置
+# Update LLM configuration
 yuantest llm-config --set '{"enabled":true,"baseUrl":"https://api.openai.com/v1","model":"gpt-4","apiKey":"sk-xxx"}'
 
-# 测试 LLM 连接
+# Test LLM connection
 yuantest llm-config --test
 
-# 查看 LLM 状态
+# View LLM status
 yuantest llm-config --status
 ```
 
 ---
 
-## 16. health - 健康度指标
+## 16. health - Health Metrics
 
-查看测试健康度指标，包括通过率、Flaky 测试数等。
+View test health metrics including pass rate, flaky test count, etc.
 
-### 用法
+### Usage
 
 ```bash
 yuantest health [options]
 ```
 
-### 参数
+### Parameters
 
-| 参数 | 简写 | 说明 | 默认值 |
+| Parameter | Shorthand | Description | Default |
 |------|------|------|--------|
-| `--json` | | 以 JSON 格式输出 | |
-| `--limit` | `-l` | 分析最近运行次数 | 10 |
+| `--json` | | Output in JSON format | |
+| `--limit` | `-l` | Number of recent runs to analyze | 10 |
 
-### 示例
+### Examples
 
 ```bash
-# 查看测试健康度
+# View test health
 yuantest health
 
-# 分析最近 20 次运行
+# Analyze recent 20 runs
 yuantest health --limit 20
 
-# 以 JSON 格式输出
+# Output in JSON format
 yuantest health --json
 ```
 
 ---
 
-## 17. prediction - 失败预测
+## 17. prediction - Failure Prediction
 
-查看测试失败预测，包括高风险测试和执行时长异常。
+View test failure predictions including high-risk tests and duration anomalies.
 
-### 用法
+### Usage
 
 ```bash
 yuantest prediction [options]
 ```
 
-不带任何选项时，列出所有高风险测试。
+When run without any options, lists all high-risk tests.
 
-### 参数
+### Parameters
 
-| 参数 | 说明 | 默认值 |
+| Parameter | Description | Default |
 |------|------|--------|
-| `--high-risk` | 列出高风险测试 | |
-| `--test` | 查看指定测试的预测 | |
-| `--duration-anomalies` | 查看执行时长异常 | |
-| `--json` | 以 JSON 格式输出 | |
+| `--high-risk` | List high-risk tests | |
+| `--test` | View prediction for specific test | |
+| `--duration-anomalies` | View execution duration anomalies | |
+| `--json` | Output in JSON format | |
 
-### 示例
+### Examples
 
 ```bash
-# 列出高风险测试
+# List high-risk tests
 yuantest prediction
 
-# 列出高风险测试（显式指定）
+# List high-risk tests (explicit)
 yuantest prediction --high-risk
 
-# 查看特定测试的预测
+# View prediction for specific test
 yuantest prediction --test login-test-001
 
-# 查看执行时长异常
+# View execution duration anomalies
 yuantest prediction --duration-anomalies
 
-# 以 JSON 格式输出
+# Output in JSON format
 yuantest prediction --json
 ```
 
 ---
 
-## 18. correlations - 关联分析
+## 18. correlations - Correlation Analysis
 
-查看测试关联分析，包括因果图和关联组。
+View test correlation analysis including causal graphs and correlation groups.
 
-### 用法
+### Usage
 
 ```bash
 yuantest correlations [options]
 ```
 
-不带任何选项时，显示测试关联组信息。
+When run without any options, displays test correlation group information.
 
-### 参数
+### Parameters
 
-| 参数 | 说明 | 默认值 |
+| Parameter | Description | Default |
 |------|------|--------|
-| `--causal-graph` | 显示因果图摘要 | |
-| `--json` | 以 JSON 格式输出 | |
+| `--causal-graph` | Display causal graph summary | |
+| `--json` | Output in JSON format | |
 
-### 示例
+### Examples
 
 ```bash
-# 查看测试关联组
+# View test correlation groups
 yuantest correlations
 
-# 查看因果图
+# View causal graph
 yuantest correlations --causal-graph
 
-# 以 JSON 格式输出
+# Output in JSON format
 yuantest correlations --json
 
-# 因果图 + JSON 输出
+# Causal graph + JSON output
 yuantest correlations --causal-graph --json
 ```
 
 ---
 
-## 19. rerun - 重跑测试
+## 19. rerun - Rerun Tests
 
-重新运行之前某次运行中的特定测试。
+Rerun specific tests from a previous run.
 
-### 用法
+### Usage
 
 ```bash
 yuantest rerun <runId> <testId> [options]
 ```
 
-`runId` 和 `testId` 为必填的位置参数。
+`runId` and `testId` are required positional parameters.
 
-### 参数
+### Parameters
 
-| 参数 | 说明 | 默认值 |
+| Parameter | Description | Default |
 |------|------|--------|
-| `--json` | 以 JSON 格式输出结果 | |
+| `--json` | Output results in JSON format | |
 
-### 示例
+### Examples
 
 ```bash
-# 重跑特定测试
+# Rerun specific test
 yuantest rerun run_20240101_120000_abc123 login-test-001
 
-# 以 JSON 格式输出重跑结果
+# Output rerun results in JSON format
 yuantest rerun run_20240101_120000_abc123 login-test-001 --json
 ```
 
 ---
 
-## 退出码
+## Exit Codes
 
-| 退出码 | 说明 |
+| Exit Code | Description |
 |--------|------|
-| 0 | 成功 |
-| 1 | 测试失败或命令执行出错 |
+| 0 | Success |
+| 1 | Test failure or command execution error |
 
 ---
 
-## 环境变量
+## Environment Variables
 
-| 变量 | 说明 |
+| Variable | Description |
 |------|------|
-| `YUANTEST_PORT` | 默认 Dashboard 端口 |
-| `YUANTEST_OUTPUT` | 默认输出目录 |
-| `YUANTEST_DATA` | 默认数据目录 |
+| `YUANTEST_PORT` | Default Dashboard port |
+| `YUANTEST_OUTPUT` | Default output directory |
+| `YUANTEST_DATA` | Default data directory |
