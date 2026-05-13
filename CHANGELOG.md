@@ -1,9 +1,13 @@
-# 更新日志
+# Changelog
 
-本文件记录了项目的所有重要变更。
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
-本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
+### [1.0.10](https://github.com/yuandiv/yuantest-playwright/compare/v1.0.9...v1.0.10) (2026-05-13)
+
+
+### 🐛 Bug 修复
+
+* 修复lint和test异常，解决web ui 和cli不统一的问题 ([348a900](https://github.com/yuandiv/yuantest-playwright/commit/348a900bc204f7506cb5edd05d7fcc09ea7751e3))
 
 ## [1.0.8] - 2026-05-06
 
