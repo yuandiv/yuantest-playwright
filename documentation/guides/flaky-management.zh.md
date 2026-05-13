@@ -725,7 +725,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 
 #### 方式二：Dashboard UI 参数配置面板
 
-通过 Dashboard 的 `CriteriaConfigDialog` 组件可视化调整参数，修改后实时生效。
+通过 Dashboard 的 `FlakyCriteriaDialog` 和 `QuarantineCriteriaDialog` 组件可视化调整参数，分别从"不稳定用例"和"已隔离用例"卡片右上角的设置图标按钮打开，修改后实时生效。
 
 #### 方式三：FlakyTestManager.setConfig() 方法
 

@@ -231,9 +231,11 @@ Supports all OpenAI API compatible interfaces:
 
 ## Parameter Configuration Panel
 
-### Flaky Detection Parameters
+The parameter configuration panel is split into two separate dialogs, each opened via the settings icon button on the top-right of the corresponding card.
 
-The following parameters can be adjusted in the Dashboard settings panel:
+### Flaky Test Criteria Parameters
+
+Click the ⚙ settings icon button on the top-right of the "Flaky Tests" card to open the Flaky test criteria dialog, where the following parameters can be adjusted:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -248,7 +250,9 @@ The following parameters can be adjusted in the Dashboard settings panel:
 | Confidence Level | 0.95 | Wilson confidence interval confidence level |
 | Auto Release Pass Count | 3 | Consecutive passes required for soft quarantine auto release |
 
-### Quarantine Parameters
+### Quarantined Test Criteria Parameters
+
+Click the ⚙ settings icon button on the top-right of the "Quarantined Tests" card to open the quarantined test criteria dialog, where the following parameters can be adjusted:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -261,7 +265,7 @@ The following parameters can be adjusted in the Dashboard settings panel:
 
 ### Reset to Default Values
 
-Click "Reset to Default Values" button to remove the corresponding config section from `user-preferences.json` and restore default values.
+Each dialog has a "Reset to Default Values" button. Click it to remove the corresponding config section from `user-preferences.json` and restore default values.
 
 ---
 

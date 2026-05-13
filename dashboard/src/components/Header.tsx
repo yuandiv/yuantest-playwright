@@ -4,7 +4,6 @@ import { t } from '../i18n';
 import * as api from '../services/api';
 import { LLMStatus } from '../types';
 import { LLMConfigDialog } from './LLMConfigDialog';
-import { CriteriaConfigDialog } from './CriteriaConfigDialog';
 
 interface HeaderProps {
   lang: Lang;
@@ -20,7 +19,6 @@ interface HeaderProps {
 export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard }: HeaderProps) {
   const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
   const [showLLMConfig, setShowLLMConfig] = useState(false);
-  const [showCriteriaConfig, setShowCriteriaConfig] = useState(false);
 
   useEffect(() => {
     const fetchStatus = () => {
@@ -40,11 +38,6 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
       if (status) setLlmStatus(status.status);
     }).catch(() => {});
     window.dispatchEvent(new CustomEvent('llm-config-changed'));
-  };
-
-  /** 判定参数配置保存后的回调，触发全局事件通知其他组件刷新 */
-  const handleCriteriaConfigSaved = () => {
-    window.dispatchEvent(new CustomEvent('criteria-config-changed'));
   };
 
   return (
@@ -107,20 +100,6 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
           ></span>
           <span>{t('executor', lang)}</span>
         </button>
-        <button
-          onClick={() => setShowCriteriaConfig(true)}
-          className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-        >
-          <i className="fas fa-sliders-h"></i>
-          <span>{lang === 'zh' ? '判定参数' : 'Criteria'}</span>
-        </button>
-        {showCriteriaConfig && (
-          <CriteriaConfigDialog
-            lang={lang}
-            onClose={() => setShowCriteriaConfig(false)}
-            onSaved={handleCriteriaConfigSaved}
-          />
-        )}
         <button
           onClick={() => setShowLLMConfig(true)}
           className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"

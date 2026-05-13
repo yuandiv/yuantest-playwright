@@ -725,7 +725,7 @@ Add `flakyCriteria` and `quarantineCriteria` configuration sections in `user-pre
 
 #### Method 2: Dashboard UI Parameter Configuration Panel
 
-Visually adjust parameters through the Dashboard's `CriteriaConfigDialog` component; changes take effect immediately.
+Visually adjust parameters through the Dashboard's `FlakyCriteriaDialog` and `QuarantineCriteriaDialog` components, opened via the settings icon buttons on the top-right of the "Flaky Tests" and "Quarantined Tests" cards respectively; changes take effect immediately.
 
 #### Method 3: FlakyTestManager.setConfig() Method
 

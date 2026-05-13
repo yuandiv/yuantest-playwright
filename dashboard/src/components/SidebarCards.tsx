@@ -3,6 +3,8 @@ import { Lang } from '../i18n';
 import { t, formatTemplate } from '../i18n';
 import { FlakyTest, QuarantinedTest, RunReport, FlakyClassification, FilterType } from '../types';
 import { VersionTrendChart } from './VersionTrendChart';
+import { FlakyCriteriaDialog } from './FlakyCriteriaDialog';
+import { QuarantineCriteriaDialog } from './QuarantineCriteriaDialog';
 
 interface SidebarCardsProps {
   lang: Lang;
@@ -15,13 +17,16 @@ interface SidebarCardsProps {
   onModal: (content: React.ReactNode) => void;
   onClearFlakyHistory: () => Promise<void>;
   onOpenFlakyDialog?: () => void;
+  onCriteriaSaved?: () => void;
   criteriaParams?: {
     flakyCriteria?: Record<string, number | string>;
     quarantineCriteria?: Record<string, number | string>;
   };
 }
 
-export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onReleaseTest, onValidateReleaseTest, onRefresh, onModal, onClearFlakyHistory, onOpenFlakyDialog, criteriaParams }: SidebarCardsProps) {
+export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onReleaseTest, onValidateReleaseTest, onRefresh, onModal, onClearFlakyHistory, onOpenFlakyDialog, onCriteriaSaved, criteriaParams }: SidebarCardsProps) {
+  const [showFlakyCriteria, setShowFlakyCriteria] = useState(false);
+  const [showQuarantineCriteria, setShowQuarantineCriteria] = useState(false);
   const trend = useMemo(() => {
     const sortedReports = [...reports]
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -116,6 +121,13 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
             {flakyTests.length > 0 && (
               <span className="text-xs text-gray-400">{flakyTests.length} {t('items', lang)}</span>
             )}
+            <button
+              onClick={() => setShowFlakyCriteria(true)}
+              className="text-gray-400 hover:text-amber-500 transition-colors p-0.5"
+              title={lang === 'zh' ? '不稳定用例判定参数' : 'Flaky Test Criteria'}
+            >
+              <i className="fas fa-gear text-xs"></i>
+            </button>
           </div>
           <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
             {flakyTests.length === 0 ? (
@@ -200,6 +212,13 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
             {quarantinedTests.length > 0 && (
               <span className="text-xs text-gray-400">{quarantinedTests.length} {t('items', lang)}</span>
             )}
+            <button
+              onClick={() => setShowQuarantineCriteria(true)}
+              className="text-gray-400 hover:text-red-500 transition-colors p-0.5"
+              title={lang === 'zh' ? '已隔离用例判定参数' : 'Quarantined Test Criteria'}
+            >
+              <i className="fas fa-gear text-xs"></i>
+            </button>
           </div>
           <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
             {quarantinedTests.length === 0 ? (
@@ -262,6 +281,20 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
           </div>
         </div>
       </div>
+      {showFlakyCriteria && (
+        <FlakyCriteriaDialog
+          lang={lang}
+          onClose={() => setShowFlakyCriteria(false)}
+          onSaved={() => { onCriteriaSaved?.(); }}
+        />
+      )}
+      {showQuarantineCriteria && (
+        <QuarantineCriteriaDialog
+          lang={lang}
+          onClose={() => setShowQuarantineCriteria(false)}
+          onSaved={() => { onCriteriaSaved?.(); }}
+        />
+      )}
     </div>
   );
 }

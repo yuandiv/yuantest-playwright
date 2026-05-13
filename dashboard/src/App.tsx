@@ -1217,6 +1217,7 @@ function App() {
               onModal={setModalContent}
               onClearFlakyHistory={handleClearFlakyHistory}
               onOpenFlakyDialog={() => setIsFlakyDialogOpen(true)}
+              onCriteriaSaved={() => { window.dispatchEvent(new CustomEvent('criteria-config-changed')); }}
               criteriaParams={criteriaParams}
             />
           </div>
