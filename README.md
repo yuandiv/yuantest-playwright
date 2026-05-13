@@ -284,6 +284,15 @@ yuantest ui --help
 | `--retries` | | Number of retries | 0 |
 | `--grep` | | Run matching tests | |
 | `--update-snapshots` | | Update snapshots | false |
+| `--config` | `-c` | Config file path | |
+| `--trace` | | Trace mode: off, on, retain-on-failure, on-first-retry | on-first-retry |
+| `--screenshot` | | Screenshot mode: off, on, only-on-failure | only-on-failure |
+| `--video` | | Video mode: off, on, retain-on-failure, on-first-retry | retain-on-failure |
+| `--tags` | | Run only tests with these tags (comma-separated) | |
+| `--project-filter` | | Run only specific browser project | |
+| `--visual-threshold` | | Visual diff threshold (0-1) | 0.2 |
+| `--annotations` | | Enable annotation scanning | false |
+| `--html-report` | | Generate Playwright HTML report | true |
 
 ### Orchestration Preview (No Execution)
 
@@ -329,6 +338,157 @@ yuantest flaky --list --threshold 0.5
 ```bash
 # Analyze failure reasons for a specific run
 yuantest analyze --id run_20240101_120000_abc123
+
+# Enable AI diagnosis
+yuantest analyze --id run_20240101_120000_abc123 --ai
+
+# Cluster analysis on failures
+yuantest analyze --id run_20240101_120000_abc123 --cluster
+
+# Filter by category
+yuantest analyze --id run_20240101_120000_abc123 --filter timeout
+```
+
+### Trace Management
+
+```bash
+# List all traces
+yuantest trace --list
+
+# Open a trace file in the viewer
+yuantest trace --view <trace-file>
+
+# Show trace statistics
+yuantest trace --stats
+
+# Clean traces older than 7 days
+yuantest trace --clean
+```
+
+### Annotation Scanning
+
+```bash
+# Scan test annotations
+yuantest annotations --test-dir ./
+```
+
+### Tag Management
+
+```bash
+# Scan test tags
+yuantest tags --test-dir ./
+```
+
+### Artifact Management
+
+```bash
+# List all artifacts
+yuantest artifacts --list
+
+# Show artifact statistics
+yuantest artifacts --stats
+
+# Clean artifacts older than 7 days
+yuantest artifacts --clean
+```
+
+### Visual Testing
+
+```bash
+# Show visual testing statistics
+yuantest visual --stats
+
+# Update all baselines with current screenshots
+yuantest visual --update
+```
+
+### View HTML Report
+
+```bash
+# Open Playwright HTML report in browser
+yuantest show-report
+
+# Specify report path
+yuantest show-report --path ./reports/html-report
+```
+
+### Test History
+
+```bash
+# View test run history
+yuantest test-history <testId>
+
+# Output in JSON format
+yuantest test-history <testId> --json
+```
+
+### Error Pattern Management
+
+```bash
+# List all error patterns
+yuantest error-patterns --list
+
+# List custom error patterns only
+yuantest error-patterns --custom
+
+# Add a custom error pattern
+yuantest error-patterns --add '<json>'
+```
+
+### LLM Diagnosis Configuration
+
+```bash
+# Show current LLM configuration
+yuantest llm-config --show
+
+# Test LLM connection
+yuantest llm-config --test
+
+# Check LLM status
+yuantest llm-config --status
+
+# Update LLM configuration
+yuantest llm-config --set '<json>'
+```
+
+### Test Health Metrics
+
+```bash
+# View test health metrics
+yuantest health
+
+# Output in JSON format
+yuantest health --json
+```
+
+### Failure Prediction
+
+```bash
+# List high-risk tests
+yuantest prediction --high-risk
+
+# View prediction for a specific test
+yuantest prediction --test <testId>
+
+# View duration anomalies
+yuantest prediction --duration-anomalies
+```
+
+### Correlation Analysis
+
+```bash
+# View test correlation analysis
+yuantest correlations
+
+# Show causal graph summary
+yuantest correlations --causal-graph
+```
+
+### Rerun Test
+
+```bash
+# Rerun a specific test from a previous run
+yuantest rerun <runId> <testId>
 ```
 
 ## 🖥️ Web Dashboard
@@ -345,21 +505,58 @@ After starting, visit `http://localhost:<port>`, which includes the following mo
 
 ### REST API
 
-Dashboard provides RESTful API for easy integration with other systems:
+Dashboard provides RESTful API (prefix: `/api/v1/`) for easy integration with other systems. For the complete API reference, see [Documentation](https://yuantest-playwright.readthedocs.io/).
+
+#### Core Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Health check |
-| GET | `/api/stats` | Overall statistics |
-| GET | `/api/runs` | Run list |
-| GET | `/api/runs/:id` | Run details |
-| GET | `/api/flaky` | Flaky test list |
-| GET | `/api/flaky/quarantined` | Quarantined tests |
-| POST | `/api/flaky/:id/quarantine` | Quarantine test |
-| POST | `/api/flaky/:id/release` | Release test |
-| GET | `/api/flaky/stats` | Flaky statistics |
-| GET | `/api/analysis/:runId` | Failure analysis |
-| GET | `/api/progress` | Real-time progress |
+| GET | `/api/v1/health` | Health check |
+| GET | `/api/v1/stats` | Overall statistics |
+| GET | `/api/v1/runs` | Run list (paginated) |
+| GET | `/api/v1/runs/:id` | Run details |
+| POST | `/api/v1/runs` | Start a test run |
+| POST | `/api/v1/runs/stop` | Stop current run |
+| DELETE | `/api/v1/runs/:id` | Delete a run |
+
+#### Flaky Test Management
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/flaky` | Flaky test list |
+| GET | `/api/v1/flaky/quarantined` | Quarantined tests |
+| POST | `/api/v1/flaky/:testId/quarantine` | Quarantine test |
+| POST | `/api/v1/flaky/:testId/release` | Release test |
+| GET | `/api/v1/flaky/stats` | Flaky statistics |
+| GET | `/api/v1/flaky/health` | Overall health score |
+| GET | `/api/v1/flaky/predictions/high-risk` | High-risk predictions |
+
+#### Failure Analysis & Diagnosis
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/analysis/:runId` | Failure analysis |
+| GET | `/api/v1/failures/analysis` | Cross-run failure summary |
+| POST | `/api/v1/diagnosis` | AI diagnosis |
+| POST | `/api/v1/diagnosis/stream` | AI diagnosis (SSE stream) |
+| POST | `/api/v1/diagnosis/cluster` | Cluster diagnosis |
+
+#### Test Discovery & Execution
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/tests` | Discovered tests |
+| POST | `/api/v1/runs/:runId/tests/:testId/rerun` | Rerun a test |
+| POST | `/api/v1/runs/:runId/batch-rerun` | Batch rerun tests |
+| GET | `/api/v1/tests/:testId/history` | Test history |
+
+#### Artifacts & Traces
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/traces` | Trace list |
+| GET | `/api/v1/artifacts` | Artifact list |
+| GET | `/api/v1/attachments/file` | Serve attachment file |
 
 ## 💻 Programmatic API Usage
 
@@ -377,7 +574,7 @@ import {
 async function main() {
   // 1. Orchestrate tests
   const orchestrator = new Orchestrator({
-    projectName: 'my-app',
+    version: 'my-app',
     testDir: './e2e',
     outputDir: './reports',
     shards: 4,
@@ -435,24 +632,73 @@ main();
 ### Advanced Usage
 
 ```typescript
-import { FlakyTestManager, AnnotationManager } from 'yuantest-playwright';
+import {
+  FlakyTestManager,
+  AnnotationManager,
+  TagManager,
+  TraceManager,
+  ArtifactManager,
+  VisualTestingManager,
+} from 'yuantest-playwright';
 
 // Flaky test management
 const flakyManager = new FlakyTestManager('./test-data');
-await flakyManager.initialize();
 
 // Get flaky tests
-const flakyTests = await flakyManager.getFlakyTests(0.3);
+const flakyTests = flakyManager.getFlakyTests(0.3);
 console.log(`Found ${flakyTests.length} flaky tests`);
 
 // Quarantine test
 await flakyManager.quarantineTest('test-id-123');
 
 // Annotation management
-const annotationManager = new AnnotationManager('./');
-const annotations = await annotationManager.scanAnnotations();
+const annotationManager = new AnnotationManager();
+const annotations = await annotationManager.scanDirectory('./');
 console.log(`Found ${annotations.length} annotated tests`);
+
+// Tag management
+const tagManager = new TagManager();
+const tags = await tagManager.scanDirectory('./');
+
+// Trace management
+const traceManager = new TraceManager(
+  { enabled: true, mode: 'on', screenshots: true, snapshots: true, sources: true, attachments: true },
+  './traces'
+);
+
+// Artifact management
+const artifactManager = new ArtifactManager(
+  { enabled: true, screenshots: 'on', videos: 'on' },
+  './artifacts'
+);
+
+// Visual testing
+const visualManager = new VisualTestingManager(
+  { enabled: true, threshold: 0.2, maxDiffPixelRatio: 0.01, maxDiffPixels: 10, updateSnapshots: false },
+  './visual-testing'
+);
 ```
+
+### Key Exports
+
+| Module | Description |
+|--------|-------------|
+| `Orchestrator`, `ShardOptimizer` | Test orchestration and smart sharding |
+| `Executor`, `ParallelExecutor` | Test execution |
+| `Reporter`, `JSONReporter` | Report generation |
+| `RealtimeReporter`, `RealtimeReporterClient` | WebSocket real-time reporting |
+| `FlakyTestManager` | Flaky test detection, quarantine, and statistics |
+| `DashboardServer` | Web UI + REST API server |
+| `TraceManager` | Playwright trace management |
+| `AnnotationManager` | Test annotation scanning |
+| `TagManager` | Test tag management |
+| `ArtifactManager` | Screenshot, video, and trace artifact management |
+| `VisualTestingManager` | Pixel-comparison visual regression testing |
+| `PlaywrightConfigBuilder` | Playwright config generation |
+| `loadConfigFile`, `mergeConfig` | Configuration loading and merging |
+| `StorageProvider`, `FilesystemStorage` | Storage abstraction |
+| `TestDiscovery` | Test file discovery |
+| `LRUCache`, `TTLCache` | Caching utilities |
 
 ## 📁 Project Structure
 
@@ -476,17 +722,27 @@ yuantest-playwright/
 │   ├── reporter/           # Report generator
 │   ├── realtime/           # Real-time reporting
 │   ├── flaky/              # Flaky management
+│   ├── diagnosis/          # AI diagnosis
 │   ├── config/             # Configuration management
 │   ├── trace/              # Trace management
 │   ├── annotations/        # Annotation scanner
 │   ├── tags/               # Tag management
 │   ├── artifacts/          # Artifact management
 │   ├── visual/             # Visual testing
+│   ├── storage/            # Storage providers
+│   ├── cache/              # LRU/TTL cache
+│   ├── base/               # Base manager classes
+│   ├── discovery/          # Test discovery
+│   ├── middleware/          # Express middleware
+│   ├── validation/         # Zod validation
+│   ├── utils/              # Utility functions
+│   ├── i18n/               # Internationalization
+│   ├── constants/          # Constants
 │   ├── logger/             # Logger module
 │   ├── cli/                # CLI commands
 │   └── ui/                 # Dashboard server
+├── documentation/          # Documentation source
 ├── tests/                  # Test files
-├── docs/                   # Documentation
 └── package.json
 ```
 
@@ -550,25 +806,39 @@ Support for customizing behavior through configuration files:
 
 ```typescript
 // yuantest.config.ts
-import { defineConfig } from 'yuantest-playwright';
+import type { TestConfig } from 'yuantest-playwright';
 
-export default defineConfig({
-  project: 'my-app',
+const config: TestConfig = {
+  version: 'my-app',
   testDir: './e2e',
   outputDir: './reports',
   shards: 4,
   browsers: ['chromium', 'firefox'],
   timeout: 60000,
   retries: 2,
-  flaky: {
-    threshold: 0.3,
-    autoQuarantine: false,
+  traces: {
+    enabled: true,
+    mode: 'on-first-retry',
+    screenshots: true,
+    snapshots: true,
+    sources: true,
+    attachments: true,
   },
-  dashboard: {
-    port: 5274,
-    open: true,
+  artifacts: {
+    enabled: true,
+    screenshots: 'only-on-failure',
+    videos: 'retain-on-failure',
   },
-});
+  visualTesting: {
+    enabled: true,
+    threshold: 0.2,
+    maxDiffPixelRatio: 0.01,
+    maxDiffPixels: 10,
+    updateSnapshots: false,
+  },
+};
+
+export default config;
 ```
 
 ## 📊 Performance Features
@@ -587,7 +857,8 @@ export default defineConfig({
 
 ## 📚 Documentation
 
-- [API Documentation](https://yuandiv.github.io/yuantest-playwright/)
+- 📖 [Documentation](https://yuantest-playwright.readthedocs.io/) - Complete guides, usage, and API reference
+- 🔧 [API Reference](https://yuandiv.github.io/yuantest-playwright/) - TypeDoc API documentation
 - [Changelog](CHANGELOG.md)
 - [Contributing Guide](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)

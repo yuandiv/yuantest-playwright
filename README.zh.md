@@ -286,6 +286,15 @@ yuantest ui --help
 | `--retries` | | 重试次数 | 0 |
 | `--grep` | | 运行匹配的测试 | |
 | `--update-snapshots` | | 更新快照 | false |
+| `--config` | `-c` | 配置文件路径 | |
+| `--trace` | | Trace 模式: off, on, retain-on-failure, on-first-retry | on-first-retry |
+| `--screenshot` | | 截图模式: off, on, only-on-failure | only-on-failure |
+| `--video` | | 视频模式: off, on, retain-on-failure, on-first-retry | retain-on-failure |
+| `--tags` | | 按标签运行测试(逗号分隔) | |
+| `--project-filter` | | 运行指定浏览器项目 | |
+| `--visual-threshold` | | 视觉差异阈值(0-1) | 0.2 |
+| `--annotations` | | 启用注解扫描 | false |
+| `--html-report` | | 生成 Playwright HTML 报告 | true |
 
 ### 编排预览（不执行）
 
@@ -331,6 +340,157 @@ yuantest flaky --list --threshold 0.5
 ```bash
 # 分析指定 Run 的失败原因
 yuantest analyze --id run_20240101_120000_abc123
+
+# 启用 AI 诊断
+yuantest analyze --id run_20240101_120000_abc123 --ai
+
+# 聚类分析失败
+yuantest analyze --id run_20240101_120000_abc123 --cluster
+
+# 按分类过滤
+yuantest analyze --id run_20240101_120000_abc123 --filter timeout
+```
+
+### Trace 管理
+
+```bash
+# 列出所有 Trace
+yuantest trace --list
+
+# 在查看器中打开 Trace 文件
+yuantest trace --view <trace-file>
+
+# 查看 Trace 统计
+yuantest trace --stats
+
+# 清理 7 天前的 Trace
+yuantest trace --clean
+```
+
+### 注解扫描
+
+```bash
+# 扫描测试注解
+yuantest annotations --test-dir ./
+```
+
+### 标签管理
+
+```bash
+# 扫描测试标签
+yuantest tags --test-dir ./
+```
+
+### 产物管理
+
+```bash
+# 列出所有产物
+yuantest artifacts --list
+
+# 查看产物统计
+yuantest artifacts --stats
+
+# 清理 7 天前的产物
+yuantest artifacts --clean
+```
+
+### 视觉测试
+
+```bash
+# 查看视觉测试统计
+yuantest visual --stats
+
+# 更新所有基线截图
+yuantest visual --update
+```
+
+### 查看 HTML 报告
+
+```bash
+# 在浏览器中打开 Playwright HTML 报告
+yuantest show-report
+
+# 指定报告路径
+yuantest show-report --path ./reports/html-report
+```
+
+### 测试历史
+
+```bash
+# 查看测试运行历史
+yuantest test-history <testId>
+
+# JSON 格式输出
+yuantest test-history <testId> --json
+```
+
+### 错误模式管理
+
+```bash
+# 列出所有错误模式
+yuantest error-patterns --list
+
+# 仅列出自定义错误模式
+yuantest error-patterns --custom
+
+# 添加自定义错误模式
+yuantest error-patterns --add '<json>'
+```
+
+### LLM 诊断配置
+
+```bash
+# 查看当前 LLM 配置
+yuantest llm-config --show
+
+# 测试 LLM 连接
+yuantest llm-config --test
+
+# 查看 LLM 状态
+yuantest llm-config --status
+
+# 更新 LLM 配置
+yuantest llm-config --set '<json>'
+```
+
+### 测试健康指标
+
+```bash
+# 查看测试健康指标
+yuantest health
+
+# JSON 格式输出
+yuantest health --json
+```
+
+### 失败预测
+
+```bash
+# 列出高风险测试
+yuantest prediction --high-risk
+
+# 查看指定测试的预测
+yuantest prediction --test <testId>
+
+# 查看执行时间异常
+yuantest prediction --duration-anomalies
+```
+
+### 关联分析
+
+```bash
+# 查看测试关联分析
+yuantest correlations
+
+# 查看因果图摘要
+yuantest correlations --causal-graph
+```
+
+### 重跑测试
+
+```bash
+# 重跑指定运行中的某个测试
+yuantest rerun <runId> <testId>
 ```
 
 ## 🖥️ Web Dashboard
@@ -347,21 +507,58 @@ yuantest analyze --id run_20240101_120000_abc123
 
 ### REST API
 
-Dashboard 提供 RESTful API，方便集成到其他系统：
+Dashboard 提供 RESTful API（前缀：`/api/v1/`），方便集成到其他系统。完整 API 参考请查看[文档](https://yuantest-playwright.readthedocs.io/)。
+
+#### 核心端点
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/stats` | 总体统计 |
-| GET | `/api/runs` | 运行列表 |
-| GET | `/api/runs/:id` | 运行详情 |
-| GET | `/api/flaky` | Flaky 测试列表 |
-| GET | `/api/flaky/quarantined` | 已隔离用例 |
-| POST | `/api/flaky/:id/quarantine` | 隔离测试 |
-| POST | `/api/flaky/:id/release` | 释放测试 |
-| GET | `/api/flaky/stats` | Flaky 统计 |
-| GET | `/api/analysis/:runId` | 失败分析 |
-| GET | `/api/progress` | 实时进度 |
+| GET | `/api/v1/health` | 健康检查 |
+| GET | `/api/v1/stats` | 总体统计 |
+| GET | `/api/v1/runs` | 运行列表（分页） |
+| GET | `/api/v1/runs/:id` | 运行详情 |
+| POST | `/api/v1/runs` | 启动测试运行 |
+| POST | `/api/v1/runs/stop` | 停止当前运行 |
+| DELETE | `/api/v1/runs/:id` | 删除运行 |
+
+#### Flaky 测试管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/flaky` | Flaky 测试列表 |
+| GET | `/api/v1/flaky/quarantined` | 已隔离用例 |
+| POST | `/api/v1/flaky/:testId/quarantine` | 隔离测试 |
+| POST | `/api/v1/flaky/:testId/release` | 释放测试 |
+| GET | `/api/v1/flaky/stats` | Flaky 统计 |
+| GET | `/api/v1/flaky/health` | 整体健康评分 |
+| GET | `/api/v1/flaky/predictions/high-risk` | 高风险预测 |
+
+#### 失败分析与诊断
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/analysis/:runId` | 失败分析 |
+| GET | `/api/v1/failures/analysis` | 跨运行失败摘要 |
+| POST | `/api/v1/diagnosis` | AI 诊断 |
+| POST | `/api/v1/diagnosis/stream` | AI 诊断（SSE 流） |
+| POST | `/api/v1/diagnosis/cluster` | 聚类诊断 |
+
+#### 测试发现与执行
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/tests` | 已发现的测试 |
+| POST | `/api/v1/runs/:runId/tests/:testId/rerun` | 重跑测试 |
+| POST | `/api/v1/runs/:runId/batch-rerun` | 批量重跑测试 |
+| GET | `/api/v1/tests/:testId/history` | 测试历史 |
+
+#### 产物与 Trace
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/traces` | Trace 列表 |
+| GET | `/api/v1/artifacts` | 产物列表 |
+| GET | `/api/v1/attachments/file` | 提供附件文件 |
 
 ## 💻 编程 API 使用
 
@@ -379,7 +576,7 @@ import {
 async function main() {
   // 1. 编排测试
   const orchestrator = new Orchestrator({
-    projectName: 'my-app',
+    version: 'my-app',
     testDir: './e2e',
     outputDir: './reports',
     shards: 4,
@@ -437,24 +634,73 @@ main();
 ### 高级用法
 
 ```typescript
-import { FlakyTestManager, AnnotationManager } from 'yuantest-playwright';
+import {
+  FlakyTestManager,
+  AnnotationManager,
+  TagManager,
+  TraceManager,
+  ArtifactManager,
+  VisualTestingManager,
+} from 'yuantest-playwright';
 
 // Flaky 测试管理
 const flakyManager = new FlakyTestManager('./test-data');
-await flakyManager.initialize();
 
 // 获取 Flaky 测试
-const flakyTests = await flakyManager.getFlakyTests(0.3);
+const flakyTests = flakyManager.getFlakyTests(0.3);
 console.log(`Found ${flakyTests.length} flaky tests`);
 
 // 隔离测试
 await flakyManager.quarantineTest('test-id-123');
 
 // 注解管理
-const annotationManager = new AnnotationManager('./');
-const annotations = await annotationManager.scanAnnotations();
+const annotationManager = new AnnotationManager();
+const annotations = await annotationManager.scanDirectory('./');
 console.log(`Found ${annotations.length} annotated tests`);
+
+// 标签管理
+const tagManager = new TagManager();
+const tags = await tagManager.scanDirectory('./');
+
+// Trace 管理
+const traceManager = new TraceManager(
+  { enabled: true, mode: 'on', screenshots: true, snapshots: true, sources: true, attachments: true },
+  './traces'
+);
+
+// 产物管理
+const artifactManager = new ArtifactManager(
+  { enabled: true, screenshots: 'on', videos: 'on' },
+  './artifacts'
+);
+
+// 视觉测试
+const visualManager = new VisualTestingManager(
+  { enabled: true, threshold: 0.2, maxDiffPixelRatio: 0.01, maxDiffPixels: 10, updateSnapshots: false },
+  './visual-testing'
+);
 ```
+
+### 主要导出模块
+
+| 模块 | 说明 |
+|------|------|
+| `Orchestrator`, `ShardOptimizer` | 测试编排和智能分片 |
+| `Executor`, `ParallelExecutor` | 测试执行 |
+| `Reporter`, `JSONReporter` | 报告生成 |
+| `RealtimeReporter`, `RealtimeReporterClient` | WebSocket 实时报告 |
+| `FlakyTestManager` | Flaky 测试检测、隔离和统计 |
+| `DashboardServer` | Web UI + REST API 服务器 |
+| `TraceManager` | Playwright Trace 管理 |
+| `AnnotationManager` | 测试注解扫描 |
+| `TagManager` | 测试标签管理 |
+| `ArtifactManager` | 截图、视频、Trace 产物管理 |
+| `VisualTestingManager` | 像素对比视觉回归测试 |
+| `PlaywrightConfigBuilder` | Playwright 配置生成 |
+| `loadConfigFile`, `mergeConfig` | 配置加载和合并 |
+| `StorageProvider`, `FilesystemStorage` | 存储抽象 |
+| `TestDiscovery` | 测试文件发现 |
+| `LRUCache`, `TTLCache` | 缓存工具 |
 
 ## 📁 项目结构
 
@@ -478,17 +724,27 @@ yuantest-playwright/
 │   ├── reporter/           # 报告生成器
 │   ├── realtime/           # 实时报告
 │   ├── flaky/              # Flaky 管理
+│   ├── diagnosis/          # AI 智能诊断
 │   ├── config/             # 配置管理
 │   ├── trace/              # Trace 管理
 │   ├── annotations/        # 注解扫描
 │   ├── tags/               # 标签管理
 │   ├── artifacts/          # 产物管理
 │   ├── visual/             # 视觉测试
+│   ├── storage/            # 存储提供者
+│   ├── cache/              # 缓存模块
+│   ├── base/               # 基础管理类
+│   ├── discovery/          # 测试发现
+│   ├── middleware/          # Express 中间件
+│   ├── validation/         # Zod 校验
+│   ├── utils/              # 工具函数
+│   ├── i18n/               # 国际化
+│   ├── constants/          # 常量
 │   ├── logger/             # 日志模块
 │   ├── cli/                # CLI 命令
 │   └── ui/                 # Dashboard 服务器
+├── documentation/          # 文档源码
 ├── tests/                  # 测试文件
-├── docs/                   # 文档
 └── package.json
 ```
 
@@ -552,25 +808,39 @@ yuantest run --test-dir ./e2e --browsers chromium
 
 ```typescript
 // yuantest.config.ts
-import { defineConfig } from 'yuantest-playwright';
+import type { TestConfig } from 'yuantest-playwright';
 
-export default defineConfig({
-  project: 'my-app',
+const config: TestConfig = {
+  version: 'my-app',
   testDir: './e2e',
   outputDir: './reports',
   shards: 4,
   browsers: ['chromium', 'firefox'],
   timeout: 60000,
   retries: 2,
-  flaky: {
-    threshold: 0.3,
-    autoQuarantine: false,
+  traces: {
+    enabled: true,
+    mode: 'on-first-retry',
+    screenshots: true,
+    snapshots: true,
+    sources: true,
+    attachments: true,
   },
-  dashboard: {
-    port: 5274,
-    open: true,
+  artifacts: {
+    enabled: true,
+    screenshots: 'only-on-failure',
+    videos: 'retain-on-failure',
   },
-});
+  visualTesting: {
+    enabled: true,
+    threshold: 0.2,
+    maxDiffPixelRatio: 0.01,
+    maxDiffPixels: 10,
+    updateSnapshots: false,
+  },
+};
+
+export default config;
 ```
 
 ## 📊 性能特性
@@ -589,7 +859,8 @@ export default defineConfig({
 
 ## 📚 文档
 
-- [API 文档](https://yuandiv.github.io/yuantest-playwright/)
+- 📖 [完整文档](https://yuantest-playwright.readthedocs.io/) - 使用指南、深度指南和 API 参考
+- 🔧 [API 文档](https://yuandiv.github.io/yuantest-playwright/) - TypeDoc API 接口文档
 - [使用指南](USAGE.md) - Web UI 和外部工具执行测试使用指南
 - [更新日志](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
