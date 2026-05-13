@@ -2,6 +2,7 @@ node_modules/
 dist/
 docs/
 coverage/
+site/
 
 
 test-data/

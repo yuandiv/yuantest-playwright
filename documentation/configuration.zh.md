@@ -6,22 +6,23 @@ YuanTest Playwright 支持通过配置文件、命令行参数、Dashboard UI �
 
 ## 目录
 
-1. [TestConfig - 基础测试配置](#1-testconfig---基础测试配置)
-2. [FlakyCriteriaConfig - 不稳定用例判定参数](#2-flakycriteriaconfig---不稳定用例判定参数)
-3. [QuarantineCriteriaConfig - 隔离判定参数](#3-quarantinecriteriaconfig---隔离判定参数)
-4. [TraceConfig - Trace 配置](#4-traceconfig---trace-配置)
-5. [ArtifactConfig - 产物配置](#5-artifactconfig---产物配置)
-6. [VisualTestingConfig - 视觉测试配置](#6-visualtestingconfig---视觉测试配置)
-7. [AnnotationConfig - 注解配置](#7-annotationconfig---注解配置)
-8. [TagConfig - 标签配置](#8-tagconfig---标签配置)
-9. [QuarantineConfig - 隔离配置](#9-quarantineconfig---隔离配置)
-10. [LLMConfig - LLM 配置](#10-llmconfig---llm-配置)
-11. [DashboardConfig - Dashboard 配置](#11-dashboardconfig---dashboard-配置)
-12. [默认值常量表](#12-默认值常量表)
-13. [配置方式](#13-配置方式)
+1. [TestConfig - 基础测试配置](#1-testconfig-basic-test-configuration)
+2. [FlakyCriteriaConfig - 不稳定用例判定参数](#2-flakycriteriaconfig-flaky-test-criteria-parameters)
+3. [QuarantineCriteriaConfig - 隔离判定参数](#3-quarantinecriteriaconfig-quarantine-criteria-parameters)
+4. [TraceConfig - Trace 配置](#4-traceconfig-trace-configuration)
+5. [ArtifactConfig - 产物配置](#5-artifactconfig-artifact-configuration)
+6. [VisualTestingConfig - 视觉测试配置](#6-visualtestingconfig-visual-testing-configuration)
+7. [AnnotationConfig - 注解配置](#7-annotationconfig-annotation-configuration)
+8. [TagConfig - 标签配置](#8-tagconfig-tag-configuration)
+9. [QuarantineConfig - 隔离配置](#9-quarantineconfig-quarantine-configuration)
+10. [LLMConfig - LLM 配置](#10-llmconfig-llm-configuration)
+11. [DashboardConfig - Dashboard 配置](#11-dashboardconfig-dashboard-configuration)
+12. [默认值常量表](#12-default-constants-table)
+13. [配置方式](#13-configuration-methods)
 
 ---
 
+<a id="1-testconfig-basic-test-configuration"></a>
 ## 1. TestConfig - 基础测试配置
 
 `TestConfig` 是 YuanTest 的核心配置接口，定义了测试运行的基础参数。
@@ -73,11 +74,11 @@ interface TestConfig {
 | `headers` | `Record<string, string>` | 否 | - | 自定义 HTTP 请求头，传递给 Playwright `use.extraHTTPHeaders` |
 | `flakyThreshold` | `number` | 否 | `0.3` | Flaky 检测阈值（0~1），失败率超过此值判定为 Flaky |
 | `isolateFlaky` | `boolean` | 否 | `false` | 是否自动隔离 Flaky 测试 |
-| `traces` | `TraceConfig` | 否 | - | Trace 配置，详见 [TraceConfig](#4-traceconfig---trace-配置) |
-| `artifacts` | `ArtifactConfig` | 否 | - | 产物配置，详见 [ArtifactConfig](#5-artifactconfig---产物配置) |
-| `visualTesting` | `VisualTestingConfig` | 否 | - | 视觉测试配置，详见 [VisualTestingConfig](#6-visualtestingconfig---视觉测试配置) |
-| `annotations` | `AnnotationConfig` | 否 | - | 注解配置，详见 [AnnotationConfig](#7-annotationconfig---注解配置) |
-| `tags` | `TagConfig` | 否 | - | 标签配置，详见 [TagConfig](#8-tagconfig---标签配置) |
+| `traces` | `TraceConfig` | 否 | - | Trace 配置，详见 [TraceConfig](#4-traceconfig-trace-configuration) |
+| `artifacts` | `ArtifactConfig` | 否 | - | 产物配置，详见 [ArtifactConfig](#5-artifactconfig-artifact-configuration) |
+| `visualTesting` | `VisualTestingConfig` | 否 | - | 视觉测试配置，详见 [VisualTestingConfig](#6-visualtestingconfig-visual-testing-configuration) |
+| `annotations` | `AnnotationConfig` | 否 | - | 注解配置，详见 [AnnotationConfig](#7-annotationconfig-annotation-configuration) |
+| `tags` | `TagConfig` | 否 | - | 标签配置，详见 [TagConfig](#8-tagconfig-tag-configuration) |
 | `htmlReport` | `boolean` | 否 | `true` | 是否生成 Playwright HTML 报告 |
 | `htmlReportDir` | `string` | 否 | - | HTML 报告输出子目录名，默认为 `html-report` |
 | `parentRunId` | `string` | 否 | - | 父级运行 ID，用于关联子运行 |
@@ -100,7 +101,7 @@ type BrowserType = 'chromium' | 'firefox' | 'webkit';
 
 ---
 
-## 2. FlakyCriteriaConfig - 不稳定用例判定参数
+## 2. FlakyCriteriaConfig - 不稳定用例判定参数 {#2-flakycriteriaconfig-flaky-test-criteria-parameters}
 
 `FlakyCriteriaConfig` 定义了 Flaky 测试分类器的判定标准，用于将测试分为 `flaky`、`broken`、`regression`、`monitor`、`stable`、`insufficient_data` 六种分类。
 
@@ -150,7 +151,7 @@ interface FlakyCriteriaConfig {
 
 ---
 
-## 3. QuarantineCriteriaConfig - 隔离判定参数
+## 3. QuarantineCriteriaConfig - 隔离判定参数 {#3-quarantinecriteriaconfig-quarantine-criteria-parameters}
 
 `QuarantineCriteriaConfig` 定义了测试隔离（Quarantine）的判定标准和重试策略。
 
@@ -193,7 +194,7 @@ type IsolationLevel = 'none' | 'monitor' | 'soft_quarantine' | 'hard_quarantine'
 - **`soft_quarantine`**：软隔离，测试仍运行但失败不计入整体失败率
 - **`hard_quarantine`**：硬隔离，测试被跳过不运行
 
-### 隔离策略类型
+### 隔离策略类型 {#quarantine-strategy-types}
 
 ```typescript
 type QuarantineStrategyType = 'skip' | 'retry_only' | 'soft' | 'hard' | 'graduated';
@@ -207,7 +208,7 @@ type QuarantineStrategyType = 'skip' | 'retry_only' | 'soft' | 'hard' | 'graduat
 
 ---
 
-## 4. TraceConfig - Trace 配置
+## 4. TraceConfig - Trace 配置 {#4-traceconfig-trace-configuration}
 
 `TraceConfig` 控制 Playwright Trace 的采集行为。
 
@@ -246,6 +247,7 @@ interface TraceConfig {
 
 ---
 
+<a id="5-artifactconfig-artifact-configuration"></a>
 ## 5. ArtifactConfig - 产物配置
 
 `ArtifactConfig` 控制测试产物（截图、视频、下载文件）的采集行为。
@@ -291,7 +293,7 @@ interface ArtifactConfig {
 
 ---
 
-## 6. VisualTestingConfig - 视觉测试配置
+## 6. VisualTestingConfig - 视觉测试配置 {#6-visualtestingconfig-visual-testing-configuration}
 
 `VisualTestingConfig` 控制视觉回归测试（截图对比）的行为。
 
@@ -335,6 +337,7 @@ type VisualTestStatus = 'identical' | 'different' | 'new' | 'missing' | 'regress
 
 ---
 
+<a id="7-annotationconfig-annotation-configuration"></a>
 ## 7. AnnotationConfig - 注解配置
 
 `AnnotationConfig` 控制测试注解（如 `@skip`、`@fixme` 等）的识别和处理行为。
@@ -384,7 +387,7 @@ annotations: {
 
 ---
 
-## 8. TagConfig - 标签配置
+## 8. TagConfig - 标签配置 {#8-tagconfig-tag-configuration}
 
 `TagConfig` 控制基于标签的测试过滤行为。
 
@@ -415,6 +418,7 @@ interface TagConfig {
 
 ---
 
+<a id="9-quarantineconfig-quarantine-configuration"></a>
 ## 9. QuarantineConfig - 隔离配置
 
 `QuarantineConfig` 是 Flaky 测试管理器的顶层隔离配置，控制隔离功能的开关和高级特性。
@@ -461,12 +465,13 @@ interface QuarantineConfig {
 | `enableTrendTracking` | `boolean` | - | 是否启用趋势追踪 |
 | `enablePrediction` | `boolean` | - | 是否启用失败预测 |
 | `enableCausalGraph` | `boolean` | - | 是否启用因果图构建 |
-| `quarantineStrategy` | `QuarantineStrategyType` | - | 隔离策略类型，详见 [隔离策略类型](#隔离策略类型) |
+| `quarantineStrategy` | `QuarantineStrategyType` | - | 隔离策略类型，详见 [隔离策略类型](#quarantine-strategy-types) |
 | `maxQuarantineRatio` | `number` | - | 隔离预算上限比例，覆盖 QuarantineCriteriaConfig 中的值 |
 | `predictionSensitivity` | `number` | - | 预测灵敏度（默认 `0.5`） |
 
 ---
 
+<a id="10-llmconfig-llm-configuration"></a>
 ## 10. LLMConfig - LLM 配置
 
 `LLMConfig` 控制 AI 诊断服务的 LLM 连接参数，用于自动分析测试失败原因。
@@ -520,6 +525,7 @@ Agent 模式下支持以下工具调用（最多 5 轮）：
 
 ---
 
+<a id="11-dashboardconfig-dashboard-configuration"></a>
 ## 11. DashboardConfig - Dashboard 配置
 
 Dashboard 配置控制 Web 可视化面板的启动参数。该配置通过 `YuanTestConfigFile.dashboard` 或 CLI 参数指定。
@@ -552,6 +558,7 @@ yuantest ui -d, --data <path>     # 数据目录
 
 ---
 
+<a id="12-default-constants-table"></a>
 ## 12. 默认值常量表
 
 以下常量定义在 `src/constants/index.ts` 中，是系统各模块的默认配置来源。
@@ -688,6 +695,7 @@ yuantest ui -d, --data <path>     # 数据目录
 
 ---
 
+<a id="13-configuration-methods"></a>
 ## 13. 配置方式
 
 YuanTest 支持四种配置方式，按优先级从高到低为：

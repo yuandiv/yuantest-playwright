@@ -6,52 +6,53 @@
 
 ## 目录
 
-- [1. 系统架构概览](#1-系统架构概览)
-- [2. 分类算法](#2-分类算法)
-  - [2.1 六种分类](#21-六种分类)
-  - [2.2 时间衰减加权失败率](#22-时间衰减加权失败率)
-  - [2.3 Wilson 置信区间](#23-wilson-置信区间)
-  - [2.4 统计显著性检验](#24-统计显著性检验)
-  - [2.5 分类判定流程](#25-分类判定流程)
-- [3. 根因分析](#3-根因分析)
-  - [3.1 七种根因类型](#31-七种根因类型)
-  - [3.2 各检测器详解](#32-各检测器详解)
-  - [3.3 建议操作](#33-建议操作)
-- [4. 关联分析](#4-关联分析)
-  - [4.1 关联类型](#41-关联类型)
-  - [4.2 Jaccard 共现系数](#42-jaccard-共现系数)
-  - [4.3 并查集合并](#43-并查集合并)
-  - [4.4 关联类型判定](#44-关联类型判定)
-- [5. 趋势追踪](#5-趋势追踪)
-  - [5.1 时间序列聚合](#51-时间序列聚合)
-  - [5.2 趋势方向检测](#52-趋势方向检测)
-  - [5.3 变点检测](#53-变点检测)
-  - [5.4 季节模式检测](#54-季节模式检测)
-  - [5.5 代码变更关联](#55-代码变更关联)
-  - [5.6 趋势预测](#56-趋势预测)
-- [6. 隔离策略](#6-隔离策略)
-  - [6.1 隔离级别](#61-隔离级别)
-  - [6.2 策略类型](#62-策略类型)
-  - [6.3 分级隔离判定](#63-分级隔离判定)
-  - [6.4 根因感知重试策略](#64-根因感知重试策略)
-  - [6.5 预算控制](#65-预算控制)
-  - [6.6 自动释放与过期降级](#66-自动释放与过期降级)
-- [7. 健康评分](#7-健康评分)
-  - [7.1 四维评分模型](#71-四维评分模型)
-  - [7.2 等级映射](#72-等级映射)
-- [8. 因果图](#8-因果图)
-  - [8.1 节点类型](#81-节点类型)
-  - [8.2 边类型](#82-边类型)
-  - [8.3 图构建流程](#83-图构建流程)
-  - [8.4 根因识别](#84-根因识别)
-  - [8.5 影响分析](#85-影响分析)
-- [9. 参数自定义](#9-参数自定义)
-  - [9.1 FlakyCriteriaConfig（12 个参数）](#91-flakycriteriaconfig12-个参数)
-  - [9.2 QuarantineCriteriaConfig（9 个参数）](#92-quarantinecriteriaconfig9-个参数)
-  - [9.3 自定义方式](#93-自定义方式)
+- [1. 系统架构概览](#1-system-architecture-overview)
+- [2. 分类算法](#2-classification-algorithm)
+  - [2.1 六种分类](#21-six-classifications)
+  - [2.2 时间衰减加权失败率](#22-time-decay-weighted-failure-rate)
+  - [2.3 Wilson 置信区间](#23-wilson-confidence-interval)
+  - [2.4 统计显著性检验](#24-statistical-significance-test)
+  - [2.5 分类判定流程](#25-classification-decision-flow)
+- [3. 根因分析](#3-root-cause-analysis)
+  - [3.1 七种根因类型](#31-seven-root-cause-types)
+  - [3.2 各检测器详解](#32-detector-details)
+  - [3.3 建议操作](#33-suggested-actions)
+- [4. 关联分析](#4-correlation-analysis)
+  - [4.1 关联类型](#41-correlation-types)
+  - [4.2 Jaccard 共现系数](#42-jaccard-co-occurrence-coefficient)
+  - [4.3 并查集合并](#43-union-find-merging)
+  - [4.4 关联类型判定](#44-correlation-type-determination)
+- [5. 趋势追踪](#5-trend-tracking)
+  - [5.1 时间序列聚合](#51-time-series-aggregation)
+  - [5.2 趋势方向检测](#52-trend-direction-detection)
+  - [5.3 变点检测](#53-change-point-detection)
+  - [5.4 季节模式检测](#54-seasonal-pattern-detection)
+  - [5.5 代码变更关联](#55-code-change-correlation)
+  - [5.6 趋势预测](#56-trend-forecasting)
+- [6. 隔离策略](#6-quarantine-strategy)
+  - [6.1 隔离级别](#61-isolation-levels)
+  - [6.2 策略类型](#62-strategy-types)
+  - [6.3 分级隔离判定](#63-graduated-isolation-determination)
+  - [6.4 根因感知重试策略](#64-root-cause-aware-retry-strategy)
+  - [6.5 预算控制](#65-budget-control)
+  - [6.6 自动释放与过期降级](#66-auto-release-and-expiry-downgrade)
+- [7. 健康评分](#7-health-score)
+  - [7.1 四维评分模型](#71-four-dimensional-scoring-model)
+  - [7.2 等级映射](#72-grade-mapping)
+- [8. 因果图](#8-causal-graph)
+  - [8.1 节点类型](#81-node-types)
+  - [8.2 边类型](#82-edge-types)
+  - [8.3 图构建流程](#83-graph-construction-flow)
+  - [8.4 根因识别](#84-root-cause-identification)
+  - [8.5 影响分析](#85-impact-analysis)
+- [9. 参数自定义](#9-parameter-customization)
+  - [9.1 FlakyCriteriaConfig（12 个参数）](#91-flakycriteriaconfig-12-parameters)
+  - [9.2 QuarantineCriteriaConfig（9 个参数）](#92-quarantinecriteriaconfig-9-parameters)
+  - [9.3 自定义方式](#93-customization-methods)
 
 ---
 
+<a id="1-system-architecture-overview"></a>
 ## 1. 系统架构概览
 
 Flaky 测试管理系统由以下核心模块组成，对应源码 `src/flaky/` 目录：
@@ -69,10 +70,12 @@ Flaky 测试管理系统由以下核心模块组成，对应源码 `src/flaky/` 
 
 ---
 
+<a id="2-classification-algorithm"></a>
 ## 2. 分类算法
 
 > 源码：`src/flaky/classifier.ts`
 
+<a id="21-six-classifications"></a>
 ### 2.1 六种分类
 
 系统将测试分为以下 6 种分类（`FlakyClassification`）：
@@ -86,6 +89,7 @@ Flaky 测试管理系统由以下核心模块组成，对应源码 `src/flaky/` 
 | `stable` | 稳定 | 加权失败率 < `stableThreshold`（0.05） |
 | `insufficient_data` | 数据不足 | 运行次数 < `minimumRuns`（5） |
 
+<a id="22-time-decay-weighted-failure-rate"></a>
 ### 2.2 时间衰减加权失败率
 
 函数 `calculateWeightedFailureRate(history, decayRate=0.1)` 使用指数衰减为历史记录赋权，使最近的结果对分类影响更大：
@@ -106,6 +110,7 @@ weightedFailureRate = Σ(weightedFailures) / Σ(weightedTotal)
 
 其中 `failed` 和 `timedout` 状态均计为失败。
 
+<a id="23-wilson-confidence-interval"></a>
 ### 2.3 Wilson 置信区间
 
 函数 `wilsonConfidenceInterval(failures, total, confidence=0.95)` 基于二项分布计算失败率的置信区间，避免小样本时过度自信地判定 Flaky。
@@ -131,6 +136,7 @@ upper = min(1, (centre + margin) / denominator)
 
 其中 `p = failures / total`。小样本时区间自动扩大，体现不确定性。
 
+<a id="24-statistical-significance-test"></a>
 ### 2.4 统计显著性检验
 
 函数 `isStatisticallySignificant(test, threshold, minRuns, confidence=0.95)` 判断失败率是否具有统计显著性：
@@ -141,6 +147,7 @@ upper = min(1, (centre + margin) / denominator)
 
 > 注意：源码中使用的是 `ci.lower >= threshold`，即置信区间下界超过阈值才认为显著，这确保了只有失败率确实足够高时才判定为显著。
 
+<a id="25-classification-decision-flow"></a>
 ### 2.5 分类判定流程
 
 `classifyTest(test, config)` 按以下优先级依次判定：
@@ -160,10 +167,12 @@ upper = min(1, (centre + margin) / denominator)
 
 ---
 
+<a id="3-root-cause-analysis"></a>
 ## 3. 根因分析
 
 > 源码：`src/flaky/root-cause.ts`
 
+<a id="31-seven-root-cause-types"></a>
 ### 3.1 七种根因类型
 
 `RootCauseType` 包含以下 7 种类型 + 1 种兜底：
@@ -179,6 +188,7 @@ upper = min(1, (centre + margin) / denominator)
 | 断言不稳定 | `assertion_flaky` | 错误含 assertion/expect 关键词，且时序错误不多于断言错误 |
 | 未知 | `unknown` | 所有检测器均未匹配时的兜底类型 |
 
+<a id="32-detector-details"></a>
 ### 3.2 各检测器详解
 
 #### 3.2.1 时序问题检测 `detectTimingIssue`
@@ -273,6 +283,7 @@ confidence = min(1, (keywordHits > 0 ? 0.5 : 0) + (trendSlope > 0.1 ? 0.4 : 0))
 confidence = min(1, (keywordHits / historyLength) × 0.6 + 0.3)
 ```
 
+<a id="33-suggested-actions"></a>
 ### 3.3 建议操作
 
 `RootCauseAnalyzer.analyze()` 返回的 `suggestedActions` 根据根因类型自动生成：
@@ -290,10 +301,12 @@ confidence = min(1, (keywordHits / historyLength) × 0.6 + 0.3)
 
 ---
 
+<a id="4-correlation-analysis"></a>
 ## 4. 关联分析
 
 > 源码：`src/flaky/correlation.ts`
 
+<a id="41-correlation-types"></a>
 ### 4.1 关联类型
 
 `CorrelationType` 包含 5 种关联类型：
@@ -306,6 +319,7 @@ confidence = min(1, (keywordHits / historyLength) × 0.6 + 0.3)
 | `same_error_pattern` | 共享相同错误模式 |
 | `same_file` | 位于同一测试文件 |
 
+<a id="42-jaccard-co-occurrence-coefficient"></a>
 ### 4.2 Jaccard 共现系数
 
 使用 Jaccard 系数衡量两个测试在同一运行中同时失败的频率：
@@ -320,6 +334,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 **最低运行次数**：`CORRELATION_MIN_RUNS = 3`，运行次数不足的测试不参与分析。
 
+<a id="43-union-find-merging"></a>
 ### 4.3 并查集合并
 
 使用并查集（Union-Find）数据结构高效合并高共现的测试对，形成关联组：
@@ -334,6 +349,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 4. 只保留成员 ≥ 2 的组
 5. 计算组内平均共现系数和主导关联类型
 
+<a id="44-correlation-type-determination"></a>
 ### 4.4 关联类型判定
 
 `determineCorrelationType()` 按以下优先级判定两个测试间的关联类型：
@@ -351,10 +367,12 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 ---
 
+<a id="5-trend-tracking"></a>
 ## 5. 趋势追踪
 
 > 源码：`src/flaky/trend.ts`
 
+<a id="51-time-series-aggregation"></a>
 ### 5.1 时间序列聚合
 
 `aggregateTimeSeries(history, windowDays=7)` 将历史记录聚合为按天的时间序列数据点：
@@ -368,6 +386,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 **移动平均平滑**：当 `windowDays > 1` 时，应用居中移动平均平滑，窗口大小为 `windowDays`，减少噪声突出趋势。
 
+<a id="52-trend-direction-detection"></a>
 ### 5.2 趋势方向检测
 
 `detectTrendDirection(dataPoints)` 返回 `TrendDirection`，包含 4 种方向：
@@ -383,6 +402,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 > 注意：数据点 < 3 时直接返回 `stable`。
 
+<a id="53-change-point-detection"></a>
 ### 5.3 变点检测
 
 `detectChangePoints(dataPoints, threshold=0.3)` 使用 CUSUM 算法检测失败率的突变点：
@@ -398,6 +418,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 **默认阈值**：`TREND_CHANGE_POINT_THRESHOLD = 0.3`
 
+<a id="54-seasonal-pattern-detection"></a>
 ### 5.4 季节模式检测
 
 `detectSeasonalPattern(history, minCycles=3)` 分析失败率是否呈周期性波动：
@@ -415,6 +436,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 **高峰判定**：某时段失败率 > 均值 × 1.5。
 
+<a id="55-code-change-correlation"></a>
 ### 5.5 代码变更关联
 
 `correlateCodeChanges(changePoints, codeChanges)` 将变点与代码提交关联：
@@ -427,6 +449,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 **变化幅度因子**：`min(1, magnitude × 2)`
 
+<a id="56-trend-forecasting"></a>
 ### 5.6 趋势预测
 
 `generateForecast(dataPoints, direction, seasonalPattern)` 基于线性回归和季节模式预测未来 7 天趋势：
@@ -442,10 +465,12 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 ---
 
+<a id="6-quarantine-strategy"></a>
 ## 6. 隔离策略
 
 > 源码：`src/flaky/quarantine-strategy.ts`
 
+<a id="61-isolation-levels"></a>
 ### 6.1 隔离级别
 
 `IsolationLevel` 包含 4 个级别，严重程度递增：
@@ -457,6 +482,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 | `soft_quarantine` | 软隔离 | 允许重试，不计入主流程 |
 | `hard_quarantine` | 硬隔离 | 完全跳过，不执行 |
 
+<a id="62-strategy-types"></a>
 ### 6.2 策略类型
 
 `QuarantineStrategyType` 包含 5 种策略：
@@ -469,6 +495,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 | `hard` | hard_quarantine | 硬隔离 |
 | `graduated` | — | 分级策略，根据严重程度自动选择上述策略 |
 
+<a id="63-graduated-isolation-determination"></a>
 ### 6.3 分级隔离判定
 
 `determineIsolationLevel()` 在 `graduated` 策略下的判定逻辑：
@@ -492,6 +519,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 | `soft_quarantine` | `soft` |
 | `hard_quarantine` | `hard` |
 
+<a id="64-root-cause-aware-retry-strategy"></a>
 ### 6.4 根因感知重试策略
 
 `getRetryPolicyForRootCause()` 根据根因类型定制重试策略：
@@ -512,6 +540,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 - 测试顺序问题不适合重试（maxRetries = 0）
 - 资源泄漏和断言不稳定重试收益有限（maxRetries = 1，仅通过时重试）
 
+<a id="65-budget-control"></a>
 ### 6.5 预算控制
 
 `checkQuarantineBudget()` 限制被隔离测试占总测试数的比例：
@@ -526,6 +555,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 - 同级别按加权失败率降序排列
 - 预算不足时，新测试降级为 `monitor`（retry_only），原因追加"隔离预算不足，降级为监控"
 
+<a id="66-auto-release-and-expiry-downgrade"></a>
 ### 6.6 自动释放与过期降级
 
 #### 自动释放
@@ -548,10 +578,12 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 
 ---
 
+<a id="7-health-score"></a>
 ## 7. 健康评分
 
 > 源码：`src/flaky/trend.ts` 中的 `calculateHealthScore()`
 
+<a id="71-four-dimensional-scoring-model"></a>
 ### 7.1 四维评分模型
 
 `FlakyHealthScore` 综合四个维度计算整体健康评分：
@@ -569,6 +601,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictability × 0.2
 ```
 
+<a id="72-grade-mapping"></a>
 ### 7.2 等级映射
 
 | 等级 | 分数范围 | 标签 |
@@ -585,10 +618,12 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 
 ---
 
+<a id="8-causal-graph"></a>
 ## 8. 因果图
 
 > 源码：`src/flaky/causal-graph.ts`
 
+<a id="81-node-types"></a>
 ### 8.1 节点类型
 
 `CausalNode` 包含 4 种节点类型：
@@ -600,6 +635,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 | `external_service` | 外部服务节点 | 从关联组推断（external_service 根因） |
 | `shared_state` | 共享状态节点 | 从关联组推断（data_race/test_order/assertion_flaky） |
 
+<a id="82-edge-types"></a>
 ### 8.2 边类型
 
 `CausalEdge` 包含 5 种边类型：
@@ -617,6 +653,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 - 关联组中其他类型 → `same_environment` 边
 - 运行结果中的共失败分析 → `correlated_failure` 边
 
+<a id="83-graph-construction-flow"></a>
 ### 8.3 图构建流程
 
 `CausalGraphBuilder.build(tests, correlationGroups, recentRuns)` 的构建流程：
@@ -631,6 +668,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 - `minCorrelation = 0.4`：共失败关联度低于此值的边不生成
 - `maxDepth = 5`：影响映射遍历的最大深度
 
+<a id="84-root-cause-identification"></a>
 ### 8.4 根因识别
 
 `identifyRootCauses()` 使用入度/出度分析识别根因节点：
@@ -641,6 +679,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 
 **排序**：按出度降序排列，出度越大的节点越可能是根因。
 
+<a id="85-impact-analysis"></a>
 ### 8.5 影响分析
 
 `analyzeImpact(testId, graph)` 计算指定测试的影响范围：
@@ -662,8 +701,10 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 
 ---
 
+<a id="9-parameter-customization"></a>
 ## 9. 参数自定义
 
+<a id="91-flakycriteriaconfig-12-parameters"></a>
 ### 9.1 FlakyCriteriaConfig（12 个参数）
 
 > 源码：`src/constants/index.ts` 中的 `DEFAULT_FLAKY_CRITERIA`
@@ -683,6 +724,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 | `confidenceLevel` | 0.95 | Wilson 置信区间的置信水平 |
 | `autoReleaseAfterPasses` | 3 | 软隔离自动释放所需连续通过次数 |
 
+<a id="92-quarantinecriteriaconfig-9-parameters"></a>
 ### 9.2 QuarantineCriteriaConfig（9 个参数）
 
 > 源码：`src/constants/index.ts` 中的 `DEFAULT_QUARANTINE_CRITERIA`
@@ -699,6 +741,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 | `retryDelayMs` | 1000 | 默认重试延迟（毫秒） |
 | `retryBackoff` | 2 | 重试退避倍数 |
 
+<a id="93-customization-methods"></a>
 ### 9.3 自定义方式
 
 系统提供三种方式自定义参数：

@@ -6,17 +6,17 @@ YuanTest Playwright supports customizing behavior through configuration files, c
 
 ## Table of Contents
 
-1. [TestConfig - Basic Test Configuration](#1-testconfig---basic-test-configuration)
-2. [FlakyCriteriaConfig - Flaky Test Criteria Parameters](#2-flakycriteriaconfig---flaky-test-criteria-parameters)
-3. [QuarantineCriteriaConfig - Quarantine Criteria Parameters](#3-quarantinecriteriaconfig---quarantine-criteria-parameters)
-4. [TraceConfig - Trace Configuration](#4-traceconfig---trace-configuration)
-5. [ArtifactConfig - Artifact Configuration](#5-artifactconfig---artifact-configuration)
-6. [VisualTestingConfig - Visual Testing Configuration](#6-visualtestingconfig---visual-testing-configuration)
-7. [AnnotationConfig - Annotation Configuration](#7-annotationconfig---annotation-configuration)
-8. [TagConfig - Tag Configuration](#8-tagconfig---tag-configuration)
-9. [QuarantineConfig - Quarantine Configuration](#9-quarantineconfig---quarantine-configuration)
-10. [LLMConfig - LLM Configuration](#10-llmconfig---llm-configuration)
-11. [DashboardConfig - Dashboard Configuration](#11-dashboardconfig---dashboard-configuration)
+1. [TestConfig - Basic Test Configuration](#1-testconfig-basic-test-configuration)
+2. [FlakyCriteriaConfig - Flaky Test Criteria Parameters](#2-flakycriteriaconfig-flaky-test-criteria-parameters)
+3. [QuarantineCriteriaConfig - Quarantine Criteria Parameters](#3-quarantinecriteriaconfig-quarantine-criteria-parameters)
+4. [TraceConfig - Trace Configuration](#4-traceconfig-trace-configuration)
+5. [ArtifactConfig - Artifact Configuration](#5-artifactconfig-artifact-configuration)
+6. [VisualTestingConfig - Visual Testing Configuration](#6-visualtestingconfig-visual-testing-configuration)
+7. [AnnotationConfig - Annotation Configuration](#7-annotationconfig-annotation-configuration)
+8. [TagConfig - Tag Configuration](#8-tagconfig-tag-configuration)
+9. [QuarantineConfig - Quarantine Configuration](#9-quarantineconfig-quarantine-configuration)
+10. [LLMConfig - LLM Configuration](#10-llmconfig-llm-configuration)
+11. [DashboardConfig - Dashboard Configuration](#11-dashboardconfig-dashboard-configuration)
 12. [Default Constants Table](#12-default-constants-table)
 13. [Configuration Methods](#13-configuration-methods)
 
@@ -73,11 +73,11 @@ interface TestConfig {
 | `headers` | `Record<string, string>` | No | - | Custom HTTP request headers, passed to Playwright `use.extraHTTPHeaders` |
 | `flakyThreshold` | `number` | No | `0.3` | Flaky detection threshold (0~1), failure rate above this value is considered Flaky |
 | `isolateFlaky` | `boolean` | No | `false` | Whether to automatically isolate Flaky tests |
-| `traces` | `TraceConfig` | No | - | Trace configuration, see [TraceConfig](#4-traceconfig---trace-configuration) |
-| `artifacts` | `ArtifactConfig` | No | - | Artifact configuration, see [ArtifactConfig](#5-artifactconfig---artifact-configuration) |
-| `visualTesting` | `VisualTestingConfig` | No | - | Visual testing configuration, see [VisualTestingConfig](#6-visualtestingconfig---visual-testing-configuration) |
-| `annotations` | `AnnotationConfig` | No | - | Annotation configuration, see [AnnotationConfig](#7-annotationconfig---annotation-configuration) |
-| `tags` | `TagConfig` | No | - | Tag configuration, see [TagConfig](#8-tagconfig---tag-configuration) |
+| `traces` | `TraceConfig` | No | - | Trace configuration, see [TraceConfig](#4-traceconfig-trace-configuration) |
+| `artifacts` | `ArtifactConfig` | No | - | Artifact configuration, see [ArtifactConfig](#5-artifactconfig-artifact-configuration) |
+| `visualTesting` | `VisualTestingConfig` | No | - | Visual testing configuration, see [VisualTestingConfig](#6-visualtestingconfig-visual-testing-configuration) |
+| `annotations` | `AnnotationConfig` | No | - | Annotation configuration, see [AnnotationConfig](#7-annotationconfig-annotation-configuration) |
+| `tags` | `TagConfig` | No | - | Tag configuration, see [TagConfig](#8-tagconfig-tag-configuration) |
 | `htmlReport` | `boolean` | No | `true` | Whether to generate Playwright HTML report |
 | `htmlReportDir` | `string` | No | - | HTML report output subdirectory name, defaults to `html-report` |
 | `parentRunId` | `string` | No | - | Parent run ID, used to associate child runs |

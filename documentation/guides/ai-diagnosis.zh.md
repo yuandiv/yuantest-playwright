@@ -6,20 +6,21 @@
 
 ## 目录
 
-- [整体架构](#整体架构)
-- [诊断流程](#诊断流程)
-- [上下文富集引擎](#上下文富集引擎)
-- [Playwright 知识库](#playwright-知识库)
-- [Agent 多轮推理](#agent-多轮推理)
-- [置信度校准](#置信度校准)
-- [流式诊断](#流式诊断)
-- [LLM 配置](#llm-配置)
-- [诊断结果类型](#诊断结果类型)
-- [缓存与持久化](#缓存与持久化)
-- [安全机制](#安全机制)
+- [整体架构](#overall-architecture)
+- [诊断流程](#diagnosis-process)
+- [上下文富集引擎](#context-enrichment-engine)
+- [Playwright 知识库](#playwright-knowledge-base)
+- [Agent 多轮推理](#agent-multi-turn-reasoning)
+- [置信度校准](#confidence-calibration)
+- [流式诊断](#streaming-diagnosis)
+- [LLM 配置](#llm-configuration)
+- [诊断结果类型](#diagnosis-result-types)
+- [缓存与持久化](#cache-and-persistence)
+- [安全机制](#security-mechanisms)
 
 ---
 
+<a id="overall-architecture"></a>
 ## 整体架构
 
 AI 智能失败分析系统由以下核心模块组成：
@@ -33,6 +34,7 @@ AI 智能失败分析系统由以下核心模块组成：
 
 ---
 
+<a id="diagnosis-process"></a>
 ## 诊断流程
 
 完整的诊断流程按以下顺序执行：
@@ -49,9 +51,10 @@ enrichContext → matchPatterns → agentLoop → parseResponse → calibrateCon
 
 ---
 
+<a id="context-enrichment-engine"></a>
 ## 上下文富集引擎
 
-源文件：[context-enricher.ts](../../src/diagnosis/context-enricher.ts)
+源文件：[context-enricher.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/context-enricher.ts)
 
 `enrichContext` 函数收集 6 种上下文信息，返回 `EnrichedContext` 对象：
 
@@ -136,9 +139,10 @@ interface ContextUsed {
 
 ---
 
+<a id="playwright-knowledge-base"></a>
 ## Playwright 知识库
 
-源文件：[knowledge-base.ts](../../src/diagnosis/knowledge-base.ts)
+源文件：[knowledge-base.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/knowledge-base.ts)
 
 ### 错误模式分类
 
@@ -232,9 +236,10 @@ interface ErrorPattern {
 
 ---
 
+<a id="agent-multi-turn-reasoning"></a>
 ## Agent 多轮推理
 
-源文件：[index.ts](../../src/diagnosis/index.ts)（`DiagnosisService` 类）
+源文件：[index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts)（`DiagnosisService` 类）
 
 ### 工具定义
 
@@ -289,9 +294,10 @@ interface ReasoningStep {
 
 ---
 
+<a id="confidence-calibration"></a>
 ## 置信度校准
 
-源文件：[index.ts](../../src/diagnosis/index.ts)（`calibrateConfidence` 方法）
+源文件：[index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts)（`calibrateConfidence` 方法）
 
 校准公式：
 
@@ -320,9 +326,10 @@ calibratedConfidence = llmConfidence × 0.6 + patternMatchBonus + contextBonus +
 
 ---
 
+<a id="streaming-diagnosis"></a>
 ## 流式诊断
 
-源文件：[index.ts](../../src/diagnosis/index.ts)（`diagnoseStream` 方法）
+源文件：[index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts)（`diagnoseStream` 方法）
 
 流式诊断通过 SSE（Server-Sent Events）实现实时推送。
 
@@ -373,6 +380,7 @@ data: {"type":"...","...":"..."}\n\n
 
 ---
 
+<a id="llm-configuration"></a>
 ## LLM 配置
 
 ### LLMConfig 类型
@@ -437,6 +445,7 @@ const DEFAULT_CONFIG: LLMConfig = {
   - `red`：已配置但连接失败
 
 ---
+<a id="diagnosis-result-types"></a>
 
 ## 诊断结果类型
 
@@ -494,6 +503,7 @@ interface ReasoningStep {
 
 ---
 
+<a id="cache-and-persistence"></a>
 ## 缓存与持久化
 
 ### 内存缓存
@@ -512,6 +522,7 @@ interface ReasoningStep {
 - **加载时机**：诊断前先检查持久化结果，存在则直接返回
 
 ---
+<a id="security-mechanisms"></a>
 
 ## 安全机制
 

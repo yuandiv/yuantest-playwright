@@ -51,7 +51,7 @@ enrichContext → matchPatterns → agentLoop → parseResponse → calibrateCon
 
 ## Context Enrichment Engine
 
-Source file: [context-enricher.ts](../../src/diagnosis/context-enricher.ts)
+Source file: [context-enricher.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/context-enricher.ts)
 
 The `enrichContext` function collects 6 types of context information and returns an `EnrichedContext` object:
 
@@ -138,7 +138,7 @@ interface ContextUsed {
 
 ## Playwright Knowledge Base
 
-Source file: [knowledge-base.ts](../../src/diagnosis/knowledge-base.ts)
+Source file: [knowledge-base.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/knowledge-base.ts)
 
 ### Error Pattern Classification
 
@@ -234,7 +234,7 @@ The knowledge base supports registering custom error patterns:
 
 ## Agent Multi-turn Reasoning
 
-Source file: [index.ts](../../src/diagnosis/index.ts) (`DiagnosisService` class)
+Source file: [index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts) (`DiagnosisService` class)
 
 ### Tool Definitions
 
@@ -291,7 +291,7 @@ interface ReasoningStep {
 
 ## Confidence Calibration
 
-Source file: [index.ts](../../src/diagnosis/index.ts) (`calibrateConfidence` method)
+Source file: [index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts) (`calibrateConfidence` method)
 
 Calibration formula:
 
@@ -322,7 +322,7 @@ When `calibratedConfidence < 0.5`, the system automatically appends a warning to
 
 ## Streaming Diagnosis
 
-Source file: [index.ts](../../src/diagnosis/index.ts) (`diagnoseStream` method)
+Source file: [index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts) (`diagnoseStream` method)
 
 Streaming diagnosis implements real-time push via SSE (Server-Sent Events).
 
