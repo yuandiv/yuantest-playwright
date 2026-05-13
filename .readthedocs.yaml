@@ -18,6 +18,6 @@ python:
 
 search:
   ranking:
-    index.md: 1.0
-    getting-started.md: 0.9
-    api/index.md: 0.8
+    index.md: 2
+    getting-started.md: 1
+    api/index.md: 0
