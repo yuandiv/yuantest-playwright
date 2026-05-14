@@ -60,7 +60,7 @@
   "bugs": {
     "url": "https://github.com/yuandiv/yuantest-playwright/issues"
   },
-  "homepage": "https://github.com/yuandiv/yuantest-playwright#readme",
+  "homepage": "https://yuantest-playwright.readthedocs.io/",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
