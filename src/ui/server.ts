@@ -410,12 +410,12 @@ export class DashboardServer {
           version,
           testDir,
           outputDir: this.outputDir,
-          baseURL: runOptions.baseURL || fileConfig?.baseURL,
-          retries: runOptions.retries ?? fileConfig?.retries ?? 0,
-          timeout: runOptions.timeout ?? fileConfig?.timeout ?? 30000,
-          workers: runOptions.workers ?? fileConfig?.workers ?? 1,
-          shards: runOptions.shards ?? fileConfig?.shards ?? 1,
-          browsers: runOptions.browsers || fileConfig?.browsers || ['chromium'],
+          baseURL: fileConfig?.baseURL,
+          retries: fileConfig?.retries ?? 0,
+          timeout: fileConfig?.timeout ?? 30000,
+          workers: fileConfig?.workers ?? 1,
+          shards: fileConfig?.shards ?? 1,
+          browsers: fileConfig?.browsers || ['chromium'],
           htmlReport: true,
         });
 

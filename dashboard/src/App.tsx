@@ -962,14 +962,7 @@ function App() {
     return error;
   }, [lang]);
 
-  const handleRun = async (mode: 'test' | 'describe' | 'file', target: string, options?: {
-    browsers?: string[];
-    retries?: number;
-    timeout?: number;
-    workers?: number;
-    shards?: number;
-    baseURL?: string;
-  }) => {
+  const handleRun = async (mode: 'test' | 'describe' | 'file', target: string) => {
     if (isExecuting) {
       addLog(`⚠️ ${t('executorBusy', lang)}`, 'error');
       return;
@@ -985,34 +978,16 @@ function App() {
       result = await api.startRun({
         version: versionInput,
         testLocations: locations,
-        browsers: options?.browsers,
-        retries: options?.retries,
-        timeout: options?.timeout,
-        workers: options?.workers,
-        shards: options?.shards,
-        baseURL: options?.baseURL,
       });
     } else if (mode === 'describe') {
       result = await api.startRun({
         version: versionInput,
         describePattern: target,
-        browsers: options?.browsers,
-        retries: options?.retries,
-        timeout: options?.timeout,
-        workers: options?.workers,
-        shards: options?.shards,
-        baseURL: options?.baseURL,
       });
     } else {
       result = await api.startRun({
         version: versionInput,
         testFiles: [target],
-        browsers: options?.browsers,
-        retries: options?.retries,
-        timeout: options?.timeout,
-        workers: options?.workers,
-        shards: options?.shards,
-        baseURL: options?.baseURL,
       });
     }
     

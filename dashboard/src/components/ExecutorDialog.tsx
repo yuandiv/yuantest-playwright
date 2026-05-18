@@ -20,14 +20,7 @@ interface ExecutorDialogProps {
   testDir: string;
   onSelectedIdsChange: (ids: Set<string>) => void;
   onExpandedPathsChange: (paths: Set<string>) => void;
-  onRun: (mode: 'test' | 'describe' | 'file', target: string, options?: {
-    browsers?: string[];
-    retries?: number;
-    timeout?: number;
-    workers?: number;
-    shards?: number;
-    baseURL?: string;
-  }) => void;
+  onRun: (mode: 'test' | 'describe' | 'file', target: string) => void;
   onStop: () => void;
   onClearLogs: () => void;
   onVersionChange: (v: string) => void;
@@ -557,12 +550,6 @@ export function ExecutorDialog({
   const [tempTestDir, setTempTestDir] = useState(testDir);
   const [isValidating, setIsValidating] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [runBrowsers, setRunBrowsers] = useState<string[]>(['chromium']);
-  const [runRetries, setRunRetries] = useState(0);
-  const [runTimeout, setRunTimeout] = useState(30000);
-  const [runWorkers, setRunWorkers] = useState(1);
-  const [runShards, setRunShards] = useState(1);
-  const [runBaseURL, setRunBaseURL] = useState('');
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -571,15 +558,6 @@ export function ExecutorDialog({
   } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const selectedCount = selectedIds.size;
-
-  const runOptions = {
-    browsers: runBrowsers.length > 0 ? runBrowsers : undefined,
-    retries: runRetries > 0 ? runRetries : undefined,
-    timeout: runTimeout !== 30000 ? runTimeout : undefined,
-    workers: runWorkers > 1 ? runWorkers : undefined,
-    shards: runShards > 1 ? runShards : undefined,
-    baseURL: runBaseURL || undefined,
-  };
 
   const orderedTestFiles = useMemo(() => {
     if (!fileOrder || fileOrder.length === 0) return testFiles;
@@ -683,7 +661,7 @@ export function ExecutorDialog({
    */
   const handleRunTest = (test: TestCase) => {
     onSelectedIdsChange(new Set([test.id]));
-    onRun('test', `${test.file}:${test.line}`, runOptions);
+    onRun('test', `${test.file}:${test.line}`);
   };
 
   /**
@@ -703,7 +681,7 @@ export function ExecutorDialog({
       }
     }
     collectLocations(describe);
-    onRun('test', locations.join(','), runOptions);
+    onRun('test', locations.join(','));
   };
 
   /**
@@ -713,7 +691,7 @@ export function ExecutorDialog({
   const handleRunFile = (file: TestFile) => {
     const allIds = collectAllIdsInFile(file);
     onSelectedIdsChange(new Set(allIds));
-    onRun('file', file.file, runOptions);
+    onRun('file', file.file);
   };
 
   const handleMoveFileUp = (index: number) => {
@@ -804,88 +782,6 @@ export function ExecutorDialog({
                   placeholder={t('versionLabel', lang)}
                 />
               </div>
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('executionParams', lang) || '执行参数'}</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('browsers', lang) || '浏览器'}</label>
-                    <div className="flex gap-1">
-                      {['chromium', 'firefox', 'webkit'].map((b) => (
-                        <button
-                          key={b}
-                          type="button"
-                          onClick={() => {
-                            setRunBrowsers(prev =>
-                              prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]
-                            );
-                          }}
-                          className={`px-2 py-1 text-xs rounded border ${
-                            runBrowsers.includes(b)
-                              ? 'bg-blue-500 text-white border-blue-500'
-                              : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                          }`}
-                        >
-                          {b}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('retries', lang) || '重试次数'}</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={10}
-                      value={runRetries}
-                      onChange={(e) => setRunRetries(parseInt(e.target.value) || 0)}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('timeout', lang) || '超时(ms)'}</label>
-                    <input
-                      type="number"
-                      min={1000}
-                      step={1000}
-                      value={runTimeout}
-                      onChange={(e) => setRunTimeout(parseInt(e.target.value) || 30000)}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('workers', lang) || 'Workers'}</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={16}
-                      value={runWorkers}
-                      onChange={(e) => setRunWorkers(parseInt(e.target.value) || 1)}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('shards', lang) || '分片数'}</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={16}
-                      value={runShards}
-                      onChange={(e) => setRunShards(parseInt(e.target.value) || 1)}
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('baseURL', lang) || 'Base URL'}</label>
-                    <input
-                      type="text"
-                      value={runBaseURL}
-                      onChange={(e) => setRunBaseURL(e.target.value)}
-                      placeholder="https://example.com"
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                </div>
-              </div>
               <button
                 onClick={() => {
                   const ids = Array.from(selectedIds);
@@ -910,7 +806,7 @@ export function ExecutorDialog({
                       }
                     }
                     if (locations.length > 0) {
-                      onRun('test', locations.join(','), runOptions);
+                      onRun('test', locations.join(','));
                     }
                   }
                 }}

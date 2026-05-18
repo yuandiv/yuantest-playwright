@@ -116,12 +116,6 @@ export const StartRunRequestSchema = z.object({
   tagFilter: z.array(z.string()).optional(),
   projectFilter: z.string().optional(),
   updateSnapshots: z.boolean().optional(),
-  baseURL: z.string().url().optional(),
-  retries: z.number().int().min(0).optional(),
-  timeout: z.number().int().positive().optional(),
-  workers: z.number().int().positive().optional(),
-  shards: z.number().int().positive().optional(),
-  browsers: z.array(BrowserTypeSchema).optional(),
 });
 
 export const SetTestDirRequestSchema = z.object({

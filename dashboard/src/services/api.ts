@@ -35,7 +35,6 @@ export interface StartRunResult {
 
 export async function startRun(options: {
   testDir?: string;
-  baseURL?: string;
   version?: string;
   testIds?: string[];
   grepPattern?: string;
@@ -43,11 +42,6 @@ export async function startRun(options: {
   testLocations?: string[];
   testFiles?: string[];
   describePattern?: string;
-  browsers?: string[];
-  retries?: number;
-  timeout?: number;
-  workers?: number;
-  shards?: number;
 }): Promise<StartRunResult> {
   try {
     const res = await fetch(`${API_BASE}/runs`, {
