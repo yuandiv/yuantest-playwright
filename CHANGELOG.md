@@ -2,17 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-### [1.0.12](https://github.com/yuandiv/yuantest-playwright/compare/v1.0.11...v1.0.12) (2026-05-18)
+### [1.0.11 ](https://github.com/yuandiv/yuantest-playwright/compare/v1.0.11...v1.0.12)(2026-05-18)
+
+- 修复冗余配置异常
 
 ### [1.0.10](https://github.com/yuandiv/yuantest-playwright/compare/v1.0.9...v1.0.10) (2026-05-13)
 
-
 ### 🐛 Bug 修复
 
-* 修复lint和test异常，解决web ui 和cli不统一的问题 ([348a900](https://github.com/yuandiv/yuantest-playwright/commit/348a900bc204f7506cb5edd05d7fcc09ea7751e3))
+- 修复lint和test异常，解决web ui 和cli不统一的问题 ([348a900](https://github.com/yuandiv/yuantest-playwright/commit/348a900bc204f7506cb5edd05d7fcc09ea7751e3))
 
 ### [1.0.9](https://github.com/yuandiv/yuantest-playwright/compare/v1.0.8...v1.0.9) (2026-05-09)
-
 
 ### 🛠 变更
 
@@ -55,7 +55,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 - 删除无用文件
 
-## [1.0.8] - 2026-05-06
+## [1.0.8](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.8) - 2026-05-06
 
 ### 新增
 
@@ -85,7 +85,6 @@ All notable changes to this project will be documented in this file. See [standa
   - 支持 AI 模型配置管理
   - API 密钥和端点配置
   - 模型参数调整
-
 - **TestDetailModal** - 增强测试详情模态框
   - 集成 AI 诊断结果展示
   - 智能修复建议显示
@@ -134,9 +133,9 @@ All notable changes to this project will be documented in this file. See [standa
   - `knowledge-base.test.ts` - 知识库测试
   - `orchestrator.test.ts` - 编排器测试
 
----
+***
 
-## [1.0.7] - 2026-04-29
+## [1.0.7](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.7) - 2026-04-29
 
 ### 新增
 
@@ -194,9 +193,9 @@ All notable changes to this project will be documented in this file. See [standa
 - **单元测试** - 新增 Flaky 模块单元测试
   - `flaky.test.ts` - 完整的 Flaky 管理测试套件
 
----
+***
 
-## [1.0.6] - 2026-04-24
+## [1.0.6](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.6) - 2026-04-24
 
 ### 新增
 
@@ -277,9 +276,9 @@ All notable changes to this project will be documented in this file. See [standa
   - 添加实时报告功能说明
   - 更新使用示例
 
----
+***
 
-## [1.0.5] - 2026-04-21
+## [1.0.5](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.5) - 2026-04-21
 
 ### 修复
 
@@ -287,9 +286,9 @@ All notable changes to this project will be documented in this file. See [standa
 
 - **执行逻辑** - 不再使用正则表达式匹配测试标题，改为收集测试用例的文件位置信息，遍历 describe 块收集所有测试的位置
 
----
+***
 
-## [1.0.4] - 2026-04-21
+## [1.0.4](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.4) - 2026-04-21
 
 ### 修复
 
@@ -304,7 +303,6 @@ All notable changes to this project will be documented in this file. See [standa
 - **ConfigLoader** - 修复配置加载中的路径解析问题
   - 改进配置文件的搜索逻辑
   - 增强错误处理机制
-
 - **PlaywrightConfigMerger** - 修复配置合并的边界情况
   - 处理缺失配置项的默认值
   - 优化配置验证逻辑
@@ -315,9 +313,9 @@ All notable changes to this project will be documented in this file. See [standa
   - 添加缺失的模拟数据
   - 修复断言逻辑
 
----
+***
 
-## [1.0.3] - 2026-04-21
+## [1.0.3](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.3) - 2026-04-21
 
 ### 新增
 
@@ -366,11 +364,9 @@ All notable changes to this project will be documented in this file. See [standa
   - 改进状态管理逻辑
   - 优化组件渲染性能
   - 简化代码结构
-
 - **ExecutorDialog** - 改进执行器对话框
   - 优化用户交互体验
   - 改进错误提示
-
 - **HealthDashboard** - 改进健康状态面板
   - 优化数据展示逻辑
   - 改进组件性能
@@ -394,9 +390,9 @@ All notable changes to this project will be documented in this file. See [standa
   - 改进使用示例
   - 更新路线图
 
----
+***
 
-## [1.0.2] - 2026-04-16
+## [1.0.2](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.2) - 2026-04-16
 
 ### 新增
 
@@ -435,9 +431,9 @@ All notable changes to this project will be documented in this file. See [standa
   - 添加前导 `/` 仅忽略根目录文件夹：`/artifacts/`、`/traces/`、`/visual-testing/`、`/html-report/`
   - 防止意外忽略同名的子目录
 
----
+***
 
-## [1.0.1] - 2026-04-15
+## [1.0.1](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.1) - 2026-04-15
 
 ### 新增
 
@@ -485,11 +481,9 @@ All notable changes to this project will be documented in this file. See [standa
   - 添加语言中间件以自动检测语言
   - 使用 `PlaywrightConfigMerger.validateProjectPath()` 重构测试目录验证
   - 增强 test discovery API，添加 `configValidation` 字段
-
 - **测试发现** - 更好的配置处理
   - 使用配置文件目录作为工作目录
   - 错误时返回验证结果而非空列表
-
 - **执行器** - 动态配置管理
   - 动态配置合并而非硬编码路径
   - 基于配置位置正确解析工作目录
@@ -512,9 +506,9 @@ All notable changes to this project will be documented in this file. See [standa
 - **API 响应**：`startRun()` 和 `rerunTest()` 现在返回 `{ success, error? }` 而非 `boolean`
 - **测试目录验证**：使用新的 `validateProjectPath()` 方法替代旧的验证逻辑
 
----
+***
 
-## [1.0.0] - 2026-04-11
+## [1.0.0](https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.0) - 2026-04-11
 
 ### 新增
 
@@ -524,33 +518,28 @@ All notable changes to this project will be documented in this file. See [standa
   - 支持跨多个分片的分布式测试执行
   - 基于测试历史时长的负载均衡
   - `ShardOptimizer` 用于智能测试分配
-
 - **Executor** - 通过 Playwright CLI 的测试执行引擎
   - 支持并行测试执行
   - 失败测试的自动重试机制
   - 多浏览器测试（chromium、firefox、webkit）
   - 通过事件实时进度追踪
   - `ParallelExecutor` 用于并发测试运行
-
 - **Reporter** - 全面的测试报告系统
   - 使用 EJS 模板生成 HTML 报告
   - JSON 报告输出
   - 失败分析，包含分类和修复建议
   - 测试产物管理（截图、视频、追踪）
-
 - **不稳定用例管理** - 自动检测和隔离不稳定用例
   - 基于可配置阈值的不稳定用例检测
   - 隔离问题测试的隔离机制
   - 历史不稳定用例追踪
   - 用于隔离/释放操作的 REST API
-
 - **Web 仪表板** - 测试管理的可视化界面
   - 通过 WebSocket 实时显示测试进度
   - 历史测试运行可视化
   - 不稳定用例管理 UI
   - 失败分析仪表板
   - 包含 15+ 端点的 REST API
-
 - **CLI 工具** - 完整的命令行界面
   - `yuantest run` - 使用各种选项执行测试
   - `yuantest orchestrate` - 预览测试分配计划
@@ -607,7 +596,7 @@ All notable changes to this project will be documented in this file. See [standa
 - CLI 功能的 E2E 测试
 - 带覆盖率阈值的 Jest 配置
 
----
+***
 
 ## 未来路线图
 
@@ -622,15 +611,5 @@ All notable changes to this project will be documented in this file. See [standa
 - [ ] 性能基准测试和回归检测
 - [ ] 测试用例管理集成
 
----
+***
 
-[1.0.9]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.9
-[1.0.8]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.8
-[1.0.7]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.7
-[1.0.6]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.6
-[1.0.5]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.5
-[1.0.4]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.4
-[1.0.3]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.3
-[1.0.2]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.2
-[1.0.1]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.1
-[1.0.0]: https://github.com/yuandiv/yuantest-playwright/releases/tag/v1.0.0
