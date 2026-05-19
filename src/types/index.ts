@@ -783,6 +783,7 @@ export interface AIDiagnosis {
   calibratedConfidence: number;
   analysisMode: 'agent' | 'single' | 'fallback';
   relatedFailures?: string[];
+  healerPatch?: HealerPatch;
 }
 
 export interface LLMStatus {
@@ -870,4 +871,77 @@ export interface QuarantineCriteriaConfig {
   retryMax: number;
   retryDelayMs: number;
   retryBackoff: number;
+}
+
+export type AgentType = 'planner' | 'generator' | 'healer';
+
+export type AgentLoopTarget = 'vscode' | 'claude' | 'opencode';
+
+export interface AgentConfig {
+  enabled: boolean;
+  loopTarget: AgentLoopTarget;
+  specsDir: string;
+  seedTest?: string;
+  autoHeal: boolean;
+  maxHealRounds: number;
+  projectRoot?: string;
+}
+
+export interface TestPlan {
+  id: string;
+  title: string;
+  description: string;
+  scenarios: TestPlanScenario[];
+  createdAt: number;
+  seedTest?: string;
+  filePath?: string;
+}
+
+export interface TestPlanScenario {
+  name: string;
+  steps: TestPlanStep[];
+  expectedResults: string[];
+}
+
+export interface TestPlanStep {
+  action: string;
+  target: string;
+  value?: string;
+}
+
+export interface HealerPatch {
+  testId: string;
+  testTitle: string;
+  filePath: string;
+  originalCode: string;
+  patchedCode: string;
+  unifiedDiff: string;
+  confidence: number;
+  reason: string;
+  appliedAt?: number;
+  appliedBy?: 'auto' | 'manual';
+  verified?: boolean;
+}
+
+export interface AgentResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  duration: number;
+  agentType: AgentType;
+  model?: string;
+}
+
+export interface AgentInitResult {
+  loopTarget: AgentLoopTarget;
+  filesCreated: string[];
+  instructionsPath?: string;
+}
+
+export interface AgentHealResult {
+  testId: string;
+  testTitle: string;
+  patches: HealerPatch[];
+  healed: boolean;
+  roundsUsed: number;
 }

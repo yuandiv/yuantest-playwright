@@ -33,6 +33,10 @@ export {
   getRetryPolicyForRootCause,
 } from './flaky/quarantine-strategy';
 export { CausalGraphBuilder } from './flaky/causal-graph';
+export { AgentService } from './agents';
+export { PlannerAgent } from './agents/planner';
+export { GeneratorAgent } from './agents/generator';
+export { HealerAgent } from './agents/healer';
 export { DashboardServer } from './ui/server';
 export { PlaywrightConfigBuilder, PlaywrightConfigOptions } from './config';
 export { loadConfigFile, mergeConfig, getDashboardConfig } from './config/loader';
@@ -138,4 +142,14 @@ export {
   CausalEdge,
   CausalGraph,
   ImpactAnalysis,
+  AgentType,
+  AgentLoopTarget,
+  AgentConfig,
+  TestPlan,
+  TestPlanScenario,
+  TestPlanStep,
+  HealerPatch,
+  AgentResult,
+  AgentInitResult,
+  AgentHealResult,
 } from './types';

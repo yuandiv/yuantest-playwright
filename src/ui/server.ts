@@ -10,6 +10,7 @@ import { TagManager } from '../tags';
 import { ArtifactManager } from '../artifacts';
 import { VisualTestingManager } from '../visual';
 import { DiagnosisService } from '../diagnosis';
+import { AgentService } from '../agents';
 import {
   registerPattern,
   unregisterPattern,
@@ -92,6 +93,7 @@ export class DashboardServer {
   private storage: StorageProvider;
   private testDiscovery: TestDiscovery;
   private cache: LRUCache<unknown>;
+  private agentService: AgentService;
 
   constructor(
     port: number = 5274,
@@ -108,6 +110,7 @@ export class DashboardServer {
     this.cache = new LRUCache({
       maxSize: process.env.CACHE_MAX_SIZE ? parseInt(process.env.CACHE_MAX_SIZE, 10) : 100,
     });
+    this.agentService = new AgentService(dataDir);
 
     this.app = express();
     this.app.use(cors());
@@ -2519,6 +2522,109 @@ export class DashboardServer {
       })
     );
 
+    v1Router.get(
+      '/agents/config',
+      asyncHandler(async (req: Request, res: Response) => {
+        const config = this.agentService.getConfig();
+        res.json(config);
+      })
+    );
+
+    v1Router.put(
+      '/agents/config',
+      asyncHandler(async (req: Request, res: Response) => {
+        this.agentService.updateConfig(req.body);
+        const config = this.agentService.getConfig();
+        res.json(config);
+      })
+    );
+
+    v1Router.post(
+      '/agents/init',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { loopTarget } = req.body;
+        const result = await this.agentService.initAgents(loopTarget || 'vscode');
+        res.json(result);
+      })
+    );
+
+    v1Router.post(
+      '/agents/plan',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { description, seedTest, prdPath, outputDir } = req.body;
+        if (!description) {
+          res.status(400).json({ error: 'description is required' });
+          return;
+        }
+        const llmConfig = this.diagnosisService.getMaskedConfig();
+        this.agentService.setLLMConfig(llmConfig);
+        const result = await this.agentService.plan(description, { seedTest, prdPath, outputDir });
+        res.json(result);
+      })
+    );
+
+    v1Router.post(
+      '/agents/generate',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { planPath, outputDir, seedTest } = req.body;
+        if (!planPath) {
+          res.status(400).json({ error: 'planPath is required' });
+          return;
+        }
+        const llmConfig = this.diagnosisService.getMaskedConfig();
+        this.agentService.setLLMConfig(llmConfig);
+        const result = await this.agentService.generate(planPath, { outputDir, seedTest });
+        res.json(result);
+      })
+    );
+
+    v1Router.post(
+      '/agents/heal',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { testFilePath, runId, testId, error, stackTrace, apply } = req.body;
+        if (!testFilePath) {
+          res.status(400).json({ error: 'testFilePath is required' });
+          return;
+        }
+        const llmConfig = this.diagnosisService.getMaskedConfig();
+        this.agentService.setLLMConfig(llmConfig);
+        if (apply) {
+          this.agentService.updateConfig({ autoHeal: true });
+        }
+        const result = await this.agentService.heal(testFilePath, { runId, testId, error, stackTrace });
+        res.json(result);
+      })
+    );
+
+    v1Router.post(
+      '/agents/apply-patch',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { patch } = req.body;
+        if (!patch || !patch.filePath || !patch.originalCode || !patch.patchedCode) {
+          res.status(400).json({ error: 'patch with filePath, originalCode, patchedCode is required' });
+          return;
+        }
+        const success = await this.agentService.applyPatch(patch);
+        res.json({ success });
+      })
+    );
+
+    v1Router.get(
+      '/agents/plans',
+      asyncHandler(async (req: Request, res: Response) => {
+        const plans = await this.agentService.listPlans();
+        res.json(plans);
+      })
+    );
+
+    v1Router.get(
+      '/agents/heal-history',
+      asyncHandler(async (req: Request, res: Response) => {
+        const history = await this.agentService.getHealHistory();
+        res.json(history);
+      })
+    );
+
     this.app.use('/api/v1', v1Router);
     this.app.use(errorHandler);
   }
@@ -2645,6 +2751,7 @@ export class DashboardServer {
     );
 
     void logger.init(this.dataDir);
+    this.agentService.setProjectRoot(absoluteDir);
 
     this.invalidateAllCache();
 

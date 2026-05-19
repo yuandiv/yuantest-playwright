@@ -1384,4 +1384,51 @@ export class DiagnosisService {
   clearCache(): void {
     this.cache.clear();
   }
+
+  async diagnoseWithHeal(
+    testInfo: {
+      title: string;
+      error?: string;
+      stackTrace?: string;
+      filePath?: string;
+      lineNumber?: number;
+      screenshots?: string[];
+      logs?: string[];
+      browser?: string;
+    },
+    lang: string = 'zh',
+    runId?: string,
+    testId?: string,
+    rootCause?: RootCauseAnalysis
+  ): Promise<AIDiagnosis> {
+    const diagnosis = await this.diagnose(testInfo, lang, runId, testId, rootCause);
+
+    if (
+      this.config.enabled &&
+      diagnosis.confidence >= 0.5 &&
+      testInfo.filePath &&
+      (diagnosis.category === 'selector' || diagnosis.category === 'assertion' || diagnosis.category === 'timeout')
+    ) {
+      try {
+        const { AgentService } = await import('../agents');
+        const agentService = new AgentService(this.dataDir, { autoHeal: false }, this.config);
+        const healResult = await agentService.heal(testInfo.filePath, {
+          runId,
+          testId,
+          error: testInfo.error,
+          stackTrace: testInfo.stackTrace,
+        });
+
+        if (healResult.success && healResult.data && healResult.data.patches.length > 0) {
+          diagnosis.healerPatch = healResult.data.patches[0];
+        }
+      } catch (error) {
+        this.log.warn(
+          `Healer integration failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    return diagnosis;
+  }
 }

@@ -101,7 +101,7 @@ flowchart LR
 ### 3.3 Reporter — 报告生成
 
 - **源码位置**：[src/reporter/index.ts](file:///d:/Coding/yuantest-playwright/src/reporter/index.ts)
-- **核心职责**：生成测试报告，对失败用例进行分类分析
+- **核心职责**：生成代码报告，对失败用例进行分类分析
 - **关键能力**：
   - 生成 HTML 格式的可视化测试报告
   - 失败用例 6 类分类分析：

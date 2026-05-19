@@ -697,3 +697,141 @@ export async function deleteErrorPattern(patternId: string): Promise<any | null>
     method: 'DELETE',
   });
 }
+
+export interface AgentConfig {
+  enabled: boolean;
+  loopTarget: 'vscode' | 'claude' | 'opencode';
+  specsDir: string;
+  seedTest?: string;
+  autoHeal: boolean;
+  maxHealRounds: number;
+}
+
+export interface TestPlanStep {
+  action: string;
+  target: string;
+  value?: string;
+}
+
+export interface TestPlanScenario {
+  name: string;
+  steps: TestPlanStep[];
+  expectedResults: string[];
+}
+
+export interface TestPlan {
+  id: string;
+  title: string;
+  description: string;
+  scenarios: TestPlanScenario[];
+  createdAt: number;
+  seedTest?: string;
+  filePath?: string;
+}
+
+export interface HealerPatch {
+  testId: string;
+  testTitle: string;
+  filePath: string;
+  originalCode: string;
+  patchedCode: string;
+  unifiedDiff: string;
+  confidence: number;
+  reason: string;
+  appliedAt?: number;
+  appliedBy?: 'auto' | 'manual';
+  verified?: boolean;
+}
+
+export interface AgentResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  duration: number;
+  agentType: 'planner' | 'generator' | 'healer';
+  model?: string;
+}
+
+export interface AgentHealResult {
+  testId: string;
+  testTitle: string;
+  patches: HealerPatch[];
+  healed: boolean;
+  roundsUsed: number;
+}
+
+export async function getAgentConfig(): Promise<AgentConfig | null> {
+  return fetchJSON(`${API_BASE}/agents/config`);
+}
+
+export async function updateAgentConfig(config: Partial<AgentConfig>): Promise<AgentConfig | null> {
+  return fetchJSON(`${API_BASE}/agents/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+}
+
+export async function initAgents(loopTarget: 'vscode' | 'claude' | 'opencode'): Promise<AgentResult<{ loopTarget: string; filesCreated: string[]; instructionsPath?: string }> | null> {
+  return fetchJSON(`${API_BASE}/agents/init`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ loopTarget }),
+  });
+}
+
+export async function generateTestPlan(options: {
+  description: string;
+  seedTest?: string;
+  prdPath?: string;
+  outputDir?: string;
+}): Promise<AgentResult<TestPlan> | null> {
+  return fetchJSON(`${API_BASE}/agents/plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+}
+
+export async function generateTests(options: {
+  planPath: string;
+  outputDir?: string;
+  seedTest?: string;
+}): Promise<AgentResult<string[]> | null> {
+  return fetchJSON(`${API_BASE}/agents/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+}
+
+export async function healTest(options: {
+  testFilePath: string;
+  runId?: string;
+  testId?: string;
+  error?: string;
+  stackTrace?: string;
+  apply?: boolean;
+}): Promise<AgentResult<AgentHealResult> | null> {
+  return fetchJSON(`${API_BASE}/agents/heal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+}
+
+export async function applyPatch(patch: HealerPatch): Promise<{ success: boolean } | null> {
+  return fetchJSON(`${API_BASE}/agents/apply-patch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ patch }),
+  });
+}
+
+export async function getAgentPlans(): Promise<TestPlan[] | null> {
+  return fetchJSON(`${API_BASE}/agents/plans`);
+}
+
+export async function getHealHistory(): Promise<AgentHealResult[] | null> {
+  return fetchJSON(`${API_BASE}/agents/heal-history`);
+}

@@ -26,7 +26,7 @@ constructor(
 
 ### generateReport(runResult)
 
-生成测试报告，输出 JSON 文件和 HTML 文件。
+生成代码报告，输出 JSON 文件和 HTML 文件。
 
 ```typescript
 async generateReport(runResult: RunResult): Promise<string>

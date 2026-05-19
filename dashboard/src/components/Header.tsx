@@ -14,9 +14,10 @@ interface HeaderProps {
   onOpenExecutor: () => void;
   showHealthDashboard?: boolean;
   onToggleHealthDashboard?: () => void;
+  onOpenAgentPanel?: () => void;
 }
 
-export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard }: HeaderProps) {
+export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, onOpenAgentPanel }: HeaderProps) {
   const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
   const [showLLMConfig, setShowLLMConfig] = useState(false);
 
@@ -76,6 +77,15 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
           >
             <i className="fas fa-heartbeat"></i>
             <span>{t('healthDashboard', lang) || 'Dashboard'}</span>
+          </button>
+        )}
+        {onOpenAgentPanel && (
+          <button
+            onClick={onOpenAgentPanel}
+            className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <span>🎭</span>
+            <span>{t('agents', lang) || 'Agents'}</span>
           </button>
         )}
         <button
