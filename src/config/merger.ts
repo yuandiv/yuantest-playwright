@@ -53,6 +53,7 @@ export interface PlaywrightConfigFile {
     url?: string;
     reuseExistingServer?: boolean;
   };
+  tag?: string;
 }
 
 export interface MergedPlaywrightConfig {
@@ -73,6 +74,7 @@ export interface MergedPlaywrightConfig {
   snapshotDir: string;
   baseURL?: string;
   webServer?: PlaywrightConfigFile['webServer'];
+  tag?: string;
   warnings: string[];
 }
 
@@ -496,6 +498,7 @@ export class PlaywrightConfigMerger {
       snapshotDir: externalConfig.snapshotDir || FRAMEWORK_DEFAULTS.snapshotDir,
       baseURL,
       webServer: externalConfig.webServer,
+      tag: externalConfig.tag || process.env.YUANTEST_ENVIRONMENT_TAG,
       warnings,
     };
   }

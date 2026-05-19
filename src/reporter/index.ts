@@ -1,6 +1,7 @@
 import {
   RunResult,
   TestResult,
+  SuiteResult,
   FailureAnalysis,
   DashboardStats,
   TestRunHistory,
@@ -29,6 +30,20 @@ function resolveTemplatesDir(): string {
 
 const TEMPLATES_DIR = resolveTemplatesDir();
 
+export interface RunResultSummary {
+  id: string;
+  version: string;
+  status: string;
+  startTime: number;
+  endTime?: number;
+  duration?: number;
+  totalTests: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  flakyTestCount: number;
+}
+
 export class Reporter {
   private outputDir: string;
   private reports: Map<string, RunResult> = new Map();
@@ -40,6 +55,8 @@ export class Reporter {
   private pendingReports: Map<string, RunResult> = new Map();
   private diagnosisService: DiagnosisService | null = null;
   private flakyManager?: FlakyTestManager;
+  private pendingSuiteIndex: Map<string, { suite: SuiteResult; report: RunResult }> = new Map();
+  private pendingTestIndex: Map<string, SuiteResult> = new Map();
 
   constructor(
     outputDir: string = DEFAULTS.REPORTS_DIR,
@@ -80,6 +97,61 @@ export class Reporter {
     this.evictOldest();
   }
 
+  private async writeLargeReport(reportPath: string, runResult: RunResult): Promise<void> {
+    const totalTests = runResult.totalTests;
+    if (totalTests <= 5000) {
+      await this.storage.writeJSON(reportPath, runResult);
+      return;
+    }
+
+    await this.storage.mkdir(path.dirname(reportPath));
+    const stream = fs.createWriteStream(reportPath, { encoding: 'utf-8' });
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on('error', reject);
+
+      stream.write('{\n');
+
+      const headerKeys: Array<keyof RunResult> = [
+        'id', 'version', 'status', 'startTime', 'endTime', 'duration',
+        'totalTests', 'passed', 'failed', 'skipped', 'metadata',
+      ];
+
+      for (let i = 0; i < headerKeys.length; i++) {
+        const key = headerKeys[i];
+        const value = runResult[key];
+        if (value !== undefined) {
+          stream.write(`  ${JSON.stringify(key)}: ${JSON.stringify(value)}`);
+        } else {
+          stream.write(`  ${JSON.stringify(key)}: null`);
+        }
+        stream.write(',\n');
+      }
+
+      stream.write(`  "suites": [\n`);
+
+      for (let s = 0; s < runResult.suites.length; s++) {
+        if (s > 0) {
+          stream.write(',\n');
+        }
+        const suiteJson = JSON.stringify(runResult.suites[s], null, 2);
+        const indented = suiteJson
+          .split('\n')
+          .map((line, idx) => (idx === 0 ? `    ${line}` : `    ${line}`))
+          .join('\n');
+        stream.write(indented);
+      }
+
+      stream.write('\n  ],\n');
+
+      stream.write(`  "flakyTests": ${JSON.stringify(runResult.flakyTests || [])}\n`);
+
+      stream.write('}\n');
+
+      stream.end(() => resolve());
+    });
+  }
+
   async generateReport(runResult: RunResult): Promise<string> {
     await this.ensureReady();
     const reportId = runResult.id;
@@ -90,7 +162,7 @@ export class Reporter {
 
     const htmlExists = fs.existsSync(htmlReportPath);
 
-    const writeOps: Promise<void>[] = [this.storage.writeJSON(reportPath, runResult)];
+    const writeOps: Promise<void>[] = [this.writeLargeReport(reportPath, runResult)];
 
     if (!htmlExists) {
       const htmlTemplate = fs.readFileSync(path.join(TEMPLATES_DIR, 'report.html'), 'utf-8');
@@ -299,6 +371,51 @@ export class Reporter {
     return results.filter((r): r is RunResult => r !== null);
   }
 
+  async getReportSummaries(): Promise<RunResultSummary[]> {
+    await this.ensureReady();
+    const files = await this.storage.readDir(this.outputDir);
+    const jsonFiles = files.filter((f) => f.endsWith('.json'));
+    const results = await Promise.all(
+      jsonFiles.map(async (file) => {
+        try {
+          const content = await this.storage.readText(path.join(this.outputDir, file));
+          if (!content) {
+            return null;
+          }
+          const skipKeys = new Set(['suites', 'flakyTests']);
+          const parsed = JSON.parse(content, (key, value) => {
+            if (skipKeys.has(key)) {
+              return [];
+            }
+            return value;
+          });
+          if (parsed && parsed.id) {
+            return {
+              id: parsed.id,
+              version: parsed.version || '',
+              status: parsed.status || '',
+              startTime: parsed.startTime || 0,
+              endTime: parsed.endTime,
+              duration: parsed.duration,
+              totalTests: parsed.totalTests || 0,
+              passed: parsed.passed || 0,
+              failed: parsed.failed || 0,
+              skipped: parsed.skipped || 0,
+              flakyTestCount: Array.isArray(parsed.flakyTests) ? parsed.flakyTests.length : 0,
+            } as RunResultSummary;
+          }
+          return null;
+        } catch (e: unknown) {
+          this.log.warn(
+            `Skipping invalid report file for summary: ${file} - ${e instanceof Error ? e.message : String(e)}`
+          );
+          return null;
+        }
+      })
+    );
+    return results.filter((r): r is RunResultSummary => r !== null);
+  }
+
   /**
    * 清除内存缓存，强制下次调用 getAllReports 时重新从文件系统加载
    */
@@ -326,6 +443,8 @@ export class Reporter {
     };
 
     this.pendingReports.set(runId, runResult);
+    this.pendingSuiteIndex.delete(runId);
+    this.pendingTestIndex.delete(runId);
     this.addToCache(runId, runResult);
 
     const reportPath = path.join(this.outputDir, `${runId}.json`);
@@ -346,8 +465,11 @@ export class Reporter {
       return;
     }
 
-    let suite = report.suites.find((s) => s.name === suiteName);
-    if (!suite) {
+    const indexKey = `${runId}::${suiteName}`;
+    let suiteEntry = this.pendingSuiteIndex.get(indexKey);
+    let suite: SuiteResult;
+
+    if (!suiteEntry) {
       suite = {
         name: suiteName,
         totalTests: 0,
@@ -359,30 +481,37 @@ export class Reporter {
         timestamp: Date.now(),
       };
       report.suites.push(suite);
+      this.pendingSuiteIndex.set(indexKey, { suite, report });
+    } else {
+      suite = suiteEntry.suite;
     }
 
-    const existingTestIndex = suite.tests.findIndex((t) => t.id === testResult.id);
-    if (existingTestIndex >= 0) {
-      const existingTest = suite.tests[existingTestIndex];
-      suite.duration -= existingTest.duration;
-      suite.tests[existingTestIndex] = testResult;
-      suite.duration += testResult.duration;
+    const existingSuite = this.pendingTestIndex.get(`${runId}::${testResult.id}`);
+    if (existingSuite) {
+      const existingTestIndex = existingSuite.tests.findIndex((t) => t.id === testResult.id);
+      if (existingTestIndex >= 0) {
+        const existingTest = existingSuite.tests[existingTestIndex];
+        existingSuite.duration -= existingTest.duration;
+        existingSuite.tests[existingTestIndex] = testResult;
+        existingSuite.duration += testResult.duration;
 
-      if (existingTest.status === 'passed') {
-        suite.passed--;
-        report.passed--;
-      } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
-        suite.failed--;
-        report.failed--;
-      } else if (existingTest.status === 'skipped') {
-        suite.skipped--;
-        report.skipped--;
+        if (existingTest.status === 'passed') {
+          existingSuite.passed--;
+          report.passed--;
+        } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
+          existingSuite.failed--;
+          report.failed--;
+        } else if (existingTest.status === 'skipped') {
+          existingSuite.skipped--;
+          report.skipped--;
+        }
       }
     } else {
       suite.tests.push(testResult);
       suite.totalTests++;
       suite.duration += testResult.duration;
       report.totalTests++;
+      this.pendingTestIndex.set(`${runId}::${testResult.id}`, suite);
     }
 
     if (testResult.status === 'passed') {
@@ -394,6 +523,81 @@ export class Reporter {
     } else if (testResult.status === 'skipped') {
       suite.skipped++;
       report.skipped++;
+    }
+
+    this.addToCache(runId, report);
+  }
+
+  async updatePendingReportBatch(
+    runId: string,
+    results: Array<{ result: TestResult; suiteName: string }>
+  ): Promise<void> {
+    const report = this.pendingReports.get(runId);
+    if (!report) {
+      this.log.warn(`Pending report not found: ${runId}`);
+      return;
+    }
+
+    for (const { result: testResult, suiteName } of results) {
+      const indexKey = `${runId}::${suiteName}`;
+      let suiteEntry = this.pendingSuiteIndex.get(indexKey);
+      let suite: SuiteResult;
+
+      if (!suiteEntry) {
+        suite = {
+          name: suiteName,
+          totalTests: 0,
+          passed: 0,
+          failed: 0,
+          skipped: 0,
+          duration: 0,
+          tests: [],
+          timestamp: Date.now(),
+        };
+        report.suites.push(suite);
+        this.pendingSuiteIndex.set(indexKey, { suite, report });
+      } else {
+        suite = suiteEntry.suite;
+      }
+
+      const existingSuite = this.pendingTestIndex.get(`${runId}::${testResult.id}`);
+      if (existingSuite) {
+        const existingTestIndex = existingSuite.tests.findIndex((t) => t.id === testResult.id);
+        if (existingTestIndex >= 0) {
+          const existingTest = existingSuite.tests[existingTestIndex];
+          existingSuite.duration -= existingTest.duration;
+          existingSuite.tests[existingTestIndex] = testResult;
+          existingSuite.duration += testResult.duration;
+
+          if (existingTest.status === 'passed') {
+            existingSuite.passed--;
+            report.passed--;
+          } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
+            existingSuite.failed--;
+            report.failed--;
+          } else if (existingTest.status === 'skipped') {
+            existingSuite.skipped--;
+            report.skipped--;
+          }
+        }
+      } else {
+        suite.tests.push(testResult);
+        suite.totalTests++;
+        suite.duration += testResult.duration;
+        report.totalTests++;
+        this.pendingTestIndex.set(`${runId}::${testResult.id}`, suite);
+      }
+
+      if (testResult.status === 'passed') {
+        suite.passed++;
+        report.passed++;
+      } else if (testResult.status === 'failed' || testResult.status === 'timedout') {
+        suite.failed++;
+        report.failed++;
+      } else if (testResult.status === 'skipped') {
+        suite.skipped++;
+        report.skipped++;
+      }
     }
 
     this.addToCache(runId, report);
@@ -420,6 +624,7 @@ export class Reporter {
     await this.storage.writeJSON(reportPath, report);
 
     this.pendingReports.delete(runId);
+    this.cleanupPendingIndexes(runId);
 
     this.log.info(`Finalized pending report: ${runId} with status: ${status}`);
     return htmlReportPath;
@@ -427,6 +632,20 @@ export class Reporter {
 
   getPendingReport(runId: string): RunResult | undefined {
     return this.pendingReports.get(runId);
+  }
+
+  private cleanupPendingIndexes(runId: string): void {
+    const prefix = `${runId}::`;
+    for (const key of this.pendingSuiteIndex.keys()) {
+      if (key.startsWith(prefix)) {
+        this.pendingSuiteIndex.delete(key);
+      }
+    }
+    for (const key of this.pendingTestIndex.keys()) {
+      if (key.startsWith(prefix)) {
+        this.pendingTestIndex.delete(key);
+      }
+    }
   }
 
   hasPendingReport(runId: string): boolean {

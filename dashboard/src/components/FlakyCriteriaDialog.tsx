@@ -53,11 +53,85 @@ const FLAKY_LABELS_EN: Record<string, string> = {
   autoReleaseAfterPasses: 'Auto Release Passes (Soft)',
 };
 
+const FLAKY_TOOLTIPS_ZH: Record<string, string> = {
+  minimumRuns: '触发分类判定所需的最低运行次数。运行次数不足时，用例不会被分类，显示为"数据不足"',
+  flakyThreshold: '加权失败率 ≥ 此值时，用例被判定为"不稳定(Flaky)"。值越大，判定越宽松；值越小，判定越严格',
+  monitorThreshold: '加权失败率在此值与 Flaky 阈值之间时，用例被判定为"监控(Monitor)"，处于持续观察状态',
+  stableThreshold: '加权失败率 < 此值时，用例被判定为"稳定(Stable)"，可从不稳定列表中移除。需满足：Stable < Monitor < Flaky',
+  highThreshold: '加权失败率 ≥ 此值时触发高风险告警，用于识别最不稳定、需优先处理的用例。需满足：High > Flaky',
+  brokenConsecutiveThreshold: '连续失败次数 ≥ 此值时，用例被判定为"损坏(Broken)"，将自动进入硬隔离',
+  regressionWindow: '回归检测的最近运行窗口大小（次数），用于对比近期与早期的失败率变化，识别"由稳定变不稳定"的回归模式',
+  regressionRecentFailRate: '近期窗口内失败率 ≥ 此值时，视为回归信号的一部分（近期明显变差）',
+  regressionOlderFailRate: '早期历史失败率 ≤ 此值时，视为回归信号的一部分（之前是稳定的）。需满足：近期阈值 > 早期阈值',
+  decayRate: '控制历史运行结果对当前判定的权重影响。值越大，越近期的结果权重越高。0.1 表示约7天前的权重减半；1.0 表示约17小时前的权重减半',
+  confidenceLevel: 'Wilson 置信区间的置信水平，用于判断失败率是否具有统计显著性。常用值：0.9（宽松）、0.95（默认）、0.99（严格）。值越高，需要更多证据才判定为不稳定',
+  autoReleaseAfterPasses: '软隔离或监控状态的用例，连续通过此次数后自动释放恢复正常运行',
+};
+
+const FLAKY_TOOLTIPS_EN: Record<string, string> = {
+  minimumRuns: 'Minimum number of runs required for classification. Tests with fewer runs remain "insufficient_data"',
+  flakyThreshold: 'Weighted failure rate ≥ this value → classified as "Flaky". Higher = more lenient; Lower = more strict',
+  monitorThreshold: 'Weighted failure rate between this and Flaky threshold → classified as "Monitor" (under observation)',
+  stableThreshold: 'Weighted failure rate < this value → classified as "Stable", removed from flaky list. Must satisfy: Stable < Monitor < Flaky',
+  highThreshold: 'Weighted failure rate ≥ this value triggers high-risk alert for priority handling. Must satisfy: High > Flaky',
+  brokenConsecutiveThreshold: 'Consecutive failures ≥ this value → classified as "Broken", auto-enters hard quarantine',
+  regressionWindow: 'Number of recent runs for regression detection. Compares recent vs. older failure rates to detect "stable→unstable" patterns',
+  regressionRecentFailRate: 'Recent window failure rate ≥ this value → part of regression signal (recently degraded)',
+  regressionOlderFailRate: 'Older history failure rate ≤ this value → part of regression signal (was previously stable). Must satisfy: Recent > Older',
+  decayRate: 'Controls how much historical results influence current classification. Higher = more weight on recent results. 0.1 = ~7-day half-life; 1.0 = ~17-hour half-life',
+  confidenceLevel: 'Wilson confidence interval level for statistical significance. Common values: 0.9 (lenient), 0.95 (default), 0.99 (strict). Higher values require more evidence to classify as flaky',
+  autoReleaseAfterPasses: 'Soft-quarantined or monitored tests auto-release after this many consecutive passes',
+};
+
 const INT_FIELDS = ['minimumRuns', 'brokenConsecutiveThreshold', 'regressionWindow', 'autoReleaseAfterPasses'];
+
+const FIELD_MIN: Record<string, number> = {
+  minimumRuns: 1,
+  flakyThreshold: 0,
+  monitorThreshold: 0,
+  stableThreshold: 0,
+  highThreshold: 0,
+  brokenConsecutiveThreshold: 1,
+  regressionWindow: 1,
+  regressionRecentFailRate: 0,
+  regressionOlderFailRate: 0,
+  decayRate: 0,
+  confidenceLevel: 0,
+  autoReleaseAfterPasses: 1,
+};
+
+function validateFlakyCriteria(criteria: Record<string, number>, lang: Lang): string[] {
+  const warnings: string[] = [];
+  const { flakyThreshold, monitorThreshold, stableThreshold, highThreshold, regressionRecentFailRate, regressionOlderFailRate } = criteria;
+
+  if (stableThreshold >= monitorThreshold) {
+    warnings.push(lang === 'zh'
+      ? `Stable 阈值(${stableThreshold}) 应小于 Monitor 阈值(${monitorThreshold})`
+      : `Stable threshold(${stableThreshold}) should be less than Monitor threshold(${monitorThreshold})`);
+  }
+  if (monitorThreshold >= flakyThreshold) {
+    warnings.push(lang === 'zh'
+      ? `Monitor 阈值(${monitorThreshold}) 应小于 Flaky 阈值(${flakyThreshold})`
+      : `Monitor threshold(${monitorThreshold}) should be less than Flaky threshold(${flakyThreshold})`);
+  }
+  if (highThreshold <= flakyThreshold) {
+    warnings.push(lang === 'zh'
+      ? `高风险阈值(${highThreshold}) 应大于 Flaky 阈值(${flakyThreshold})`
+      : `High risk threshold(${highThreshold}) should be greater than Flaky threshold(${flakyThreshold})`);
+  }
+  if (regressionOlderFailRate >= regressionRecentFailRate) {
+    warnings.push(lang === 'zh'
+      ? `回归早期失败率(${regressionOlderFailRate}) 应小于近期失败率(${regressionRecentFailRate})`
+      : `Regression older fail rate(${regressionOlderFailRate}) should be less than recent fail rate(${regressionRecentFailRate})`);
+  }
+
+  return warnings;
+}
 
 export function FlakyCriteriaDialog({ lang, onClose, onSaved }: FlakyCriteriaDialogProps) {
   const [flakyCriteria, setFlakyCriteria] = useState<Record<string, number>>({ ...DEFAULT_FLAKY });
   const [saving, setSaving] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     api.getPreferences().then(prefs => {
@@ -70,6 +144,10 @@ export function FlakyCriteriaDialog({ lang, onClose, onSaved }: FlakyCriteriaDia
       }
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setWarnings(validateFlakyCriteria(flakyCriteria, lang));
+  }, [flakyCriteria, lang]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -102,6 +180,7 @@ export function FlakyCriteriaDialog({ lang, onClose, onSaved }: FlakyCriteriaDia
   };
 
   const labels = lang === 'zh' ? FLAKY_LABELS_ZH : FLAKY_LABELS_EN;
+  const tooltips = lang === 'zh' ? FLAKY_TOOLTIPS_ZH : FLAKY_TOOLTIPS_EN;
 
   const isIntField = (key: string) => INT_FIELDS.includes(key);
 
@@ -115,7 +194,15 @@ export function FlakyCriteriaDialog({ lang, onClose, onSaved }: FlakyCriteriaDia
     max: number = 1
   ) => (
     <div key={key}>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+        {label}
+        <span className="relative group inline-flex">
+          <i className="fas fa-circle-question text-[10px] text-gray-400 cursor-help hover:text-amber-500 transition-colors"></i>
+          <span className="absolute left-5 top-1/2 -translate-y-1/2 w-72 bg-gray-800 text-white text-[11px] rounded-lg p-3 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none leading-relaxed">
+            {tooltips[key] || ''}
+          </span>
+        </span>
+      </label>
       <input
         type="number"
         value={value}
@@ -153,6 +240,18 @@ export function FlakyCriteriaDialog({ lang, onClose, onSaved }: FlakyCriteriaDia
               {lang === 'zh' ? '重置为默认值' : 'Reset to Default'}
             </button>
           </div>
+          {warnings.length > 0 && (
+            <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <i className="fas fa-triangle-exclamation text-amber-500 text-xs mt-0.5"></i>
+                <div className="text-xs text-amber-700 space-y-1">
+                  {warnings.map((w, i) => (
+                    <div key={i}>{w}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             {Object.entries(DEFAULT_FLAKY).map(([key, defaultVal]) =>
               renderField(
@@ -161,7 +260,7 @@ export function FlakyCriteriaDialog({ lang, onClose, onSaved }: FlakyCriteriaDia
                 flakyCriteria[key] ?? defaultVal,
                 (val) => setFlakyCriteria(prev => ({ ...prev, [key]: val })),
                 isIntField(key) ? 1 : 0.01,
-                isIntField(key) ? 1 : 0,
+                FIELD_MIN[key] ?? 0,
                 isIntField(key) ? 1000 : 1
               )
             )}

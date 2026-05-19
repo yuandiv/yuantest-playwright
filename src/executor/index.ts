@@ -141,6 +141,10 @@ export class Executor extends EventEmitter {
   private configMerger: PlaywrightConfigMerger;
   private resolvedOutputDir: string = '';
   private parentRunId: string | null = null;
+  private suiteIndex: Map<string, SuiteResult> = new Map();
+  private testIndex: Map<string, TestResult> = new Map();
+  private testSuiteIndex: Map<string, SuiteResult> = new Map();
+  private lastProgressTimestamp: number = 0;
 
   get currentRun(): RunResult | null {
     return this._currentRun;
@@ -299,6 +303,10 @@ export class Executor extends EventEmitter {
     this.isRunning = true;
     const runId = this.generateRunId();
     const startTime = Date.now();
+
+    this.suiteIndex.clear();
+    this.testIndex.clear();
+    this.testSuiteIndex.clear();
 
     this._currentRun = {
       id: runId,
@@ -519,6 +527,59 @@ module.exports = ProgressReporter;
     await this.storage.writeText(reporterPath, reporterCode);
   }
 
+  private async writeEnvironmentTagConfig(
+    originalConfigPath: string,
+    environmentTag: string,
+    outputDir: string,
+    runId: string
+  ): Promise<string | null> {
+    try {
+      const fs = await import('fs/promises');
+      const tempDir = path.join(outputDir, 'temp-configs');
+      if (!(await this.storage.exists(tempDir))) {
+        await fs.mkdir(tempDir, { recursive: true });
+      }
+
+      const ext = path.extname(originalConfigPath);
+      const tempConfigPath = path.join(tempDir, `env-tag-${runId}${ext}`);
+
+      const isTs = ext === '.ts' || ext === '.mts';
+      const relativePath = path.relative(tempDir, originalConfigPath).split(path.sep).join('/');
+
+      let tempConfigCode: string;
+      if (isTs) {
+        tempConfigCode = `import { defineConfig } from '@playwright/test';
+import baseConfig from '${relativePath}';
+
+export default defineConfig({
+  ...baseConfig,
+  tag: '${environmentTag.replace(/'/g, "\\'")}',
+});
+`;
+      } else {
+        tempConfigCode = `const { defineConfig } = require('@playwright/test');
+const baseConfig = require('${relativePath}');
+
+module.exports = defineConfig({
+  ...baseConfig,
+  tag: '${environmentTag.replace(/'/g, "\\'")}',
+});
+`;
+      }
+
+      await fs.writeFile(tempConfigPath, tempConfigCode, 'utf-8');
+      this.log.info(`Generated temp config with tag "${environmentTag}" at: ${tempConfigPath}`);
+
+      return tempConfigPath;
+    } catch (error: unknown) {
+      this.log.warn(
+        `Failed to generate temp config with environment tag: ${error instanceof Error ? error.message : String(error)}. ` +
+          `Falling back to original config. Make sure your playwright.config.ts sets tag: process.env.CI_ENVIRONMENT_NAME`
+      );
+      return null;
+    }
+  }
+
   private handleProgressData(chunk: string): void {
     this.stderrBuffer += chunk;
 
@@ -545,6 +606,8 @@ module.exports = ProgressReporter;
     if (!this._currentRun) {
       return;
     }
+
+    this.lastProgressTimestamp = Date.now();
 
     if (msg.type === 'begin' && msg.totalTests !== undefined) {
       this.realtimeStats.totalTests = msg.totalTests;
@@ -634,23 +697,29 @@ module.exports = ProgressReporter;
         retries: test.retries || 0,
         timestamp: Date.now(),
         browser: (test.browser || 'chromium') as BrowserType,
-        screenshots: (test.attachments || [])
-          .filter((a) => a.name === 'screenshot' || a.contentType?.startsWith('image/'))
-          .map((a) => a.path || a.body)
-          .filter((p): p is string => !!p),
-        videos: (test.attachments || [])
-          .filter((a) => a.name === 'video' || a.contentType?.startsWith('video/'))
-          .map((a) => a.path || a.body)
-          .filter((p): p is string => !!p),
-        traces: (test.attachments || [])
-          .filter((a) => a.name === 'trace')
-          .map((a) => a.path || a.body)
-          .filter((p): p is string => !!p),
-        logs: msg.consoleLogs || [],
+        screenshots: status !== 'passed'
+          ? (test.attachments || [])
+              .filter((a) => a.name === 'screenshot' || a.contentType?.startsWith('image/'))
+              .map((a) => a.path || a.body)
+              .filter((p): p is string => !!p)
+          : undefined,
+        videos: status !== 'passed'
+          ? (test.attachments || [])
+              .filter((a) => a.name === 'video' || a.contentType?.startsWith('video/'))
+              .map((a) => a.path || a.body)
+              .filter((p): p is string => !!p)
+          : undefined,
+        traces: status !== 'passed'
+          ? (test.attachments || [])
+              .filter((a) => a.name === 'trace')
+              .map((a) => a.path || a.body)
+              .filter((p): p is string => !!p)
+          : undefined,
+        logs: status !== 'passed' ? (msg.consoleLogs || []) : undefined,
       };
 
       const suiteName = test.suiteTitle || 'Test Suite';
-      let suite = this._currentRun.suites.find((s) => s.name === suiteName);
+      let suite = this.suiteIndex.get(suiteName);
       if (!suite) {
         suite = {
           name: suiteName,
@@ -663,29 +732,34 @@ module.exports = ProgressReporter;
           timestamp: Date.now(),
         };
         this._currentRun.suites.push(suite);
+        this.suiteIndex.set(suiteName, suite);
       }
 
-      const existingTestIndex = suite.tests.findIndex((t) => t.id === testResult.id);
-      if (existingTestIndex >= 0) {
-        const existingTest = suite.tests[existingTestIndex];
-        suite.duration -= existingTest.duration;
-        suite.tests[existingTestIndex] = testResult;
-        suite.duration += testResult.duration;
+      const existingTest = this.testIndex.get(testResult.id);
+      if (existingTest) {
+        const ownerSuite = this.testSuiteIndex.get(testResult.id) || suite;
+        ownerSuite.duration -= existingTest.duration;
+        const idx = ownerSuite.tests.indexOf(existingTest);
+        if (idx >= 0) {
+          ownerSuite.tests[idx] = testResult;
+        }
+        ownerSuite.duration += testResult.duration;
 
         if (existingTest.status === 'passed') {
-          suite.passed--;
+          ownerSuite.passed--;
           this.realtimeStats.passed--;
         } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
-          suite.failed--;
+          ownerSuite.failed--;
           this.realtimeStats.failed--;
         } else if (existingTest.status === 'skipped') {
-          suite.skipped--;
+          ownerSuite.skipped--;
           this.realtimeStats.skipped--;
         }
       } else {
         suite.tests.push(testResult);
         suite.totalTests++;
         suite.duration += testResult.duration;
+        this.testSuiteIndex.set(testResult.id, suite);
 
         if (status === 'passed') {
           suite.passed++;
@@ -703,6 +777,7 @@ module.exports = ProgressReporter;
           this.realtimeStats.totalTests = this._currentRun.totalTests;
         }
       }
+      this.testIndex.set(testResult.id, testResult);
       this._currentRun.passed = this.realtimeStats.passed;
       this._currentRun.failed = this.realtimeStats.failed;
       this._currentRun.skipped = this.realtimeStats.skipped;
@@ -772,8 +847,23 @@ module.exports = ProgressReporter;
 
     const args: string[] = ['test'];
 
-    if (configPath) {
-      const safeConfigPath = safePathForCLI(configPath);
+    let effectiveConfigPath = configPath;
+
+    if (configPath && this.config.environmentTag) {
+      const tempConfigPath = await this.writeEnvironmentTagConfig(
+        configPath,
+        this.config.environmentTag,
+        resolvedOutputDir,
+        runId
+      );
+      if (tempConfigPath) {
+        effectiveConfigPath = tempConfigPath;
+        this.log.info(`Using temp config with environment tag "${this.config.environmentTag}": ${tempConfigPath}`);
+      }
+    }
+
+    if (effectiveConfigPath) {
+      const safeConfigPath = safePathForCLI(effectiveConfigPath);
       args.push(`--config=${safeConfigPath}`);
     }
 
@@ -875,12 +965,21 @@ module.exports = ProgressReporter;
       this.log.warn(`Config warnings: ${mergedConfig.warnings.join('; ')}`);
     }
 
+    const workers = this.config.workers || 1;
+    const shardTotal = options?.shardTotal || 1;
+    const totalTests = Math.max(this.realtimeStats.totalTests || 1, 1);
+    const timeoutPerTest = this.config.timeout || 30000;
+    const estimatedDuration = (timeoutPerTest * totalTests) / workers / shardTotal;
+    const PROCESS_TIMEOUT_MS = estimatedDuration + 120000;
+    const effectiveTimeout = Math.min(Math.max(PROCESS_TIMEOUT_MS, 300000), 7200000);
+
     const exitCode = await new Promise<number>((resolve, reject) => {
       const proc = spawn('npx', ['playwright', ...args], {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: true,
         env: buildSpawnEnv({
+          NODE_OPTIONS: '--max-old-space-size=4096',
           ...(this.config.htmlReport
             ? {
                 PLAYWRIGHT_HTML_REPORT: playwrightReportDir,
@@ -894,10 +993,29 @@ module.exports = ProgressReporter;
                 ),
               }),
           PLAYWRIGHT_JSON_OUTPUT_FILE: jsonReportPath,
+          ...(this.config.environmentTag
+            ? {
+                YUANTEST_ENVIRONMENT_TAG: this.config.environmentTag,
+                CI_ENVIRONMENT_NAME: this.config.environmentTag,
+              }
+            : {}),
         }),
       });
 
       this.currentProcess = proc;
+
+      proc.stdout?.on('data', (chunk: Buffer) => {
+        const text = chunk.toString();
+        const strippedText = stripAnsi(text);
+        if (strippedText.trim()) {
+          this.emit('output', {
+            data: strippedText,
+            timestamp: Date.now(),
+            runId: this._currentRun?.id || '',
+            type: 'stdout',
+          });
+        }
+      });
 
       proc.stderr?.on('data', (chunk: Buffer) => {
         try {
@@ -920,7 +1038,94 @@ module.exports = ProgressReporter;
         }
       });
 
+      let settled = false;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      let stallCheckId: ReturnType<typeof setInterval> | null = null;
+
+      this.lastProgressTimestamp = Date.now();
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (stallCheckId) {
+          clearInterval(stallCheckId);
+          stallCheckId = null;
+        }
+      };
+
+      stallCheckId = setInterval(() => {
+        if (settled) {
+          if (stallCheckId) {
+            clearInterval(stallCheckId);
+            stallCheckId = null;
+          }
+          return;
+        }
+        const elapsed = Date.now() - this.lastProgressTimestamp;
+        if (elapsed > 300000) {
+          this.log.warn(`No progress received for ${Math.round(elapsed / 1000)}s, process may be stalled`);
+        }
+      }, 60000);
+      stallCheckId.unref();
+
+      const finalize = (code: number) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        this.currentProcess = null;
+        if (this.stderrBuffer) {
+          this.handleProgressData('\n');
+        }
+        resolve(code);
+      };
+
+      timeoutId = setTimeout(async () => {
+        if (settled) {
+          return;
+        }
+        this.log.warn(`Process timeout after ${effectiveTimeout}ms, killing process tree...`);
+        this.emit('output', {
+          data: `⚠️ Execution timed out after ${Math.round(effectiveTimeout / 1000)}s, terminating process...`,
+          timestamp: Date.now(),
+          runId: this._currentRun?.id || '',
+          type: 'stderr',
+        });
+
+        if (proc.pid) {
+          if (process.platform === 'win32') {
+            await this.killProcessTreeWindows(proc.pid);
+          } else {
+            this.killProcessTreeUnix(proc.pid);
+          }
+        }
+
+        if (this._currentRun) {
+          this._currentRun.status = 'failed';
+          if (!this._currentRun.metadata) {
+            this._currentRun.metadata = {};
+          }
+          if (!this._currentRun.metadata.globalErrors) {
+            this._currentRun.metadata.globalErrors = [];
+          }
+          this._currentRun.metadata.globalErrors.push({
+            message: `Execution timed out after ${Math.round(effectiveTimeout / 1000)}s`,
+            stack: '',
+            timestamp: Date.now(),
+          });
+        }
+
+        finalize(1);
+      }, effectiveTimeout);
+
       proc.on('error', (error) => {
+        if (settled) {
+          return;
+        }
+        cleanup();
         this.currentProcess = null;
         reject(
           new PlaywrightRunnerError(
@@ -931,11 +1136,7 @@ module.exports = ProgressReporter;
       });
 
       proc.on('close', (code) => {
-        this.currentProcess = null;
-        if (this.stderrBuffer) {
-          this.handleProgressData('\n');
-        }
-        resolve(code ?? 1);
+        finalize(code ?? 1);
       });
     });
 
@@ -1024,6 +1225,8 @@ module.exports = ProgressReporter;
             suiteResult.tests.push(mapped);
             suiteResult.totalTests++;
             suiteResult.duration += lastResult.duration || 0;
+            this.testIndex.set(mapped.id, mapped);
+            this.testSuiteIndex.set(mapped.id, suiteResult);
 
             if (mapped.status === 'passed') {
               suiteResult.passed++;
@@ -1071,15 +1274,22 @@ module.exports = ProgressReporter;
     const _jsonSkipped = jsonSuites.reduce((sum, s) => sum + s.skipped, 0);
 
     for (const jsonSuite of jsonSuites) {
-      const existingSuite = this._currentRun.suites.find((s) => s.name === jsonSuite.name);
+      const existingSuite = this.suiteIndex.get(jsonSuite.name);
       if (!existingSuite) {
         this._currentRun.suites.push(jsonSuite);
+        this.suiteIndex.set(jsonSuite.name, jsonSuite);
+        for (const test of jsonSuite.tests) {
+          this.testIndex.set(test.id, test);
+          this.testSuiteIndex.set(test.id, jsonSuite);
+        }
       } else {
         for (const test of jsonSuite.tests) {
-          if (!existingSuite.tests.find((t) => t.id === test.id)) {
+          if (!this.testIndex.has(test.id)) {
             existingSuite.tests.push(test);
             existingSuite.totalTests++;
             existingSuite.duration += test.duration;
+            this.testIndex.set(test.id, test);
+            this.testSuiteIndex.set(test.id, existingSuite);
             if (test.status === 'passed') {
               existingSuite.passed++;
             } else if (test.status === 'failed' || test.status === 'timedout') {
@@ -1142,13 +1352,7 @@ module.exports = ProgressReporter;
   }
 
   private findExistingTest(testId: string): TestResult | undefined {
-    for (const suite of this._currentRun?.suites || []) {
-      const found = suite.tests.find((t) => t.id === testId);
-      if (found) {
-        return found;
-      }
-    }
-    return undefined;
+    return this.testIndex.get(testId);
   }
 
   private mapJSONTestResult(
@@ -1683,8 +1887,10 @@ module.exports = ProgressReporter;
 export class ParallelExecutor {
   private executors: Executor[] = [];
   private log = logger.child('ParallelExecutor');
+  private config: TestConfig;
 
   constructor(config: TestConfig, shardCount: number, storage?: StorageProvider) {
+    this.config = config;
     for (let i = 0; i < shardCount; i++) {
       const shardConfig = { ...config };
       shardConfig.outputDir = path.join(config.outputDir, `shard-${i}`);
@@ -1693,16 +1899,213 @@ export class ParallelExecutor {
     this.log.info(`Initialized parallel executor with ${shardCount} shards`);
   }
 
-  async execute(): Promise<RunResult[]> {
-    this.log.info(`Starting parallel execution across ${this.executors.length} shards`);
-    return Promise.all(
-      this.executors.map((e, i) =>
-        e.execute({
-          shardIndex: i,
-          shardTotal: this.executors.length,
-        })
-      )
+  async execute(concurrencyLimit?: number): Promise<RunResult[]> {
+    const limit = concurrencyLimit || Math.min(this.executors.length, 4);
+    this.log.info(`Starting parallel execution across ${this.executors.length} shards (concurrency: ${limit})`);
+
+    const results: RunResult[] = new Array(this.executors.length);
+    let nextIndex = 0;
+
+    const runNext = async (): Promise<void> => {
+      while (nextIndex < this.executors.length) {
+        const index = nextIndex++;
+        try {
+          results[index] = await this.executors[index].execute({
+            shardIndex: index,
+            shardTotal: this.executors.length,
+          });
+        } catch (error: unknown) {
+          this.log.error(
+            `Shard ${index} failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+          results[index] = {
+            id: `shard-${index}-failed`,
+            version: this.config.version || '1.0.0',
+            status: 'failed',
+            startTime: Date.now(),
+            endTime: Date.now(),
+            duration: 0,
+            suites: [],
+            totalTests: 0,
+            passed: 0,
+            failed: 0,
+            skipped: 0,
+            flakyTests: [],
+            metadata: { shardError: error instanceof Error ? error.message : String(error) },
+          };
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(limit, this.executors.length) }, () => runNext());
+    await Promise.all(workers);
+
+    return results;
+  }
+
+  async executeAndMergeReports(): Promise<{ results: RunResult[]; mergedReportDir?: string }> {
+    const results = await this.execute();
+
+    try {
+      const mergedReportDir = await this.mergeShardReports();
+      return { results, mergedReportDir };
+    } catch (error: unknown) {
+      this.log.error(
+        `Failed to merge shard reports: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return { results };
+    }
+  }
+
+  async mergeShardReports(): Promise<string | undefined> {
+    const allBlobDir = path.join(this.config.outputDir, 'all-blob-reports');
+    const fs = await import('fs/promises');
+
+    if (!(await this.storageExists(allBlobDir))) {
+      await fs.mkdir(allBlobDir, { recursive: true });
+    }
+
+    for (let i = 0; i < this.executors.length; i++) {
+      const shardBlobDir = path.join(
+        this.config.outputDir,
+        `shard-${i}`,
+        'blob-reports'
+      );
+      try {
+        if (await this.storageExists(shardBlobDir)) {
+          const entries = await fs.readdir(shardBlobDir);
+          for (const entry of entries) {
+            if (entry.endsWith('.zip')) {
+              const srcPath = path.join(shardBlobDir, entry);
+              const destPath = path.join(allBlobDir, `shard-${i}-${entry}`);
+              await fs.copyFile(srcPath, destPath);
+              this.log.info(`Copied blob report: ${srcPath} -> ${destPath}`);
+            }
+          }
+        } else {
+          const shardBlobSubDirs = await this.findBlobReportDirs(
+            path.join(this.config.outputDir, `shard-${i}`)
+          );
+          for (const subDir of shardBlobSubDirs) {
+            const entries = await fs.readdir(subDir);
+            for (const entry of entries) {
+              if (entry.endsWith('.zip')) {
+                const srcPath = path.join(subDir, entry);
+                const destPath = path.join(allBlobDir, `shard-${i}-${entry}`);
+                await fs.copyFile(srcPath, destPath);
+                this.log.info(`Copied blob report: ${srcPath} -> ${destPath}`);
+              }
+            }
+          }
+        }
+      } catch (error: unknown) {
+        this.log.warn(
+          `Failed to copy blob reports from shard ${i}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    const blobFiles = (await fs.readdir(allBlobDir)).filter((f: string) => f.endsWith('.zip'));
+    if (blobFiles.length === 0) {
+      this.log.warn('No blob report files found to merge');
+      return undefined;
+    }
+
+    this.log.info(`Found ${blobFiles.length} blob report file(s) to merge`);
+
+    const mergedOutputDir = path.join(
+      this.config.outputDir,
+      'html-reports',
+      'merged-shards'
     );
+
+    const mergeArgs = ['playwright', 'merge-reports', allBlobDir, '--reporter=html'];
+
+    this.log.info(`Running merge command: npx ${mergeArgs.join(' ')}`);
+
+    const mergeExitCode = await new Promise<number>((resolve, reject) => {
+      const proc = spawn('npx', mergeArgs, {
+        cwd: this.config.outputDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: true,
+        env: buildSpawnEnv({
+          PLAYWRIGHT_HTML_REPORT: mergedOutputDir,
+        }),
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      proc.stdout?.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString();
+      });
+
+      proc.stderr?.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+
+      proc.on('close', (code: number | null) => {
+        if (stdout) {
+          this.log.info(`Merge stdout: ${stdout}`);
+        }
+        if (stderr) {
+          this.log.info(`Merge stderr: ${stderr}`);
+        }
+        resolve(code ?? 1);
+      });
+
+      proc.on('error', (err: Error) => {
+        this.log.error(`Merge process error: ${err.message}`);
+        reject(err);
+      });
+    });
+
+    if (mergeExitCode === 0) {
+      this.log.info(`Successfully merged ${blobFiles.length} shard reports into: ${mergedOutputDir}`);
+      return mergedOutputDir;
+    } else {
+      this.log.error(`Merge reports command failed with exit code: ${mergeExitCode}`);
+      return undefined;
+    }
+  }
+
+  private async storageExists(dirPath: string): Promise<boolean> {
+    try {
+      const fs = await import('fs/promises');
+      await fs.access(dirPath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async findBlobReportDirs(baseDir: string): Promise<string[]> {
+    const dirs: string[] = [];
+    try {
+      const fs = await import('fs/promises');
+      const blobReportsBase = path.join(baseDir, 'blob-reports');
+      if (await this.storageExists(blobReportsBase)) {
+        const entries = await fs.readdir(blobReportsBase, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const subDir = path.join(blobReportsBase, entry.name);
+            const files = await fs.readdir(subDir);
+            if (files.some((f: string) => f.endsWith('.zip'))) {
+              dirs.push(subDir);
+            }
+          }
+        }
+        if (dirs.length === 0) {
+          const files = await fs.readdir(blobReportsBase);
+          if (files.some((f: string) => f.endsWith('.zip'))) {
+            dirs.push(blobReportsBase);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return dirs;
   }
 
   async cancelAll(): Promise<void> {

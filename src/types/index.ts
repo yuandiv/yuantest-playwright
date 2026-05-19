@@ -17,6 +17,7 @@ export interface TestConfig {
   visualTesting?: VisualTestingConfig;
   annotations?: AnnotationConfig;
   tags?: TagConfig;
+  environmentTag?: string;
   htmlReport?: boolean;
   htmlReportDir?: string;
   parentRunId?: string;
@@ -877,6 +878,21 @@ export type AgentType = 'planner' | 'generator' | 'healer';
 
 export type AgentLoopTarget = 'vscode' | 'claude' | 'opencode';
 
+export interface ProjectContext {
+  projectRoot: string;
+  baseURL?: string;
+  testDir?: string;
+  timeout?: number;
+  useViewport?: { width: number; height: number };
+  fixtures?: string;
+  technology?: string;
+  packageJson?: {
+    name?: string;
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+}
+
 export interface AgentConfig {
   enabled: boolean;
   loopTarget: AgentLoopTarget;
@@ -885,6 +901,7 @@ export interface AgentConfig {
   autoHeal: boolean;
   maxHealRounds: number;
   projectRoot?: string;
+  projectContext?: ProjectContext;
 }
 
 export interface TestPlan {

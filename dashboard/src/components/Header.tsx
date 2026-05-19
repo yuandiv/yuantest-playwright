@@ -15,11 +15,19 @@ interface HeaderProps {
   showHealthDashboard?: boolean;
   onToggleHealthDashboard?: () => void;
   onOpenAgentPanel?: () => void;
+  isLLMConfigOpen?: boolean;
+  onOpenLLMConfig?: () => void;
+  onCloseLLMConfig?: () => void;
 }
 
-export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, onOpenAgentPanel }: HeaderProps) {
+export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, onOpenAgentPanel, isLLMConfigOpen, onOpenLLMConfig, onCloseLLMConfig }: HeaderProps) {
   const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
-  const [showLLMConfig, setShowLLMConfig] = useState(false);
+  const [showLLMConfigInternal, setShowLLMConfigInternal] = useState(false);
+  
+  const showLLMConfig = isLLMConfigOpen ?? showLLMConfigInternal;
+  const setShowLLMConfig = onOpenLLMConfig && onCloseLLMConfig 
+    ? (open: boolean) => open ? onOpenLLMConfig() : onCloseLLMConfig()
+    : setShowLLMConfigInternal;
 
   useEffect(() => {
     const fetchStatus = () => {
@@ -83,8 +91,17 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
           <button
             onClick={onOpenAgentPanel}
             className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+            title={llmStatus === 'green' ? (t('agentDependencyReady', lang) || 'Agents ready') : (t('agentDependencyLLMRequired', lang) || 'LLM configuration required')}
           >
-            <span>🎭</span>
+            <span 
+              className={`w-2 h-2 rounded-full inline-block ${
+                llmStatus === 'green' 
+                  ? 'bg-green-500 animate-pulse' 
+                  : llmStatus === 'red' 
+                    ? 'bg-red-500' 
+                    : 'bg-yellow-500'
+              }`}
+            ></span>
             <span>{t('agents', lang) || 'Agents'}</span>
           </button>
         )}

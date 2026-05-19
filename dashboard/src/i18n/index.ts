@@ -433,6 +433,12 @@ const zh: Record<string, string> = {
   agentNoHealHistory: '暂无修复历史',
   agentScenarios: '场景',
   agentApply: '应用',
+  agentDependencyLLMRequired: '需要先配置大模型才能使用智能体功能',
+  agentDependencyExecutorBusy: '执行器正在运行，部分功能可能受限',
+  agentDependencyReady: '智能体已就绪',
+  agentConfigureLLMFirst: '请先在设置中配置大模型',
+  agentLLMNotEnabled: '大模型未启用',
+  agentOpenLLMConfig: '配置大模型',
 };
 
 const en: Record<string, string> = {
@@ -871,6 +877,12 @@ const en: Record<string, string> = {
   agentNoHealHistory: 'No heal history yet',
   agentScenarios: 'scenarios',
   agentApply: 'Apply',
+  agentDependencyLLMRequired: 'LLM configuration required for agent features',
+  agentDependencyExecutorBusy: 'Executor is running, some features may be limited',
+  agentDependencyReady: 'Agents ready',
+  agentConfigureLLMFirst: 'Please configure LLM in settings first',
+  agentLLMNotEnabled: 'LLM not enabled',
+  agentOpenLLMConfig: 'Configure LLM',
 };
 
 const translations: Record<string, Record<string, string>> = { zh, en };

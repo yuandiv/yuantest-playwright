@@ -835,3 +835,27 @@ export async function getAgentPlans(): Promise<TestPlan[] | null> {
 export async function getHealHistory(): Promise<AgentHealResult[] | null> {
   return fetchJSON(`${API_BASE}/agents/heal-history`);
 }
+
+export interface ProjectContext {
+  projectRoot: string;
+  baseURL?: string;
+  testDir?: string;
+  timeout?: number;
+  useViewport?: { width: number; height: number };
+  fixtures?: string;
+  technology?: string;
+  packageJson?: {
+    name?: string;
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+}
+
+export interface ProjectContextResponse {
+  projectRoot: string;
+  projectContext: ProjectContext | null;
+}
+
+export async function getProjectContext(): Promise<ProjectContextResponse | null> {
+  return fetchJSON(`${API_BASE}/agents/project-context`);
+}

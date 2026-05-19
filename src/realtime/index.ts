@@ -15,8 +15,9 @@ export class RealtimeReporter extends EventEmitter {
   private completedRunIds: string[] = [];
   private testResultBatch: Map<string, TestResult[]> = new Map();
   private batchFlushTimer: NodeJS.Timeout | null = null;
-  private readonly BATCH_FLUSH_INTERVAL = 100;
-  private readonly BATCH_MAX_SIZE = 10;
+  private readonly BATCH_FLUSH_INTERVAL = 200;
+  private readonly BATCH_MAX_SIZE = 50;
+  private readonly MAX_FLAKY_IDS = 100;
 
   constructor() {
     super();
@@ -200,6 +201,9 @@ export class RealtimeReporter extends EventEmitter {
 
     if (result.status === 'failed') {
       progress.flakyTests.push(result.id);
+      if (progress.flakyTests.length > this.MAX_FLAKY_IDS) {
+        progress.flakyTests = progress.flakyTests.slice(-this.MAX_FLAKY_IDS);
+      }
     }
 
     const batch = this.testResultBatch.get(runId)!;
@@ -238,6 +242,60 @@ export class RealtimeReporter extends EventEmitter {
     for (const runId of this.testResultBatch.keys()) {
       this.flushTestResultBatch(runId);
     }
+  }
+
+  broadcastTestResultBatch(runId: string, results: TestResult[]): void {
+    if (results.length === 0) {
+      return;
+    }
+
+    const current = this.runProgress.get(runId);
+    if (!current) {
+      this.runProgress.set(runId, {
+        runId,
+        status: 'running',
+        progress: 0,
+        totalTests: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        flakyTests: [],
+        startTime: Date.now(),
+      });
+    }
+
+    const progress = this.runProgress.get(runId)!;
+
+    for (const result of results) {
+      progress.passed += result.status === 'passed' ? 1 : 0;
+      progress.failed += result.status === 'failed' ? 1 : 0;
+      progress.skipped += result.status === 'skipped' ? 1 : 0;
+
+      if (result.status === 'failed') {
+        progress.flakyTests.push(result.id);
+        if (progress.flakyTests.length > this.MAX_FLAKY_IDS) {
+          progress.flakyTests = progress.flakyTests.slice(-this.MAX_FLAKY_IDS);
+        }
+      }
+    }
+
+    const total = progress.passed + progress.failed + progress.skipped;
+    if (total > progress.totalTests) {
+      progress.totalTests = total;
+    }
+    progress.progress =
+      progress.totalTests > 0 ? Math.min((total / progress.totalTests) * 100, 100) : 0;
+
+    const message: RealTimeMessage = {
+      type: 'test_result_batch',
+      payload: {
+        results,
+        currentProgress: progress,
+      },
+      timestamp: Date.now(),
+      runId,
+    };
+    this.broadcast(message);
   }
 
   broadcastSuiteCompleted(runId: string, suiteName: string): void {

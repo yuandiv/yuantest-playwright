@@ -54,6 +54,7 @@ export interface YuanTestConfigFile {
     include?: string[];
     exclude?: string[];
   };
+  environmentTag?: string;
   htmlReport?: boolean;
   dashboard?: {
     port?: number;
@@ -291,6 +292,10 @@ export function mergeConfig(
         include: fileConfig.tags.include,
         exclude: fileConfig.tags.exclude,
       };
+    }
+
+    if (fileConfig.environmentTag !== undefined) {
+      base.environmentTag = fileConfig.environmentTag;
     }
   }
 

@@ -115,7 +115,8 @@ export class GeneratorAgent {
   }
 
   private extractAndSaveTests(responseText: string, outputDir?: string): string[] {
-    const testDir = outputDir || path.resolve('tests');
+    const projectRoot = this.config.projectRoot || process.cwd();
+    const testDir = outputDir || path.resolve(projectRoot, 'tests');
     if (!fs.existsSync(testDir)) {
       fs.mkdirSync(testDir, { recursive: true });
     }

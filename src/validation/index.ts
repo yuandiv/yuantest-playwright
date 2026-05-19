@@ -97,6 +97,7 @@ export const TestConfigSchema = z.object({
   visualTesting: VisualTestingConfigSchema.optional(),
   annotations: AnnotationConfigSchema.optional(),
   tags: TagConfigSchema.optional(),
+  environmentTag: z.string().optional(),
   htmlReport: z.boolean().default(true),
   htmlReportDir: z.string().optional(),
   testMatch: z.array(z.string()).optional(),

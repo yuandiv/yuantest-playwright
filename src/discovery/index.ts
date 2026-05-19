@@ -55,6 +55,14 @@ export interface TestDiscoveryResult {
   rawOutput?: string;
 }
 
+export interface PaginatedTestDiscoveryResult {
+  tests: DiscoveredTest[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 interface PlaywrightListSpec {
   title: string;
   ok: boolean;
@@ -126,6 +134,63 @@ export class TestDiscovery {
     return result.tests;
   }
 
+  async discoverTestsPaginated(
+    testDir: string,
+    options?: { page?: number; pageSize?: number; configPath?: string }
+  ): Promise<PaginatedTestDiscoveryResult> {
+    const page = options?.page ?? 1;
+    const pageSize = options?.pageSize ?? 100;
+
+    const result = await this.discoverTestsStructured(
+      testDir,
+      options?.configPath
+    );
+
+    const total = result.tests.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const start = (safePage - 1) * pageSize;
+    const end = Math.min(start + pageSize, total);
+    const tests = result.tests.slice(start, end);
+
+    return {
+      tests,
+      total,
+      page: safePage,
+      pageSize,
+      totalPages,
+    };
+  }
+
+  async getTestCount(testDir: string): Promise<number> {
+    const cacheKey = `discovery:${testDir}:default`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return cached.tests.length;
+    }
+
+    const configValidation = await this.configMerger.validateProjectPath(testDir);
+    if (!configValidation.valid) {
+      return 0;
+    }
+
+    try {
+      const listResult = await this.runPlaywrightListJSON(
+        testDir,
+        configValidation.configPath || undefined
+      );
+
+      if (listResult.exitCode !== 0 && listResult.exitCode !== null) {
+        return 0;
+      }
+
+      const jsonOutput = listResult.stdout || '{}';
+      return this.countSpecsInJSON(jsonOutput);
+    } catch {
+      return 0;
+    }
+  }
+
   async discoverTestsStructured(
     testDir: string,
     configPath?: string,
@@ -191,6 +256,12 @@ export class TestDiscovery {
 
       files.push(...parsed.files);
       allTests.push(...parsed.tests);
+
+      if (listResult.truncated) {
+        this.log.warn(
+          `Output was truncated at ${CACHE_CONFIG.DISCOVERY_MAX_STDOUT_SIZE} bytes, results may be partial`
+        );
+      }
 
       this.log.info(`Discovered ${allTests.length} tests in ${files.length} files`);
 
@@ -262,6 +333,7 @@ export class TestDiscovery {
     stdout: string;
     stderr: string;
     exitCode: number | null;
+    truncated?: boolean;
   }> {
     const args = ['playwright', 'test', '--list', '--reporter=json'];
 
@@ -279,6 +351,9 @@ export class TestDiscovery {
 
     this.log.info(`Running: npx ${args.join(' ')} in ${cwd}`);
 
+    const maxStdoutSize = CACHE_CONFIG.DISCOVERY_MAX_STDOUT_SIZE;
+    const warnThreshold = maxStdoutSize * 0.8;
+
     return new Promise((resolve) => {
       const proc = spawn('npx', args, {
         cwd,
@@ -288,9 +363,35 @@ export class TestDiscovery {
 
       let stdout = '';
       let stderr = '';
+      let stdoutSize = 0;
+      let truncated = false;
 
       proc.stdout?.on('data', (data: Buffer) => {
-        stdout += data.toString('utf-8');
+        if (truncated) return;
+        const chunk = data.toString('utf-8');
+        const newSize = stdoutSize + Buffer.byteLength(chunk, 'utf-8');
+
+        if (newSize > maxStdoutSize) {
+          const remaining = maxStdoutSize - stdoutSize;
+          if (remaining > 0) {
+            stdout += chunk.substring(0, remaining);
+            stdoutSize = maxStdoutSize;
+          }
+          truncated = true;
+          this.log.warn(
+            `stdout exceeded ${maxStdoutSize} bytes limit, truncating output`
+          );
+          return;
+        }
+
+        if (newSize > warnThreshold && stdoutSize <= warnThreshold) {
+          this.log.warn(
+            `stdout approaching size limit: ${newSize} bytes (limit: ${maxStdoutSize})`
+          );
+        }
+
+        stdout += chunk;
+        stdoutSize = newSize;
       });
 
       proc.stderr?.on('data', (data: Buffer) => {
@@ -302,13 +403,43 @@ export class TestDiscovery {
           stdout,
           stderr: `Failed to run playwright list: ${error.message}`,
           exitCode: -1,
+          truncated,
         });
       });
 
       proc.on('close', (code) => {
-        resolve({ stdout: stripAnsi(stdout), stderr: stripAnsi(stderr), exitCode: code });
+        resolve({ stdout: stripAnsi(stdout), stderr: stripAnsi(stderr), exitCode: code, truncated });
       });
     });
+  }
+
+  private countSpecsInJSON(output: string): number {
+    try {
+      let jsonStr = output.trim();
+      const jsonStart = jsonStr.indexOf('{');
+      const jsonEnd = jsonStr.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
+      }
+      const data: PlaywrightListOutput = JSON.parse(jsonStr);
+
+      let count = 0;
+      const countSpecs = (suite: PlaywrightListSuite) => {
+        count += suite.specs?.length || 0;
+        if (suite.suites) {
+          for (const child of suite.suites) {
+            countSpecs(child);
+          }
+        }
+      };
+
+      for (const suite of data.suites || []) {
+        countSpecs(suite);
+      }
+      return count;
+    } catch {
+      return 0;
+    }
   }
 
   private parseJSONOutput(output: string, testDir: string): TestDiscoveryResult {
@@ -337,7 +468,68 @@ export class TestDiscovery {
     const rootDir = data.config?.rootDir || testDir;
     const fileMap = new Map<string, DiscoveredFile>();
 
-    this.log.info(`parseJSONOutput: rootDir=${rootDir}, suites count=${data.suites?.length || 0}`);
+    let estimatedSpecCount = 0;
+    const estimateSpecs = (suites: PlaywrightListSuite[]) => {
+      for (const suite of suites) {
+        estimatedSpecCount += suite.specs?.length || 0;
+        if (suite.suites) estimateSpecs(suite.suites);
+      }
+    };
+    estimateSpecs(data.suites || []);
+
+    const isLargeOutput = estimatedSpecCount > CACHE_CONFIG.DISCOVERY_LARGE_TEST_THRESHOLD;
+    const isVerboseLog = estimatedSpecCount <= CACHE_CONFIG.DISCOVERY_VERBOSE_LOG_THRESHOLD;
+
+    this.log.info(`parseJSONOutput: rootDir=${rootDir}, suites count=${data.suites?.length || 0}, estimated specs=${estimatedSpecCount}, largeMode=${isLargeOutput}`);
+
+    const processSuiteFlat = (
+      suite: PlaywrightListSuite,
+      parentPath: string[] = [],
+      parentFile: string = ''
+    ) => {
+      let filePath = parentFile;
+      if (suite.file) {
+        filePath = path.resolve(rootDir, suite.file);
+      }
+
+      if (filePath && !fileMap.has(filePath)) {
+        const discoveredFile: DiscoveredFile = {
+          file: filePath,
+          title: path.basename(filePath),
+          describes: [],
+          tests: [],
+        };
+        fileMap.set(filePath, discoveredFile);
+        files.push(discoveredFile);
+      }
+
+      const currentFile = filePath ? (fileMap.get(filePath) ?? null) : null;
+
+      if (suite.specs && suite.specs.length > 0) {
+        for (const spec of suite.specs) {
+          const test = this.createDiscoveredTest(spec, filePath || rootDir, parentPath);
+          allTests.push(test);
+          if (currentFile) {
+            currentFile.tests.push(test);
+          }
+        }
+      }
+
+      if (suite.suites) {
+        for (const childSuite of suite.suites) {
+          const childPath =
+            suite.title &&
+            !suite.title.endsWith('.ts') &&
+            !suite.title.endsWith('.tsx') &&
+            !suite.title.endsWith('.js') &&
+            !suite.title.endsWith('.jsx') &&
+            suite.line !== 0
+              ? [...parentPath, suite.title]
+              : parentPath;
+          processSuiteFlat(childSuite, childPath, filePath);
+        }
+      }
+    };
 
     const processSuite = (
       suite: PlaywrightListSuite,
@@ -349,9 +541,11 @@ export class TestDiscovery {
         filePath = path.resolve(rootDir, suite.file);
       }
 
-      this.log.info(
-        `processSuite: title=${suite.title}, file=${suite.file}, filePath=${filePath}, specs=${suite.specs?.length || 0}, suites=${suite.suites?.length || 0}`
-      );
+      if (isVerboseLog) {
+        this.log.info(
+          `processSuite: title=${suite.title}, file=${suite.file}, filePath=${filePath}, specs=${suite.specs?.length || 0}, suites=${suite.suites?.length || 0}`
+        );
+      }
 
       if (filePath && !fileMap.has(filePath)) {
         const discoveredFile: DiscoveredFile = {
@@ -362,7 +556,9 @@ export class TestDiscovery {
         };
         fileMap.set(filePath, discoveredFile);
         files.push(discoveredFile);
-        this.log.info(`Added file to map: ${filePath}`);
+        if (isVerboseLog) {
+          this.log.info(`Added file to map: ${filePath}`);
+        }
       }
 
       const currentFile = filePath ? (fileMap.get(filePath) ?? null) : null;
@@ -426,8 +622,14 @@ export class TestDiscovery {
       }
     };
 
+    const processor = isLargeOutput ? processSuiteFlat : processSuite;
+
     for (const suite of data.suites || []) {
-      processSuite(suite);
+      processor(suite);
+    }
+
+    if (isLargeOutput) {
+      this.log.info(`Large output mode: skipped describe tree construction for ${allTests.length} tests`);
     }
 
     return { files, tests: allTests };

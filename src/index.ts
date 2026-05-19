@@ -56,6 +56,7 @@ export {
 export { BaseManager, ManagedManager, Initializable } from './base';
 export { LRUCache, TTLCache, createCache } from './cache';
 export { TestDiscovery } from './discovery';
+export type { PaginatedTestDiscoveryResult } from './discovery';
 export {
   asyncHandler,
   validateBody,

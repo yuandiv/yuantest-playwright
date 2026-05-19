@@ -54,6 +54,7 @@ function App() {
   const [showHealthDashboard, setShowHealthDashboard] = useState(false);
   const [isFlakyDialogOpen, setIsFlakyDialogOpen] = useState(false);
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
+  const [isLLMConfigOpen, setIsLLMConfigOpen] = useState(false);
   const [criteriaParams, setCriteriaParams] = useState<{
     flakyCriteria?: Record<string, number | string>;
     quarantineCriteria?: Record<string, number | string>;
@@ -1170,6 +1171,9 @@ function App() {
         showHealthDashboard={showHealthDashboard}
         onToggleHealthDashboard={() => setShowHealthDashboard(!showHealthDashboard)}
         onOpenAgentPanel={() => setIsAgentPanelOpen(true)}
+        isLLMConfigOpen={isLLMConfigOpen}
+        onOpenLLMConfig={() => setIsLLMConfigOpen(true)}
+        onCloseLLMConfig={() => setIsLLMConfigOpen(false)}
       />
       
       {showHealthDashboard ? (
@@ -1262,6 +1266,7 @@ function App() {
         <AgentPanel
           lang={lang}
           onClose={() => setIsAgentPanelOpen(false)}
+          onOpenLLMConfig={() => setIsLLMConfigOpen(true)}
         />
       )}
     </div>

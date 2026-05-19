@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction, Router } from 'expre
 import cors from 'cors';
 import { createServer } from 'http';
 import { RealtimeReporter } from '../realtime';
-import { Reporter } from '../reporter';
+import { Reporter, RunResultSummary } from '../reporter';
 import { FlakyTestManager } from '../flaky';
 import { TraceManager } from '../trace';
 import { AnnotationManager } from '../annotations';
@@ -33,6 +33,7 @@ import {
 } from '../types';
 import { categorizeError, generateSuggestions } from '../diagnosis/categorizer';
 import { loadConfigFile, mergeConfig } from '../config/loader';
+import { PlaywrightConfigMerger } from '../config/merger';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
 import { LRUCache } from '../cache';
@@ -94,6 +95,11 @@ export class DashboardServer {
   private testDiscovery: TestDiscovery;
   private cache: LRUCache<unknown>;
   private agentService: AgentService;
+  private configMerger: PlaywrightConfigMerger;
+  private testResultBuffer: Array<{ result: TestResult; suiteName: string }> = [];
+  private testResultBufferTimer: NodeJS.Timeout | null = null;
+  private readonly TEST_RESULT_BATCH_SIZE = 50;
+  private readonly TEST_RESULT_BATCH_INTERVAL = 500;
 
   constructor(
     port: number = 5274,
@@ -107,6 +113,7 @@ export class DashboardServer {
     this.staticPath = path.join(__dirname, '../public');
     this.storage = getStorage();
     this.testDiscovery = new TestDiscovery();
+    this.configMerger = new PlaywrightConfigMerger(this.storage);
     this.cache = new LRUCache({
       maxSize: process.env.CACHE_MAX_SIZE ? parseInt(process.env.CACHE_MAX_SIZE, 10) : 100,
     });
@@ -409,16 +416,19 @@ export class DashboardServer {
 
         const version = runOptions.version || '1.0.0';
 
+        const playwrightMergedConfig = await this.configMerger.mergeConfig(testDir, this.outputDir);
+
         const config: TestConfig = mergeConfig(fileConfig, {
           version,
           testDir,
           outputDir: this.outputDir,
-          baseURL: fileConfig?.baseURL,
-          retries: fileConfig?.retries ?? 0,
-          timeout: fileConfig?.timeout ?? 30000,
-          workers: fileConfig?.workers ?? 1,
+          baseURL: fileConfig?.baseURL ?? (playwrightMergedConfig.baseURL),
+          retries: fileConfig?.retries ?? playwrightMergedConfig.retries,
+          timeout: fileConfig?.timeout ?? playwrightMergedConfig.timeout,
+          workers: fileConfig?.workers ?? playwrightMergedConfig.workers,
           shards: fileConfig?.shards ?? 1,
           browsers: fileConfig?.browsers || ['chromium'],
+          environmentTag: fileConfig?.environmentTag || process.env.CI_ENVIRONMENT_NAME || undefined,
           htmlReport: true,
         });
 
@@ -464,29 +474,24 @@ export class DashboardServer {
           });
         });
 
-        this.executor.on('test_result', async (result) => {
+        this.executor.on('test_result', (result) => {
           const suiteName = result.fullTitle?.split(' > ').slice(0, -1).join(' > ') || 'Test Suite';
-          const runId = this.executor?.currentRun?.id || '';
 
-          await this.reporter.updatePendingReport(runId, result, suiteName);
+          this.testResultBuffer.push({ result, suiteName });
 
-          this.realtimeReporter.broadcastTestResult(runId, result);
-
-          const pendingReport = this.reporter.getPendingReport(runId);
-          const isStillRunning = this.executor?.isCurrentlyRunning() ?? false;
-          if (pendingReport) {
-            this.realtimeReporter.broadcastReportUpdated(runId, {
-              totalTests: pendingReport.totalTests,
-              passed: pendingReport.passed,
-              failed: pendingReport.failed,
-              skipped: pendingReport.skipped,
-              status: isStillRunning ? 'running' : 'completed',
-              testResult: result,
-            });
+          if (this.testResultBuffer.length >= this.TEST_RESULT_BATCH_SIZE) {
+            this.flushTestResultBuffer();
+          } else if (!this.testResultBufferTimer) {
+            this.testResultBufferTimer = setTimeout(() => {
+              this.flushTestResultBuffer();
+            }, this.TEST_RESULT_BATCH_INTERVAL);
+            this.testResultBufferTimer.unref();
           }
         });
 
         this.executor.on('run_completed', async (result: RunResult) => {
+          this.flushTestResultBuffer();
+
           const status = result.status === 'success' ? 'success' : 'failed';
 
           try {
@@ -508,6 +513,8 @@ export class DashboardServer {
           await this.flakyManager.recordRunResults(result);
           this.reporter.clearCache();
           this.cache.invalidate('runs');
+          this.cache.invalidate('runs:summaries');
+          this.cache.invalidate('runs:all');
           this.cache.invalidate('health:');
           this.log.info(
             `Run completed via API: ${result.id} (${result.passed}/${result.totalTests} passed)`
@@ -654,23 +661,53 @@ export class DashboardServer {
       asyncHandler(async (req: Request, res: Response) => {
         const page = Math.max(1, parseInt(req.query.page as string) || 1);
         const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20));
+        const detailed = req.query.detailed === 'true';
 
-        const cacheKey = `runs:all`;
-        let allRuns = this.cache.get(cacheKey) as RunResult[] | null;
+        if (detailed) {
+          const cacheKey = `runs:all`;
+          let allRuns = this.cache.get(cacheKey) as RunResult[] | null;
 
-        if (!allRuns) {
-          allRuns = await this.reporter.getAllReports();
-          this.cache.set(cacheKey, allRuns);
+          if (!allRuns) {
+            allRuns = await this.reporter.getAllReports();
+            this.cache.set(cacheKey, allRuns);
+          }
+
+          const total = allRuns.length;
+          const totalPages = Math.ceil(total / pageSize);
+          const startIndex = (page - 1) * pageSize;
+          const endIndex = startIndex + pageSize;
+          const paginatedRuns = allRuns.slice().reverse().slice(startIndex, endIndex);
+
+          const response: PaginatedResponse<RunResult> = {
+            data: paginatedRuns,
+            pagination: {
+              page,
+              pageSize,
+              total,
+              totalPages,
+            },
+          };
+
+          res.json(response);
+          return;
         }
 
-        const total = allRuns.length;
+        const cacheKey = `runs:summaries`;
+        let allSummaries = this.cache.get(cacheKey) as RunResultSummary[] | null;
+
+        if (!allSummaries) {
+          allSummaries = await this.reporter.getReportSummaries();
+          this.cache.set(cacheKey, allSummaries);
+        }
+
+        const total = allSummaries.length;
         const totalPages = Math.ceil(total / pageSize);
         const startIndex = (page - 1) * pageSize;
         const endIndex = startIndex + pageSize;
-        const paginatedRuns = allRuns.slice().reverse().slice(startIndex, endIndex);
+        const paginatedSummaries = allSummaries.slice().reverse().slice(startIndex, endIndex);
 
-        const response: PaginatedResponse<RunResult> = {
-          data: paginatedRuns,
+        const response: PaginatedResponse<RunResultSummary> = {
+          data: paginatedSummaries,
           pagination: {
             page,
             pageSize,
@@ -832,6 +869,8 @@ export class DashboardServer {
           }
         }
         this.cache.invalidate('runs');
+        this.cache.invalidate('runs:summaries');
+        this.cache.invalidate('runs:all');
         this.cache.invalidate('flaky');
         res.json({ success: true, message: `Report ${req.params.id} deleted` });
       })
@@ -955,6 +994,8 @@ export class DashboardServer {
           }
 
           this.cache.invalidate('runs');
+          this.cache.invalidate('runs:summaries');
+          this.cache.invalidate('runs:all');
         } catch (error: unknown) {
           this.log.error('Test rerun failed', error instanceof Error ? error : undefined);
           this.realtimeReporter.broadcastError(
@@ -1104,6 +1145,8 @@ export class DashboardServer {
           }
 
           this.cache.invalidate('runs');
+          this.cache.invalidate('runs:summaries');
+          this.cache.invalidate('runs:all');
         } catch (error: unknown) {
           this.log.error('Batch rerun failed', error instanceof Error ? error : undefined);
           this.realtimeReporter.broadcastError(
@@ -1346,6 +1389,8 @@ export class DashboardServer {
         const count = await this.reporter.deleteAllReports();
         await this.flakyManager.clearHistory();
         this.cache.invalidate('runs');
+        this.cache.invalidate('runs:summaries');
+        this.cache.invalidate('runs:all');
         this.cache.invalidate('flaky');
         res.json({ success: true, message: `Deleted ${count} reports`, count });
       })
@@ -1432,6 +1477,8 @@ export class DashboardServer {
         try {
           await this.executor.execute();
           this.cache.invalidate('runs');
+          this.cache.invalidate('runs:summaries');
+          this.cache.invalidate('runs:all');
 
           if (validationState.result === 'passed') {
             await this.flakyManager.releaseTest(testId, { resetHistory: true });
@@ -2530,6 +2577,15 @@ export class DashboardServer {
       })
     );
 
+    v1Router.get(
+      '/agents/project-context',
+      asyncHandler(async (req: Request, res: Response) => {
+        const projectRoot = this.agentService.getProjectRoot();
+        const projectContext = this.agentService.getProjectContext();
+        res.json({ projectRoot, projectContext });
+      })
+    );
+
     v1Router.put(
       '/agents/config',
       asyncHandler(async (req: Request, res: Response) => {
@@ -2684,6 +2740,8 @@ export class DashboardServer {
     const startTime = Date.now();
     this.cache.invalidate('tests:');
     this.cache.invalidate('runs');
+    this.cache.invalidate('runs:summaries');
+    this.cache.invalidate('runs:all');
     this.cache.invalidate('stats');
     this.cache.invalidate('health:');
     this.cache.invalidate('traces:');
@@ -2790,6 +2848,39 @@ export class DashboardServer {
       });
     } else {
       this.app.use(notFoundHandler);
+    }
+  }
+
+  private flushTestResultBuffer(): void {
+    if (this.testResultBufferTimer) {
+      clearTimeout(this.testResultBufferTimer);
+      this.testResultBufferTimer = null;
+    }
+
+    if (this.testResultBuffer.length === 0) {
+      return;
+    }
+
+    const batch = this.testResultBuffer.splice(0);
+    const runId = this.executor?.currentRun?.id || '';
+
+    this.reporter.updatePendingReportBatch(runId, batch).catch((err) => {
+      this.log.warn(`Batch update pending report failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
+
+    const results = batch.map((b) => b.result);
+    this.realtimeReporter.broadcastTestResultBatch(runId, results);
+
+    const pendingReport = this.reporter.getPendingReport(runId);
+    const isStillRunning = this.executor?.isCurrentlyRunning() ?? false;
+    if (pendingReport) {
+      this.realtimeReporter.broadcastReportUpdated(runId, {
+        totalTests: pendingReport.totalTests,
+        passed: pendingReport.passed,
+        failed: pendingReport.failed,
+        skipped: pendingReport.skipped,
+        status: isStillRunning ? 'running' : 'completed',
+      });
     }
   }
 

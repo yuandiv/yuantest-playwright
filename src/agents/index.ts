@@ -12,6 +12,7 @@ import {
   HealerPatch,
   AgentHealResult,
   LLMConfig,
+  ProjectContext,
 } from '../types';
 import { PlannerAgent } from './planner';
 import { GeneratorAgent } from './generator';
@@ -30,6 +31,7 @@ export class AgentService {
   private config: AgentConfig;
   private dataDir: string;
   private projectRoot: string;
+  private projectContext: ProjectContext | null = null;
   private llmConfig: LLMConfig | null = null;
   private log = logger.child('AgentService');
   private planner: PlannerAgent;
@@ -43,6 +45,7 @@ export class AgentService {
     if (llmConfig) {
       this.llmConfig = llmConfig;
     }
+    this.loadProjectContext();
     this.planner = new PlannerAgent(this.config, this.llmConfig);
     this.generator = new GeneratorAgent(this.config, this.llmConfig);
     this.healer = new HealerAgent(this.config, this.llmConfig);
@@ -57,10 +60,143 @@ export class AgentService {
 
   setProjectRoot(root: string): void {
     this.projectRoot = path.resolve(root);
+    this.config.projectRoot = this.projectRoot;
+    this.loadProjectContext();
+    this.planner = new PlannerAgent(this.config, this.llmConfig);
+    this.generator = new GeneratorAgent(this.config, this.llmConfig);
+    this.healer = new HealerAgent(this.config, this.llmConfig);
+  }
+
+  getProjectRoot(): string {
+    return this.projectRoot;
+  }
+
+  getProjectContext(): ProjectContext | null {
+    return this.projectContext;
+  }
+
+  private loadProjectContext(): void {
+    this.projectContext = {
+      projectRoot: this.projectRoot,
+    };
+
+    const configFiles = [
+      path.join(this.projectRoot, 'playwright.config.ts'),
+      path.join(this.projectRoot, 'playwright.config.js'),
+      path.join(this.projectRoot, 'playwright.config.mts'),
+    ];
+
+    let configFilePath: string | undefined;
+    for (const f of configFiles) {
+      if (fs.existsSync(f)) {
+        configFilePath = f;
+        break;
+      }
+    }
+
+    if (configFilePath) {
+      try {
+        const configContent = fs.readFileSync(configFilePath, 'utf-8');
+
+        const baseURLMatch = configContent.match(/baseURL\s*:\s*['"`]([^'"`]+)['"`]/);
+        if (baseURLMatch) {
+          this.projectContext.baseURL = baseURLMatch[1];
+        }
+
+        const timeoutMatch = configContent.match(/timeout\s*:\s*(\d+)/);
+        if (timeoutMatch) {
+          this.projectContext.timeout = parseInt(timeoutMatch[1], 10);
+        }
+
+        const testDirMatch = configContent.match(/testDir\s*:\s*['"`]([^'"`]+)['"`]/);
+        if (testDirMatch) {
+          this.projectContext.testDir = testDirMatch[1];
+        }
+
+        const viewportMatch = configContent.match(
+          /viewport\s*:\s*\{\s*width\s*:\s*(\d+)\s*,\s*height\s*:\s*(\d+)\s*\}/
+        );
+        if (viewportMatch) {
+          this.projectContext.useViewport = {
+            width: parseInt(viewportMatch[1], 10),
+            height: parseInt(viewportMatch[2], 10),
+          };
+        }
+
+        this.log.info(
+          `Loaded project context: baseURL=${this.projectContext.baseURL || 'N/A'}, timeout=${this.projectContext.timeout || 'N/A'}`
+        );
+      } catch (error) {
+        this.log.warn(
+          `Failed to read playwright config: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    const packageJsonPath = path.join(this.projectRoot, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        this.projectContext.packageJson = {
+          name: pkg.name,
+          dependencies: pkg.dependencies,
+          devDependencies: pkg.devDependencies,
+        };
+
+        const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+        const techStack: string[] = [];
+        if (allDeps.react || allDeps['react-dom']) {
+          techStack.push('React');
+        }
+        if (allDeps.vue || allDeps['vue-router']) {
+          techStack.push('Vue');
+        }
+        if (allDeps.angular || allDeps['@angular/core']) {
+          techStack.push('Angular');
+        }
+        if (allDeps.svelte || allDeps['@sveltejs/kit']) {
+          techStack.push('Svelte');
+        }
+        if (allDeps.next || allDeps['next.js']) {
+          techStack.push('Next.js');
+        }
+        if (allDeps.nuxt || allDeps['nuxt3']) {
+          techStack.push('Nuxt');
+        }
+        if (allDeps.vite) {
+          techStack.push('Vite');
+        }
+        if (allDeps.webpack) {
+          techStack.push('Webpack');
+        }
+        if (techStack.length > 0) {
+          this.projectContext.technology = techStack.join(', ');
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const fixturePaths = [
+      path.join(this.projectRoot, 'tests', 'fixtures.ts'),
+      path.join(this.projectRoot, 'tests', 'fixtures.js'),
+      path.join(this.projectRoot, 'test', 'fixtures.ts'),
+      path.join(this.projectRoot, 'test', 'fixtures.js'),
+    ];
+    for (const fp of fixturePaths) {
+      if (fs.existsSync(fp)) {
+        this.projectContext.fixtures = path.relative(this.projectRoot, fp).replace(/\\/g, '/');
+        break;
+      }
+    }
+
+    this.config.projectContext = this.projectContext;
   }
 
   private resolveProjectPath(relativeOrAbsolute: string): string {
-    return path.isAbsolute(relativeOrAbsolute) ? relativeOrAbsolute : path.resolve(this.projectRoot, relativeOrAbsolute);
+    return path.isAbsolute(relativeOrAbsolute)
+      ? relativeOrAbsolute
+      : path.resolve(this.projectRoot, relativeOrAbsolute);
   }
 
   /** Check if a resolved path is within the project root (safe for patch writes) */
@@ -322,7 +458,9 @@ export class AgentService {
 
       const currentContent = fs.readFileSync(resolvedFilePath, 'utf-8');
       if (!currentContent.includes(patch.originalCode)) {
-        this.log.warn(`Original code not found in file, patch may be outdated: ${resolvedFilePath}`);
+        this.log.warn(
+          `Original code not found in file, patch may be outdated: ${resolvedFilePath}`
+        );
         return false;
       }
 

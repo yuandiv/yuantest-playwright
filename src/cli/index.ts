@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import chalk from 'chalk';
 import ora from 'ora';
 import { Orchestrator } from '../orchestrator';
-import { Executor } from '../executor';
+import { Executor, ParallelExecutor } from '../executor';
 import { Reporter } from '../reporter';
 import { FlakyTestManager } from '../flaky';
 import { DashboardServer } from '../ui/server';
@@ -23,6 +23,27 @@ import { getStorage } from '../storage';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 
+function findProjectRoot(explicitRoot?: string): string {
+  if (explicitRoot) {
+    return path.resolve(explicitRoot);
+  }
+  let dir = process.cwd();
+  for (let i = 0; i < 10; i++) {
+    const configFiles = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mts'];
+    for (const cf of configFiles) {
+      if (fs.existsSync(path.join(dir, cf))) {
+        return dir;
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return process.cwd();
+}
+
 const program = new Command();
 
 program
@@ -38,6 +59,8 @@ program
   .option('-t, --test-dir <path>', 'Test directory')
   .option('-o, --output <path>', 'Output directory')
   .option('-s, --shards <number>', 'Number of shards', '1')
+  .option('--shard-index <number>', 'Run a specific shard index (0-based, for multi-machine)')
+  .option('--shard-total <number>', 'Total number of shards (for multi-machine)')
   .option('-w, --workers <number>', 'Number of workers', '1')
   .option('-b, --browsers <list>', 'Browsers to test (comma separated)', 'chromium')
   .option('--base-url <url>', 'Base URL for tests')
@@ -61,6 +84,7 @@ program
   .option('--visual-threshold <ratio>', 'Visual diff threshold (0-1)', '0.2')
   .option('--annotations', 'Enable annotation scanning', false)
   .option('--html-report', 'Generate Playwright HTML report', true)
+  .option('--environment-tag <tag>', 'Environment tag for multi-environment reporting (or set CI_ENVIRONMENT_NAME)')
   .action(async (testFiles, options) => {
     const spinner = ora('Initializing test run...').start();
 
@@ -78,6 +102,7 @@ program
         shards: parseInt(options.shards) || undefined,
         browsers: options.browsers ? (options.browsers.split(',') as BrowserType[]) : undefined,
         htmlReport: options.htmlReport !== false,
+        environmentTag: options.environmentTag || process.env.CI_ENVIRONMENT_NAME || undefined,
       };
       const config: TestConfig = mergeConfig(fileConfig, cliOverrides);
 
@@ -152,74 +177,186 @@ program
       const orchestrationConfig = await orchestrator.orchestrate();
       spinner.text = `Found ${orchestrationConfig.testAssignment.length} tests across ${orchestrationConfig.totalShards} shards`;
 
-      const executor = new Executor(config);
-      const reporter = new Reporter(config.outputDir);
+      const shardIndexOption = options.shardIndex !== undefined ? parseInt(options.shardIndex) : undefined;
+      const shardTotalOption = options.shardTotal !== undefined ? parseInt(options.shardTotal) : undefined;
+      const isMultiMachineShard = shardIndexOption !== undefined && shardTotalOption !== undefined;
+      const shardCount = config.shards || 1;
 
-      executor.on('run_started', (data) => {
-        console.log(chalk.blue(`\n🚀 Run started: ${data.runId}`));
-      });
+      if (isMultiMachineShard) {
+        console.log(chalk.cyan(`\n📡 Multi-machine shard mode: running shard ${shardIndexOption! + 1}/${shardTotalOption}`));
+        console.log(chalk.gray(`   Playwright native sharding (--shard=${shardIndexOption! + 1}/${shardTotalOption}) will distribute tests`));
+        const executor = new Executor(config, getStorage());
+        const reporter = new Reporter(config.outputDir);
 
-      executor.on('output', (data) => {
-        process.stdout.write(data.data);
-      });
+        executor.on('run_started', (data) => {
+          console.log(chalk.blue(`\n🚀 Run started: ${data.runId} (shard ${shardIndexOption! + 1}/${shardTotalOption})`));
+        });
 
-      executor.on('annotations_scanned', (data) => {
-        console.log(chalk.cyan(`\n📝 Annotations: ${data.summary.total} found`));
-      });
+        executor.on('output', (data) => {
+          process.stdout.write(data.data);
+        });
 
-      executor.on('tags_scanned', (data) => {
-        console.log(
-          chalk.magenta(
-            `\n🏷️  Tags: ${data.summary.totalTags} tags, ${data.summary.totalTaggedTests} tagged tests`
-          )
-        );
-      });
+        executor.on('run_completed', async (result) => {
+          console.log(chalk.green(`\n✅ Shard ${shardIndexOption! + 1}/${shardTotalOption} completed: ${result.id}`));
+          console.log(chalk.bold(`\nResults:`));
+          console.log(`  Passed: ${chalk.green(result.passed)}`);
+          console.log(`  Failed: ${chalk.red(result.failed)}`);
+          console.log(`  Skipped: ${chalk.yellow(result.skipped)}`);
 
-      executor.on('run_completed', async (result) => {
-        console.log(chalk.green(`\n✅ Run completed: ${result.id}`));
-        console.log(chalk.bold(`\nResults:`));
-        console.log(`  Passed: ${chalk.green(result.passed)}`);
-        console.log(`  Failed: ${chalk.red(result.failed)}`);
-        console.log(`  Skipped: ${chalk.yellow(result.skipped)}`);
+          if (result.metadata?.traces) {
+            console.log(chalk.magenta(`  Traces: ${result.metadata.traces.total} file(s)`));
+          }
+          if (result.metadata?.artifacts) {
+            console.log(chalk.blue(`  Artifacts: ${result.metadata.artifacts.total} file(s)`));
+          }
+          if (result.metadata?.visualTesting) {
+            const vt = result.metadata.visualTesting;
+            console.log(
+              chalk.cyan(
+                `  Visual: ${vt.passRate > 0 ? (vt.passRate * 100).toFixed(0) + '% pass' : 'N/A'}`
+              )
+            );
+          }
 
-        if (result.metadata?.traces) {
-          console.log(chalk.magenta(`  Traces: ${result.metadata.traces.total} file(s)`));
-        }
-        if (result.metadata?.artifacts) {
-          console.log(chalk.blue(`  Artifacts: ${result.metadata.artifacts.total} file(s)`));
-        }
-        if (result.metadata?.visualTesting) {
-          const vt = result.metadata.visualTesting;
+          const reportPath = await reporter.generateReport(result);
+          console.log(chalk.blue(`\n📊 Report: ${reportPath}`));
+
+          if (config.htmlReport) {
+            const htmlReportDir = path.join(
+              config.outputDir,
+              config.htmlReportDir || 'html-report',
+              'index.html'
+            );
+            if (fs.existsSync(htmlReportDir)) {
+              console.log(chalk.blue(`📄 Playwright HTML Report: ${htmlReportDir}`));
+            }
+          }
+        });
+
+        const result = await executor.execute({
+          shardIndex: shardIndexOption,
+          shardTotal: shardTotalOption,
+          tagFilter: options.tags ? options.tags.split(',') : undefined,
+          grepPattern: options.grep,
+          projectFilter: options.projectFilter,
+          updateSnapshots: options.updateSnapshots,
+          testLocations: testFiles && testFiles.length > 0 ? testFiles : undefined,
+        });
+        spinner.succeed(`Shard ${shardIndexOption + 1}/${shardTotalOption} completed: ${result.passed}/${result.totalTests} passed`);
+      } else if (shardCount > 1) {
+        const parallelExecutor = new ParallelExecutor(config, shardCount, getStorage());
+        const reporter = new Reporter(config.outputDir);
+
+        console.log(chalk.blue(`\n🔀 Running ${shardCount} shards in parallel on this machine`));
+        console.log(chalk.gray(`   Using Playwright native sharding with automatic blob report merge`));
+
+        const { results, mergedReportDir } = await parallelExecutor.executeAndMergeReports();
+
+        const totalPassed = results.reduce((sum, r) => sum + r.passed, 0);
+        const totalFailed = results.reduce((sum, r) => sum + r.failed, 0);
+        const totalSkipped = results.reduce((sum, r) => sum + r.skipped, 0);
+        const totalTests = results.reduce((sum, r) => sum + r.totalTests, 0);
+
+        console.log(chalk.bold(`\n📊 Combined Results across ${shardCount} shards:`));
+        console.log(`  Passed: ${chalk.green(totalPassed)}`);
+        console.log(`  Failed: ${chalk.red(totalFailed)}`);
+        console.log(`  Skipped: ${chalk.yellow(totalSkipped)}`);
+
+        for (let i = 0; i < results.length; i++) {
+          const r = results[i];
           console.log(
-            chalk.cyan(
-              `  Visual: ${vt.passRate > 0 ? (vt.passRate * 100).toFixed(0) + '% pass' : 'N/A'}`
-            )
+            chalk.gray(`  Shard ${i + 1}: ${r.passed} passed, ${r.failed} failed, ${r.skipped} skipped`)
           );
+          await reporter.generateReport(r);
         }
 
-        const reportPath = await reporter.generateReport(result);
-        console.log(chalk.blue(`\n📊 Report: ${reportPath}`));
-
-        if (config.htmlReport) {
+        if (mergedReportDir) {
+          const mergedIndexPath = path.join(mergedReportDir, 'index.html');
+          if (fs.existsSync(mergedIndexPath)) {
+            console.log(chalk.blue(`\n📄 Merged HTML Report: ${mergedIndexPath}`));
+          }
+        } else if (config.htmlReport) {
           const htmlReportDir = path.join(
             config.outputDir,
             config.htmlReportDir || 'html-report',
             'index.html'
           );
           if (fs.existsSync(htmlReportDir)) {
-            console.log(chalk.blue(`📄 Playwright HTML Report: ${htmlReportDir}`));
+            console.log(chalk.blue(`\n📄 Playwright HTML Report: ${htmlReportDir}`));
           }
         }
-      });
 
-      const result = await executor.execute({
-        tagFilter: options.tags ? options.tags.split(',') : undefined,
-        grepPattern: options.grep,
-        projectFilter: options.projectFilter,
-        updateSnapshots: options.updateSnapshots,
-        testLocations: testFiles && testFiles.length > 0 ? testFiles : undefined,
-      });
-      spinner.succeed(`Run completed: ${result.passed}/${result.totalTests} passed`);
+        spinner.succeed(`All shards completed: ${totalPassed}/${totalTests} passed`);
+      } else {
+        const executor = new Executor(config, getStorage());
+        const reporter = new Reporter(config.outputDir);
+
+        executor.on('run_started', (data) => {
+          console.log(chalk.blue(`\n🚀 Run started: ${data.runId}`));
+        });
+
+        executor.on('output', (data) => {
+          process.stdout.write(data.data);
+        });
+
+        executor.on('annotations_scanned', (data) => {
+          console.log(chalk.cyan(`\n📝 Annotations: ${data.summary.total} found`));
+        });
+
+        executor.on('tags_scanned', (data) => {
+          console.log(
+            chalk.magenta(
+              `\n🏷️  Tags: ${data.summary.totalTags} tags, ${data.summary.totalTaggedTests} tagged tests`
+            )
+          );
+        });
+
+        executor.on('run_completed', async (result) => {
+          console.log(chalk.green(`\n✅ Run completed: ${result.id}`));
+          console.log(chalk.bold(`\nResults:`));
+          console.log(`  Passed: ${chalk.green(result.passed)}`);
+          console.log(`  Failed: ${chalk.red(result.failed)}`);
+          console.log(`  Skipped: ${chalk.yellow(result.skipped)}`);
+
+          if (result.metadata?.traces) {
+            console.log(chalk.magenta(`  Traces: ${result.metadata.traces.total} file(s)`));
+          }
+          if (result.metadata?.artifacts) {
+            console.log(chalk.blue(`  Artifacts: ${result.metadata.artifacts.total} file(s)`));
+          }
+          if (result.metadata?.visualTesting) {
+            const vt = result.metadata.visualTesting;
+            console.log(
+              chalk.cyan(
+                `  Visual: ${vt.passRate > 0 ? (vt.passRate * 100).toFixed(0) + '% pass' : 'N/A'}`
+              )
+            );
+          }
+
+          const reportPath = await reporter.generateReport(result);
+          console.log(chalk.blue(`\n📊 Report: ${reportPath}`));
+
+          if (config.htmlReport) {
+            const htmlReportDir = path.join(
+              config.outputDir,
+              config.htmlReportDir || 'html-report',
+              'index.html'
+            );
+            if (fs.existsSync(htmlReportDir)) {
+              console.log(chalk.blue(`📄 Playwright HTML Report: ${htmlReportDir}`));
+            }
+          }
+        });
+
+        const result = await executor.execute({
+          tagFilter: options.tags ? options.tags.split(',') : undefined,
+          grepPattern: options.grep,
+          projectFilter: options.projectFilter,
+          updateSnapshots: options.updateSnapshots,
+          testLocations: testFiles && testFiles.length > 0 ? testFiles : undefined,
+        });
+        spinner.succeed(`Run completed: ${result.passed}/${result.totalTests} passed`);
+      }
     } catch (error: unknown) {
       spinner.fail(`Run failed: ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);
@@ -231,6 +368,8 @@ program
   .description('Plan test orchestration without running')
   .option('-t, --test-dir <path>', 'Test directory', './')
   .option('-s, --shards <number>', 'Number of shards', '1')
+  .option('--strategy <strategy>', 'Sharding strategy: distributed, intelligent', 'distributed')
+  .option('--json', 'Output orchestration plan in JSON format')
   .action(async (options) => {
     const spinner = ora('Discovering tests...').start();
 
@@ -243,9 +382,50 @@ program
       });
 
       await orchestrator.initialize();
-      const config = await orchestrator.orchestrate();
+
+      let config;
+      if (options.strategy === 'intelligent') {
+        config = await orchestrator.optimizeSharding();
+      } else {
+        config = await orchestrator.orchestrate();
+      }
 
       spinner.succeed(`Discovered ${config.testAssignment.length} tests`);
+
+      if (options.json) {
+        const shards: Array<{
+          shardIndex: number;
+          shardTotal: number;
+          testCount: number;
+          testFiles: string[];
+          estimatedDuration?: number;
+        }> = [];
+
+        for (let i = 0; i < config.totalShards; i++) {
+          const tests = config.testAssignment.filter((t) => t.shardId === i);
+          shards.push({
+            shardIndex: i,
+            shardTotal: config.totalShards,
+            testCount: tests.length,
+            testFiles: tests.map((t) => t.testId),
+            estimatedDuration: tests.reduce((sum, t) => sum + (t.estimatedDuration || 0), 0),
+          });
+        }
+
+        console.log(
+          JSON.stringify(
+            {
+              totalShards: config.totalShards,
+              totalTests: config.testAssignment.length,
+              strategy: config.strategy,
+              shards,
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
 
       console.log(chalk.bold('\n📋 Test Distribution:'));
       console.log(`  Strategy: ${config.strategy}`);
@@ -253,7 +433,12 @@ program
 
       for (let i = 0; i < config.totalShards; i++) {
         const tests = config.testAssignment.filter((t) => t.shardId === i);
+        const estimatedDuration = tests.reduce((sum, t) => sum + (t.estimatedDuration || 0), 0);
         console.log(chalk.blue(`\n  Shard ${i + 1}/${config.totalShards}:`));
+        console.log(`    Tests: ${tests.length}`);
+        if (estimatedDuration > 0) {
+          console.log(`    Estimated duration: ${(estimatedDuration / 1000).toFixed(1)}s`);
+        }
         tests.slice(0, 5).forEach((t) => {
           console.log(`    - ${path.basename(t.testId)}`);
         });
@@ -263,6 +448,103 @@ program
       }
     } catch (error: unknown) {
       spinner.fail(`Failed: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('merge-reports <blobReportsDir>')
+  .description('Merge blob reports from multiple shards or environments into a single report')
+  .option('-r, --reporter <format>', 'Output reporter format (html,json,junit)', 'html')
+  .option('-o, --output <path>', 'Output directory for merged report')
+  .option('-c, --config <path>', 'Playwright config file for merge options')
+  .action(async (blobReportsDir, options) => {
+    const spinner = ora('Merging reports...').start();
+
+    try {
+      const resolvedBlobDir = path.resolve(blobReportsDir);
+      if (!fs.existsSync(resolvedBlobDir)) {
+        spinner.fail(`Blob reports directory not found: ${resolvedBlobDir}`);
+        process.exit(1);
+      }
+
+      const fsModule = await import('fs/promises');
+      const blobFiles = (await fsModule.readdir(resolvedBlobDir)).filter(
+        (f: string) => f.endsWith('.zip')
+      );
+
+      if (blobFiles.length === 0) {
+        spinner.fail(`No blob report files (.zip) found in ${resolvedBlobDir}`);
+        process.exit(1);
+      }
+
+      spinner.text = `Found ${blobFiles.length} blob report file(s), merging...`;
+
+      const reporters = options.reporter.split(',').map((r: string) => r.trim());
+      const reporterArg = reporters.join(',');
+
+      const mergeArgs = ['playwright', 'merge-reports', resolvedBlobDir, `--reporter=${reporterArg}`];
+
+      if (options.config) {
+        mergeArgs.push(`--config=${options.config}`);
+      }
+
+      const outputDir = options.output
+        ? path.resolve(options.output)
+        : path.join(resolvedBlobDir, '..', 'merged-report');
+
+      const mergeExitCode = await new Promise<number>((resolve, reject) => {
+        const { spawn: spawnProc } = require('child_process');
+        const proc = spawnProc('npx', mergeArgs, {
+          cwd: path.dirname(resolvedBlobDir),
+          stdio: ['ignore', 'pipe', 'pipe'],
+          shell: true,
+          env: {
+            ...process.env,
+            PLAYWRIGHT_HTML_REPORT: outputDir,
+          },
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        proc.stdout?.on('data', (chunk: Buffer) => {
+          stdout += chunk.toString();
+        });
+
+        proc.stderr?.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
+
+        proc.on('close', (code: number | null) => {
+          if (stdout) {
+            console.log(chalk.gray(stdout));
+          }
+          if (stderr && code !== 0) {
+            console.log(chalk.yellow(stderr));
+          }
+          resolve(code ?? 1);
+        });
+
+        proc.on('error', (err: Error) => {
+          reject(err);
+        });
+      });
+
+      if (mergeExitCode === 0) {
+        spinner.succeed(`Successfully merged ${blobFiles.length} blob report(s)`);
+        console.log(chalk.blue(`\n📄 Merged report output: ${outputDir}`));
+
+        const indexPath = path.join(outputDir, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          console.log(chalk.blue(`   Open with: npx playwright show-report ${outputDir}`));
+        }
+      } else {
+        spinner.fail(`Merge reports command failed with exit code: ${mergeExitCode}`);
+        process.exit(1);
+      }
+    } catch (error: unknown) {
+      spinner.fail(`Merge failed: ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);
     }
   });
@@ -1479,7 +1761,7 @@ program
   .command('agents')
   .description('Playwright Test Agents - AI-powered test creation and healing')
   .action(() => {
-    console.log(chalk.bold('\n🎭 Playwright Test Agents'));
+    console.log(chalk.bold('\nPlaywright Test Agents'));
     console.log(chalk.gray('  AI-powered test planning, generation, and healing'));
     console.log('');
     console.log('  Commands:');
@@ -1495,11 +1777,13 @@ program
   .command('agents-init')
   .description('Initialize Playwright Test Agent definitions for your AI tool')
   .option('--loop <tool>', 'AI tool: vscode, claude, opencode', 'vscode')
+  .option('--project-root <path>', 'Project root directory (auto-detected from playwright.config)')
   .action(async (options) => {
     const spinner = ora('Initializing agent definitions...').start();
     try {
       const { AgentService } = await import('../agents');
-      const agentService = new AgentService('./test-data');
+      const projectRoot = findProjectRoot(options.projectRoot);
+      const agentService = new AgentService('./test-data', { projectRoot });
       const result = await agentService.initAgents(options.loop);
 
       if (result.success && result.data) {
@@ -1526,6 +1810,7 @@ program
   .option('--seed <path>', 'Seed test file path')
   .option('--prd <path>', 'Product Requirement Document path')
   .option('--output <path>', 'Output directory for plans', 'specs/')
+  .option('--project-root <path>', 'Project root directory (auto-detected from playwright.config)')
   .action(async (description, options) => {
     const spinner = ora('Generating test plan...').start();
     try {
@@ -1535,11 +1820,14 @@ program
       const llmConfig = diagnosisService.getMaskedConfig();
 
       if (!llmConfig.enabled) {
-        spinner.fail('AI diagnosis is not enabled. Configure LLM first via: yuantest llm-config --set');
+        spinner.fail(
+          'AI diagnosis is not enabled. Configure LLM first via: yuantest llm-config --set'
+        );
         process.exit(1);
       }
 
-      const agentService = new AgentService('./test-data', {}, llmConfig);
+      const projectRoot = findProjectRoot(options.projectRoot);
+      const agentService = new AgentService('./test-data', { projectRoot }, llmConfig);
       const result = await agentService.plan(description, {
         seedTest: options.seed,
         prdPath: options.prd,
@@ -1556,7 +1844,9 @@ program
           console.log(chalk.bold(`\n  ${i + 1}. ${scenario.name}`));
           console.log(`    Steps: ${scenario.steps.length}`);
           scenario.steps.forEach((step, j) => {
-            console.log(chalk.gray(`      ${j + 1}. ${step.action}${step.target ? ` on ${step.target}` : ''}`));
+            console.log(
+              chalk.gray(`      ${j + 1}. ${step.action}${step.target ? ` on ${step.target}` : ''}`)
+            );
           });
           if (scenario.expectedResults.length > 0) {
             console.log(`    Expected:`);
@@ -1582,6 +1872,7 @@ program
   .description('Generate Playwright test code from a test plan')
   .option('--output <path>', 'Output directory for tests', 'tests/')
   .option('--seed <path>', 'Seed test file path')
+  .option('--project-root <path>', 'Project root directory (auto-detected from playwright.config)')
   .action(async (planPath, options) => {
     const spinner = ora('Generating test code...').start();
     try {
@@ -1591,11 +1882,14 @@ program
       const llmConfig = diagnosisService.getMaskedConfig();
 
       if (!llmConfig.enabled) {
-        spinner.fail('AI diagnosis is not enabled. Configure LLM first via: yuantest llm-config --set');
+        spinner.fail(
+          'AI diagnosis is not enabled. Configure LLM first via: yuantest llm-config --set'
+        );
         process.exit(1);
       }
 
-      const agentService = new AgentService('./test-data', {}, llmConfig);
+      const projectRoot = findProjectRoot(options.projectRoot);
+      const agentService = new AgentService('./test-data', { projectRoot }, llmConfig);
       const result = await agentService.generate(planPath, {
         outputDir: options.output,
         seedTest: options.seed,
@@ -1624,6 +1918,7 @@ program
   .option('--run-id <id>', 'Run ID for context')
   .option('--test-id <id>', 'Test ID for context')
   .option('--apply', 'Auto-apply patches', false)
+  .option('--project-root <path>', 'Project root directory (auto-detected from playwright.config)')
   .action(async (testFilePath, options) => {
     const spinner = ora('Healing test...').start();
     try {
@@ -1633,12 +1928,16 @@ program
       const llmConfig = diagnosisService.getMaskedConfig();
 
       if (!llmConfig.enabled) {
-        spinner.fail('AI diagnosis is not enabled. Configure LLM first via: yuantest llm-config --set');
+        spinner.fail(
+          'AI diagnosis is not enabled. Configure LLM first via: yuantest llm-config --set'
+        );
         process.exit(1);
       }
 
+      const projectRoot = findProjectRoot(options.projectRoot);
       const agentConfig: Partial<import('../types').AgentConfig> = {
         autoHeal: options.apply,
+        projectRoot,
       };
       const agentService = new AgentService('./test-data', agentConfig, llmConfig);
       const result = await agentService.heal(testFilePath, {
@@ -1651,9 +1950,13 @@ program
       if (result.success && result.data) {
         const healResult = result.data;
         if (healResult.healed) {
-          spinner.succeed(`Test healed in ${result.duration}ms (${healResult.roundsUsed} round(s))`);
+          spinner.succeed(
+            `Test healed in ${result.duration}ms (${healResult.roundsUsed} round(s))`
+          );
         } else {
-          spinner.warn(`Healing attempted but not fully resolved (${healResult.roundsUsed} round(s))`);
+          spinner.warn(
+            `Healing attempted but not fully resolved (${healResult.roundsUsed} round(s))`
+          );
         }
 
         console.log(chalk.bold(`\n🔧 Test: ${healResult.testTitle}`));
@@ -1690,10 +1993,15 @@ program
   .command('agents-list')
   .description('List generated test plans')
   .option('--specs-dir <path>', 'Specs directory', 'specs/')
+  .option('--project-root <path>', 'Project root directory (auto-detected from playwright.config)')
   .action(async (options) => {
     try {
       const { AgentService } = await import('../agents');
-      const agentService = new AgentService('./test-data', { specsDir: options.specsDir });
+      const projectRoot = findProjectRoot(options.projectRoot);
+      const agentService = new AgentService('./test-data', {
+        specsDir: options.specsDir,
+        projectRoot,
+      });
       const plans = await agentService.listPlans();
 
       console.log(chalk.bold('\n📋 Test Plans:'));

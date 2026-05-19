@@ -1407,7 +1407,9 @@ export class DiagnosisService {
       this.config.enabled &&
       diagnosis.confidence >= 0.5 &&
       testInfo.filePath &&
-      (diagnosis.category === 'selector' || diagnosis.category === 'assertion' || diagnosis.category === 'timeout')
+      (diagnosis.category === 'selector' ||
+        diagnosis.category === 'assertion' ||
+        diagnosis.category === 'timeout')
     ) {
       try {
         const { AgentService } = await import('../agents');

@@ -1,10 +1,12 @@
 import * as fs from 'fs';
 import { logger } from '../logger';
-import { AgentConfig, LLMConfig, TestPlan, TestPlanScenario } from '../types';
+import { AgentConfig, LLMConfig, TestPlan, TestPlanScenario, ProjectContext } from '../types';
 
 const PLANNER_SYSTEM_PROMPT_ZH =
   '你是一位专业的测试规划专家。你的任务是探索应用并生成结构化的测试计划。' +
-  '你需要分析用户描述的功能场景，生成详细的测试步骤和预期结果。' +
+  '你需要根据被测应用的信息和用户描述的功能场景，生成详细的测试步骤和预期结果。' +
+  '测试步骤应使用具体的页面元素定位器（如 getByRole、getByText、getByLabel 等），' +
+  '确保生成的测试计划可以直接用于 Playwright 测试代码生成。' +
   '你必须只返回有效的 JSON 格式，不要使用 markdown 格式，不要代码块。' +
   'JSON 必须包含以下字段：' +
   '"title" (字符串: 测试计划标题), ' +
@@ -15,7 +17,9 @@ const PLANNER_SYSTEM_PROMPT_ZH =
 
 const PLANNER_SYSTEM_PROMPT_EN =
   'You are a professional test planning expert. Your task is to explore the application and generate structured test plans. ' +
-  'You need to analyze the feature scenarios described by the user and generate detailed test steps and expected results. ' +
+  'You need to generate detailed test steps and expected results based on the application information and feature scenarios described by the user. ' +
+  'Test steps should use concrete page element locators (e.g. getByRole, getByText, getByLabel) ' +
+  'to ensure the generated test plan can be directly used for Playwright test code generation. ' +
   'You must respond with valid JSON only, no markdown formatting, no code blocks. ' +
   'The JSON must have these fields: ' +
   '"title" (string: test plan title), ' +
@@ -50,6 +54,11 @@ export class PlannerAgent {
         ? `请为以下功能生成测试计划：\n\n${description}\n`
         : `Generate a test plan for the following feature:\n\n${description}\n`;
 
+    const ctx = this.config.projectContext;
+    if (ctx) {
+      userPrompt += this.buildContextPrompt(ctx, lang);
+    }
+
     if (options?.seedTest && fs.existsSync(options.seedTest)) {
       const seedContent = fs.readFileSync(options.seedTest, 'utf-8');
       userPrompt +=
@@ -70,6 +79,68 @@ export class PlannerAgent {
     const plan = this.parsePlanResponse(responseText, description);
 
     return plan;
+  }
+
+  private buildContextPrompt(ctx: ProjectContext, lang: string): string {
+    const lines: string[] = [];
+
+    if (lang === 'zh') {
+      lines.push('\n被测应用信息：');
+      if (ctx.baseURL) {
+        lines.push(`- 应用 URL: ${ctx.baseURL}`);
+      }
+      if (ctx.technology) {
+        lines.push(`- 技术栈: ${ctx.technology}`);
+      }
+      if (ctx.useViewport) {
+        lines.push(`- 视口: ${ctx.useViewport.width}x${ctx.useViewport.height}`);
+      }
+      if (ctx.timeout) {
+        lines.push(`- 默认超时: ${ctx.timeout}ms`);
+      }
+      if (ctx.testDir) {
+        lines.push(`- 测试目录: ${ctx.testDir}`);
+      }
+      if (ctx.fixtures) {
+        lines.push(`- Fixtures: ${ctx.fixtures}`);
+      }
+      if (ctx.packageJson?.name) {
+        lines.push(`- 项目名称: ${ctx.packageJson.name}`);
+      }
+      lines.push(`- 项目根目录: ${ctx.projectRoot}`);
+      lines.push('');
+      lines.push('请根据以上应用信息生成精确的测试计划，使用具体的页面元素定位器。');
+    } else {
+      lines.push('\nApplication Information:');
+      if (ctx.baseURL) {
+        lines.push(`- URL: ${ctx.baseURL}`);
+      }
+      if (ctx.technology) {
+        lines.push(`- Tech Stack: ${ctx.technology}`);
+      }
+      if (ctx.useViewport) {
+        lines.push(`- Viewport: ${ctx.useViewport.width}x${ctx.useViewport.height}`);
+      }
+      if (ctx.timeout) {
+        lines.push(`- Default Timeout: ${ctx.timeout}ms`);
+      }
+      if (ctx.testDir) {
+        lines.push(`- Test Directory: ${ctx.testDir}`);
+      }
+      if (ctx.fixtures) {
+        lines.push(`- Fixtures: ${ctx.fixtures}`);
+      }
+      if (ctx.packageJson?.name) {
+        lines.push(`- Project Name: ${ctx.packageJson.name}`);
+      }
+      lines.push(`- Project Root: ${ctx.projectRoot}`);
+      lines.push('');
+      lines.push(
+        'Generate precise test plans based on the application information above, using concrete page element locators.'
+      );
+    }
+
+    return lines.join('\n');
   }
 
   private async callLLM(systemPrompt: string, userPrompt: string): Promise<string> {

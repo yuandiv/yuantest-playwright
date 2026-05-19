@@ -308,7 +308,7 @@ export class FlakyTestManager extends ManagedManager {
       return;
     }
 
-    const minimumRuns = this.config.minimumRuns || FLAKY_CONFIG.MINIMUM_RUNS_FOR_QUARANTINE;
+    const minimumRuns = this.flakyCriteria.minimumRuns;
     if (flakyTest.totalRuns < minimumRuns) {
       return;
     }
@@ -327,10 +327,10 @@ export class FlakyTestManager extends ManagedManager {
       return;
     }
 
-    const confidenceLevel = this.config.confidenceLevel ?? FLAKY_CONFIG.CONFIDENCE_LEVEL;
+    const confidenceLevel = this.flakyCriteria.confidenceLevel;
     const isSignificant = isStatisticallySignificant(
       flakyTest,
-      this.config.threshold,
+      this.flakyCriteria.flakyThreshold,
       minimumRuns,
       confidenceLevel
     );
@@ -339,7 +339,7 @@ export class FlakyTestManager extends ManagedManager {
       return;
     }
 
-    if (flakyTest.weightedFailureRate >= this.config.threshold || isSignificant) {
+    if (flakyTest.weightedFailureRate >= this.flakyCriteria.flakyThreshold || isSignificant) {
       if (flakyTest.weightedFailureRate >= this.flakyCriteria.highThreshold || isSignificant) {
         this.emit('flaky_detected', {
           testId: flakyTest.testId,

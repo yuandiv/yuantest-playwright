@@ -1,21 +1,26 @@
 import { useState, useEffect } from 'react';
 import { Lang, t } from '../i18n';
 import * as api from '../services/api';
-import type { AgentConfig, TestPlan, HealerPatch, AgentHealResult } from '../services/api';
+import type { AgentConfig, TestPlan, HealerPatch, AgentHealResult, ProjectContextResponse } from '../services/api';
+import type { LLMStatus } from '../types';
 
 interface AgentPanelProps {
   lang: Lang;
   onClose: () => void;
+  onOpenLLMConfig?: () => void;
 }
 
 type AgentTab = 'plan' | 'generate' | 'heal' | 'history';
 
-export function AgentPanel({ lang, onClose }: AgentPanelProps) {
+export function AgentPanel({ lang, onClose, onOpenLLMConfig }: AgentPanelProps) {
   const [activeTab, setActiveTab] = useState<AgentTab>('plan');
   const [config, setConfig] = useState<AgentConfig | null>(null);
+  const [projectCtx, setProjectCtx] = useState<ProjectContextResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [llmStatus, setLlmStatus] = useState<LLMStatus | null>(null);
+  const [executorRunning, setExecutorRunning] = useState(false);
 
   const [planDescription, setPlanDescription] = useState('');
   const [planSeedTest, setPlanSeedTest] = useState('');
@@ -35,6 +40,16 @@ export function AgentPanel({ lang, onClose }: AgentPanelProps) {
 
   useEffect(() => {
     api.getAgentConfig().then(c => { if (c) setConfig(c); }).catch(() => {});
+    api.getProjectContext().then(c => { if (c) setProjectCtx(c); }).catch(() => {});
+    api.getLLMStatus().then(s => { if (s) setLlmStatus(s); }).catch(() => {});
+    api.getRunStatus().then(s => { setExecutorRunning(s?.isRunning || false); }).catch(() => {});
+
+    const interval = setInterval(() => {
+      api.getLLMStatus().then(s => { if (s) setLlmStatus(s); }).catch(() => {});
+      api.getRunStatus().then(s => { setExecutorRunning(s?.isRunning || false); }).catch(() => {});
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -148,6 +163,9 @@ export function AgentPanel({ lang, onClose }: AgentPanelProps) {
     }
   };
 
+  const llmReady = llmStatus?.status === 'green';
+  const canUseAgents = llmReady;
+
   const tabs: { key: AgentTab; icon: string; label: string }[] = [
     { key: 'plan', icon: '📋', label: t('agentTabPlan', lang) || 'Planner' },
     { key: 'generate', icon: '⚡', label: t('agentTabGenerate', lang) || 'Generator' },
@@ -159,9 +177,31 @@ export function AgentPanel({ lang, onClose }: AgentPanelProps) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="p-5 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            🎭 {t('agentPanelTitle', lang) || 'Playwright Test Agents'}
-          </h2>
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              {t('agentPanelTitle', lang) || 'Playwright Test Agents'}
+            </h2>
+            {projectCtx && (
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                <span className="flex items-center gap-1" title={projectCtx.projectRoot}>
+                  <i className="fas fa-folder-open"></i>
+                  <span className="max-w-[200px] truncate">{projectCtx.projectRoot}</span>
+                </span>
+                {projectCtx.projectContext?.baseURL && (
+                  <span className="flex items-center gap-1">
+                    <i className="fas fa-globe"></i>
+                    {projectCtx.projectContext.baseURL}
+                  </span>
+                )}
+                {projectCtx.projectContext?.technology && (
+                  <span className="flex items-center gap-1">
+                    <i className="fas fa-code"></i>
+                    {projectCtx.projectContext.technology}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
             <i className="fas fa-times text-xl"></i>
           </button>
@@ -183,6 +223,31 @@ export function AgentPanel({ lang, onClose }: AgentPanelProps) {
             </button>
           ))}
         </div>
+
+        {!llmReady ? (
+          <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-yellow-50 text-yellow-700 border-b border-yellow-100">
+            <i className="fas fa-exclamation-triangle"></i>
+            <span>{t('agentDependencyLLMRequired', lang)}</span>
+            {onOpenLLMConfig && (
+              <button 
+                onClick={onOpenLLMConfig}
+                className="ml-auto text-yellow-600 hover:text-yellow-800 underline font-medium"
+              >
+                {t('agentOpenLLMConfig', lang)}
+              </button>
+            )}
+          </div>
+        ) : executorRunning ? (
+          <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-blue-50 text-blue-700 border-b border-blue-100">
+            <i className="fas fa-info-circle"></i>
+            <span>{t('agentDependencyExecutorBusy', lang)}</span>
+          </div>
+        ) : (
+          <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-green-50 text-green-700 border-b border-green-100">
+            <i className="fas fa-check-circle"></i>
+            <span>{t('agentDependencyReady', lang)}</span>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-5">
           {activeTab === 'plan' && (
@@ -226,7 +291,8 @@ export function AgentPanel({ lang, onClose }: AgentPanelProps) {
               </div>
               <button
                 onClick={handlePlan}
-                disabled={loading || !planDescription.trim()}
+                disabled={loading || !planDescription.trim() || !canUseAgents}
+                title={!canUseAgents ? t('agentConfigureLLMFirst', lang) : undefined}
                 className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
               >
                 {loading ? (
@@ -280,7 +346,8 @@ export function AgentPanel({ lang, onClose }: AgentPanelProps) {
               </div>
               <button
                 onClick={handleGenerate}
-                disabled={loading || !genPlanPath.trim()}
+                disabled={loading || !genPlanPath.trim() || !canUseAgents}
+                title={!canUseAgents ? t('agentConfigureLLMFirst', lang) : undefined}
                 className="w-full bg-green-600 text-white py-2.5 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
               >
                 {loading ? (
@@ -342,7 +409,8 @@ export function AgentPanel({ lang, onClose }: AgentPanelProps) {
               </div>
               <button
                 onClick={handleHeal}
-                disabled={loading || !healTestPath.trim()}
+                disabled={loading || !healTestPath.trim() || !canUseAgents}
+                title={!canUseAgents ? t('agentConfigureLLMFirst', lang) : undefined}
                 className="w-full bg-orange-600 text-white py-2.5 px-4 rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
               >
                 {loading ? (

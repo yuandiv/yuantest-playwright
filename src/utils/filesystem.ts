@@ -96,6 +96,7 @@ export function walkDir(dir: string, options: WalkOptions = {}): string[] {
   }
 
   walk(dir);
+  results.sort();
   return results;
 }
 
@@ -240,6 +241,7 @@ export async function walkDirAsync(
   }
 
   await walk(dir);
+  results.sort();
   return results;
 }
 
