@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.0](https://github.com/yuandiv/yuantest-playwright/compare/v1.0.12...v1.1.0) (2026-05-20)
+
+
+### ✨ 新增功能
+
+* 集成Playwright Test 代理 ([bfeffd8](https://github.com/yuandiv/yuantest-playwright/commit/bfeffd8d53e3557496f19397ea2a0b2f1d7a0182))
+* add Agent system ([f2ed3c0](https://github.com/yuandiv/yuantest-playwright/commit/f2ed3c0141fa6be0492b959127ea05d8b75378fc))
+
 ### [1.0.11 ](https://github.com/yuandiv/yuantest-playwright/compare/v1.0.11...v1.0.12)(2026-05-18)
 
 - 修复冗余配置异常
@@ -612,4 +620,3 @@ All notable changes to this project will be documented in this file. See [standa
 - [ ] 测试用例管理集成
 
 ***
-
