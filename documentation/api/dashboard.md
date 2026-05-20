@@ -1011,6 +1011,82 @@ Delete a custom error pattern.
 
 ---
 
+### Agent Management
+
+#### Agent API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/agents/config` | Get agent configuration |
+| `PUT` | `/api/v1/agents/config` | Update agent configuration |
+| `GET` | `/api/v1/agents/project-context` | Get project context information |
+| `POST` | `/api/v1/agents/init` | Initialize agent definitions |
+| `POST` | `/api/v1/agents/plan` | Generate test plan |
+| `POST` | `/api/v1/agents/generate` | Generate test code |
+| `POST` | `/api/v1/agents/heal` | Heal failing test |
+| `POST` | `/api/v1/agents/apply-patch` | Apply a specific patch |
+| `GET` | `/api/v1/agents/plans` | List test plans |
+| `GET` | `/api/v1/agents/heal-history` | View heal history |
+
+**POST /api/v1/agents/init**
+
+Request body:
+```json
+{
+  "loopTarget": "vscode"  // "vscode" | "claude" | "opencode"
+}
+```
+
+**POST /api/v1/agents/plan**
+
+Request body:
+```json
+{
+  "description": "User login flow",
+  "seedTest": "tests/example.spec.ts",  // optional
+  "prdPath": "docs/prd.md",            // optional
+  "outputDir": "specs/"                  // optional
+}
+```
+
+**POST /api/v1/agents/generate**
+
+Request body:
+```json
+{
+  "planPath": "specs/user-login-flow.md",
+  "outputDir": "tests/",                 // optional
+  "seedTest": "tests/example.spec.ts"    // optional
+}
+```
+
+**POST /api/v1/agents/heal**
+
+Request body:
+```json
+{
+  "testFilePath": "tests/login.spec.ts",
+  "error": "Timeout waiting for selector",  // optional
+  "stackTrace": "...",                       // optional
+  "apply": false                             // optional, auto-apply patches
+}
+```
+
+**POST /api/v1/agents/apply-patch**
+
+Request body:
+```json
+{
+  "filePath": "tests/login.spec.ts",
+  "originalCode": "old code",
+  "patchedCode": "new code",
+  "confidence": 0.8,
+  "reason": "Selector changed"
+}
+```
+
+---
+
 ### LLM Configuration
 
 #### `GET /api/v1/llm/config`

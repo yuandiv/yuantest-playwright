@@ -91,7 +91,32 @@ async function main() {
   const health = flakyManager.getOverallHealthScore();
   console.log(`Health: ${health.grade} (${health.overall})`);
 
-  // 5. 启动 Dashboard
+  // 5. AI Agent 系统
+  const agentService = new AgentService('./test-data', { projectRoot: './' }, llmConfig);
+
+  // 生成测试计划
+  const planResult = await agentService.plan('用户登录流程');
+  if (planResult.success && planResult.data) {
+    console.log(`计划: ${planResult.data.title} (${planResult.data.scenarios.length} 个场景)`);
+  }
+
+  // 从计划生成测试代码
+  if (planResult.data?.filePath) {
+    const genResult = await agentService.generate(planResult.data.filePath);
+    if (genResult.success && genResult.data) {
+      console.log(`生成文件: ${genResult.data.join(', ')}`);
+    }
+  }
+
+  // 修复失败测试
+  const healResult = await agentService.heal('tests/login.spec.ts', {
+    error: '等待选择器超时',
+  });
+  if (healResult.success && healResult.data) {
+    console.log(`已修复: ${healResult.data.healed}, 补丁数: ${healResult.data.patches.length}`);
+  }
+
+  // 6. 启动 Dashboard
   const server = new DashboardServer({
     port: 5274,
     outputDir: './test-reports',
@@ -172,5 +197,41 @@ interface FlakyHealthScore {
   breakdown: { stability: number; trend: number; recoverability: number; predictability: number; };
   grade: 'A' | 'B' | 'C' | 'D' | 'F';
   label: string;
+}
+
+// Agent 结果
+interface AgentResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  duration: number;
+  agentType: 'planner' | 'generator' | 'healer';
+  model?: string;
+}
+
+// 测试计划
+interface TestPlan {
+  id: string;
+  title: string;
+  description: string;
+  scenarios: TestPlanScenario[];
+  createdAt: number;
+  seedTest?: string;
+  filePath?: string;
+}
+
+// 修复补丁
+interface HealerPatch {
+  testId: string;
+  testTitle: string;
+  filePath: string;
+  originalCode: string;
+  patchedCode: string;
+  unifiedDiff: string;
+  confidence: number;
+  reason: string;
+  appliedAt?: number;
+  appliedBy?: 'auto' | 'manual';
+  verified?: boolean;
 }
 ```

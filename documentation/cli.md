@@ -781,6 +781,226 @@ yuantest rerun run_20240101_120000_abc123 login-test-001 --json
 
 ---
 
+## 20. agents - AI Agent System
+
+AI-powered test creation and healing. Provides subcommands for test planning, code generation, and test healing.
+
+### Usage
+
+```bash
+yuantest agents [subcommand]
+```
+
+### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `init` | Initialize agent definitions for VSCode/Claude/OpenCode |
+| `plan` | Generate a test plan using Planner agent |
+| `generate` | Generate Playwright test code from a test plan |
+| `heal` | Heal a failing test using Healer agent |
+| `list` | List generated test plans |
+
+### Examples
+
+```bash
+# View agent help
+yuantest agents
+
+# Initialize agent definitions
+yuantest agents init
+
+# Generate test plan
+yuantest agents plan "User login flow"
+
+# Generate test plan with seed test reference
+yuantest agents plan "Shopping cart" --seed tests/cart.spec.ts
+
+# Generate test plan with PRD reference
+yuantest agents plan "Payment feature" --prd docs/prd.md --output specs/
+
+# Generate test code from plan
+yuantest agents generate specs/user-login-flow.md
+
+# Generate test code with custom output directory
+yuantest agents generate specs/user-login-flow.md --output tests/ --seed tests/example.spec.ts
+
+# Heal a failing test
+yuantest agents heal tests/login.spec.ts
+
+# Heal with error context
+yuantest agents heal tests/login.spec.ts --error "Timeout waiting for selector" --apply
+
+# List all test plans
+yuantest agents list
+```
+
+---
+
+## 21. agents-init - Initialize Agent Definitions
+
+Initialize agent definitions for the specified loop target (VSCode, Claude, or OpenCode).
+
+### Usage
+
+```bash
+yuantest agents-init [options]
+```
+
+### Parameters
+
+| Parameter | Description | Default |
+|------|------|--------|
+| `--loop` | Loop target: vscode, claude, opencode | vscode |
+
+### Examples
+
+```bash
+# Initialize for VSCode
+yuantest agents-init
+
+# Initialize for Claude
+yuantest agents-init --loop claude
+
+# Initialize for OpenCode
+yuantest agents-init --loop opencode
+```
+
+---
+
+## 22. agents-plan - Generate Test Plan
+
+Generate a structured test plan from a feature description using the Planner agent.
+
+### Usage
+
+```bash
+yuantest agents-plan <description> [options]
+```
+
+`description` is a required positional parameter describing the feature to test.
+
+### Parameters
+
+| Parameter | Description | Default |
+|------|------|--------|
+| `--seed` | Reference seed test file path | |
+| `--prd` | Product requirement document path | |
+| `--output` | Output directory for plans | specs/ |
+
+### Examples
+
+```bash
+# Generate test plan
+yuantest agents-plan "User login flow"
+
+# With seed test reference
+yuantest agents-plan "Shopping cart" --seed tests/cart.spec.ts
+
+# With PRD reference
+yuantest agents-plan "Payment feature" --prd docs/prd.md
+
+# Custom output directory
+yuantest agents-plan "User registration" --output my-specs/
+```
+
+---
+
+## 23. agents-generate - Generate Test Code
+
+Generate Playwright TypeScript test code from a test plan file.
+
+### Usage
+
+```bash
+yuantest agents-generate <planPath> [options]
+```
+
+`planPath` is a required positional parameter specifying the test plan file path.
+
+### Parameters
+
+| Parameter | Description | Default |
+|------|------|--------|
+| `--output` | Output directory for generated test files | |
+| `--seed` | Reference seed test file path | |
+
+### Examples
+
+```bash
+# Generate test code from plan
+yuantest agents-generate specs/user-login-flow.md
+
+# Custom output directory
+yuantest agents-generate specs/user-login-flow.md --output tests/
+
+# With seed test reference
+yuantest agents-generate specs/user-login-flow.md --seed tests/example.spec.ts
+```
+
+---
+
+## 24. agents-heal - Heal Failing Test
+
+Analyze a failing test and generate fix patches using the Healer agent.
+
+### Usage
+
+```bash
+yuantest agents-heal <testFilePath> [options]
+```
+
+`testFilePath` is a required positional parameter specifying the failing test file path.
+
+### Parameters
+
+| Parameter | Description | Default |
+|------|------|--------|
+| `--error` | Error message from the test failure | |
+| `--stack-trace` | Stack trace from the test failure | |
+| `--max-rounds` | Maximum number of healing rounds | 3 |
+| `--apply` | Automatically apply generated patches | false |
+
+### Examples
+
+```bash
+# Heal a failing test
+yuantest agents-heal tests/login.spec.ts
+
+# Provide error context
+yuantest agents-heal tests/login.spec.ts --error "Timeout waiting for selector"
+
+# Provide error and stack trace
+yuantest agents-heal tests/login.spec.ts --error "Assertion failed" --stack-trace "at Object.<anonymous>..."
+
+# Auto-apply patches
+yuantest agents-heal tests/login.spec.ts --apply
+
+# Custom max rounds
+yuantest agents-heal tests/login.spec.ts --max-rounds 5
+```
+
+---
+
+## 25. agents-list - List Test Plans
+
+List all generated test plans.
+
+### Usage
+
+```bash
+yuantest agents-list
+```
+
+### Examples
+
+```bash
+# List all test plans
+yuantest agents-list
+```
+
+---
+
 ## Exit Codes
 
 | Exit Code | Description |

@@ -16,9 +16,10 @@ YuanTest Playwright 支持通过配置文件、命令行参数、Dashboard UI �
 8. [TagConfig - 标签配置](#8-tagconfig-tag-configuration)
 9. [QuarantineConfig - 隔离配置](#9-quarantineconfig-quarantine-configuration)
 10. [LLMConfig - LLM 配置](#10-llmconfig-llm-configuration)
-11. [DashboardConfig - Dashboard 配置](#11-dashboardconfig-dashboard-configuration)
-12. [默认值常量表](#12-default-constants-table)
-13. [配置方式](#13-configuration-methods)
+11. [AgentConfig - Agent 配置](#11-agentconfig-agent-configuration)
+12. [DashboardConfig - Dashboard 配置](#12-dashboardconfig-dashboard-configuration)
+13. [默认值常量表](#13-default-constants-table)
+14. [配置方式](#14-configuration-methods)
 
 ---
 
@@ -525,8 +526,39 @@ Agent 模式下支持以下工具调用（最多 5 轮）：
 
 ---
 
-<a id="11-dashboardconfig-dashboard-configuration"></a>
-## 11. DashboardConfig - Dashboard 配置
+<a id="11-agentconfig-agent-configuration"></a>
+## 11. AgentConfig - Agent 配置
+
+AI Agent 代理系统配置，用于测试规划、生成和修复。
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `enabled` | `boolean` | 否 | `true` | 启用或禁用 Agent 系统 |
+| `loopTarget` | `'vscode' \| 'claude' \| 'opencode'` | 否 | `'vscode'` | 代理定义的目标环境 |
+| `specsDir` | `string` | 否 | `'specs'` | 测试计划存储目录 |
+| `seedTest` | `string` | 否 | - | 参考测试文件路径 |
+| `autoHeal` | `boolean` | 否 | `false` | 自动应用生成的补丁 |
+| `maxHealRounds` | `number` | 否 | `3` | 最大修复轮数 |
+| `projectRoot` | `string` | 否 | `process.cwd()` | 项目根目录 |
+| `projectContext` | `ProjectContext` | 否 | - | 自动加载的项目上下文（见下方） |
+
+**ProjectContext**（自动加载，不可用户配置）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `projectRoot` | `string` | 项目根目录 |
+| `baseURL` | `string` | 从 playwright.config 解析 |
+| `testDir` | `string` | 从 playwright.config 解析 |
+| `timeout` | `number` | 从 playwright.config 解析 |
+| `useViewport` | `{ width: number; height: number }` | 从 playwright.config 解析 |
+| `fixtures` | `string` | 自动发现的测试 Fixtures 路径 |
+| `technology` | `string` | 检测到的技术栈（如 "React, Vite"） |
+| `packageJson` | `object` | 包名和依赖信息 |
+
+---
+
+<a id="12-dashboardconfig-dashboard-configuration"></a>
+## 12. DashboardConfig - Dashboard 配置
 
 Dashboard 配置控制 Web 可视化面板的启动参数。该配置通过 `YuanTestConfigFile.dashboard` 或 CLI 参数指定。
 
@@ -558,8 +590,8 @@ yuantest ui -d, --data <path>     # 数据目录
 
 ---
 
-<a id="12-default-constants-table"></a>
-## 12. 默认值常量表
+<a id="13-default-constants-table"></a>
+## 13. 默认值常量表
 
 以下常量定义在 `src/constants/index.ts` 中，是系统各模块的默认配置来源。
 
@@ -695,12 +727,12 @@ yuantest ui -d, --data <path>     # 数据目录
 
 ---
 
-<a id="13-configuration-methods"></a>
-## 13. 配置方式
+<a id="14-configuration-methods"></a>
+## 14. 配置方式
 
 YuanTest 支持四种配置方式，按优先级从高到低为：
 
-### 13.1 命令行参数
+### 14.1 命令行参数
 
 命令行参数具有最高优先级，会覆盖其他所有配置源。
 
@@ -745,7 +777,7 @@ yuantest ui [options]
 | `--output` | `-o` | `string` | - | 报告目录 |
 | `--data` | `-d` | `string` | - | 数据目录 |
 
-### 13.2 配置文件
+### 14.2 配置文件
 
 YuanTest 会按以下顺序从当前目录向上查找配置文件：
 
@@ -872,7 +904,7 @@ export default defineConfig({
 });
 ```
 
-### 13.3 user-preferences.json
+### 14.3 user-preferences.json
 
 用户偏好文件存储在 `{dataDir}/user-preferences.json` 中，由 Dashboard UI 自动维护，用于持久化运行时修改的配置。
 
@@ -892,7 +924,7 @@ export default defineConfig({
 
 用户偏好文件的优先级低于命令行参数和配置文件。Dashboard 启动时会读取此文件恢复上次设置。
 
-### 13.4 Dashboard UI
+### 14.4 Dashboard UI
 
 通过 Dashboard Web 界面可以实时修改以下配置：
 
@@ -903,7 +935,7 @@ export default defineConfig({
 
 Dashboard 修改的配置会自动保存到 `user-preferences.json`，下次启动时自动恢复。
 
-### 13.5 配置合并顺序
+### 14.5 配置合并顺序
 
 最终生效的配置按以下顺序合并（后者覆盖前者）：
 
@@ -917,7 +949,7 @@ Dashboard 修改的配置会自动保存到 `user-preferences.json`，下次启�
   (低) ────────────────────────────────→ (高)
 ```
 
-### 13.6 配置验证
+### 14.6 配置验证
 
 所有配置在加载时通过 Zod Schema 进行验证。验证规则包括：
 

@@ -87,6 +87,31 @@ Real-time monitoring during test execution:
 - **Current Test**: Display currently executing test
 - **Flaky Detection Push**: Real-time push of Flaky test detection results
 
+### 6. Agent Panel
+
+The Agent panel provides AI-powered test creation and healing capabilities:
+
+- **Test Planning** - Enter a feature description to generate a structured test plan
+  - Supports referencing seed tests for consistent code style
+  - Supports referencing PRD documents for requirement alignment
+  - Auto-saves plans as Markdown files
+- **Test Generation** - Convert test plans into Playwright TypeScript code
+  - Uses modern locators (getByRole, getByText, etc.)
+  - Generates independently runnable test scenarios
+  - Supports custom output directories
+- **Test Healing** - Analyze and fix failing tests
+  - Multi-round healing with progressive refinement
+  - Generates patches with confidence scores and unified diffs
+  - Optional auto-apply mode for immediate fixes
+  - Security: patches only applied within project root
+- **Heal History** - View past healing operations
+  - Tracks healing success/failure rates
+  - Shows patch details and application status
+- **Project Context** - Auto-detected project information
+  - Tech stack detection from package.json
+  - Playwright config parsing (baseURL, timeout, viewport)
+  - Test fixtures discovery
+
 ---
 
 ## Running Tests via Web UI

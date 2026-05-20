@@ -41,6 +41,7 @@ graph TB
     RPT --> STO
     FTM --> STO
     DIA --> STO
+    AGT --> STO
 ```
 
 ## 2. 数据流说明
@@ -187,6 +188,41 @@ graph TB
   - 文件存储实现
   - 统一的读写接口，各模块通过 StorageProvider 访问数据
   - 支持未来扩展至数据库等其他存储后端
+
+### 3.9 AgentService — AI 代理系统
+
+- **源码位置**：[src/agents/index.ts](file:///d:/Coding/yuantest-playwright/src/agents/index.ts)
+- **核心职责**：AI 驱动的测试创建和修复，提供智能测试规划、代码生成和失败修复能力
+- **子模块说明**：
+
+```mermaid
+graph TB
+    AGT[AgentService]
+
+    AGT --> PLA[planner.ts<br/>测试规划代理]
+    AGT --> GEN[generator.ts<br/>测试生成代理]
+    AGT --> HEA[healer.ts<br/>测试修复代理]
+
+    style AGT fill:#7e57c2
+    style PLA fill:#b39ddb
+    style GEN fill:#b39ddb
+    style HEA fill:#b39ddb
+```
+
+| 子模块 | 职责 |
+|--------|------|
+| planner.ts | 测试规划代理：根据功能描述生成结构化测试计划，感知项目上下文 |
+| generator.ts | 测试生成代理：将测试计划转换为可执行的 Playwright TypeScript 代码 |
+| healer.ts | 测试修复代理：分析失败测试并生成修复补丁，支持多轮修复 |
+
+- **关键能力**：
+  - **项目上下文加载**：自动解析 playwright.config 获取 baseURL、timeout、testDir、viewport；从 package.json 检测技术栈；自动发现测试 Fixtures
+  - **Planner 代理**：从自然语言描述生成结构化测试计划（TestPlan），支持参考测试和 PRD 文档
+  - **Generator 代理**：将 Markdown 测试计划转换为 Playwright TypeScript 代码，使用现代定位器和最佳实践
+  - **Healer 代理**：多轮测试修复，生成补丁、统一 Diff 输出、置信度评分
+  - **自动修复**：可选自动应用补丁，含安全路径验证（仅允许项目根目录内的补丁）
+  - **修复历史**：持久化修复历史，自动清理（最多 100 条）
+  - **代理初始化**：为 VSCode/Claude/OpenCode 循环目标初始化代理定义
 
 ## 4. 存储架构说明
 

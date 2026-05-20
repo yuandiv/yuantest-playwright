@@ -86,6 +86,15 @@ yuantest flaky
 
 # AI diagnose failed tests
 yuantest analyze --id <run-id> --ai
+
+# Generate test plan using AI Agent
+yuantest agents plan "User login flow"
+
+# Generate test code from plan
+yuantest agents generate specs/user-login-flow.md
+
+# Heal a failing test
+yuantest agents heal tests/login.spec.ts
 ```
 
 ## 📚 Documentation

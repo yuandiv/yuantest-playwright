@@ -1011,6 +1011,82 @@ data: {"type":"error","error":"Connection timeout"}
 
 ---
 
+### Agent 代理管理
+
+#### Agent API 端点
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/api/v1/agents/config` | 获取代理配置 |
+| `PUT` | `/api/v1/agents/config` | 更新代理配置 |
+| `GET` | `/api/v1/agents/project-context` | 获取项目上下文信息 |
+| `POST` | `/api/v1/agents/init` | 初始化代理定义 |
+| `POST` | `/api/v1/agents/plan` | 生成测试计划 |
+| `POST` | `/api/v1/agents/generate` | 生成测试代码 |
+| `POST` | `/api/v1/agents/heal` | 修复失败测试 |
+| `POST` | `/api/v1/agents/apply-patch` | 应用指定补丁 |
+| `GET` | `/api/v1/agents/plans` | 列出测试计划 |
+| `GET` | `/api/v1/agents/heal-history` | 查看修复历史 |
+
+**POST /api/v1/agents/init**
+
+请求体：
+```json
+{
+  "loopTarget": "vscode"  // "vscode" | "claude" | "opencode"
+}
+```
+
+**POST /api/v1/agents/plan**
+
+请求体：
+```json
+{
+  "description": "用户登录流程",
+  "seedTest": "tests/example.spec.ts",  // 可选
+  "prdPath": "docs/prd.md",            // 可选
+  "outputDir": "specs/"                  // 可选
+}
+```
+
+**POST /api/v1/agents/generate**
+
+请求体：
+```json
+{
+  "planPath": "specs/user-login-flow.md",
+  "outputDir": "tests/",                 // 可选
+  "seedTest": "tests/example.spec.ts"    // 可选
+}
+```
+
+**POST /api/v1/agents/heal**
+
+请求体：
+```json
+{
+  "testFilePath": "tests/login.spec.ts",
+  "error": "等待选择器超时",  // 可选
+  "stackTrace": "...",        // 可选
+  "apply": false              // 可选，自动应用补丁
+}
+```
+
+**POST /api/v1/agents/apply-patch**
+
+请求体：
+```json
+{
+  "filePath": "tests/login.spec.ts",
+  "originalCode": "旧代码",
+  "patchedCode": "新代码",
+  "confidence": 0.8,
+  "reason": "选择器变更"
+}
+```
+
+---
+
 ### LLM 配置
 
 #### `GET /api/v1/llm/config`

@@ -41,6 +41,7 @@ graph TB
     RPT --> STO
     FTM --> STO
     DIA --> STO
+    AGT --> STO
 ```
 
 ## 2. Data Flow Description
@@ -187,6 +188,41 @@ graph TB
   - File storage implementation
   - Unified read/write interface, all modules access data through StorageProvider
   - Support future extension to databases and other storage backends
+
+### 3.9 AgentService — AI Agent System
+
+- **Source Location**: [src/agents/index.ts](file:///d:/Coding/yuantest-playwright/src/agents/index.ts)
+- **Core Responsibility**: AI-powered test creation and healing, providing intelligent test planning, code generation, and failure repair
+- **Submodule Description**:
+
+```mermaid
+graph TB
+    AGT[AgentService]
+
+    AGT --> PLA[planner.ts<br/>Planner Agent]
+    AGT --> GEN[generator.ts<br/>Generator Agent]
+    AGT --> HEA[healer.ts<br/>Healer Agent]
+
+    style AGT fill:#7e57c2
+    style PLA fill:#b39ddb
+    style GEN fill:#b39ddb
+    style HEA fill:#b39ddb
+```
+
+| Submodule | Responsibility |
+|-----------|----------------|
+| planner.ts | Planner agent: generate structured test plans from feature descriptions, with project context awareness |
+| generator.ts | Generator agent: transform test plans into executable Playwright TypeScript code |
+| healer.ts | Healer agent: analyze failing tests and generate fix patches, supporting multi-round healing |
+
+- **Key Capabilities**:
+  - **Project Context Loading**: Automatically parse playwright.config for baseURL, timeout, testDir, viewport; detect tech stack from package.json; discover test fixtures
+  - **Planner Agent**: Generate structured test plans (TestPlan) from natural language descriptions, supporting seed test and PRD references
+  - **Generator Agent**: Convert Markdown test plans into Playwright TypeScript code, using modern locators and best practices
+  - **Healer Agent**: Multi-round test healing with patch generation, unified diff output, confidence scoring
+  - **Auto Heal**: Optional automatic patch application with security path validation (patches only within project root)
+  - **Heal History**: Persistent healing history with auto-cleanup (max 100 entries)
+  - **Agent Init**: Initialize agent definitions for VSCode/Claude/OpenCode loop targets
 
 ## 4. Storage Architecture
 

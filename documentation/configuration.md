@@ -16,9 +16,10 @@ YuanTest Playwright supports customizing behavior through configuration files, c
 8. [TagConfig - Tag Configuration](#8-tagconfig-tag-configuration)
 9. [QuarantineConfig - Quarantine Configuration](#9-quarantineconfig-quarantine-configuration)
 10. [LLMConfig - LLM Configuration](#10-llmconfig-llm-configuration)
-11. [DashboardConfig - Dashboard Configuration](#11-dashboardconfig-dashboard-configuration)
-12. [Default Constants Table](#12-default-constants-table)
-13. [Configuration Methods](#13-configuration-methods)
+11. [AgentConfig - Agent Configuration](#11-agentconfig-agent-configuration)
+12. [DashboardConfig - Dashboard Configuration](#12-dashboardconfig-dashboard-configuration)
+13. [Default Constants Table](#13-default-constants-table)
+14. [Configuration Methods](#14-configuration-methods)
 
 ---
 
@@ -520,7 +521,37 @@ Agent mode supports the following tool calls (maximum 5 rounds):
 
 ---
 
-## 11. DashboardConfig - Dashboard Configuration
+## 11. AgentConfig - Agent Configuration
+
+AI Agent system configuration for test planning, generation, and healing.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `enabled` | `boolean` | No | `true` | Enable or disable the Agent system |
+| `loopTarget` | `'vscode' \| 'claude' \| 'opencode'` | No | `'vscode'` | Target environment for agent definitions |
+| `specsDir` | `string` | No | `'specs'` | Directory for storing test plans |
+| `seedTest` | `string` | No | - | Reference seed test file path |
+| `autoHeal` | `boolean` | No | `false` | Automatically apply generated patches |
+| `maxHealRounds` | `number` | No | `3` | Maximum number of healing rounds |
+| `projectRoot` | `string` | No | `process.cwd()` | Project root directory |
+| `projectContext` | `ProjectContext` | No | - | Auto-loaded project context (see below) |
+
+**ProjectContext** (auto-loaded, not user-configurable):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `projectRoot` | `string` | Project root directory |
+| `baseURL` | `string` | Parsed from playwright.config |
+| `testDir` | `string` | Parsed from playwright.config |
+| `timeout` | `number` | Parsed from playwright.config |
+| `useViewport` | `{ width: number; height: number }` | Parsed from playwright.config |
+| `fixtures` | `string` | Auto-discovered test fixtures path |
+| `technology` | `string` | Detected tech stack (e.g., "React, Vite") |
+| `packageJson` | `object` | Package name and dependencies |
+
+---
+
+## 12. DashboardConfig - Dashboard Configuration
 
 Dashboard configuration controls the startup parameters for the Web visualization panel. This configuration is specified through `YuanTestConfigFile.dashboard` or CLI arguments.
 
@@ -552,7 +583,7 @@ yuantest ui -d, --data <path>     # Data directory
 
 ---
 
-## 12. Default Constants Table
+## 13. Default Constants Table
 
 The following constants are defined in `src/constants/index.ts` and are the source of default configurations for all system modules.
 
@@ -688,11 +719,11 @@ The following constants are defined in `src/constants/index.ts` and are the sour
 
 ---
 
-## 13. Configuration Methods
+## 14. Configuration Methods
 
 YuanTest supports four configuration methods, in order of priority from highest to lowest:
 
-### 13.1 Command Line Arguments
+### 14.1 Command Line Arguments
 
 Command line arguments have the highest priority and override all other configuration sources.
 
@@ -737,7 +768,7 @@ yuantest ui [options]
 | `--output` | `-o` | `string` | - | Report directory |
 | `--data` | `-d` | `string` | - | Data directory |
 
-### 13.2 Configuration File
+### 14.2 Configuration File
 
 YuanTest searches for configuration files from the current directory upward in the following order:
 
@@ -864,7 +895,7 @@ export default defineConfig({
 });
 ```
 
-### 13.3 user-preferences.json
+### 14.3 user-preferences.json
 
 The user preferences file is stored in `{dataDir}/user-preferences.json` and is automatically maintained by the Dashboard UI, used to persist runtime-modified configurations.
 
@@ -884,7 +915,7 @@ The user preferences file is stored in `{dataDir}/user-preferences.json` and is 
 
 User preferences file has lower priority than command line arguments and configuration files. Dashboard reads this file on startup to restore previous settings.
 
-### 13.4 Dashboard UI
+### 14.4 Dashboard UI
 
 The Dashboard Web interface allows real-time modification of the following configurations:
 
@@ -895,7 +926,7 @@ The Dashboard Web interface allows real-time modification of the following confi
 
 Dashboard modifications are automatically saved to `user-preferences.json` and restored on next startup.
 
-### 13.5 Configuration Merge Order
+### 14.5 Configuration Merge Order
 
 The final effective configuration is merged in the following order (later overrides earlier):
 
@@ -909,7 +940,7 @@ Default Values → Config File → User Preferences → CLI Arguments
       (low) ────────────────────────────────────────────→ (high)
 ```
 
-### 13.6 Configuration Validation
+### 14.6 Configuration Validation
 
 All configurations are validated through Zod Schema on load. Validation rules include:
 

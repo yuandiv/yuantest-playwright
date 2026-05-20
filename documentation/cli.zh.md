@@ -781,6 +781,227 @@ yuantest rerun run_20240101_120000_abc123 login-test-001 --json
 
 ---
 
+## 20. agents - AI Agent 系统
+
+AI 驱动的测试创建和修复，提供测试规划、代码生成和测试修复子命令。
+
+### 用法
+
+```bash
+yuantest agents [子命令]
+```
+
+### 子命令
+
+| 子命令 | 说明 |
+|--------|------|
+| `init` | 初始化代理定义（支持 VSCode/Claude/OpenCode） |
+| `plan` | 使用 Planner 代理生成测试计划 |
+| `generate` | 从测试计划生成 Playwright 测试代码 |
+| `heal` | 使用 Healer 代理修复失败测试 |
+| `list` | 列出生成的测试计划 |
+
+### 示例
+
+```bash
+# 查看 Agent 帮助
+yuantest agents
+
+# 初始化代理定义
+yuantest agents init
+
+# 生成测试计划
+yuantest agents plan "用户登录流程"
+
+# 使用参考测试生成测试计划
+yuantest agents plan "购物车功能" --seed tests/cart.spec.ts
+
+# 使用 PRD 文档生成测试计划
+yuantest agents plan "支付功能" --prd docs/prd.md --output specs/
+
+# 从测试计划生成测试代码
+yuantest agents generate specs/user-login-flow.md
+
+# 指定输出目录生成测试代码
+yuantest agents generate specs/user-login-flow.md --output tests/ --seed tests/example.spec.ts
+
+# 修复失败测试
+yuantest agents heal tests/login.spec.ts
+
+# 提供错误上下文修复测试
+yuantest agents heal tests/login.spec.ts --error "等待选择器超时" --apply
+
+# 列出所有测试计划
+yuantest agents list
+```
+
+---
+
+## 21. agents-init - 初始化代理定义
+
+为指定的循环目标（VSCode、Claude 或 OpenCode）初始化代理定义。
+
+### 用法
+
+```bash
+yuantest agents-init [options]
+```
+
+### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--loop` | 循环目标：vscode, claude, opencode | vscode |
+
+### 示例
+
+```bash
+# 为 VSCode 初始化
+yuantest agents-init
+
+# 为 Claude 初始化
+yuantest agents-init --loop claude
+
+# 为 OpenCode 初始化
+yuantest agents-init --loop opencode
+```
+
+---
+
+## 22. agents-plan - 生成测试计划
+
+使用 Planner 代理根据功能描述生成结构化测试计划。
+
+### 用法
+
+```bash
+yuantest agents-plan <description> [options]
+```
+
+`description` 为必填的位置参数，描述要测试的功能。
+
+### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--seed` | 参考测试文件路径 | |
+| `--prd` | 产品需求文档路径 | |
+| `--output` | 测试计划输出目录 | specs/ |
+
+### 示例
+
+```bash
+# 生成测试计划
+yuantest agents-plan "用户登录流程"
+
+# 使用参考测试
+yuantest agents-plan "购物车功能" --seed tests/cart.spec.ts
+
+# 使用 PRD 文档
+yuantest agents-plan "支付功能" --prd docs/prd.md
+
+# 自定义输出目录
+yuantest agents-plan "用户注册" --output my-specs/
+```
+
+---
+
+## 23. agents-generate - 生成测试代码
+
+从测试计划文件生成 Playwright TypeScript 测试代码。
+
+### 用法
+
+```bash
+yuantest agents-generate <planPath> [options]
+```
+
+`planPath` 为必填的位置参数，指定测试计划文件路径。
+
+### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--output` | 生成测试文件的输出目录 | |
+| `--seed` | 参考测试文件路径 | |
+
+### 示例
+
+```bash
+# 从计划生成测试代码
+yuantest agents-generate specs/user-login-flow.md
+
+# 自定义输出目录
+yuantest agents-generate specs/user-login-flow.md --output tests/
+
+# 使用参考测试
+yuantest agents-generate specs/user-login-flow.md --seed tests/example.spec.ts
+```
+
+---
+
+## 24. agents-heal - 修复失败测试
+
+使用 Healer 代理分析失败测试并生成修复补丁。
+
+### 用法
+
+```bash
+yuantest agents-heal <testFilePath> [options]
+```
+
+`testFilePath` 为必填的位置参数，指定失败测试文件路径。
+
+### 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--error` | 测试失败的错误信息 | |
+| `--stack-trace` | 测试失败的堆栈跟踪 | |
+| `--max-rounds` | 最大修复轮数 | 3 |
+| `--apply` | 自动应用生成的补丁 | false |
+
+### 示例
+
+```bash
+# 修复失败测试
+yuantest agents-heal tests/login.spec.ts
+
+# 提供错误上下文
+yuantest agents-heal tests/login.spec.ts --error "等待选择器超时"
+
+# 提供错误和堆栈跟踪
+yuantest agents-heal tests/login.spec.ts --error "断言失败" --stack-trace "at Object.<anonymous>..."
+
+# 自动应用补丁
+yuantest agents-heal tests/login.spec.ts --apply
+
+# 自定义最大修复轮数
+yuantest agents-heal tests/login.spec.ts --max-rounds 5
+```
+
+---
+
+## 25. agents-list - 列出测试计划
+
+列出所有已生成的测试计划。
+
+### 用法
+
+```bash
+yuantest agents-list
+```
+
+### 示例
+
+```bash
+# 列出所有测试计划
+yuantest agents-list
+```
+```
+
+---
+
 ## 退出码
 
 | 退出码 | 说明 |

@@ -17,6 +17,7 @@ import {
   Reporter,
   FlakyTestManager,
   DashboardServer,
+  AgentService,
 } from 'yuantest-playwright';
 ```
 
@@ -29,6 +30,7 @@ import {
 | **Reporter** | Report generator, supports JSON/HTML reports and failure analysis | [Reporter API](reporter.md) |
 | **FlakyTestManager** | Flaky test manager, classification/root cause/correlation/trend/prediction/causal graph/quarantine | [FlakyTestManager API](flaky.md) |
 | **DashboardServer** | Dashboard server, REST API + WebSocket real-time push | [DashboardServer API](dashboard.md) |
+| **AgentService** | AI agent system, test planning/generation/healing | [AgentService API](agent.md) |
 
 ## Quick Example
 
@@ -39,6 +41,7 @@ import {
   Reporter,
   FlakyTestManager,
   DashboardServer,
+  AgentService,
 } from 'yuantest-playwright';
 
 async function main() {
@@ -91,7 +94,32 @@ async function main() {
   const health = flakyManager.getOverallHealthScore();
   console.log(`Health: ${health.grade} (${health.overall})`);
 
-  // 5. Start Dashboard
+  // 5. AI Agent system
+  const agentService = new AgentService('./test-data', { projectRoot: './' }, llmConfig);
+
+  // Generate test plan
+  const planResult = await agentService.plan('User login flow');
+  if (planResult.success && planResult.data) {
+    console.log(`Plan: ${planResult.data.title} (${planResult.data.scenarios.length} scenarios)`);
+  }
+
+  // Generate test code from plan
+  if (planResult.data?.filePath) {
+    const genResult = await agentService.generate(planResult.data.filePath);
+    if (genResult.success && genResult.data) {
+      console.log(`Generated files: ${genResult.data.join(', ')}`);
+    }
+  }
+
+  // Heal failing test
+  const healResult = await agentService.heal('tests/login.spec.ts', {
+    error: 'Timeout waiting for selector',
+  });
+  if (healResult.success && healResult.data) {
+    console.log(`Healed: ${healResult.data.healed}, Patches: ${healResult.data.patches.length}`);
+  }
+
+  // 6. Start Dashboard
   const server = new DashboardServer({
     port: 5274,
     outputDir: './test-reports',
@@ -154,5 +182,41 @@ type IsolationLevel = 'none' | 'monitor' | 'soft_quarantine' | 'hard_quarantine'
 interface FlakyHealthScore {
   overall: number;
   grade: 'A' | 'B' | 'C' | 'D' | 'F';
+}
+
+// Agent result
+interface AgentResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  duration: number;
+  agentType: 'planner' | 'generator' | 'healer';
+  model?: string;
+}
+
+// Test plan
+interface TestPlan {
+  id: string;
+  title: string;
+  description: string;
+  scenarios: TestPlanScenario[];
+  createdAt: number;
+  seedTest?: string;
+  filePath?: string;
+}
+
+// Healer patch
+interface HealerPatch {
+  testId: string;
+  testTitle: string;
+  filePath: string;
+  originalCode: string;
+  patchedCode: string;
+  unifiedDiff: string;
+  confidence: number;
+  reason: string;
+  appliedAt?: number;
+  appliedBy?: 'auto' | 'manual';
+  verified?: boolean;
 }
 ```

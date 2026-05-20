@@ -111,6 +111,15 @@ yuantest flaky
 # AI 诊断失败测试
 yuantest analyze --id <run-id> --ai
 
+# 使用 AI Agent 生成测试计划
+yuantest agents plan "用户登录流程"
+
+# 从测试计划生成测试代码
+yuantest agents generate specs/user-login-flow.md
+
+# 修复失败测试
+yuantest agents heal tests/login.spec.ts
+
 # 查看测试健康度
 yuantest health
 
