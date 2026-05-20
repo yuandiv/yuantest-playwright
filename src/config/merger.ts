@@ -86,6 +86,7 @@ export interface ConfigValidationResult {
   testDirAbsolute: string | null;
   error?: string;
   warnings: string[];
+  workers?: number;
 }
 
 const PLAYWRIGHT_CONFIG_NAMES = [
@@ -180,6 +181,7 @@ export class PlaywrightConfigMerger {
         testDir,
         testDirAbsolute,
         warnings,
+        workers: config.workers,
       };
     } catch (error) {
       return {

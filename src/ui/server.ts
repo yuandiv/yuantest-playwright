@@ -422,13 +422,14 @@ export class DashboardServer {
           version,
           testDir,
           outputDir: this.outputDir,
-          baseURL: fileConfig?.baseURL ?? (playwrightMergedConfig.baseURL),
+          baseURL: fileConfig?.baseURL ?? playwrightMergedConfig.baseURL,
           retries: fileConfig?.retries ?? playwrightMergedConfig.retries,
           timeout: fileConfig?.timeout ?? playwrightMergedConfig.timeout,
           workers: fileConfig?.workers ?? playwrightMergedConfig.workers,
           shards: fileConfig?.shards ?? 1,
           browsers: fileConfig?.browsers || ['chromium'],
-          environmentTag: fileConfig?.environmentTag || process.env.CI_ENVIRONMENT_NAME || undefined,
+          environmentTag:
+            fileConfig?.environmentTag || process.env.CI_ENVIRONMENT_NAME || undefined,
           htmlReport: true,
         });
 
@@ -436,6 +437,9 @@ export class DashboardServer {
 
         this.executor.on('run_started', async (data) => {
           this.realtimeReporter.broadcastRunStarted(data.runId, config.version, 0);
+          this.cache.invalidate('runs');
+          this.cache.invalidate('runs:summaries');
+          this.cache.invalidate('runs:all');
           try {
             const report = await this.reporter.createPendingReport(data.runId, config.version);
             this.realtimeReporter.broadcastReportCreated(report);
@@ -492,6 +496,11 @@ export class DashboardServer {
         this.executor.on('run_completed', async (result: RunResult) => {
           this.flushTestResultBuffer();
 
+          this.realtimeReporter.broadcastRunProgress(result.id, {
+            totalTests: result.totalTests,
+          });
+          this.realtimeReporter.broadcastRunCompleted(result.id, result);
+
           const status = result.status === 'success' ? 'success' : 'failed';
 
           try {
@@ -505,11 +514,6 @@ export class DashboardServer {
             await this.reporter.generateReport(result);
           }
 
-          this.realtimeReporter.broadcastRunProgress(result.id, {
-            totalTests: result.totalTests,
-          });
-          this.realtimeReporter.broadcastRunCompleted(result.id, result);
-
           await this.flakyManager.recordRunResults(result);
           this.reporter.clearCache();
           this.cache.invalidate('runs');
@@ -519,6 +523,21 @@ export class DashboardServer {
           this.log.info(
             `Run completed via API: ${result.id} (${result.passed}/${result.totalTests} passed)`
           );
+        });
+
+        this.executor.on('run_cancelled', (result: RunResult | null) => {
+          this.flushTestResultBuffer();
+
+          if (result) {
+            this.realtimeReporter.broadcastRunCompleted(result.id, result);
+          }
+
+          this.reporter.clearCache();
+          this.cache.invalidate('runs');
+          this.cache.invalidate('runs:summaries');
+          this.cache.invalidate('runs:all');
+          this.cache.invalidate('health:');
+          this.log.info(`Run cancelled via API: ${result?.id || 'unknown'}`);
         });
 
         this.executor.on('error', (data) => {
@@ -663,6 +682,8 @@ export class DashboardServer {
         const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20));
         const detailed = req.query.detailed === 'true';
 
+        const pendingSummaries = this.reporter.getPendingReportSummaries();
+
         if (detailed) {
           const cacheKey = `runs:all`;
           let allRuns = this.cache.get(cacheKey) as RunResult[] | null;
@@ -672,11 +693,25 @@ export class DashboardServer {
             this.cache.set(cacheKey, allRuns);
           }
 
-          const total = allRuns.length;
+          const mergedMap = new Map<string, RunResult>();
+          for (const run of allRuns) {
+            if (!this.reporter.hasPendingReport(run.id)) {
+              mergedMap.set(run.id, run);
+            }
+          }
+          for (const ps of pendingSummaries) {
+            const pending = this.reporter.getPendingReport(ps.id);
+            if (pending) {
+              mergedMap.set(ps.id, pending);
+            }
+          }
+          const mergedRuns = Array.from(mergedMap.values());
+
+          const total = mergedRuns.length;
           const totalPages = Math.ceil(total / pageSize);
           const startIndex = (page - 1) * pageSize;
           const endIndex = startIndex + pageSize;
-          const paginatedRuns = allRuns.slice().reverse().slice(startIndex, endIndex);
+          const paginatedRuns = mergedRuns.slice().reverse().slice(startIndex, endIndex);
 
           const response: PaginatedResponse<RunResult> = {
             data: paginatedRuns,
@@ -700,11 +735,22 @@ export class DashboardServer {
           this.cache.set(cacheKey, allSummaries);
         }
 
-        const total = allSummaries.length;
+        const mergedSummaryMap = new Map<string, RunResultSummary>();
+        for (const s of allSummaries) {
+          if (!this.reporter.hasPendingReport(s.id)) {
+            mergedSummaryMap.set(s.id, s);
+          }
+        }
+        for (const ps of pendingSummaries) {
+          mergedSummaryMap.set(ps.id, ps);
+        }
+        const mergedSummaries = Array.from(mergedSummaryMap.values());
+
+        const total = mergedSummaries.length;
         const totalPages = Math.ceil(total / pageSize);
         const startIndex = (page - 1) * pageSize;
         const endIndex = startIndex + pageSize;
-        const paginatedSummaries = allSummaries.slice().reverse().slice(startIndex, endIndex);
+        const paginatedSummaries = mergedSummaries.slice().reverse().slice(startIndex, endIndex);
 
         const response: PaginatedResponse<RunResultSummary> = {
           data: paginatedSummaries,
@@ -747,13 +793,21 @@ export class DashboardServer {
           this.log.info(`Found HTML report for run ${runId} at ${htmlReportPath}`);
         }
 
-        const runReportPath = path.resolve(this.outputDir, `${runId}.json`);
-        if (fs.existsSync(runReportPath)) {
-          try {
-            rawReport = await this.storage.readJSON(runReportPath);
-            this.log.info(`Loaded run report from ${runReportPath}`);
-          } catch (error) {
-            this.log.warn(`Failed to read run report: ${error}`);
+        const pendingReport = this.reporter.getPendingReport(runId);
+        if (pendingReport) {
+          rawReport = pendingReport as unknown as Record<string, unknown>;
+          this.log.info(`Loaded pending report from memory for run ${runId}`);
+        }
+
+        if (!rawReport) {
+          const runReportPath = path.resolve(this.outputDir, `${runId}.json`);
+          if (fs.existsSync(runReportPath)) {
+            try {
+              rawReport = await this.storage.readJSON(runReportPath);
+              this.log.info(`Loaded run report from ${runReportPath}`);
+            } catch (error) {
+              this.log.warn(`Failed to read run report: ${error}`);
+            }
           }
         }
 
@@ -943,6 +997,16 @@ export class DashboardServer {
           }
         });
 
+        this.executor.on('run_cancelled', (result: RunResult | null) => {
+          if (result) {
+            this.realtimeReporter.broadcastRunCompleted(result.id, result);
+          }
+        });
+
+        this.executor.on('error', (data) => {
+          this.realtimeReporter.broadcastError(data.runId, data.error);
+        });
+
         res.json({ status: 'started', message: 'Test rerun initiated' });
 
         try {
@@ -1090,6 +1154,16 @@ export class DashboardServer {
               testResultMap.set(t.testId, result);
             }
           }
+        });
+
+        this.executor.on('run_cancelled', (result: RunResult | null) => {
+          if (result) {
+            this.realtimeReporter.broadcastRunCompleted(result.id, result);
+          }
+        });
+
+        this.executor.on('error', (data) => {
+          this.realtimeReporter.broadcastError(data.runId, data.error);
         });
 
         res.json({ status: 'started', message: 'Batch rerun initiated', count: tests.length });
@@ -1470,6 +1544,16 @@ export class DashboardServer {
           if (testResult) {
             validationState.result = testResult.status === 'passed' ? 'passed' : 'failed';
           }
+        });
+
+        this.executor.on('run_cancelled', (result: RunResult | null) => {
+          if (result) {
+            this.realtimeReporter.broadcastRunCompleted(result.id, result);
+          }
+        });
+
+        this.executor.on('error', (data) => {
+          this.realtimeReporter.broadcastError(data.runId, data.error);
         });
 
         res.json({ status: 'started', message: 'Validation run initiated', testId });
@@ -2647,7 +2731,12 @@ export class DashboardServer {
         if (apply) {
           this.agentService.updateConfig({ autoHeal: true });
         }
-        const result = await this.agentService.heal(testFilePath, { runId, testId, error, stackTrace });
+        const result = await this.agentService.heal(testFilePath, {
+          runId,
+          testId,
+          error,
+          stackTrace,
+        });
         res.json(result);
       })
     );
@@ -2657,7 +2746,9 @@ export class DashboardServer {
       asyncHandler(async (req: Request, res: Response) => {
         const { patch } = req.body;
         if (!patch || !patch.filePath || !patch.originalCode || !patch.patchedCode) {
-          res.status(400).json({ error: 'patch with filePath, originalCode, patchedCode is required' });
+          res
+            .status(400)
+            .json({ error: 'patch with filePath, originalCode, patchedCode is required' });
           return;
         }
         const success = await this.agentService.applyPatch(patch);
@@ -2865,7 +2956,9 @@ export class DashboardServer {
     const runId = this.executor?.currentRun?.id || '';
 
     this.reporter.updatePendingReportBatch(runId, batch).catch((err) => {
-      this.log.warn(`Batch update pending report failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.log.warn(
+        `Batch update pending report failed: ${err instanceof Error ? err.message : String(err)}`
+      );
     });
 
     const results = batch.map((b) => b.result);

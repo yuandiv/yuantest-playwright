@@ -341,13 +341,15 @@ export function analyzeCorrelations(
 
     const avgCoOccurrence = pairCount > 0 ? totalCoOccurrence / pairCount : 0;
 
-    const testTitles = testIds.map((id) => testMap.get(id)?.title || id).join(', ');
+    const testTitlesList = testIds.map((id) => testMap.get(id)?.title || id);
+    const testTitlesStr = testTitlesList.join(', ');
 
-    const evidence = `${testIds.length} 个测试频繁同时失败（平均共现系数 ${avgCoOccurrence.toFixed(2)}）：${testTitles}`;
+    const evidence = `${testIds.length} 个测试频繁同时失败（平均共现系数 ${avgCoOccurrence.toFixed(2)}）：${testTitlesStr}`;
 
     correlationGroups.push({
       groupId: `correlation-${groupIndex++}`,
       testIds,
+      testTitles: testTitlesList,
       correlationType: dominantType,
       confidence: Math.min(1, avgCoOccurrence),
       evidence,

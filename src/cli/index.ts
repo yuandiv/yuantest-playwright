@@ -84,7 +84,10 @@ program
   .option('--visual-threshold <ratio>', 'Visual diff threshold (0-1)', '0.2')
   .option('--annotations', 'Enable annotation scanning', false)
   .option('--html-report', 'Generate Playwright HTML report', true)
-  .option('--environment-tag <tag>', 'Environment tag for multi-environment reporting (or set CI_ENVIRONMENT_NAME)')
+  .option(
+    '--environment-tag <tag>',
+    'Environment tag for multi-environment reporting (or set CI_ENVIRONMENT_NAME)'
+  )
   .action(async (testFiles, options) => {
     const spinner = ora('Initializing test run...').start();
 
@@ -177,19 +180,33 @@ program
       const orchestrationConfig = await orchestrator.orchestrate();
       spinner.text = `Found ${orchestrationConfig.testAssignment.length} tests across ${orchestrationConfig.totalShards} shards`;
 
-      const shardIndexOption = options.shardIndex !== undefined ? parseInt(options.shardIndex) : undefined;
-      const shardTotalOption = options.shardTotal !== undefined ? parseInt(options.shardTotal) : undefined;
+      const shardIndexOption =
+        options.shardIndex !== undefined ? parseInt(options.shardIndex) : undefined;
+      const shardTotalOption =
+        options.shardTotal !== undefined ? parseInt(options.shardTotal) : undefined;
       const isMultiMachineShard = shardIndexOption !== undefined && shardTotalOption !== undefined;
       const shardCount = config.shards || 1;
 
       if (isMultiMachineShard) {
-        console.log(chalk.cyan(`\n📡 Multi-machine shard mode: running shard ${shardIndexOption! + 1}/${shardTotalOption}`));
-        console.log(chalk.gray(`   Playwright native sharding (--shard=${shardIndexOption! + 1}/${shardTotalOption}) will distribute tests`));
+        console.log(
+          chalk.cyan(
+            `\n📡 Multi-machine shard mode: running shard ${shardIndexOption! + 1}/${shardTotalOption}`
+          )
+        );
+        console.log(
+          chalk.gray(
+            `   Playwright native sharding (--shard=${shardIndexOption! + 1}/${shardTotalOption}) will distribute tests`
+          )
+        );
         const executor = new Executor(config, getStorage());
         const reporter = new Reporter(config.outputDir);
 
         executor.on('run_started', (data) => {
-          console.log(chalk.blue(`\n🚀 Run started: ${data.runId} (shard ${shardIndexOption! + 1}/${shardTotalOption})`));
+          console.log(
+            chalk.blue(
+              `\n🚀 Run started: ${data.runId} (shard ${shardIndexOption! + 1}/${shardTotalOption})`
+            )
+          );
         });
 
         executor.on('output', (data) => {
@@ -197,7 +214,11 @@ program
         });
 
         executor.on('run_completed', async (result) => {
-          console.log(chalk.green(`\n✅ Shard ${shardIndexOption! + 1}/${shardTotalOption} completed: ${result.id}`));
+          console.log(
+            chalk.green(
+              `\n✅ Shard ${shardIndexOption! + 1}/${shardTotalOption} completed: ${result.id}`
+            )
+          );
           console.log(chalk.bold(`\nResults:`));
           console.log(`  Passed: ${chalk.green(result.passed)}`);
           console.log(`  Failed: ${chalk.red(result.failed)}`);
@@ -242,13 +263,17 @@ program
           updateSnapshots: options.updateSnapshots,
           testLocations: testFiles && testFiles.length > 0 ? testFiles : undefined,
         });
-        spinner.succeed(`Shard ${shardIndexOption + 1}/${shardTotalOption} completed: ${result.passed}/${result.totalTests} passed`);
+        spinner.succeed(
+          `Shard ${shardIndexOption + 1}/${shardTotalOption} completed: ${result.passed}/${result.totalTests} passed`
+        );
       } else if (shardCount > 1) {
         const parallelExecutor = new ParallelExecutor(config, shardCount, getStorage());
         const reporter = new Reporter(config.outputDir);
 
         console.log(chalk.blue(`\n🔀 Running ${shardCount} shards in parallel on this machine`));
-        console.log(chalk.gray(`   Using Playwright native sharding with automatic blob report merge`));
+        console.log(
+          chalk.gray(`   Using Playwright native sharding with automatic blob report merge`)
+        );
 
         const { results, mergedReportDir } = await parallelExecutor.executeAndMergeReports();
 
@@ -265,7 +290,9 @@ program
         for (let i = 0; i < results.length; i++) {
           const r = results[i];
           console.log(
-            chalk.gray(`  Shard ${i + 1}: ${r.passed} passed, ${r.failed} failed, ${r.skipped} skipped`)
+            chalk.gray(
+              `  Shard ${i + 1}: ${r.passed} passed, ${r.failed} failed, ${r.skipped} skipped`
+            )
           );
           await reporter.generateReport(r);
         }
@@ -469,8 +496,8 @@ program
       }
 
       const fsModule = await import('fs/promises');
-      const blobFiles = (await fsModule.readdir(resolvedBlobDir)).filter(
-        (f: string) => f.endsWith('.zip')
+      const blobFiles = (await fsModule.readdir(resolvedBlobDir)).filter((f: string) =>
+        f.endsWith('.zip')
       );
 
       if (blobFiles.length === 0) {
@@ -483,7 +510,12 @@ program
       const reporters = options.reporter.split(',').map((r: string) => r.trim());
       const reporterArg = reporters.join(',');
 
-      const mergeArgs = ['playwright', 'merge-reports', resolvedBlobDir, `--reporter=${reporterArg}`];
+      const mergeArgs = [
+        'playwright',
+        'merge-reports',
+        resolvedBlobDir,
+        `--reporter=${reporterArg}`,
+      ];
 
       if (options.config) {
         mergeArgs.push(`--config=${options.config}`);

@@ -1,9 +1,5 @@
 import { CausalGraphBuilder } from '../../src/flaky/causal-graph';
-import {
-  FlakyTest,
-  RunResult,
-  CorrelationGroup,
-} from '../../src/types';
+import { FlakyTest, RunResult, CorrelationGroup } from '../../src/types';
 
 function createFlakyTest(testId: string, overrides: Partial<FlakyTest> = {}): FlakyTest {
   const now = Date.now();
@@ -93,6 +89,7 @@ describe('CausalGraphBuilder', () => {
       {
         groupId: 'corr-1',
         testIds: ['test-1', 'test-2'],
+        testTitles: ['Test test-1', 'Test test-2'],
         correlationType: 'same_error_pattern',
         confidence: 0.8,
         evidence: 'test-1 and test-2 frequently fail together',
@@ -125,6 +122,7 @@ describe('CausalGraphBuilder', () => {
       {
         groupId: 'corr-1',
         testIds: ['test-1', 'test-2'],
+        testTitles: ['Test test-1', 'Test test-2'],
         correlationType: 'same_error_pattern',
         confidence: 0.9,
         evidence: 'correlated',
@@ -149,6 +147,7 @@ describe('CausalGraphBuilder', () => {
       {
         groupId: 'corr-1',
         testIds: ['test-1', 'test-2'],
+        testTitles: ['Test test-1', 'Test test-2'],
         correlationType: 'same_run',
         confidence: 0.9,
         evidence: 'correlated',
@@ -168,6 +167,7 @@ describe('CausalGraphBuilder', () => {
       {
         groupId: 'corr-1',
         testIds: ['test-1', 'test-2'],
+        testTitles: ['Test test-1', 'Test test-2'],
         correlationType: 'same_error_pattern',
         confidence: 0.9,
         evidence: 'correlated',

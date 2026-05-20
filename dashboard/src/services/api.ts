@@ -393,6 +393,7 @@ export interface ConfigValidationResult {
   testDirAbsolute: string | null;
   error?: string;
   warnings: string[];
+  workers?: number;
 }
 
 export interface TestDiscoveryResult {

@@ -57,6 +57,9 @@ export class Reporter {
   private flakyManager?: FlakyTestManager;
   private pendingSuiteIndex: Map<string, { suite: SuiteResult; report: RunResult }> = new Map();
   private pendingTestIndex: Map<string, SuiteResult> = new Map();
+  private pendingFlushTimer: NodeJS.Timeout | null = null;
+  private pendingFlushInterval: number = 3000;
+  private pendingDirtyIds: Set<string> = new Set();
 
   constructor(
     outputDir: string = DEFAULTS.REPORTS_DIR,
@@ -113,8 +116,17 @@ export class Reporter {
       stream.write('{\n');
 
       const headerKeys: Array<keyof RunResult> = [
-        'id', 'version', 'status', 'startTime', 'endTime', 'duration',
-        'totalTests', 'passed', 'failed', 'skipped', 'metadata',
+        'id',
+        'version',
+        'status',
+        'startTime',
+        'endTime',
+        'duration',
+        'totalTests',
+        'passed',
+        'failed',
+        'skipped',
+        'metadata',
       ];
 
       for (let i = 0; i < headerKeys.length; i++) {
@@ -284,6 +296,10 @@ export class Reporter {
 
   async getReport(reportId: string): Promise<RunResult | null> {
     await this.ensureReady();
+    const pending = this.pendingReports.get(reportId);
+    if (pending) {
+      return pending;
+    }
     const reportPath = path.join(this.outputDir, `${reportId}.json`);
     return this.storage.readJSON<RunResult>(reportPath);
   }
@@ -346,29 +362,44 @@ export class Reporter {
 
   async getAllReports(): Promise<RunResult[]> {
     await this.ensureReady();
+    let diskReports: RunResult[];
     if (this.reports.size > 0) {
-      return Array.from(this.reports.values());
-    }
-    const files = await this.storage.readDir(this.outputDir);
-    const jsonFiles = files.filter((f) => f.endsWith('.json'));
-    const results = await Promise.all(
-      jsonFiles.map(async (file) => {
-        try {
-          const parsed = await this.storage.readJSON<RunResult>(path.join(this.outputDir, file));
-          if (parsed && parsed.id && parsed.suites) {
-            this.addToCache(parsed.id, parsed);
-            return parsed;
+      diskReports = Array.from(this.reports.values());
+    } else {
+      const files = await this.storage.readDir(this.outputDir);
+      const jsonFiles = files.filter((f) => f.endsWith('.json'));
+      const results = await Promise.all(
+        jsonFiles.map(async (file) => {
+          try {
+            const parsed = await this.storage.readJSON<RunResult>(path.join(this.outputDir, file));
+            if (parsed && parsed.id && parsed.suites) {
+              this.addToCache(parsed.id, parsed);
+              return parsed;
+            }
+            return null;
+          } catch (e: unknown) {
+            this.log.warn(
+              `Skipping invalid report file: ${file} - ${e instanceof Error ? e.message : String(e)}`
+            );
+            return null;
           }
-          return null;
-        } catch (e: unknown) {
-          this.log.warn(
-            `Skipping invalid report file: ${file} - ${e instanceof Error ? e.message : String(e)}`
-          );
-          return null;
-        }
-      })
-    );
-    return results.filter((r): r is RunResult => r !== null);
+        })
+      );
+      diskReports = results.filter((r): r is RunResult => r !== null);
+    }
+    if (this.pendingReports.size === 0) {
+      return diskReports;
+    }
+    const mergedMap = new Map<string, RunResult>();
+    for (const report of diskReports) {
+      if (!this.pendingReports.has(report.id)) {
+        mergedMap.set(report.id, report);
+      }
+    }
+    for (const [id, pending] of this.pendingReports) {
+      mergedMap.set(id, pending);
+    }
+    return Array.from(mergedMap.values());
   }
 
   async getReportSummaries(): Promise<RunResultSummary[]> {
@@ -413,7 +444,32 @@ export class Reporter {
         }
       })
     );
-    return results.filter((r): r is RunResultSummary => r !== null);
+    const diskSummaries = results.filter((r): r is RunResultSummary => r !== null);
+    if (this.pendingReports.size === 0) {
+      return diskSummaries;
+    }
+    const mergedMap = new Map<string, RunResultSummary>();
+    for (const summary of diskSummaries) {
+      if (!this.pendingReports.has(summary.id)) {
+        mergedMap.set(summary.id, summary);
+      }
+    }
+    for (const [id, pending] of this.pendingReports) {
+      mergedMap.set(id, {
+        id: pending.id,
+        version: pending.version || '',
+        status: pending.status || '',
+        startTime: pending.startTime || 0,
+        endTime: pending.endTime,
+        duration: pending.duration,
+        totalTests: pending.totalTests || 0,
+        passed: pending.passed || 0,
+        failed: pending.failed || 0,
+        skipped: pending.skipped || 0,
+        flakyTestCount: Array.isArray(pending.flakyTests) ? pending.flakyTests.length : 0,
+      });
+    }
+    return Array.from(mergedMap.values());
   }
 
   /**
@@ -466,7 +522,7 @@ export class Reporter {
     }
 
     const indexKey = `${runId}::${suiteName}`;
-    let suiteEntry = this.pendingSuiteIndex.get(indexKey);
+    const suiteEntry = this.pendingSuiteIndex.get(indexKey);
     let suite: SuiteResult;
 
     if (!suiteEntry) {
@@ -526,6 +582,48 @@ export class Reporter {
     }
 
     this.addToCache(runId, report);
+    this.pendingDirtyIds.add(runId);
+    this.schedulePendingFlush();
+  }
+
+  private schedulePendingFlush(): void {
+    if (this.pendingFlushTimer) {
+      return;
+    }
+    this.pendingFlushTimer = setTimeout(() => {
+      this.flushPendingReports().catch((e) => {
+        this.log.warn(
+          `Failed to flush pending reports: ${e instanceof Error ? e.message : String(e)}`
+        );
+      });
+      this.pendingFlushTimer = null;
+    }, this.pendingFlushInterval);
+  }
+
+  private async flushPendingReports(): Promise<void> {
+    if (this.pendingDirtyIds.size === 0) {
+      return;
+    }
+    const idsToFlush = new Set(this.pendingDirtyIds);
+    this.pendingDirtyIds.clear();
+    for (const runId of idsToFlush) {
+      const report = this.pendingReports.get(runId);
+      if (!report) {
+        continue;
+      }
+      try {
+        const reportPath = path.join(this.outputDir, `${runId}.json`);
+        await this.storage.writeJSON(reportPath, report);
+      } catch (e) {
+        this.log.warn(
+          `Failed to flush pending report ${runId}: ${e instanceof Error ? e.message : String(e)}`
+        );
+        this.pendingDirtyIds.add(runId);
+      }
+    }
+    if (this.pendingDirtyIds.size > 0) {
+      this.schedulePendingFlush();
+    }
   }
 
   async updatePendingReportBatch(
@@ -540,7 +638,7 @@ export class Reporter {
 
     for (const { result: testResult, suiteName } of results) {
       const indexKey = `${runId}::${suiteName}`;
-      let suiteEntry = this.pendingSuiteIndex.get(indexKey);
+      const suiteEntry = this.pendingSuiteIndex.get(indexKey);
       let suite: SuiteResult;
 
       if (!suiteEntry) {
@@ -624,6 +722,7 @@ export class Reporter {
     await this.storage.writeJSON(reportPath, report);
 
     this.pendingReports.delete(runId);
+    this.pendingDirtyIds.delete(runId);
     this.cleanupPendingIndexes(runId);
 
     this.log.info(`Finalized pending report: ${runId} with status: ${status}`);
@@ -632,6 +731,30 @@ export class Reporter {
 
   getPendingReport(runId: string): RunResult | undefined {
     return this.pendingReports.get(runId);
+  }
+
+  hasPendingReport(runId: string): boolean {
+    return this.pendingReports.has(runId);
+  }
+
+  getPendingReportSummaries(): RunResultSummary[] {
+    const summaries: RunResultSummary[] = [];
+    for (const [, pending] of this.pendingReports) {
+      summaries.push({
+        id: pending.id,
+        version: pending.version || '',
+        status: pending.status || '',
+        startTime: pending.startTime || 0,
+        endTime: pending.endTime,
+        duration: pending.duration,
+        totalTests: pending.totalTests || 0,
+        passed: pending.passed || 0,
+        failed: pending.failed || 0,
+        skipped: pending.skipped || 0,
+        flakyTestCount: Array.isArray(pending.flakyTests) ? pending.flakyTests.length : 0,
+      });
+    }
+    return summaries;
   }
 
   private cleanupPendingIndexes(runId: string): void {
@@ -646,10 +769,6 @@ export class Reporter {
         this.pendingTestIndex.delete(key);
       }
     }
-  }
-
-  hasPendingReport(runId: string): boolean {
-    return this.pendingReports.has(runId);
   }
 
   async updateTestResult(runId: string, testId: string, newResult: TestResult): Promise<boolean> {

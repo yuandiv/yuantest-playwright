@@ -48,6 +48,7 @@ function App() {
   const [fileOrder, setFileOrder] = useState<string[]>([]);
   const [testDir, setTestDir] = useState<string>('./');
   const [isLoadingTests, setIsLoadingTests] = useState(false);
+  const [configWorkers, setConfigWorkers] = useState<number | undefined>(undefined);
   const [showTestHistory, setShowTestHistory] = useState<TestCase | null>(null);
   const originalTestFilesRef = useRef<TestFile[]>([]);
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
@@ -417,6 +418,12 @@ function App() {
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
           .slice(0, 50);
       });
+
+      const runningReport = newReports.find(r => r.status === 'running');
+      if (runningReport) {
+        setIsExecuting(true);
+        setActiveReportId(runningReport.id);
+      }
     } catch (error) {
       console.error('Failed to load runs from server:', error);
     }
@@ -651,6 +658,19 @@ function App() {
       }
     } else if (msg.type === 'error') {
       logBatchUpdater.current?.add({ msg: `❌ ${msg.payload.error}`, type: 'error' });
+      if (isExecuting) {
+        api.getRunStatus().then(status => {
+          if (!status || !status.isRunning) {
+            setIsExecuting(false);
+            setCurrentTest(null);
+            startTransition(() => {
+              setTestCases(prev => prev.map(tc =>
+                (tc.status === 'running' || tc.status === 'pending') ? { ...tc, status: 'idle' as const } : tc
+              ));
+            });
+          }
+        });
+      }
     }
   }, [lang, selectedIds, loadRunsFromServer, loadHealthMetrics, scheduleStatusUpdate]);
 
@@ -684,6 +704,29 @@ function App() {
   useEffect(() => {
     setWsConnected(isConnected());
   }, [isConnected]);
+
+  useEffect(() => {
+    if (!isExecuting) return;
+
+    const EXECUTION_HEALTH_CHECK_INTERVAL = 30000;
+
+    const checkExecutionHealth = () => {
+      api.getRunStatus().then(status => {
+        if (!status || !status.isRunning) {
+          setIsExecuting(false);
+          setCurrentTest(null);
+          startTransition(() => {
+            setTestCases(prev => prev.map(tc =>
+              (tc.status === 'running' || tc.status === 'pending') ? { ...tc, status: 'idle' as const } : tc
+            ));
+          });
+        }
+      });
+    };
+
+    const timer = setInterval(checkExecutionHealth, EXECUTION_HEALTH_CHECK_INTERVAL);
+    return () => clearInterval(timer);
+  }, [isExecuting]);
 
   const addLog = useCallback((msg: string, type: string) => {
     logBatchUpdater.current?.add({ msg, type });
@@ -765,6 +808,7 @@ function App() {
       originalTestFilesRef.current = files;
       setTestFiles(files);
       setFileOrder(files.map(f => f.file));
+      setConfigWorkers(result.configValidation?.workers);
       
       const cases = extractAllTests(files);
       const restoredCases = restoreTestCasesFromLocalStorage(cases);
@@ -821,6 +865,7 @@ function App() {
       originalTestFilesRef.current = files;
       setTestFiles(files);
       setFileOrder(files.map(f => f.file));
+      setConfigWorkers(result.configValidation?.workers);
       
       const cases = extractAllTests(files);
       const restoredCases = restoreTestCasesFromLocalStorage(cases);
@@ -1243,6 +1288,7 @@ function App() {
         fileOrder={fileOrder}
         onFileOrderChange={setFileOrder}
         onViewTestHistory={(test) => setShowTestHistory(test)}
+        configWorkers={configWorkers}
       />
       <TestHistoryDialog
         lang={lang}

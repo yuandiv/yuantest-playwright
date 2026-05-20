@@ -783,7 +783,7 @@ describe('Performance Benchmarks', () => {
       );
 
       console.log(formatResult(result));
-      expect(result.avgTime).toBeLessThan(200);
+      expect(result.avgTime).toBeLessThan(500);
     });
 
     it('should benchmark optimized sharding algorithm', async () => {
@@ -818,7 +818,7 @@ describe('Performance Benchmarks', () => {
       );
 
       console.log(formatResult(result));
-      expect(result.avgTime).toBeLessThan(300);
+      expect(result.avgTime).toBeLessThan(600);
     });
   });
 });

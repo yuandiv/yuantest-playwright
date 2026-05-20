@@ -1,7 +1,4 @@
-import {
-  categorizeError,
-  generateSuggestions,
-} from '../../src/diagnosis/categorizer';
+import { categorizeError, generateSuggestions } from '../../src/diagnosis/categorizer';
 
 describe('categorizer', () => {
   describe('categorizeError', () => {

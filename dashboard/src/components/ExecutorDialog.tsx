@@ -33,6 +33,7 @@ interface ExecutorDialogProps {
   fileOrder: string[];
   onFileOrderChange: (order: string[]) => void;
   onViewTestHistory: (test: TestCase) => void;
+  configWorkers?: number;
 }
 
 function countTestsInDescribe(describe: TestDescribe): number {
@@ -350,7 +351,7 @@ const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, 
   );
 });
 
-const FileView = memo(function FileView({ file, selectedIds, expandedPaths, testCaseStatusMap, onSelectedIdsChange, onExpandedPathsChange, onRunFile, onRunDescribe, onRunTest, fileIndex, totalFiles, isExecuting, onDragStart, onDragOver, onDrop, onViewTestHistory, lang }: {
+const FileView = memo(function FileView({ file, selectedIds, expandedPaths, testCaseStatusMap, onSelectedIdsChange, onExpandedPathsChange, onRunFile, onRunDescribe, onRunTest, fileIndex, totalFiles, isExecuting, onDragStart, onDragOver, onDrop, onViewTestHistory, lang, isParallelMode }: {
   file: TestFile;
   selectedIds: Set<string>;
   expandedPaths: Set<string>;
@@ -368,6 +369,7 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
   onDrop: (e: React.DragEvent) => void;
   onViewTestHistory: (test: TestCase) => void;
   lang: Lang;
+  isParallelMode?: boolean;
 }) {
   const path = file.file;
   const isExpanded = expandedPaths.has(path);
@@ -466,17 +468,17 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
   return (
     <div>
       <div
-        className={`flex items-center gap-1.5 py-1 px-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-xs group ${dragOver ? 'border-t-2 border-indigo-400' : ''}`}
+        className={`flex items-center gap-1.5 py-1 px-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-xs group ${dragOver && !isParallelMode ? 'border-t-2 border-indigo-400' : ''}`}
         onClick={toggleExpand}
         onContextMenu={handleContextMenu}
-        draggable={!isExecuting}
-        onDragStart={onDragStart}
-        onDragOver={(e) => { onDragOver(e); setDragOver(true); }}
-        onDragEnter={() => setDragOver(true)}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { onDrop(e); setDragOver(false); }}
+        draggable={!isExecuting && !isParallelMode}
+        onDragStart={isParallelMode ? undefined : onDragStart}
+        onDragOver={isParallelMode ? undefined : (e) => { onDragOver(e); setDragOver(true); }}
+        onDragEnter={isParallelMode ? undefined : () => setDragOver(true)}
+        onDragLeave={isParallelMode ? undefined : () => setDragOver(false)}
+        onDrop={isParallelMode ? undefined : (e) => { onDrop(e); setDragOver(false); }}
       >
-        <i className={`fas fa-grip-vertical text-gray-300 ${isExecuting ? '' : 'cursor-grab'}`}></i>
+        {!isParallelMode && <i className={`fas fa-grip-vertical text-gray-300 ${isExecuting ? '' : 'cursor-grab'}`}></i>}
         <input
           type="checkbox"
           checked={allSelected}
@@ -544,8 +546,9 @@ export function ExecutorDialog({
   isOpen, onClose, lang, testFiles, testCases, selectedIds, expandedPaths, isExecuting, currentTest, isLoadingTests, logs, versionInput, testDir,
   onSelectedIdsChange, onExpandedPathsChange, onRun, onStop, onClearLogs,
   onVersionChange, onTestDirChange, onSelectAll, onClearAll, onExpandAll, onCollapseAll, onModal,
-  fileOrder, onFileOrderChange, onViewTestHistory,
+  fileOrder, onFileOrderChange, onViewTestHistory, configWorkers,
 }: ExecutorDialogProps) {
+  const isParallelMode = (configWorkers ?? 1) > 1;
   const [isMaximized, setIsMaximized] = useState(false);
   const [tempTestDir, setTempTestDir] = useState(testDir);
   const [isValidating, setIsValidating] = useState(false);
@@ -734,7 +737,7 @@ export function ExecutorDialog({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">{t('executor', lang)}</h2>
-              <p className="text-xs text-white/70">{t('testCaseTree', lang)}</p>
+              <p className="text-xs text-white/70">{t('testCaseTree', lang)}{isParallelMode && <span className="ml-1 text-amber-300">({t('parallelModeHint', lang)})</span>}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -935,6 +938,7 @@ export function ExecutorDialog({
                   onDrop={handleDrop(index)}
                   onViewTestHistory={onViewTestHistory}
                   lang={lang}
+                  isParallelMode={isParallelMode}
                 />
               ))}
             </div>

@@ -10,6 +10,8 @@ const TIMEOUT = 60000;
 
 const distExists = fs.existsSync(DIST_PATH);
 
+const NODE_PATH = process.execPath || 'node';
+
 interface CLIResult {
   stdout: string;
   stderr: string;
@@ -22,11 +24,20 @@ function runCLI(
 ): Promise<CLIResult> {
   return new Promise((resolve, reject) => {
     const useDist = distExists;
-    const command = useDist ? 'node' : 'npx';
     const cliPath = useDist ? CLI_PATH : SRC_CLI_PATH;
     const commandArgs = useDist ? [cliPath, ...args] : ['tsx', cliPath, ...args];
 
-    const proc = spawn(command, commandArgs, {
+    let command: string;
+    let finalArgs: string[];
+    if (useDist) {
+      command = `"${NODE_PATH}"`;
+      finalArgs = commandArgs;
+    } else {
+      command = 'npx';
+      finalArgs = commandArgs;
+    }
+
+    const proc = spawn(command, finalArgs, {
       cwd: options.cwd || process.cwd(),
       env: { ...process.env, NODE_ENV: 'test' },
       shell: true,

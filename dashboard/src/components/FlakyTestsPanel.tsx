@@ -516,7 +516,11 @@ export function FlakyTestsPanel({
                                 test.trendAnalysis.direction === 'volatile' ? 'fa-bolt' :
                                 'fa-minus'
                               } mr-0.5`}></i>
-                              {test.trendAnalysis.direction}
+                              {test.trendAnalysis.direction === 'improving' ? t('trendImproving', lang) :
+                               test.trendAnalysis.direction === 'degrading' ? t('trendDegrading', lang) :
+                               test.trendAnalysis.direction === 'volatile' ? t('trendVolatile', lang) :
+                               test.trendAnalysis.direction === 'stable' ? t('trendStable', lang) :
+                               test.trendAnalysis.direction}
                             </span>
                           )}
                           {test.healthScore && (
@@ -631,7 +635,7 @@ export function FlakyTestsPanel({
                       <h4 className="text-sm font-semibold text-gray-700">
                         <i className="fas fa-sitemap mr-1.5 text-indigo-500"></i>{t('impactAnalysis', lang)}
                       </h4>
-                      <span className="text-xs text-gray-400 font-mono">{selectedImpact.testId}</span>
+                      <span className="text-xs text-gray-400" title={selectedImpact.testId}>{flakyTests.find(ft => ft.testId === selectedImpact.testId)?.title || selectedImpact.testId}</span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                       <div className="bg-blue-50 rounded-lg p-3 text-center">
@@ -648,7 +652,7 @@ export function FlakyTestsPanel({
                       </div>
                       <div className="rounded-lg p-3 text-center" style={{ backgroundColor: RISK_COLORS[selectedImpact.riskLevel] + '15' }}>
                         <div className="text-xs mb-1" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{t('riskLevel', lang)}</div>
-                        <div className="text-lg font-bold" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{selectedImpact.riskLevel.toUpperCase()}</div>
+                        <div className="text-lg font-bold" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{selectedImpact.riskLevel === 'low' ? t('riskLow', lang) : selectedImpact.riskLevel === 'medium' ? t('riskMedium', lang) : selectedImpact.riskLevel === 'high' ? t('riskHigh', lang) : selectedImpact.riskLevel === 'critical' ? t('riskCritical', lang) : selectedImpact.riskLevel.toUpperCase()}</div>
                       </div>
                     </div>
                     {selectedImpact.recommendation && (
@@ -697,23 +701,39 @@ export function FlakyTestsPanel({
 
             {correlations && correlations.length > 0 ? (
               <div className="space-y-3">
-                {correlations.map((group: any, idx: number) => (
+                {correlations.map((group: any, idx: number) => {
+                  const correlationTypeLabel = (ct: string) => {
+                    switch (ct) {
+                      case 'same_run': return t('correlationSameRun', lang);
+                      case 'same_shard': return t('correlationSameShard', lang);
+                      case 'same_time_window': return t('correlationSameTimeWindow', lang);
+                      case 'same_error_pattern': return t('correlationSameErrorPattern', lang);
+                      case 'same_file': return t('correlationSameFile', lang);
+                      default: return ct || t('correlationGroup', lang);
+                    }
+                  };
+                  return (
                   <div key={group.groupId || idx} className="bg-gradient-to-r from-indigo-50 to-white border border-indigo-100 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-medium text-indigo-700">
-                        <i className="fas fa-link mr-1"></i>{group.correlationType || t('correlationGroup', lang) || 'Group'} #{idx + 1}
+                        <i className="fas fa-link mr-1"></i>{correlationTypeLabel(group.correlationType)} #{idx + 1}
                       </span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600">
                         {t('confidence', lang)}: {(safeNumber(group.confidence, 0) * 100).toFixed(0)}%
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {(group.testIds || []).map((id: string) => (
-                        <span key={id} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 font-mono">{id}</span>
-                      ))}
+                      {(group.testTitles || group.testIds || []).map((item: string, i: number) => {
+                        const title = group.testTitles ? item : item;
+                        const id = group.testIds ? group.testIds[i] : item;
+                        return (
+                          <span key={id || i} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100" title={id}>{title}</span>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : correlations && correlations.length === 0 ? (
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 text-center">

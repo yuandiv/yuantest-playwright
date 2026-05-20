@@ -224,29 +224,31 @@ export function AgentPanel({ lang, onClose, onOpenLLMConfig }: AgentPanelProps) 
           ))}
         </div>
 
-        {!llmReady ? (
-          <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-yellow-50 text-yellow-700 border-b border-yellow-100">
-            <i className="fas fa-exclamation-triangle"></i>
-            <span>{t('agentDependencyLLMRequired', lang)}</span>
-            {onOpenLLMConfig && (
-              <button 
-                onClick={onOpenLLMConfig}
-                className="ml-auto text-yellow-600 hover:text-yellow-800 underline font-medium"
-              >
-                {t('agentOpenLLMConfig', lang)}
-              </button>
-            )}
-          </div>
-        ) : executorRunning ? (
-          <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-blue-50 text-blue-700 border-b border-blue-100">
-            <i className="fas fa-info-circle"></i>
-            <span>{t('agentDependencyExecutorBusy', lang)}</span>
-          </div>
-        ) : (
-          <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-green-50 text-green-700 border-b border-green-100">
-            <i className="fas fa-check-circle"></i>
-            <span>{t('agentDependencyReady', lang)}</span>
-          </div>
+        {activeTab !== 'history' && (
+          !llmReady ? (
+            <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-yellow-50 text-yellow-700 border-b border-yellow-100">
+              <i className="fas fa-exclamation-triangle"></i>
+              <span>{t('agentDependencyLLMRequired', lang)}</span>
+              {onOpenLLMConfig && (
+                <button 
+                  onClick={() => { onClose(); onOpenLLMConfig(); }}
+                  className="ml-auto text-yellow-600 hover:text-yellow-800 underline font-medium"
+                >
+                  {t('agentOpenLLMConfig', lang)}
+                </button>
+              )}
+            </div>
+          ) : executorRunning ? (
+            <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-blue-50 text-blue-700 border-b border-blue-100">
+              <i className="fas fa-info-circle"></i>
+              <span>{t('agentDependencyExecutorBusy', lang)}</span>
+            </div>
+          ) : (
+            <div className="px-4 py-2.5 text-sm flex items-center gap-2 bg-green-50 text-green-700 border-b border-green-100">
+              <i className="fas fa-check-circle"></i>
+              <span>{t('agentDependencyReady', lang)}</span>
+            </div>
+          )
         )}
 
         <div className="flex-1 overflow-y-auto p-5">

@@ -141,10 +141,7 @@ export class TestDiscovery {
     const page = options?.page ?? 1;
     const pageSize = options?.pageSize ?? 100;
 
-    const result = await this.discoverTestsStructured(
-      testDir,
-      options?.configPath
-    );
+    const result = await this.discoverTestsStructured(testDir, options?.configPath);
 
     const total = result.tests.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -367,7 +364,9 @@ export class TestDiscovery {
       let truncated = false;
 
       proc.stdout?.on('data', (data: Buffer) => {
-        if (truncated) return;
+        if (truncated) {
+          return;
+        }
         const chunk = data.toString('utf-8');
         const newSize = stdoutSize + Buffer.byteLength(chunk, 'utf-8');
 
@@ -378,9 +377,7 @@ export class TestDiscovery {
             stdoutSize = maxStdoutSize;
           }
           truncated = true;
-          this.log.warn(
-            `stdout exceeded ${maxStdoutSize} bytes limit, truncating output`
-          );
+          this.log.warn(`stdout exceeded ${maxStdoutSize} bytes limit, truncating output`);
           return;
         }
 
@@ -408,7 +405,12 @@ export class TestDiscovery {
       });
 
       proc.on('close', (code) => {
-        resolve({ stdout: stripAnsi(stdout), stderr: stripAnsi(stderr), exitCode: code, truncated });
+        resolve({
+          stdout: stripAnsi(stdout),
+          stderr: stripAnsi(stderr),
+          exitCode: code,
+          truncated,
+        });
       });
     });
   }
@@ -472,7 +474,9 @@ export class TestDiscovery {
     const estimateSpecs = (suites: PlaywrightListSuite[]) => {
       for (const suite of suites) {
         estimatedSpecCount += suite.specs?.length || 0;
-        if (suite.suites) estimateSpecs(suite.suites);
+        if (suite.suites) {
+          estimateSpecs(suite.suites);
+        }
       }
     };
     estimateSpecs(data.suites || []);
@@ -480,7 +484,9 @@ export class TestDiscovery {
     const isLargeOutput = estimatedSpecCount > CACHE_CONFIG.DISCOVERY_LARGE_TEST_THRESHOLD;
     const isVerboseLog = estimatedSpecCount <= CACHE_CONFIG.DISCOVERY_VERBOSE_LOG_THRESHOLD;
 
-    this.log.info(`parseJSONOutput: rootDir=${rootDir}, suites count=${data.suites?.length || 0}, estimated specs=${estimatedSpecCount}, largeMode=${isLargeOutput}`);
+    this.log.info(
+      `parseJSONOutput: rootDir=${rootDir}, suites count=${data.suites?.length || 0}, estimated specs=${estimatedSpecCount}, largeMode=${isLargeOutput}`
+    );
 
     const processSuiteFlat = (
       suite: PlaywrightListSuite,
@@ -629,7 +635,9 @@ export class TestDiscovery {
     }
 
     if (isLargeOutput) {
-      this.log.info(`Large output mode: skipped describe tree construction for ${allTests.length} tests`);
+      this.log.info(
+        `Large output mode: skipped describe tree construction for ${allTests.length} tests`
+      );
     }
 
     return { files, tests: allTests };

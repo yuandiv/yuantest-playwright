@@ -313,11 +313,11 @@ export function FlakyTestsDialog({
 
   const getClassificationInfo = (classification?: FlakyClassification) => {
     switch (classification) {
-      case 'broken': return { label: 'Broken', color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
-      case 'regression': return { label: 'Regression', color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
-      case 'flaky': return { label: 'Flaky', color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
+      case 'broken': return { label: t('brokenLabel', lang), color: 'bg-red-100 text-red-700', icon: 'fas fa-bug' };
+      case 'regression': return { label: t('regressionLabel', lang), color: 'bg-orange-100 text-orange-700', icon: 'fas fa-arrow-trend-down' };
+      case 'flaky': return { label: t('flakyLabel', lang), color: 'bg-amber-100 text-amber-700', icon: 'fas fa-shuffle' };
       case 'monitor': return { label: t('monitorLabel', lang), color: 'bg-yellow-100 text-yellow-700', icon: 'fas fa-eye' };
-      case 'stable': return { label: 'Stable', color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
+      case 'stable': return { label: t('stableLabel', lang), color: 'bg-green-100 text-green-700', icon: 'fas fa-check-circle' };
       default: return null;
     }
   };
@@ -386,7 +386,7 @@ export function FlakyTestsDialog({
                       <i className="fas fa-fire text-sm text-white"></i>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600 mb-1">Broken</div>
+                  <div className="text-xs text-gray-600 mb-1">{t('brokenLabel', lang)}</div>
                   <div className="text-2xl font-bold text-red-600">{classificationCounts.broken}</div>
                 </div>
                 <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100">
@@ -395,7 +395,7 @@ export function FlakyTestsDialog({
                       <i className="fas fa-arrow-trend-down text-sm text-white"></i>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600 mb-1">Regression</div>
+                  <div className="text-xs text-gray-600 mb-1">{t('regressionLabel', lang)}</div>
                   <div className="text-2xl font-bold text-orange-600">{classificationCounts.regression}</div>
                 </div>
                 <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-4 border border-yellow-100">
@@ -404,7 +404,7 @@ export function FlakyTestsDialog({
                       <i className="fas fa-shuffle text-sm text-white"></i>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600 mb-1">Flaky</div>
+                  <div className="text-xs text-gray-600 mb-1">{t('flakyLabel', lang)}</div>
                   <div className="text-2xl font-bold text-yellow-600">{classificationCounts.flaky}</div>
                 </div>
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
@@ -413,7 +413,7 @@ export function FlakyTestsDialog({
                       <i className="fas fa-eye text-sm text-white"></i>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600 mb-1">Monitor</div>
+                  <div className="text-xs text-gray-600 mb-1">{t('monitorLabel', lang)}</div>
                   <div className="text-2xl font-bold text-blue-600">{classificationCounts.monitor}</div>
                 </div>
               </div>
@@ -522,7 +522,11 @@ export function FlakyTestsDialog({
                                   test.trendAnalysis.direction === 'volatile' ? 'fa-bolt' :
                                   'fa-minus'
                                 } mr-0.5`}></i>
-                                {test.trendAnalysis.direction}
+                                {test.trendAnalysis.direction === 'improving' ? t('trendImproving', lang) :
+                                 test.trendAnalysis.direction === 'degrading' ? t('trendDegrading', lang) :
+                                 test.trendAnalysis.direction === 'volatile' ? t('trendVolatile', lang) :
+                                 test.trendAnalysis.direction === 'stable' ? t('trendStable', lang) :
+                                 test.trendAnalysis.direction}
                               </span>
                             )}
                             {test.healthScore && (
@@ -637,7 +641,7 @@ export function FlakyTestsDialog({
                         <h4 className="text-sm font-semibold text-gray-700">
                           <i className="fas fa-sitemap mr-1.5 text-indigo-500"></i>{t('impactAnalysis', lang)}
                         </h4>
-                        <span className="text-xs text-gray-400 font-mono">{selectedImpact.testId}</span>
+                        <span className="text-xs text-gray-400" title={selectedImpact.testId}>{flakyTests.find(ft => ft.testId === selectedImpact.testId)?.title || selectedImpact.testId}</span>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                         <div className="bg-blue-50 rounded-lg p-3 text-center">
@@ -654,7 +658,7 @@ export function FlakyTestsDialog({
                         </div>
                         <div className="rounded-lg p-3 text-center" style={{ backgroundColor: RISK_COLORS[selectedImpact.riskLevel] + '15' }}>
                           <div className="text-xs mb-1" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{t('riskLevel', lang)}</div>
-                          <div className="text-lg font-bold" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{selectedImpact.riskLevel.toUpperCase()}</div>
+                          <div className="text-lg font-bold" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{selectedImpact.riskLevel === 'low' ? t('riskLow', lang) : selectedImpact.riskLevel === 'medium' ? t('riskMedium', lang) : selectedImpact.riskLevel === 'high' ? t('riskHigh', lang) : selectedImpact.riskLevel === 'critical' ? t('riskCritical', lang) : selectedImpact.riskLevel.toUpperCase()}</div>
                         </div>
                       </div>
                       {selectedImpact.recommendation && (
@@ -703,23 +707,39 @@ export function FlakyTestsDialog({
 
               {correlations && correlations.length > 0 ? (
                 <div className="space-y-3">
-                  {correlations.map((group: any, idx: number) => (
+                  {correlations.map((group: any, idx: number) => {
+                    const correlationTypeLabel = (ct: string) => {
+                      switch (ct) {
+                        case 'same_run': return t('correlationSameRun', lang);
+                        case 'same_shard': return t('correlationSameShard', lang);
+                        case 'same_time_window': return t('correlationSameTimeWindow', lang);
+                        case 'same_error_pattern': return t('correlationSameErrorPattern', lang);
+                        case 'same_file': return t('correlationSameFile', lang);
+                        default: return ct || t('correlationGroup', lang);
+                      }
+                    };
+                    return (
                     <div key={group.groupId || idx} className="bg-gradient-to-r from-indigo-50 to-white border border-indigo-100 rounded-lg p-3">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xs font-medium text-indigo-700">
-                          <i className="fas fa-link mr-1"></i>{group.correlationType || t('correlationGroup', lang) || 'Group'} #{idx + 1}
+                          <i className="fas fa-link mr-1"></i>{correlationTypeLabel(group.correlationType)} #{idx + 1}
                         </span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600">
                           {t('confidence', lang)}: {(safeNumber(group.confidence, 0) * 100).toFixed(0)}%
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {(group.testIds || []).map((id: string) => (
-                          <span key={id} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 font-mono">{id}</span>
-                        ))}
+                        {(group.testTitles || group.testIds || []).map((item: string, i: number) => {
+                          const title = group.testTitles ? item : item;
+                          const id = group.testIds ? group.testIds[i] : item;
+                          return (
+                            <span key={id || i} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100" title={id}>{title}</span>
+                          );
+                        })}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : correlations && correlations.length === 0 ? (
                 <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 text-center">

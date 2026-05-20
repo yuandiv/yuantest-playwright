@@ -316,6 +316,7 @@ export type CorrelationType =
 export interface CorrelationGroup {
   groupId: string;
   testIds: string[];
+  testTitles: string[];
   correlationType: CorrelationType;
   confidence: number;
   evidence: string;

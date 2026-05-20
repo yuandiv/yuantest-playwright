@@ -89,6 +89,17 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
     }
   };
 
+  const handleViewAllQuarantinedTests = () => {
+    onModal(
+      <QuarantinedTestsModal
+        lang={lang}
+        quarantinedTests={quarantinedTests}
+        onReleaseTest={onReleaseTest}
+        onValidateReleaseTest={onValidateReleaseTest}
+      />
+    );
+  };
+
   return (
     <div className="flex gap-4 h-[500px]">
       <div className="flex-1 min-w-0 h-full overflow-hidden">
@@ -177,6 +188,14 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
               </button>
             )}
             {flakyTests.length > 0 && flakyTests.length <= 3 && (
+              <button
+                className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors cursor-pointer"
+                onClick={handleViewAllFlakyTests}
+              >
+                {t('viewAllFlakyTests', lang)}
+              </button>
+            )}
+            {flakyTests.length === 0 && (
               <button
                 className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors cursor-pointer"
                 onClick={handleViewAllFlakyTests}
@@ -274,9 +293,28 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
             );
             })}
             {quarantinedTests.length > 3 && (
-              <div className="text-center text-[10px] text-gray-400 py-1">
-                +{quarantinedTests.length - 3} {t('items', lang)}
-              </div>
+              <button
+                className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors cursor-pointer"
+                onClick={handleViewAllQuarantinedTests}
+              >
+                +{quarantinedTests.length - 3} {t('items', lang)} · {t('viewAllQuarantinedTests', lang)}
+              </button>
+            )}
+            {quarantinedTests.length > 0 && quarantinedTests.length <= 3 && (
+              <button
+                className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors cursor-pointer"
+                onClick={handleViewAllQuarantinedTests}
+              >
+                {t('viewAllQuarantinedTests', lang)}
+              </button>
+            )}
+            {quarantinedTests.length === 0 && (
+              <button
+                className="w-full text-center text-[10px] text-blue-500 hover:text-blue-600 py-1 transition-colors cursor-pointer"
+                onClick={handleViewAllQuarantinedTests}
+              >
+                {t('viewAllQuarantinedTests', lang)}
+              </button>
             )}
           </div>
         </div>
@@ -471,6 +509,122 @@ function FlakyTestsModal({
             <i className="fas fa-trash-alt"></i> {t('clearFlakyHistory', lang)}
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function QuarantinedTestsModal({
+  lang,
+  quarantinedTests,
+  onReleaseTest,
+  onValidateReleaseTest,
+}: {
+  lang: Lang;
+  quarantinedTests: QuarantinedTest[];
+  onReleaseTest: (testId: string) => void;
+  onValidateReleaseTest: (testId: string) => void;
+}) {
+  const [filter, setFilter] = useState<'all' | 'expired' | 'notExpired'>('all');
+
+  const filteredTests = useMemo(() => {
+    if (filter === 'all') return quarantinedTests;
+    if (filter === 'expired') return quarantinedTests.filter(t => t.isExpired || (t.quarantinedAt && (Date.now() - t.quarantinedAt > 30 * 24 * 60 * 60 * 1000)));
+    return quarantinedTests.filter(t => !t.isExpired && (!t.quarantinedAt || (Date.now() - t.quarantinedAt <= 30 * 24 * 60 * 60 * 1000)));
+  }, [quarantinedTests, filter]);
+
+  const filterButtons = [
+    { key: 'all' as const, label: t('allLevels', lang) },
+    { key: 'expired' as const, label: t('expired', lang) },
+    { key: 'notExpired' as const, label: t('notExpired', lang) },
+  ];
+
+  return (
+    <div className="w-[560px] max-h-[70vh] flex flex-col">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-base font-semibold text-gray-800">
+          <i className="fas fa-lock mr-2 text-red-500"></i>{t('quarantinedTestDetails', lang)}
+        </h2>
+        <span className="text-xs text-gray-400">{quarantinedTests.length} {t('items', lang)}</span>
+      </div>
+
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-xs text-gray-500 mr-1">{t('filterByStability', lang)}:</span>
+        {filterButtons.map(btn => (
+          <button
+            key={btn.key}
+            className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
+              filter === btn.key
+                ? 'bg-blue-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            onClick={() => setFilter(btn.key)}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
+        {filteredTests.length === 0 ? (
+          <div className="text-center py-8">
+            <i className="fas fa-unlock text-3xl text-green-300 mb-2"></i>
+            <p className="text-gray-400 text-xs">{t('noQuarantinedTests', lang)}</p>
+          </div>
+        ) : filteredTests.map(test => {
+          const isExpired = test.isExpired || (test.quarantinedAt && (Date.now() - test.quarantinedAt > 30 * 24 * 60 * 60 * 1000));
+          return (
+            <div key={test.testId} className={`bg-gradient-to-r ${isExpired ? 'from-amber-50 to-white border-amber-200' : 'from-red-50 to-white border-red-100'} border rounded-lg p-3 hover:shadow-md transition-all`}>
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-gray-800 truncate" title={test.title}>{test.title}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    <i className="fas fa-hashtag mr-0.5"></i>{t('runCount', lang)}: {test.totalRuns}
+                    <span className="mx-1.5">·</span>
+                    <i className="fas fa-times-circle mr-0.5 text-red-400"></i>{(test.failureRate * 100).toFixed(0)}%
+                    {isExpired && (
+                      <>
+                        <span className="mx-1.5">·</span>
+                        <i className="fas fa-clock mr-0.5 text-amber-500"></i>
+                        <span className="text-amber-600">{t('expired', lang)}</span>
+                      </>
+                    )}
+                    {test.consecutivePassesSinceQuarantine != null && test.consecutivePassesSinceQuarantine > 0 && (
+                      <>
+                        <span className="mx-1.5">·</span>
+                        <i className="fas fa-check mr-0.5 text-green-500"></i>
+                        <span className="text-green-600">{t('consecutivePasses', lang)}: {test.consecutivePassesSinceQuarantine}</span>
+                      </>
+                    )}
+                    {test.quarantinedAt && (
+                      <>
+                        <span className="mx-1.5">·</span>
+                        <i className="fas fa-calendar mr-0.5"></i>
+                        {new Date(test.quarantinedAt).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')}
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-1.5">
+                <button
+                  className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-2.5 py-1 rounded text-[10px] hover:from-blue-600 hover:to-indigo-600 transition-all shadow-sm flex items-center gap-0.5"
+                  onClick={() => onValidateReleaseTest(test.testId)}
+                  title={t('validateReleaseTooltip', lang)}
+                >
+                  <i className="fas fa-flask"></i> {t('validateReleaseAction', lang)}
+                </button>
+                <button
+                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2.5 py-1 rounded text-[10px] hover:from-green-600 hover:to-emerald-600 transition-all shadow-sm flex items-center gap-0.5"
+                  onClick={() => onReleaseTest(test.testId)}
+                  title={t('releaseTooltip', lang)}
+                >
+                  <i className="fas fa-unlock"></i> {t('releaseAction', lang)}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

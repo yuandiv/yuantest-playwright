@@ -697,25 +697,28 @@ module.exports = defineConfig({
         retries: test.retries || 0,
         timestamp: Date.now(),
         browser: (test.browser || 'chromium') as BrowserType,
-        screenshots: status !== 'passed'
-          ? (test.attachments || [])
-              .filter((a) => a.name === 'screenshot' || a.contentType?.startsWith('image/'))
-              .map((a) => a.path || a.body)
-              .filter((p): p is string => !!p)
-          : undefined,
-        videos: status !== 'passed'
-          ? (test.attachments || [])
-              .filter((a) => a.name === 'video' || a.contentType?.startsWith('video/'))
-              .map((a) => a.path || a.body)
-              .filter((p): p is string => !!p)
-          : undefined,
-        traces: status !== 'passed'
-          ? (test.attachments || [])
-              .filter((a) => a.name === 'trace')
-              .map((a) => a.path || a.body)
-              .filter((p): p is string => !!p)
-          : undefined,
-        logs: status !== 'passed' ? (msg.consoleLogs || []) : undefined,
+        screenshots:
+          status !== 'passed'
+            ? (test.attachments || [])
+                .filter((a) => a.name === 'screenshot' || a.contentType?.startsWith('image/'))
+                .map((a) => a.path || a.body)
+                .filter((p): p is string => !!p)
+            : undefined,
+        videos:
+          status !== 'passed'
+            ? (test.attachments || [])
+                .filter((a) => a.name === 'video' || a.contentType?.startsWith('video/'))
+                .map((a) => a.path || a.body)
+                .filter((p): p is string => !!p)
+            : undefined,
+        traces:
+          status !== 'passed'
+            ? (test.attachments || [])
+                .filter((a) => a.name === 'trace')
+                .map((a) => a.path || a.body)
+                .filter((p): p is string => !!p)
+            : undefined,
+        logs: status !== 'passed' ? msg.consoleLogs || [] : undefined,
       };
 
       const suiteName = test.suiteTitle || 'Test Suite';
@@ -858,7 +861,9 @@ module.exports = defineConfig({
       );
       if (tempConfigPath) {
         effectiveConfigPath = tempConfigPath;
-        this.log.info(`Using temp config with environment tag "${this.config.environmentTag}": ${tempConfigPath}`);
+        this.log.info(
+          `Using temp config with environment tag "${this.config.environmentTag}": ${tempConfigPath}`
+        );
       }
     }
 
@@ -1065,7 +1070,9 @@ module.exports = defineConfig({
         }
         const elapsed = Date.now() - this.lastProgressTimestamp;
         if (elapsed > 300000) {
-          this.log.warn(`No progress received for ${Math.round(elapsed / 1000)}s, process may be stalled`);
+          this.log.warn(
+            `No progress received for ${Math.round(elapsed / 1000)}s, process may be stalled`
+          );
         }
       }, 60000);
       stallCheckId.unref();
@@ -1901,7 +1908,9 @@ export class ParallelExecutor {
 
   async execute(concurrencyLimit?: number): Promise<RunResult[]> {
     const limit = concurrencyLimit || Math.min(this.executors.length, 4);
-    this.log.info(`Starting parallel execution across ${this.executors.length} shards (concurrency: ${limit})`);
+    this.log.info(
+      `Starting parallel execution across ${this.executors.length} shards (concurrency: ${limit})`
+    );
 
     const results: RunResult[] = new Array(this.executors.length);
     let nextIndex = 0;
@@ -1966,11 +1975,7 @@ export class ParallelExecutor {
     }
 
     for (let i = 0; i < this.executors.length; i++) {
-      const shardBlobDir = path.join(
-        this.config.outputDir,
-        `shard-${i}`,
-        'blob-reports'
-      );
+      const shardBlobDir = path.join(this.config.outputDir, `shard-${i}`, 'blob-reports');
       try {
         if (await this.storageExists(shardBlobDir)) {
           const entries = await fs.readdir(shardBlobDir);
@@ -2013,11 +2018,7 @@ export class ParallelExecutor {
 
     this.log.info(`Found ${blobFiles.length} blob report file(s) to merge`);
 
-    const mergedOutputDir = path.join(
-      this.config.outputDir,
-      'html-reports',
-      'merged-shards'
-    );
+    const mergedOutputDir = path.join(this.config.outputDir, 'html-reports', 'merged-shards');
 
     const mergeArgs = ['playwright', 'merge-reports', allBlobDir, '--reporter=html'];
 
@@ -2061,7 +2062,9 @@ export class ParallelExecutor {
     });
 
     if (mergeExitCode === 0) {
-      this.log.info(`Successfully merged ${blobFiles.length} shard reports into: ${mergedOutputDir}`);
+      this.log.info(
+        `Successfully merged ${blobFiles.length} shard reports into: ${mergedOutputDir}`
+      );
       return mergedOutputDir;
     } else {
       this.log.error(`Merge reports command failed with exit code: ${mergeExitCode}`);
