@@ -11,12 +11,16 @@ import {
   TestPlanStep,
   HealerPatch,
   AgentHealResult,
+  AgentPrompts,
   LLMConfig,
   ProjectContext,
 } from '../types';
+import { BaseAgent } from './base-agent';
 import { PlannerAgent } from './planner';
 import { GeneratorAgent } from './generator';
 import { HealerAgent } from './healer';
+import { BrowserSessionManager } from './browser-session';
+import { PatchApplier } from './patch-applier';
 
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
   enabled: true,
@@ -33,10 +37,14 @@ export class AgentService {
   private projectRoot: string;
   private projectContext: ProjectContext | null = null;
   private llmConfig: LLMConfig | null = null;
+  private prompts: Partial<AgentPrompts> | null = null;
+  private browserSessionManager: BrowserSessionManager | null = null;
   private log = logger.child('AgentService');
   private planner: PlannerAgent;
   private generator: GeneratorAgent;
   private healer: HealerAgent;
+  /** 所有 Agent 实例的数组，用于批量更新配置 */
+  private agents: BaseAgent[];
 
   constructor(dataDir: string, config?: Partial<AgentConfig>, llmConfig?: LLMConfig) {
     this.dataDir = dataDir;
@@ -49,22 +57,41 @@ export class AgentService {
     this.planner = new PlannerAgent(this.config, this.llmConfig);
     this.generator = new GeneratorAgent(this.config, this.llmConfig);
     this.healer = new HealerAgent(this.config, this.llmConfig);
+    this.agents = [this.planner, this.generator, this.healer];
+  }
+
+  /** 批量更新所有 Agent 的配置，避免重复创建实例 */
+  private updateAllAgentsConfig(): void {
+    for (const agent of this.agents) {
+      const extraParams: Record<string, unknown> = {};
+      if (agent === this.planner) {
+        extraParams.customPrompts = this.prompts;
+        extraParams.browserSessionManager = this.browserSessionManager;
+      }
+      agent.updateConfig(this.config, this.llmConfig, extraParams);
+    }
   }
 
   setLLMConfig(config: LLMConfig): void {
     this.llmConfig = config;
-    this.planner = new PlannerAgent(this.config, this.llmConfig);
-    this.generator = new GeneratorAgent(this.config, this.llmConfig);
-    this.healer = new HealerAgent(this.config, this.llmConfig);
+    this.updateAllAgentsConfig();
+  }
+
+  setPrompts(prompts: Partial<AgentPrompts> | null): void {
+    this.prompts = prompts;
+    this.updateAllAgentsConfig();
+  }
+
+  setBrowserSessionManager(manager: BrowserSessionManager | null): void {
+    this.browserSessionManager = manager;
+    this.updateAllAgentsConfig();
   }
 
   setProjectRoot(root: string): void {
     this.projectRoot = path.resolve(root);
     this.config.projectRoot = this.projectRoot;
     this.loadProjectContext();
-    this.planner = new PlannerAgent(this.config, this.llmConfig);
-    this.generator = new GeneratorAgent(this.config, this.llmConfig);
-    this.healer = new HealerAgent(this.config, this.llmConfig);
+    this.updateAllAgentsConfig();
   }
 
   getProjectRoot(): string {
@@ -212,9 +239,7 @@ export class AgentService {
 
   updateConfig(updates: Partial<AgentConfig>): void {
     this.config = { ...this.config, ...updates };
-    this.planner = new PlannerAgent(this.config, this.llmConfig);
-    this.generator = new GeneratorAgent(this.config, this.llmConfig);
-    this.healer = new HealerAgent(this.config, this.llmConfig);
+    this.updateAllAgentsConfig();
   }
 
   async initAgents(loopTarget: AgentLoopTarget): Promise<AgentResult<AgentInitResult>> {
@@ -322,6 +347,7 @@ export class AgentService {
         duration: Date.now() - startTime,
         agentType: 'planner',
         model: this.llmConfig.model,
+        tokenUsage: this.planner.lastTokenUsage,
       };
     } catch (error) {
       return {
@@ -374,6 +400,7 @@ export class AgentService {
         duration: Date.now() - startTime,
         agentType: 'generator',
         model: this.llmConfig.model,
+        tokenUsage: this.generator.lastTokenUsage,
       };
     } catch (error) {
       return {
@@ -429,6 +456,7 @@ export class AgentService {
         duration: Date.now() - startTime,
         agentType: 'healer',
         model: this.llmConfig.model,
+        tokenUsage: this.healer.lastTokenUsage,
       };
     } catch (error) {
       return {
@@ -456,22 +484,15 @@ export class AgentService {
         return false;
       }
 
-      const currentContent = fs.readFileSync(resolvedFilePath, 'utf-8');
-      if (!currentContent.includes(patch.originalCode)) {
-        this.log.warn(
-          `Original code not found in file, patch may be outdated: ${resolvedFilePath}`
-        );
-        return false;
+      const applier = new PatchApplier();
+      const result = applier.applyPatch(patch, this.projectRoot);
+
+      if (result) {
+        patch.appliedAt = Date.now();
+        patch.appliedBy = 'manual';
       }
 
-      const newContent = currentContent.replace(patch.originalCode, patch.patchedCode);
-      fs.writeFileSync(resolvedFilePath, newContent, 'utf-8');
-
-      patch.appliedAt = Date.now();
-      patch.appliedBy = 'manual';
-      this.log.info(`Patch applied to: ${resolvedFilePath}`);
-
-      return true;
+      return result;
     } catch (error) {
       this.log.error(
         `Failed to apply patch: ${error instanceof Error ? error.message : String(error)}`
@@ -527,6 +548,13 @@ export class AgentService {
     }
   }
 
+  private generateSlug(text: string): string {
+    let slug = text.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
+    slug = slug.replace(/-+/g, '-');
+    slug = slug.replace(/^-+|-+$/g, '');
+    return slug.slice(0, 80);
+  }
+
   private planToMarkdown(plan: TestPlan): string {
     let md = `# ${plan.title}\n\n`;
     md += `${plan.description}\n\n`;
@@ -542,10 +570,10 @@ export class AgentService {
         const step = scenario.steps[i];
         md += `${i + 1}. ${step.action}`;
         if (step.target) {
-          md += ` on \`${step.target}\``;
+          md += ` → \`${step.target}\``;
         }
         if (step.value) {
-          md += ` with "${step.value}"`;
+          md += ` = "${step.value}"`;
         }
         md += '\n';
       }
@@ -602,14 +630,29 @@ export class AgentService {
         );
 
         const steps: TestPlanStep[] = [];
-        const stepRegex = /^\d+\.\s+(.+?)(?:\s+on\s+`(.+?)`)?(?:\s+with\s+"(.+?)")?$/gm;
+        // Try new format first (→ and =)
+        const newFormatRegex = /^\d+\.\s+(.+?)(?:\s+→\s+`(.+?)`)?(?:\s+=\s+"(.+?)")?$/gm;
         let stepMatch: RegExpExecArray | null;
-        while ((stepMatch = stepRegex.exec(scenarioContent)) !== null) {
-          steps.push({
+        const newFormatSteps: TestPlanStep[] = [];
+        while ((stepMatch = newFormatRegex.exec(scenarioContent)) !== null) {
+          newFormatSteps.push({
             action: stepMatch[1],
             target: stepMatch[2] || '',
             value: stepMatch[3],
           });
+        }
+        if (newFormatSteps.length > 0) {
+          steps.push(...newFormatSteps);
+        } else {
+          // Fall back to old format (on and with)
+          const stepRegex = /^\d+\.\s+(.+?)(?:\s+on\s+`(.+?)`)?(?:\s+with\s+"(.+?)")?$/gm;
+          while ((stepMatch = stepRegex.exec(scenarioContent)) !== null) {
+            steps.push({
+              action: stepMatch[1],
+              target: stepMatch[2] || '',
+              value: stepMatch[3],
+            });
+          }
         }
 
         const expectedResults: string[] = [];
@@ -636,6 +679,63 @@ export class AgentService {
         `Failed to parse markdown plan: ${error instanceof Error ? error.message : String(error)}`
       );
       return null;
+    }
+  }
+
+  async healWithVerification(
+    testFilePath: string,
+    options?: {
+      runId?: string;
+      testId?: string;
+      error?: string;
+      stackTrace?: string;
+    }
+  ): Promise<AgentResult<AgentHealResult>> {
+    if (!this.llmConfig?.enabled) {
+      return {
+        success: false,
+        error: 'LLM is not enabled. Configure LLM settings first.',
+        duration: 0,
+        agentType: 'healer',
+      };
+    }
+
+    const startTime = Date.now();
+    try {
+      const resolvedTestFilePath = this.resolveProjectPath(testFilePath);
+      if (!fs.existsSync(resolvedTestFilePath)) {
+        throw new Error(`Test file not found: ${testFilePath}`);
+      }
+
+      const result = await this.healer.healTest(resolvedTestFilePath, {
+        maxRounds: this.config.maxHealRounds,
+        error: options?.error,
+        stackTrace: options?.stackTrace,
+      });
+
+      // healWithVerification only applies patches when autoHeal is true
+      if (result.healed && result.patches.length > 0 && this.config.autoHeal) {
+        await this.applyPatches(result.patches);
+      }
+
+      await this.saveHealHistory(result);
+
+      return {
+        success: true,
+        data: result,
+        duration: Date.now() - startTime,
+        agentType: 'healer',
+        model: this.llmConfig.model,
+        tokenUsage: this.healer.lastTokenUsage,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+        agentType: 'healer',
+        model: this.llmConfig?.model,
+      };
     }
   }
 

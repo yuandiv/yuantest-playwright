@@ -135,6 +135,11 @@ export class Executor extends EventEmitter {
   private flakyManager: FlakyTestManager | null = null;
   private log = logger.child('Executor');
   private stderrBuffer = '';
+  private lastExecuteOptions: {
+    testFiles?: string[];
+    testLocations?: string[];
+    grepPattern?: string;
+  } | null = null;
   private realtimeStats = { passed: 0, failed: 0, skipped: 0, totalTests: 0 };
   private storage: StorageProvider;
   private skippedQuarantinedTests: string[] = [];
@@ -326,6 +331,11 @@ export class Executor extends EventEmitter {
     this.stderrBuffer = '';
     this.skippedQuarantinedTests = [];
     this.parentRunId = options?.parentRunId || null;
+    this.lastExecuteOptions = {
+      testFiles: options?.testFiles,
+      testLocations: options?.testLocations,
+      grepPattern: options?.grepPattern,
+    };
 
     this.log.info(`Run started: ${runId}`);
     this.emit('run_started', { runId, timestamp: startTime });
@@ -1840,6 +1850,50 @@ module.exports = defineConfig({
 
   async getCurrentStatus(): Promise<RunResult | null> {
     return this._currentRun;
+  }
+
+  getTestLocations(): string[] | null {
+    if (!this.isRunning || !this.lastExecuteOptions) {
+      return null;
+    }
+    return this.lastExecuteOptions.testLocations ?? null;
+  }
+
+  getTestFiles(): string[] | null {
+    if (!this.isRunning || !this.lastExecuteOptions) {
+      return null;
+    }
+    return this.lastExecuteOptions.testFiles ?? null;
+  }
+
+  getGrepPattern(): string | null {
+    if (!this.isRunning || !this.lastExecuteOptions) {
+      return null;
+    }
+    return this.lastExecuteOptions.grepPattern ?? null;
+  }
+
+  getCompletedTestResults(): Array<{
+    id: string;
+    title: string;
+    status: string;
+    duration: number;
+    error?: string;
+    file?: string;
+    line?: number;
+  }> {
+    if (!this.isRunning) {
+      return [];
+    }
+    return Array.from(this.testIndex.values()).map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      duration: t.duration,
+      error: t.error,
+      file: t.file,
+      line: t.line,
+    }));
   }
 
   isCurrentlyRunning(): boolean {

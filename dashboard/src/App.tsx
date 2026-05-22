@@ -3,6 +3,7 @@ import { t, Lang } from './i18n';
 import { useWebSocket } from './hooks/useWebSocket';
 import * as api from './services/api';
 import { setApiLang } from './services/api';
+import type { RunStatusResponse } from './services/api';
 import { TestCase, RunReport, RunDetail, FlakyTest, QuarantinedTest, ServerRun, TestFile, TestDescribe, HealthMetric } from './types';
 import { Header } from './components/Header';
 import { KPICards } from './components/KPICards';
@@ -678,26 +679,96 @@ function App() {
     testCasesRef.current = testCases;
   }, [testCases]);
 
+  const restoreExecutionState = useCallback((status: RunStatusResponse) => {
+    if (!status.isRunning || !status.currentRun) return;
+
+    const { currentRun } = status;
+    setIsExecuting(true);
+    if (currentRun.id) {
+      setActiveReportId(currentRun.id);
+    }
+
+    const completedMap = new Map<string, { status: string; duration: number; error?: string }>();
+    for (const r of currentRun.testResults) {
+      completedMap.set(r.id, { status: r.status, duration: r.duration, error: r.error });
+    }
+
+    const testLocations = currentRun.testLocations;
+    const testFiles = currentRun.testFiles;
+
+    const currentCases = testCasesRef.current;
+    const executingIds = new Set<string>();
+
+    if (testLocations && testLocations.length > 0) {
+      const locationSet = new Set(testLocations);
+      for (const tc of currentCases) {
+        const loc = `${tc.file}:${tc.line}`;
+        if (locationSet.has(loc)) {
+          executingIds.add(tc.id);
+        }
+      }
+    } else if (testFiles && testFiles.length > 0) {
+      const fileSet = new Set(testFiles);
+      for (const tc of currentCases) {
+        if (fileSet.has(tc.file)) {
+          executingIds.add(tc.id);
+        }
+      }
+    } else if (currentRun.testResults.length > 0) {
+      // Fallback: use completed test results to infer executing files
+      const executingFiles = new Set<string>();
+      for (const r of currentRun.testResults) {
+        if (r.file) executingFiles.add(r.file);
+      }
+      for (const tc of currentCases) {
+        if (executingFiles.has(tc.file)) {
+          executingIds.add(tc.id);
+        }
+      }
+    }
+
+    if (executingIds.size > 0) {
+      setSelectedIds(executingIds);
+    }
+
+    setTestCases(prev => prev.map(tc => {
+      if (completedMap.has(tc.id)) {
+        const result = completedMap.get(tc.id)!;
+        const newStatus = result.status === 'passed' ? 'passed' as const :
+                         result.status === 'failed' ? 'failed' as const :
+                         result.status === 'timedout' ? 'failed' as const :
+                         result.status === 'skipped' ? 'idle' as const : tc.status;
+        return {
+          ...tc,
+          status: newStatus,
+          lastDuration: result.duration ?? tc.lastDuration,
+          lastError: result.error ?? tc.lastError,
+        };
+      }
+      if (executingIds.has(tc.id)) {
+        return { ...tc, status: 'pending' as const };
+      }
+      return { ...tc, status: 'idle' as const };
+    }));
+  }, []);
+
   const handleWsReconnect = useCallback(() => {
     console.log('[WebSocket] Reconnected, syncing state...');
-    
+
     api.getRunStatus().then(status => {
       if (status && status.isRunning) {
-        setIsExecuting(true);
-        if (status.currentRun) {
-          setActiveReportId(status.currentRun.id);
-        }
+        restoreExecutionState(status);
       } else {
         setIsExecuting(false);
       }
     });
-    
+
     loadRunsFromServer();
     loadHealthMetrics();
-    
+
     api.getFlakyTests().then(data => data && setFlakyTests(data));
     api.getQuarantinedTests().then(data => data && setQuarantinedTests(data));
-  }, [loadRunsFromServer, loadHealthMetrics]);
+  }, [loadRunsFromServer, loadHealthMetrics, restoreExecutionState]);
 
   const { isConnected } = useWebSocket(wsUrl, handleWsMessage, { onReconnect: handleWsReconnect });
 
@@ -912,29 +983,24 @@ function App() {
   useEffect(() => {
     const now = Date.now();
     const timeSinceLastLoad = now - lastLoadTestsTimeRef.current;
-    
-    if (timeSinceLastLoad < LOAD_TESTS_CACHE_TTL && testCases.length > 0) {
-      console.log('[loadTests] Skipping due to recent load, time since last:', timeSinceLastLoad);
-    } else {
-      loadTests().then(() => {
-        lastLoadTestsTimeRef.current = Date.now();
-      });
-    }
-    
+
+    const loadPromise = timeSinceLastLoad < LOAD_TESTS_CACHE_TTL && testCases.length > 0
+      ? Promise.resolve()
+      : loadTests().then(() => { lastLoadTestsTimeRef.current = Date.now(); });
+
     api.getFlakyTests().then(data => data && setFlakyTests(data));
     api.getQuarantinedTests().then(data => data && setQuarantinedTests(data));
     loadRunsFromServer();
     loadHealthMetrics();
-    
-    api.getRunStatus().then(status => {
-      if (status && status.isRunning) {
-        setIsExecuting(true);
-        if (status.currentRun) {
-          setActiveReportId(status.currentRun.id);
+
+    loadPromise.then(() => {
+      api.getRunStatus().then(status => {
+        if (status && status.isRunning) {
+          restoreExecutionState(status);
         }
-      }
+      });
     });
-  }, [loadTests, loadRunsFromServer, loadHealthMetrics, testCases.length]);
+  }, [loadTests, loadRunsFromServer, loadHealthMetrics, testCases.length, restoreExecutionState]);
 
   useEffect(() => {
     if (hasRestoredFromReportsRef.current) return;

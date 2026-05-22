@@ -330,6 +330,30 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
     if (selectedRunId !== null) {
       loadRunAnalysis(selectedRunId);
       setClusters([]);
+      // 尝试恢复持久化的聚类结果
+      const loadPersistedClusters = async () => {
+        try {
+          const result = await api.getPersistedClusterResult(selectedRunId);
+          if (result.found && result.clusters.length > 0) {
+            const report = reports.find(r => r.id === selectedRunId);
+            const failedDetails = report?.details.filter(d => d.status === 'failed') || [];
+            setClusters(result.clusters.map(c => {
+              const representativeTest = failedDetails.find(d => d.id === c.testIds[0]);
+              return {
+                clusterId: c.clusterId,
+                category: c.category,
+                testIds: c.testIds,
+                similarity: c.similarity,
+                diagnosis: c.diagnosis as AIDiagnosis | null,
+                representativeError: representativeTest?.error || c.errorMessage,
+              };
+            }));
+          }
+        } catch {
+          // 忽略恢复失败
+        }
+      };
+      loadPersistedClusters();
     }
   }, [selectedRunId, loadRunAnalysis]);
 
@@ -372,7 +396,7 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
         logs: d.logs || undefined,
         browser: d.browser || undefined,
       }));
-      const result = await api.requestClusterDiagnosis(testResults, lang);
+      const result = await api.requestClusterDiagnosis(testResults, lang, selectedRunId);
       if (result && result.clusters) {
         setClusters(result.clusters.map(c => {
           const representativeTest = failedDetails.find(d => d.id === c.testIds[0]);

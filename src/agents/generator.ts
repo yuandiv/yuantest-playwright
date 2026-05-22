@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../logger';
+import { BaseAgent } from './base-agent';
+import { ToolRegistry } from './tool-registry';
 import { AgentConfig, LLMConfig } from '../types';
 
 const GENERATOR_SYSTEM_PROMPT_ZH =
@@ -25,25 +26,24 @@ const GENERATOR_SYSTEM_PROMPT_EN =
   'You must return valid TypeScript code only, no markdown code blocks, no extra explanations. ' +
   'The code should start with import statements.';
 
-export class GeneratorAgent {
-  private config: AgentConfig;
-  private llmConfig: LLMConfig | null;
-  private log = logger.child('GeneratorAgent');
+export class GeneratorAgent extends BaseAgent {
+  protected getAgentName(): string {
+    return 'GeneratorAgent';
+  }
 
   constructor(config: AgentConfig, llmConfig: LLMConfig | null) {
-    this.config = config;
-    this.llmConfig = llmConfig;
+    super(config, llmConfig);
   }
 
   async generateTests(
     planContent: string,
     options?: { outputDir?: string; seedTest?: string }
   ): Promise<string[]> {
-    if (!this.llmConfig || !this.llmConfig.enabled) {
+    if (!this.llmService) {
       throw new Error('LLM is not enabled');
     }
 
-    const lang = 'zh';
+    const lang = this.config.language || 'zh';
     const systemPrompt = lang === 'zh' ? GENERATOR_SYSTEM_PROMPT_ZH : GENERATOR_SYSTEM_PROMPT_EN;
 
     let userPrompt =
@@ -59,59 +59,36 @@ export class GeneratorAgent {
           : `\nReference Seed Test (use the same fixtures and import paths):\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
     }
 
-    const responseText = await this.callLLM(systemPrompt, userPrompt);
-    const generatedFiles = this.extractAndSaveTests(responseText, options?.outputDir);
+    // 创建 ToolRegistry 并筛选 Generator 所需的工具
+    const projectRoot = this.config.projectRoot || process.cwd();
+    const dataDir = path.join(projectRoot, '.yuantest');
+    const fullRegistry = ToolRegistry.createDefaultRegistry(dataDir, projectRoot);
+    const generatorToolNames = ['read_source_file', 'search_codebase'];
+    const tools = fullRegistry
+      .getToolSchemas()
+      .filter((schema) => generatorToolNames.includes(schema.function.name));
+
+    // 工具执行器：委托给 registry.executeTool()
+    const toolExecutor = async (
+      toolName: string,
+      args: Record<string, unknown>
+    ): Promise<string> => {
+      try {
+        return await fullRegistry.executeTool(toolName, args);
+      } catch (error) {
+        return `工具执行失败: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    };
+
+    const result = await super.callLLMWithAgentLoop(
+      { system: systemPrompt, user: userPrompt },
+      tools,
+      toolExecutor
+    );
+
+    const generatedFiles = this.extractAndSaveTests(result.responseText, options?.outputDir);
 
     return generatedFiles;
-  }
-
-  private async callLLM(systemPrompt: string, userPrompt: string): Promise<string> {
-    if (!this.llmConfig) {
-      throw new Error('LLM config is not set');
-    }
-
-    const url = `${this.llmConfig.baseUrl}/v1/chat/completions`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 180000);
-
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (this.llmConfig.apiKey) {
-        headers['Authorization'] = `Bearer ${this.llmConfig.apiKey}`;
-      }
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: this.llmConfig.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: this.llmConfig.maxTokens || 8192,
-          temperature: this.llmConfig.temperature || 0.2,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`LLM API returned ${response.status}: ${response.statusText}`);
-      }
-
-      const data = (await response.json()) as {
-        choices?: { message?: { content?: string } }[];
-      };
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        throw new Error('Empty response from LLM');
-      }
-      return content;
-    } finally {
-      clearTimeout(timeout);
-    }
   }
 
   private extractAndSaveTests(responseText: string, outputDir?: string): string[] {
@@ -134,12 +111,24 @@ export class GeneratorAgent {
       return savedFiles;
     }
 
+    const usedFileNames = new Set<string>();
+
     for (let i = 0; i < codeBlocks.length; i++) {
       const code = codeBlocks[i];
       const testName = this.extractTestName(code);
-      const fileName = testName
-        ? `${testName}.spec.ts`
-        : `generated-${Date.now()}-${i + 1}.spec.ts`;
+      let fileName = testName ? `${testName}.spec.ts` : `generated-${Date.now()}-${i + 1}.spec.ts`;
+
+      // Deduplicate file names with index suffix
+      if (usedFileNames.has(fileName)) {
+        const baseName = testName || `generated-${Date.now()}`;
+        let suffix = 2;
+        while (usedFileNames.has(`${baseName}-${suffix}.spec.ts`)) {
+          suffix++;
+        }
+        fileName = `${baseName}-${suffix}.spec.ts`;
+      }
+      usedFileNames.add(fileName);
+
       const filePath = path.join(testDir, fileName);
       fs.writeFileSync(filePath, code, 'utf-8');
       savedFiles.push(filePath);
@@ -162,23 +151,28 @@ export class GeneratorAgent {
     return blocks;
   }
 
+  private generateSlug(text: string): string {
+    // Replace filesystem-unsafe characters and spaces with hyphens
+    let slug = text.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
+    // Collapse multiple hyphens
+    slug = slug.replace(/-+/g, '-');
+    // Trim leading/trailing hyphens
+    slug = slug.replace(/^-+|-+$/g, '');
+    // Truncate to 50 characters
+    return slug.slice(0, 50);
+  }
+
   private extractTestName(code: string): string | null {
     const describeMatch = code.match(/test\.describe\(['"](.+?)['"]/);
     if (describeMatch) {
-      return describeMatch[1]
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 50);
+      const slug = this.generateSlug(describeMatch[1]);
+      return slug || null;
     }
 
     const testMatch = code.match(/test\(['"](.+?)['"]/);
     if (testMatch) {
-      return testMatch[1]
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 50);
+      const slug = this.generateSlug(testMatch[1]);
+      return slug || null;
     }
 
     return null;

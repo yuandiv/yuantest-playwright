@@ -650,6 +650,14 @@ export class DashboardServer {
           ? {
               id: currentRun.id || null,
               version: this.executor!.getConfig().version,
+              totalTests: currentRun.totalTests,
+              passed: currentRun.passed,
+              failed: currentRun.failed,
+              skipped: currentRun.skipped,
+              testResults: this.executor!.getCompletedTestResults(),
+              testLocations: this.executor!.getTestLocations(),
+              testFiles: this.executor!.getTestFiles(),
+              grepPattern: this.executor!.getGrepPattern(),
             }
           : null,
       });
@@ -2554,6 +2562,29 @@ export class DashboardServer {
     );
 
     /**
+     * 获取已持久化的聚类诊断结果
+     */
+    v1Router.get(
+      '/diagnosis/cluster',
+      asyncHandler(async (req: Request, res: Response) => {
+        const { runId } = req.query;
+
+        if (!runId) {
+          res.status(400).json({ error: 'runId is required' });
+          return;
+        }
+
+        try {
+          const clusters = await this.diagnosisService.loadClusterResult(String(runId));
+          res.json({ found: !!clusters, clusters: clusters || [] });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          res.json({ found: false, clusters: [], error: errorMessage });
+        }
+      })
+    );
+
+    /**
      * 批量聚类诊断端点
      * 接收多个测试结果，基于错误相似度进行聚类，然后对每个聚类的代表测试执行 AI 诊断
      * 返回聚类结果及每个聚类的诊断信息
@@ -2561,7 +2592,7 @@ export class DashboardServer {
     v1Router.post(
       '/diagnosis/cluster',
       asyncHandler(async (req: Request, res: Response) => {
-        const { testResults, lang } = req.body;
+        const { testResults, lang, runId } = req.body;
 
         if (!Array.isArray(testResults)) {
           res.status(400).json({ error: 'testResults must be an array' });
@@ -2584,6 +2615,9 @@ export class DashboardServer {
               errorMessage: cluster.errorMessage,
               diagnosis: null,
             }));
+            if (runId) {
+              await this.diagnosisService.saveClusterResult(String(runId), clusterResults);
+            }
             res.json({ enabled: false, clusters: clusterResults });
             return;
           }
@@ -2644,6 +2678,10 @@ export class DashboardServer {
           const diagnoses = (await Promise.allSettled(diagnosisPromises))
             .map((result) => (result.status === 'fulfilled' ? result.value : null))
             .filter((r): r is NonNullable<typeof r> => r !== null);
+
+          if (runId) {
+            await this.diagnosisService.saveClusterResult(String(runId), diagnoses);
+          }
 
           res.json({ enabled: true, clusters: diagnoses });
         } catch (error: unknown) {

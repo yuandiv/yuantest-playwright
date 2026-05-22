@@ -1,13 +1,40 @@
 import * as fs from 'fs';
-import { logger } from '../logger';
-import { AgentConfig, LLMConfig, TestPlan, TestPlanScenario, ProjectContext } from '../types';
+import * as path from 'path';
+import { BaseAgent } from './base-agent';
+import { BrowserSessionManager } from './browser-session';
+import { ToolRegistry } from './tool-registry';
+import {
+  AgentConfig,
+  AgentPrompts,
+  LLMConfig,
+  TestPlan,
+  TestPlanScenario,
+  ProjectContext,
+  AppExplorationResult,
+  PageSnapshot,
+} from '../types';
 
-const PLANNER_SYSTEM_PROMPT_ZH =
-  '你是一位专业的测试规划专家。你的任务是探索应用并生成结构化的测试计划。' +
-  '你需要根据被测应用的信息和用户描述的功能场景，生成详细的测试步骤和预期结果。' +
+export const PLANNER_SYSTEM_PROMPT_ZH =
+  '你是一位专业的测试规划专家。你的任务是根据被测应用的实际页面结构和用户描述的功能场景，生成全面、深入的结构化测试计划。' +
+  '\n\n## 场景类型要求\n' +
+  '你必须覆盖以下场景类型，每种类型至少1个场景，总场景数不少于8个：\n' +
+  '1. 正向流程（Happy Path）：验证核心功能在正常输入下按预期工作\n' +
+  '2. 反向/异常流程：验证系统对无效输入、错误操作的合理处理\n' +
+  '3. 边界值测试：验证输入在边界条件下的行为（空值、最大长度、特殊字符等）\n' +
+  '4. 数据验证：验证数据的完整性、一致性、格式正确性\n' +
+  '5. 状态转换：验证页面/组件在不同状态间的切换行为\n' +
+  '6. 安全/权限：验证未授权访问、XSS防护、CSRF防护等安全相关行为\n' +
+  '\n## 测试方法论\n' +
+  '请运用以下方法论设计测试场景：\n' +
+  '- 等价类划分：将输入数据划分为有效等价类和无效等价类\n' +
+  '- 边界值分析：关注输入边界和极端值\n' +
+  '- 错误推测法：基于经验推测可能出错的情况\n' +
+  '- 状态转换测试：验证系统在不同状态间的转换\n' +
+  '\n## 输出格式要求\n' +
   '测试步骤应使用具体的页面元素定位器（如 getByRole、getByText、getByLabel 等），' +
   '确保生成的测试计划可以直接用于 Playwright 测试代码生成。' +
-  '你必须只返回有效的 JSON 格式，不要使用 markdown 格式，不要代码块。' +
+  '每个步骤必须包含明确的断言描述（在 expectedResults 中体现）。' +
+  '\n你必须只返回有效的 JSON 格式，不要使用 markdown 格式，不要代码块。' +
   'JSON 必须包含以下字段：' +
   '"title" (字符串: 测试计划标题), ' +
   '"description" (字符串: 计划描述), ' +
@@ -15,12 +42,27 @@ const PLANNER_SYSTEM_PROMPT_ZH =
   '每个 step 包含 action, target, value(可选)。' +
   '请使用中文回复。';
 
-const PLANNER_SYSTEM_PROMPT_EN =
-  'You are a professional test planning expert. Your task is to explore the application and generate structured test plans. ' +
-  'You need to generate detailed test steps and expected results based on the application information and feature scenarios described by the user. ' +
+export const PLANNER_SYSTEM_PROMPT_EN =
+  'You are a professional test planning expert. Your task is to generate comprehensive, in-depth structured test plans based on the actual page structure of the application and the feature scenarios described by the user. ' +
+  '\n\n## Scenario Type Requirements\n' +
+  'You must cover the following scenario types, at least 1 scenario per type, with a minimum of 8 total scenarios:\n' +
+  '1. Happy Path: Verify core functionality works as expected with normal input\n' +
+  '2. Negative/Error Flow: Verify the system handles invalid input and erroneous operations properly\n' +
+  '3. Boundary Value Testing: Verify behavior at boundary conditions (empty values, max length, special characters, etc.)\n' +
+  '4. Data Validation: Verify data integrity, consistency, and format correctness\n' +
+  '5. State Transition: Verify page/component behavior when switching between different states\n' +
+  '6. Security/Permission: Verify unauthorized access, XSS protection, CSRF protection, etc.\n' +
+  '\n## Testing Methodology\n' +
+  'Please apply the following methodologies to design test scenarios:\n' +
+  '- Equivalence Partitioning: Divide input data into valid and invalid equivalence classes\n' +
+  '- Boundary Value Analysis: Focus on input boundaries and extreme values\n' +
+  '- Error Guessing: Based on experience, predict likely error scenarios\n' +
+  '- State Transition Testing: Verify system transitions between different states\n' +
+  '\n## Output Format Requirements\n' +
   'Test steps should use concrete page element locators (e.g. getByRole, getByText, getByLabel) ' +
   'to ensure the generated test plan can be directly used for Playwright test code generation. ' +
-  'You must respond with valid JSON only, no markdown formatting, no code blocks. ' +
+  'Each step must include clear assertion descriptions (reflected in expectedResults). ' +
+  '\nYou must respond with valid JSON only, no markdown formatting, no code blocks. ' +
   'The JSON must have these fields: ' +
   '"title" (string: test plan title), ' +
   '"description" (string: plan description), ' +
@@ -28,35 +70,217 @@ const PLANNER_SYSTEM_PROMPT_EN =
   'Each step contains action, target, value(optional). ' +
   'Please respond in English.';
 
-export class PlannerAgent {
-  private config: AgentConfig;
-  private llmConfig: LLMConfig | null;
-  private log = logger.child('PlannerAgent');
+export const PLANNER_FEW_SHOT_ZH = `
 
-  constructor(config: AgentConfig, llmConfig: LLMConfig | null) {
-    this.config = config;
-    this.llmConfig = llmConfig;
+## 优秀测试计划示例
+
+以下是一个登录功能的优秀测试计划示例，供参考其深度和广度：
+
+{
+  "title": "用户登录功能测试计划",
+  "description": "针对用户登录功能的全面测试，覆盖正向流程、异常处理、边界值、安全验证等维度",
+  "scenarios": [
+    {
+      "name": "正常登录 - 有效凭据",
+      "steps": [
+        {"action": "导航到登录页面", "target": "", "value": "/login"},
+        {"action": "输入有效用户名", "target": "getByLabel('用户名')", "value": "testuser"},
+        {"action": "输入有效密码", "target": "getByLabel('密码')", "value": "Test@123456"},
+        {"action": "点击登录按钮", "target": "getByRole('button', { name: '登录' })"},
+        {"action": "等待页面跳转", "target": "", "value": ""}
+      ],
+      "expectedResults": [
+        "登录成功后跳转到首页",
+        "页面显示用户名或欢迎信息",
+        "URL 变更为 /dashboard"
+      ]
+    },
+    {
+      "name": "异常登录 - 错误密码",
+      "steps": [
+        {"action": "导航到登录页面", "target": "", "value": "/login"},
+        {"action": "输入有效用户名", "target": "getByLabel('用户名')", "value": "testuser"},
+        {"action": "输入错误密码", "target": "getByLabel('密码')", "value": "wrongpassword"},
+        {"action": "点击登录按钮", "target": "getByRole('button', { name: '登录' })"}
+      ],
+      "expectedResults": [
+        "显示错误提示信息：用户名或密码错误",
+        "用户仍停留在登录页面",
+        "密码输入框被清空"
+      ]
+    },
+    {
+      "name": "边界值 - 空用户名和密码",
+      "steps": [
+        {"action": "导航到登录页面", "target": "", "value": "/login"},
+        {"action": "不输入任何内容直接点击登录", "target": "getByRole('button', { name: '登录' })"}
+      ],
+      "expectedResults": [
+        "显示必填字段验证提示",
+        "登录按钮不可用或提交被阻止",
+        "用户名和密码输入框标记为错误状态"
+      ]
+    },
+    {
+      "name": "安全 - SQL注入尝试",
+      "steps": [
+        {"action": "导航到登录页面", "target": "", "value": "/login"},
+        {"action": "在用户名输入SQL注入字符串", "target": "getByLabel('用户名')", "value": "' OR '1'='1"},
+        {"action": "点击登录按钮", "target": "getByRole('button', { name: '登录' })"}
+      ],
+      "expectedResults": [
+        "登录失败，不返回任何数据库信息",
+        "显示通用错误提示而非技术错误信息",
+        "系统记录异常登录尝试"
+      ]
+    }
+  ]
+}
+`;
+
+export const PLANNER_FEW_SHOT_EN = `
+
+## Example of a Good Test Plan
+
+Below is an example of a good test plan for a login feature, demonstrating depth and breadth:
+
+{
+  "title": "User Login Feature Test Plan",
+  "description": "Comprehensive testing of user login functionality, covering happy path, error handling, boundary values, and security validation",
+  "scenarios": [
+    {
+      "name": "Happy Path - Valid Credentials",
+      "steps": [
+        {"action": "Navigate to login page", "target": "", "value": "/login"},
+        {"action": "Enter valid username", "target": "getByLabel('Username')", "value": "testuser"},
+        {"action": "Enter valid password", "target": "getByLabel('Password')", "value": "Test@123456"},
+        {"action": "Click login button", "target": "getByRole('button', { name: 'Login' })"},
+        {"action": "Wait for page redirect", "target": "", "value": ""}
+      ],
+      "expectedResults": [
+        "After successful login, redirect to dashboard",
+        "Page displays username or welcome message",
+        "URL changes to /dashboard"
+      ]
+    },
+    {
+      "name": "Error Flow - Wrong Password",
+      "steps": [
+        {"action": "Navigate to login page", "target": "", "value": "/login"},
+        {"action": "Enter valid username", "target": "getByLabel('Username')", "value": "testuser"},
+        {"action": "Enter wrong password", "target": "getByLabel('Password')", "value": "wrongpassword"},
+        {"action": "Click login button", "target": "getByRole('button', { name: 'Login' })"}
+      ],
+      "expectedResults": [
+        "Error message displayed: Invalid username or password",
+        "User stays on login page",
+        "Password field is cleared"
+      ]
+    },
+    {
+      "name": "Boundary - Empty Username and Password",
+      "steps": [
+        {"action": "Navigate to login page", "target": "", "value": "/login"},
+        {"action": "Click login without entering anything", "target": "getByRole('button', { name: 'Login' })"}
+      ],
+      "expectedResults": [
+        "Required field validation messages displayed",
+        "Login button disabled or submission prevented",
+        "Username and password fields marked as error state"
+      ]
+    },
+    {
+      "name": "Security - SQL Injection Attempt",
+      "steps": [
+        {"action": "Navigate to login page", "target": "", "value": "/login"},
+        {"action": "Enter SQL injection string in username", "target": "getByLabel('Username')", "value": "' OR '1'='1"},
+        {"action": "Click login button", "target": "getByRole('button', { name: 'Login' })"}
+      ],
+      "expectedResults": [
+        "Login fails, no database information returned",
+        "Generic error message shown instead of technical error",
+        "System logs abnormal login attempt"
+      ]
+    }
+  ]
+}
+`;
+
+export class PlannerAgent extends BaseAgent {
+  private customPrompts: Partial<AgentPrompts> | null = null;
+  private browserSessionManager: BrowserSessionManager | null = null;
+
+  protected getAgentName(): string {
+    return 'PlannerAgent';
+  }
+
+  constructor(
+    config: AgentConfig,
+    llmConfig: LLMConfig | null,
+    customPrompts?: Partial<AgentPrompts>,
+    browserSessionManager?: BrowserSessionManager
+  ) {
+    super(config, llmConfig);
+    this.customPrompts = customPrompts || null;
+    this.browserSessionManager = browserSessionManager || null;
+  }
+
+  updateConfig(
+    config: AgentConfig,
+    llmConfig: LLMConfig | null,
+    extraParams?: Record<string, unknown>
+  ): void {
+    super.updateConfig(config, llmConfig, extraParams);
+    if (extraParams) {
+      if (extraParams.customPrompts !== undefined) {
+        this.customPrompts = extraParams.customPrompts as Partial<AgentPrompts> | null;
+      }
+      if (extraParams.browserSessionManager !== undefined) {
+        this.browserSessionManager =
+          extraParams.browserSessionManager as BrowserSessionManager | null;
+      }
+    }
   }
 
   async generatePlan(
     description: string,
-    options?: { seedTest?: string; prdPath?: string }
+    options?: {
+      seedTest?: string;
+      prdPath?: string;
+      exploreResult?: AppExplorationResult;
+    }
   ): Promise<TestPlan> {
-    if (!this.llmConfig || !this.llmConfig.enabled) {
+    if (!this.llmService) {
       throw new Error('LLM is not enabled');
     }
 
-    const lang = 'zh';
-    const systemPrompt = lang === 'zh' ? PLANNER_SYSTEM_PROMPT_ZH : PLANNER_SYSTEM_PROMPT_EN;
+    const lang = this.config.language || 'zh';
+    const systemPrompt =
+      (lang === 'zh'
+        ? this.customPrompts?.plannerSystemZh || PLANNER_SYSTEM_PROMPT_ZH
+        : this.customPrompts?.plannerSystemEn || PLANNER_SYSTEM_PROMPT_EN) +
+      (lang === 'zh'
+        ? this.customPrompts?.plannerFewShotZh || PLANNER_FEW_SHOT_ZH
+        : this.customPrompts?.plannerFewShotEn || PLANNER_FEW_SHOT_EN);
 
     let userPrompt =
       lang === 'zh'
-        ? `请为以下功能生成测试计划：\n\n${description}\n`
-        : `Generate a test plan for the following feature:\n\n${description}\n`;
+        ? `请为以下功能生成测试计划：\n\n${description}\n\n` +
+          `请考虑以下测试维度：正常流程、异常流程、边界条件、数据验证、权限控制。\n` +
+          `请为每个场景提供详细的测试步骤，包括前置条件、操作步骤和断言验证。\n` +
+          `请确保覆盖关键业务路径和潜在风险点。\n`
+        : `Generate a test plan for the following feature:\n\n${description}\n\n` +
+          `Please consider these testing dimensions: normal flow, error flow, boundary conditions, data validation, permission control.\n` +
+          `Provide detailed test steps for each scenario, including preconditions, action steps, and assertion verifications.\n` +
+          `Ensure coverage of critical business paths and potential risk points.\n`;
 
     const ctx = this.config.projectContext;
     if (ctx) {
       userPrompt += this.buildContextPrompt(ctx, lang);
+    }
+
+    if (options?.exploreResult) {
+      userPrompt += this.buildExplorationPrompt(options.exploreResult, lang);
     }
 
     if (options?.seedTest && fs.existsSync(options.seedTest)) {
@@ -65,6 +289,17 @@ export class PlannerAgent {
         lang === 'zh'
           ? `\n参考 Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`
           : `\nReference Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
+
+      // 如果有 BrowserSessionManager，导航到页面获取快照作为动态上下文
+      if (this.browserSessionManager && this.config.projectContext?.baseURL) {
+        const dynamicContext = await this.capturePageSnapshot(this.config.projectContext.baseURL);
+        if (dynamicContext) {
+          userPrompt +=
+            lang === 'zh'
+              ? `\n## Seed Test 运行后的浏览器状态\n以下是在运行 Seed Test 后捕获的页面状态：\n${dynamicContext}\n`
+              : `\n## Browser State After Running Seed Test\nThe following page state was captured after running the Seed Test:\n${dynamicContext}\n`;
+        }
+      }
     }
 
     if (options?.prdPath && fs.existsSync(options.prdPath)) {
@@ -75,10 +310,297 @@ export class PlannerAgent {
           : `\nProduct Requirement Document:\n${prdContent.slice(0, 3000)}\n`;
     }
 
-    const responseText = await this.callLLM(systemPrompt, userPrompt);
-    const plan = this.parsePlanResponse(responseText, description);
+    // 创建 ToolRegistry 并筛选 Planner 所需的工具
+    const projectRoot = this.config.projectRoot || process.cwd();
+    const dataDir = path.join(projectRoot, '.yuantest');
+    const fullRegistry = ToolRegistry.createDefaultRegistry(dataDir, projectRoot);
+    const plannerToolNames = ['search_codebase', 'read_source_file', 'explore_app'];
+    const tools = fullRegistry
+      .getToolSchemas()
+      .filter((schema) => plannerToolNames.includes(schema.function.name));
+
+    // 工具执行器：委托给 registry.executeTool()
+    const toolExecutor = async (
+      toolName: string,
+      args: Record<string, unknown>
+    ): Promise<string> => {
+      try {
+        return await fullRegistry.executeTool(toolName, args);
+      } catch (error) {
+        return `工具执行失败: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    };
+
+    const result = await super.callLLMWithAgentLoop(
+      { system: systemPrompt, user: userPrompt },
+      tools,
+      toolExecutor
+    );
+
+    const plan = this.parsePlanResponse(result.responseText, description);
 
     return plan;
+  }
+
+  private static readonly MAX_EXPLORATION_PAGES = 5;
+  private static readonly MAX_ELEMENTS_PER_PAGE = 20;
+  private static readonly MAX_LINKS_PER_PAGE = 15;
+  private static readonly MAX_EXPLORATION_CHARS = 12000;
+
+  buildExplorationPrompt(result: AppExplorationResult, lang: string): string {
+    const lines: string[] = [];
+    const maxPages = PlannerAgent.MAX_EXPLORATION_PAGES;
+    const maxChars = PlannerAgent.MAX_EXPLORATION_CHARS;
+
+    // 构建头部信息
+    if (lang === 'zh') {
+      lines.push('\n--- 被测应用页面结构（通过实际浏览器探索获取） ---');
+      lines.push(`应用 URL: ${result.baseURL}`);
+      lines.push(`发现页面数: ${result.pages.length}`);
+      lines.push(`发现路由: ${result.routes.join(', ')}`);
+      lines.push('');
+    } else {
+      lines.push('\n--- Application Page Structure (obtained via actual browser exploration) ---');
+      lines.push(`Application URL: ${result.baseURL}`);
+      lines.push(`Pages discovered: ${result.pages.length}`);
+      lines.push(`Routes discovered: ${result.routes.join(', ')}`);
+      lines.push('');
+    }
+
+    const pagesToShow = result.pages.slice(0, maxPages);
+    const hasMorePages = result.pages.length > maxPages;
+
+    // 为头部和尾部预留字符数，剩余预算均匀分配给每个页面
+    const headerReserve = 200;
+    const perPageBudget = Math.floor((maxChars - headerReserve) / Math.max(pagesToShow.length, 1));
+
+    for (const page of pagesToShow) {
+      const pageLines = this.buildPageSection(page, lang, perPageBudget);
+      lines.push(...pageLines);
+    }
+
+    // 构建尾部信息
+    if (lang === 'zh') {
+      if (hasMorePages) {
+        lines.push(`注意：共发现 ${result.pages.length} 个页面，此处仅展示前 ${maxPages} 个。`);
+      }
+      lines.push('请根据以上实际页面结构生成精确的测试计划，使用具体的页面元素定位器。');
+    } else {
+      if (hasMorePages) {
+        lines.push(
+          `Note: ${result.pages.length} pages discovered, only the first ${maxPages} are shown.`
+        );
+      }
+      lines.push(
+        'Generate precise test plans based on the actual page structure above, using concrete page element locators.'
+      );
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 构建单个页面的内容区域，按优先级分配字符预算
+   * 优先级：交互元素 > 表单 > 链接
+   */
+  private buildPageSection(page: PageSnapshot, lang: string, budget: number): string[] {
+    const maxElements = PlannerAgent.MAX_ELEMENTS_PER_PAGE;
+    const maxLinks = PlannerAgent.MAX_LINKS_PER_PAGE;
+    const lines: string[] = [];
+
+    // 页面头部
+    const pagePath = new URL(page.url).pathname || '/';
+    if (lang === 'zh') {
+      lines.push(`## 页面: ${pagePath}`);
+      lines.push(`标题: "${page.title}"`);
+    } else {
+      lines.push(`## Page: ${pagePath}`);
+      lines.push(`Title: "${page.title}"`);
+    }
+    let used = lines.join('\n').length;
+
+    // 交互元素（最高优先级）
+    if (page.interactiveElements.length > 0 && used < budget) {
+      const sectionBudget = budget - used;
+      const sectionLines: string[] = [];
+      sectionLines.push(lang === 'zh' ? '交互元素:' : 'Interactive Elements:');
+
+      const elementsToShow = page.interactiveElements.slice(0, maxElements);
+      for (const el of elementsToShow) {
+        let desc = `- ${el.role} "${el.name}" (selector=${el.selector})`;
+        if (el.url) {
+          desc += ` href="${el.url}"`;
+        }
+        if (el.required) {
+          desc += lang === 'zh' ? ' [必填]' : ' [required]';
+        }
+        if (el.type) {
+          desc += ` type=${el.type}`;
+        }
+        sectionLines.push(desc);
+        // 检查是否超出该页面预算
+        if (sectionLines.join('\n').length > sectionBudget) {
+          // 移除最后添加的行，添加省略提示
+          sectionLines.pop();
+          const omitted = page.interactiveElements.length - sectionLines.length + 1;
+          sectionLines.push(
+            lang === 'zh'
+              ? `  ... 还有 ${omitted} 个交互元素已省略`
+              : `  ... ${omitted} more interactive elements omitted`
+          );
+          break;
+        }
+      }
+
+      if (
+        page.interactiveElements.length > maxElements &&
+        sectionLines.length === elementsToShow.length + 1
+      ) {
+        // 未在循环中截断，但仍超出 maxElements 限制
+        sectionLines.push(
+          lang === 'zh'
+            ? `  ... 还有 ${page.interactiveElements.length - maxElements} 个交互元素已省略`
+            : `  ... ${page.interactiveElements.length - maxElements} more interactive elements omitted`
+        );
+      }
+
+      lines.push(...sectionLines);
+      used = lines.join('\n').length;
+    }
+
+    // 表单（中等优先级）
+    if (page.forms.length > 0 && used < budget) {
+      const sectionBudget = budget - used;
+      const sectionLines: string[] = [];
+      sectionLines.push(lang === 'zh' ? '表单:' : 'Forms:');
+
+      for (const form of page.forms) {
+        const fieldNames = form.fields.map((f) => f.name).join(', ');
+        let formLine =
+          lang === 'zh'
+            ? `- ${form.name}: 字段[${fieldNames}]`
+            : `- ${form.name}: fields[${fieldNames}]`;
+        if (form.submitButton) {
+          formLine +=
+            lang === 'zh'
+              ? `\n  提交按钮: ${form.submitButton.name}`
+              : `\n  Submit button: ${form.submitButton.name}`;
+        }
+        sectionLines.push(formLine);
+        // 检查是否超出该页面剩余预算
+        if (sectionLines.join('\n').length > sectionBudget) {
+          sectionLines.pop();
+          sectionLines.push(
+            lang === 'zh' ? '  ... 后续表单已省略' : '  ... remaining forms omitted'
+          );
+          break;
+        }
+      }
+
+      lines.push(...sectionLines);
+      used = lines.join('\n').length;
+    }
+
+    // 链接（最低优先级）
+    if (page.links.length > 0 && used < budget) {
+      const sectionBudget = budget - used;
+      const sectionLines: string[] = [];
+      sectionLines.push(lang === 'zh' ? '导航链接:' : 'Navigation Links:');
+
+      const linksToShow = page.links.slice(0, maxLinks);
+      for (const link of linksToShow) {
+        sectionLines.push(`- "${link.text}" -> ${link.href}`);
+        // 检查是否超出该页面剩余预算
+        if (sectionLines.join('\n').length > sectionBudget) {
+          sectionLines.pop();
+          const omitted = page.links.length - sectionLines.length + 1;
+          sectionLines.push(
+            lang === 'zh'
+              ? `  ... 还有 ${omitted} 个链接已省略`
+              : `  ... ${omitted} more links omitted`
+          );
+          break;
+        }
+      }
+
+      if (page.links.length > maxLinks && sectionLines.length === linksToShow.length + 1) {
+        // 未在循环中截断，但仍超出 maxLinks 限制
+        sectionLines.push(
+          lang === 'zh'
+            ? `  ... 还有 ${page.links.length - maxLinks} 个链接已省略`
+            : `  ... ${page.links.length - maxLinks} more links omitted`
+        );
+      }
+
+      lines.push(...sectionLines);
+    }
+
+    lines.push('');
+    return lines;
+  }
+
+  /**
+   * 导航到目标 URL 并捕获页面快照，作为动态上下文注入到 Planner 的 prompt
+   */
+  private async capturePageSnapshot(targetURL: string): Promise<string | undefined> {
+    if (!this.browserSessionManager) {
+      return undefined;
+    }
+
+    // 根据 config.language 决定标签语言
+    const lang = this.config.language || 'zh';
+
+    let page: import('@playwright/test').Page | null = null;
+    try {
+      const _session = await this.browserSessionManager.getSession('planner-seed', {
+        headless: true,
+      });
+      page = await this.browserSessionManager.getPage('planner-seed');
+      await page.goto(targetURL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+      // 获取页面基本信息
+      const url = page.url();
+      const title = await page.title();
+
+      // 获取可访问性快照
+      let snapshotStr = '';
+      try {
+        const snapshot = await (page as any).accessibility.snapshot();
+        if (snapshot) {
+          snapshotStr = JSON.stringify(snapshot, null, 2).slice(0, 6000);
+        }
+      } catch {
+        // accessibility snapshot 可能不可用
+      }
+
+      const lines: string[] = [
+        lang === 'zh' ? `当前页面 URL: ${url}` : `Current page URL: ${url}`,
+        lang === 'zh' ? `页面标题: ${title}` : `Page title: ${title}`,
+      ];
+
+      if (snapshotStr) {
+        lines.push(
+          lang === 'zh'
+            ? `页面可访问性快照:\n${snapshotStr}`
+            : `Page accessibility snapshot:\n${snapshotStr}`
+        );
+      }
+
+      return lines.join('\n');
+    } catch (error) {
+      this.log.warn(
+        `Failed to capture page snapshot: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return undefined;
+    } finally {
+      if (page) {
+        try {
+          await page.close();
+        } catch {
+          // 忽略关闭错误
+        }
+      }
+    }
   }
 
   private buildContextPrompt(ctx: ProjectContext, lang: string): string {
@@ -143,56 +665,6 @@ export class PlannerAgent {
     return lines.join('\n');
   }
 
-  private async callLLM(systemPrompt: string, userPrompt: string): Promise<string> {
-    if (!this.llmConfig) {
-      throw new Error('LLM config is not set');
-    }
-
-    const url = `${this.llmConfig.baseUrl}/v1/chat/completions`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000);
-
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (this.llmConfig.apiKey) {
-        headers['Authorization'] = `Bearer ${this.llmConfig.apiKey}`;
-      }
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: this.llmConfig.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: this.llmConfig.maxTokens || 4096,
-          temperature: this.llmConfig.temperature || 0.3,
-          response_format: { type: 'json_object' },
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`LLM API returned ${response.status}: ${response.statusText}`);
-      }
-
-      const data = (await response.json()) as {
-        choices?: { message?: { content?: string } }[];
-      };
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        throw new Error('Empty response from LLM');
-      }
-      return content;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
   private parsePlanResponse(responseText: string, originalDescription: string): TestPlan {
     let text = responseText.trim();
 
@@ -229,7 +701,49 @@ export class PlannerAgent {
         seedTest: this.config.seedTest,
       };
     } catch {
-      this.log.warn('Failed to parse planner response as JSON, creating fallback plan');
+      // JSON parse failed — likely truncated. Try to repair and extract partial data.
+      this.log.warn('Failed to parse planner response as JSON, attempting repair');
+
+      const repaired = this.tryRepairTruncatedJSON(text);
+      if (repaired) {
+        try {
+          const scenarios: TestPlanScenario[] = Array.isArray(repaired.scenarios)
+            ? repaired.scenarios
+                .filter((s: Record<string, unknown>) => s && typeof s === 'object')
+                .map((s: Record<string, unknown>) => ({
+                  name: String(s.name || 'Unnamed Scenario'),
+                  steps: Array.isArray(s.steps)
+                    ? s.steps
+                        .filter((step: unknown) => step && typeof step === 'object')
+                        .map((step: Record<string, unknown>) => ({
+                          action: String(step.action || ''),
+                          target: String(step.target || ''),
+                          value: step.value ? String(step.value) : undefined,
+                        }))
+                    : [],
+                  expectedResults: Array.isArray(s.expectedResults)
+                    ? s.expectedResults.map((r: unknown) => String(r))
+                    : [],
+                }))
+            : [];
+
+          if (scenarios.length > 0) {
+            this.log.info(`Repaired truncated JSON: recovered ${scenarios.length} scenarios`);
+            return {
+              id: `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              title: String(repaired.title || originalDescription),
+              description: String(repaired.description || ''),
+              scenarios,
+              createdAt: Date.now(),
+              seedTest: this.config.seedTest,
+            };
+          }
+        } catch {
+          // Repair didn't work either, fall through to fallback
+        }
+      }
+
+      this.log.warn('JSON repair failed, creating fallback plan');
 
       return {
         id: `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -245,6 +759,74 @@ export class PlannerAgent {
         createdAt: Date.now(),
         seedTest: this.config.seedTest,
       };
+    }
+  }
+
+  /**
+   * 尝试修复截断的 JSON，通过补全未关闭的括号/花括号
+   * 处理 LLM 输出被截断的常见情况
+   */
+  private tryRepairTruncatedJSON(text: string): Record<string, unknown> | null {
+    try {
+      // 找到 JSON 对象的起始位置
+      const start = text.indexOf('{');
+      if (start === -1) {
+        return null;
+      }
+
+      let json = text.slice(start);
+
+      // 统计未关闭的括号和花括号
+      let openBraces = 0;
+      let openBrackets = 0;
+      let inString = false;
+      let escape = false;
+
+      for (let i = 0; i < json.length; i++) {
+        const ch = json[i];
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (ch === '\\') {
+          escape = true;
+          continue;
+        }
+        if (ch === '"') {
+          inString = !inString;
+          continue;
+        }
+        if (inString) {
+          continue;
+        }
+
+        if (ch === '{') {
+          openBraces++;
+        } else if (ch === '}') {
+          openBraces--;
+        } else if (ch === '[') {
+          openBrackets++;
+        } else if (ch === ']') {
+          openBrackets--;
+        }
+      }
+
+      // 如果在字符串中，先关闭字符串
+      if (inString) {
+        json += '"';
+      }
+
+      // 补全未关闭的括号和花括号
+      for (let i = 0; i < openBrackets; i++) {
+        json += ']';
+      }
+      for (let i = 0; i < openBraces; i++) {
+        json += '}';
+      }
+
+      return JSON.parse(json);
+    } catch {
+      return null;
     }
   }
 }

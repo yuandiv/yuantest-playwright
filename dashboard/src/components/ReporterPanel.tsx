@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Lang } from '../i18n';
 import { t } from '../i18n';
 import { RunReport, RunDetail, AIDiagnosis } from '../types';
@@ -301,6 +301,33 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
   }>>([]);
   const [analyzingCluster, setAnalyzingCluster] = useState(false);
 
+  // 切换报告时清空聚类结果并尝试恢复持久化数据
+  useEffect(() => {
+    setClusters([]);
+    const loadPersistedClusters = async () => {
+      try {
+        const result = await api.getPersistedClusterResult(report.id);
+        if (result.found && result.clusters.length > 0) {
+          const failedDetails = report.details.filter(d => d.status === 'failed');
+          setClusters(result.clusters.map(c => {
+            const representativeTest = failedDetails.find(d => d.id === c.testIds[0]);
+            return {
+              clusterId: c.clusterId,
+              category: c.category,
+              testIds: c.testIds,
+              similarity: c.similarity,
+              diagnosis: c.diagnosis as AIDiagnosis | null,
+              representativeError: representativeTest?.error || c.errorMessage,
+            };
+          }));
+        }
+      } catch {
+        // 忽略恢复失败
+      }
+    };
+    loadPersistedClusters();
+  }, [report.id]);
+
   const testToClusterMap = useMemo(() => {
     const map = new Map<string, number>();
     clusters.forEach((cluster, index) => {
@@ -346,7 +373,7 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
         logs: d.logs || undefined,
         browser: d.browser || undefined,
       }));
-      const result = await api.requestClusterDiagnosis(testResults, lang);
+      const result = await api.requestClusterDiagnosis(testResults, lang, report.id);
       if (result && result.clusters) {
         setClusters(result.clusters.map(c => {
           const representativeTest = failedDetails.find(d => d.id === c.testIds[0]);

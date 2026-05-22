@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../logger';
+import { BaseAgent } from './base-agent';
+import { ToolRegistry } from './tool-registry';
+import { PatchApplier } from './patch-applier';
 import { AgentConfig, HealerPatch, LLMConfig, AgentHealResult } from '../types';
 
 const HEALER_SYSTEM_PROMPT_ZH =
@@ -29,14 +31,15 @@ const HEALER_SYSTEM_PROMPT_EN =
   '"healed" (boolean: whether the fix was successful)\n' +
   'Please respond in English.';
 
-export class HealerAgent {
-  private config: AgentConfig;
-  private llmConfig: LLMConfig | null;
-  private log = logger.child('HealerAgent');
+export class HealerAgent extends BaseAgent {
+  private patchApplier = new PatchApplier();
+
+  protected getAgentName(): string {
+    return 'HealerAgent';
+  }
 
   constructor(config: AgentConfig, llmConfig: LLMConfig | null) {
-    this.config = config;
-    this.llmConfig = llmConfig;
+    super(config, llmConfig);
   }
 
   async healTest(
@@ -47,37 +50,64 @@ export class HealerAgent {
       stackTrace?: string;
     }
   ): Promise<AgentHealResult> {
-    if (!this.llmConfig || !this.llmConfig.enabled) {
+    if (!this.llmService) {
       throw new Error('LLM is not enabled');
     }
 
     const maxRounds = options?.maxRounds || this.config.maxHealRounds || 3;
-    const testContent = fs.readFileSync(testFilePath, 'utf-8');
     const testFileName = path.basename(testFilePath);
-    const testId = this.extractTestId(testContent, testFilePath);
+    const originalContent = fs.readFileSync(testFilePath, 'utf-8');
+    const testId = this.extractTestId(originalContent, testFilePath);
 
     let currentError = options?.error || '';
     const currentStackTrace = options?.stackTrace || '';
     let roundsUsed = 0;
-    let allPatches: HealerPatch[] = [];
+    const allPatches: HealerPatch[] = [];
     let healed = false;
 
     for (let round = 1; round <= maxRounds; round++) {
       roundsUsed = round;
       this.log.info(`Healer round ${round}/${maxRounds} for: ${testFileName}`);
 
+      // Read the latest file content for each round
+      const currentContent = fs.readFileSync(testFilePath, 'utf-8');
+
       const result = await this.attemptHeal(
         testFilePath,
-        testContent,
+        currentContent,
         currentError,
         currentStackTrace,
         round
       );
 
       if (result.patches.length > 0) {
-        allPatches = [...allPatches, ...result.patches];
+        // Include LLM-returned patches in the result (deduplicated)
+        for (const patch of result.patches) {
+          // Deduplicate by originalCode+patchedCode combination
+          const isDuplicate = allPatches.some(
+            (p) => p.originalCode === patch.originalCode && p.patchedCode === patch.patchedCode
+          );
+          if (!isDuplicate) {
+            allPatches.push(patch);
+          }
+        }
 
-        if (result.healed) {
+        // Try to apply patches to the file
+        let anyPatchApplied = false;
+
+        for (const patch of result.patches) {
+          const currentFileContent = fs.readFileSync(testFilePath, 'utf-8');
+          const applied = this.patchApplier.applyPatchToFile(
+            testFilePath,
+            currentFileContent,
+            patch
+          );
+          if (applied) {
+            anyPatchApplied = true;
+          }
+        }
+
+        if (anyPatchApplied && result.healed) {
           healed = true;
           this.log.info(`Test healed after ${round} round(s): ${testFileName}`);
           break;
@@ -88,6 +118,110 @@ export class HealerAgent {
         this.log.info(`No patches generated in round ${round}, stopping`);
         break;
       }
+    }
+
+    // Roll back to original content if not healed but patches were applied to the file
+    if (!healed) {
+      const finalContent = fs.readFileSync(testFilePath, 'utf-8');
+      if (finalContent !== originalContent) {
+        this.log.info(
+          `Not healed after all rounds, rolling back to original content: ${testFilePath}`
+        );
+        fs.writeFileSync(testFilePath, originalContent, 'utf-8');
+      }
+    }
+
+    return {
+      testId,
+      testTitle: testFileName,
+      patches: allPatches,
+      healed,
+      roundsUsed,
+    };
+  }
+
+  /**
+   * 运行测试并在失败时尝试修复，包含事务性补丁应用和最终回滚逻辑
+   */
+  async runAndHeal(
+    testFilePath: string,
+    runTestFn: (
+      filePath: string
+    ) => Promise<{ passed: boolean; error?: string; stackTrace?: string }>,
+    options?: {
+      maxRounds?: number;
+    }
+  ): Promise<AgentHealResult> {
+    if (!this.llmService) {
+      throw new Error('LLM is not enabled');
+    }
+
+    const maxRounds = options?.maxRounds || this.config.maxHealRounds || 3;
+    const testFileName = path.basename(testFilePath);
+    // 保存原始文件内容，用于最终回滚
+    const originalContent = fs.readFileSync(testFilePath, 'utf-8');
+    const testId = this.extractTestId(originalContent, testFilePath);
+
+    let allPatches: HealerPatch[] = [];
+    let healed = false;
+    let roundsUsed = 0;
+
+    for (let round = 1; round <= maxRounds; round++) {
+      roundsUsed = round;
+      this.log.info(`runAndHeal 第 ${round}/${maxRounds} 轮: ${testFileName}`);
+
+      // 运行测试
+      const testResult = await runTestFn(testFilePath);
+      if (testResult.passed) {
+        healed = true;
+        this.log.info(`测试通过，修复成功: ${testFileName}`);
+        break;
+      }
+
+      // 测试失败，尝试修复
+      const healResult = await this.attemptHeal(
+        testFilePath,
+        fs.readFileSync(testFilePath, 'utf-8'),
+        testResult.error || '',
+        testResult.stackTrace || '',
+        round
+      );
+
+      if (healResult.patches.length > 0) {
+        // 保存本轮补丁应用前的文件内容，用于回滚
+        const roundStartContent = fs.readFileSync(testFilePath, 'utf-8');
+        const projectRoot = this.config.projectRoot || process.cwd();
+        let roundSuccess = true;
+
+        // 逐个应用补丁
+        for (const patch of healResult.patches) {
+          const applied = this.patchApplier.applyPatch(patch, projectRoot);
+          if (!applied) {
+            // 补丁应用失败，回滚本轮所有已应用的补丁
+            this.log.warn(`补丁应用失败，回滚本轮所有补丁: ${testFilePath}`);
+            fs.writeFileSync(testFilePath, roundStartContent, 'utf-8');
+            roundSuccess = false;
+            break;
+          }
+        }
+
+        if (roundSuccess) {
+          // 本轮所有补丁应用成功，加入总补丁列表
+          allPatches = [...allPatches, ...healResult.patches];
+        } else {
+          // 本轮回滚，继续下一轮
+          this.log.info(`第 ${round} 轮补丁回滚，继续下一轮`);
+        }
+      } else {
+        this.log.info(`第 ${round} 轮未生成补丁，停止修复`);
+        break;
+      }
+    }
+
+    // 所有轮次结束后仍未修复，回滚到原始内容
+    if (!healed) {
+      this.log.info(`所有轮次修复失败，回滚到原始内容: ${testFilePath}`);
+      fs.writeFileSync(testFilePath, originalContent, 'utf-8');
     }
 
     return {
@@ -106,11 +240,11 @@ export class HealerAgent {
     stackTrace: string,
     round: number
   ): Promise<{ patches: HealerPatch[]; summary: string; healed: boolean }> {
-    if (!this.llmConfig) {
+    if (!this.llmService) {
       throw new Error('LLM config is not set');
     }
 
-    const lang = 'zh';
+    const lang = this.config.language || 'zh';
     const systemPrompt = lang === 'zh' ? HEALER_SYSTEM_PROMPT_ZH : HEALER_SYSTEM_PROMPT_EN;
 
     let userPrompt =
@@ -144,50 +278,34 @@ export class HealerAgent {
           : `\nNote: This is round ${round} of healing attempts, previous fixes may not have fully resolved the issue.\n`;
     }
 
-    const url = `${this.llmConfig.baseUrl}/v1/chat/completions`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000);
+    // 创建 ToolRegistry 并筛选 Healer 所需的工具
+    const projectRoot = this.config.projectRoot || process.cwd();
+    const dataDir = path.join(projectRoot, '.yuantest');
+    const fullRegistry = ToolRegistry.createDefaultRegistry(dataDir, projectRoot);
+    const healerToolNames = ['read_source_file', 'search_codebase', 'run_test', 'read_screenshot'];
+    const tools = fullRegistry
+      .getToolSchemas()
+      .filter((schema) => healerToolNames.includes(schema.function.name));
 
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (this.llmConfig.apiKey) {
-        headers['Authorization'] = `Bearer ${this.llmConfig.apiKey}`;
+    // 工具执行器：委托给 registry.executeTool()
+    const toolExecutor = async (
+      toolName: string,
+      args: Record<string, unknown>
+    ): Promise<string> => {
+      try {
+        return await fullRegistry.executeTool(toolName, args);
+      } catch (error) {
+        return `工具执行失败: ${error instanceof Error ? error.message : String(error)}`;
       }
+    };
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: this.llmConfig.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: this.llmConfig.maxTokens || 4096,
-          temperature: this.llmConfig.temperature || 0.2,
-          response_format: { type: 'json_object' },
-        }),
-        signal: controller.signal,
-      });
+    const result = await super.callLLMWithAgentLoop(
+      { system: systemPrompt, user: userPrompt },
+      tools,
+      toolExecutor
+    );
 
-      if (!response.ok) {
-        throw new Error(`LLM API returned ${response.status}: ${response.statusText}`);
-      }
-
-      const data = (await response.json()) as {
-        choices?: { message?: { content?: string } }[];
-      };
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        throw new Error('Empty response from LLM');
-      }
-
-      return this.parseHealerResponse(content, testFilePath);
-    } finally {
-      clearTimeout(timeout);
-    }
+    return this.parseHealerResponse(result.responseText, testFilePath);
   }
 
   private parseHealerResponse(

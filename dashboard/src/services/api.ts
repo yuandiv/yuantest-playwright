@@ -234,7 +234,33 @@ export async function stopRun(): Promise<boolean> {
   }
 }
 
-export async function getRunStatus(): Promise<{ isRunning: boolean; currentRun: { id: string; version: string } | null } | null> {
+export interface RunStatusTestResult {
+  id: string;
+  title: string;
+  status: string;
+  duration: number;
+  error?: string;
+  file?: string;
+  line?: number;
+}
+
+export interface RunStatusResponse {
+  isRunning: boolean;
+  currentRun: {
+    id: string | null;
+    version: string;
+    totalTests: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+    testResults: RunStatusTestResult[];
+    testLocations: string[] | null;
+    testFiles: string[] | null;
+    grepPattern: string | null;
+  } | null;
+}
+
+export async function getRunStatus(): Promise<RunStatusResponse | null> {
   return fetchJSON(`${API_BASE}/runs/status`);
 }
 
@@ -592,15 +618,31 @@ export async function batchRerunTests(runId: string, tests: Array<{testId: strin
 /** 批量聚类诊断，将多个失败测试结果发送到后端进行聚类分析 */
 export async function requestClusterDiagnosis(
   testResults: Array<{id: string; title: string; name?: string; error?: string; stackTrace?: string; file?: string; line?: number; screenshots?: string[]; logs?: string[]; browser?: string}>,
-  lang: string = 'zh'
-): Promise<{enabled: boolean; clusters: Array<{clusterId: string; category: string; testIds: string[]; similarity: number; diagnosis: any}>}> {
+  lang: string = 'zh',
+  runId?: number | string
+): Promise<{enabled: boolean; clusters: Array<{clusterId: string; category: string; testIds: string[]; similarity: number; errorMessage?: string; diagnosis: any}>}> {
   const response = await fetch(`${API_BASE}/diagnosis/cluster`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ testResults, lang }),
+    body: JSON.stringify({ testResults, lang, runId }),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
+}
+
+/** 获取已持久化的聚类诊断结果 */
+export async function getPersistedClusterResult(
+  runId: string | number
+): Promise<{ found: boolean; clusters: Array<{clusterId: string; category: string; testIds: string[]; similarity: number; errorMessage?: string; diagnosis: any}> }> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/diagnosis/cluster?runId=${encodeURIComponent(String(runId))}`
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch {
+    return { found: false, clusters: [] };
+  }
 }
 
 export async function getRetryData(runId: string | number, testId: string): Promise<RetryHistoryEntry[] | null> {
