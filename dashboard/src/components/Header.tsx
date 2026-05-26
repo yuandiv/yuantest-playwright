@@ -45,7 +45,7 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
   const handleLLMConfigSaved = () => {
     api.getLLMStatus().then(status => {
       if (status) setLlmStatus(status.status);
-    }).catch(() => {});
+    }).catch((err) => console.error('[Header] getLLMStatus failed:', err));
     window.dispatchEvent(new CustomEvent('llm-config-changed'));
   };
 

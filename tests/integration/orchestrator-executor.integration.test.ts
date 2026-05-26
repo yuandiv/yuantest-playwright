@@ -1,5 +1,7 @@
 import { Orchestrator } from '../../src/orchestrator';
 import { Executor } from '../../src/executor';
+import { MemoryStorage } from '../../src/storage';
+import { RunResult, BrowserType } from '../../src/types';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -226,6 +228,75 @@ describe('Orchestrator-Executor Integration', () => {
       });
 
       expect(executor.isCurrentlyRunning()).toBe(false);
+    });
+  });
+
+  describe('Orchestrator-Executor data flow', () => {
+    it('should pass orchestration results to executor for shard execution', async () => {
+      const storage = new MemoryStorage();
+      const config = {
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+        retries: 0,
+        timeout: 30000,
+        workers: 1,
+        shards: 2,
+        browsers: ['chromium'] as BrowserType[],
+      };
+
+      const orchestrator = new Orchestrator(config, storage);
+      await orchestrator.initialize();
+
+      const result = await orchestrator.orchestrate();
+
+      // Verify orchestration produced shard assignments
+      expect(result.testAssignment).toBeDefined();
+      expect(result.totalShards).toBe(2);
+
+      // Create executor and verify it can use the shard info
+      const executor = new Executor(config, storage);
+      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+
+      // Execute with shard info from orchestrator
+      const runResult = await executor.execute({
+        shardIndex: 0,
+        shardTotal: result.totalShards,
+      });
+
+      expect(runResult).toBeDefined();
+      expect(runResult.id).toMatch(/^run_/);
+    });
+
+    it('should update duration history after execution', async () => {
+      const storage = new MemoryStorage();
+      const config = {
+        version: '1.0.0',
+        testDir: testDir,
+        outputDir: outputDir,
+        retries: 0,
+        timeout: 30000,
+        workers: 1,
+        browsers: ['chromium'] as BrowserType[],
+      };
+
+      const orchestrator = new Orchestrator(config, storage);
+      await orchestrator.initialize();
+
+      // Record run results using the actual API
+      orchestrator.recordRunResults([
+        { testId: 'Suite > test1', duration: 2000 },
+        { testId: 'Suite > test2', duration: 3000 },
+      ]);
+
+      // Verify duration history was updated
+      const history = (orchestrator as any).durationHistory;
+      expect(history.get('Suite > test1')).toBeDefined();
+      expect(history.get('Suite > test1').recentDurations).toContain(2000);
+      expect(history.get('Suite > test2')).toBeDefined();
+      expect(history.get('Suite > test2').recentDurations).toContain(3000);
     });
   });
 });

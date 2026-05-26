@@ -21,16 +21,21 @@ interface BenchmarkResult {
   opsPerSecond: number;
 }
 
-function benchmark(
+async function benchmark(
   name: string,
   fn: () => void | Promise<void>,
   iterations: number = 100
-): BenchmarkResult {
+): Promise<BenchmarkResult> {
+  // Warmup iterations to reduce measurement variability
+  for (let i = 0; i < 2; i++) {
+    await fn();
+  }
+
   const times: number[] = [];
 
   for (let i = 0; i < iterations; i++) {
     const start = process.hrtime.bigint();
-    void fn();
+    await fn();
     const end = process.hrtime.bigint();
     times.push(Number(end - start) / 1_000_000);
   }
@@ -57,6 +62,11 @@ async function benchmarkAsync(
   fn: () => Promise<void>,
   iterations: number = 100
 ): Promise<BenchmarkResult> {
+  // Warmup iterations to reduce measurement variability
+  for (let i = 0; i < 2; i++) {
+    await fn();
+  }
+
   const times: number[] = [];
 
   for (let i = 0; i < iterations; i++) {
@@ -505,7 +515,7 @@ describe('Performance Benchmarks', () => {
   });
 
   describe('WebSocket Throughput', () => {
-    it('should benchmark message serialization performance', () => {
+    it('should benchmark message serialization performance', async () => {
       const message = {
         type: 'test_result' as const,
         payload: {
@@ -520,7 +530,7 @@ describe('Performance Benchmarks', () => {
         runId: 'run-1',
       };
 
-      const result = benchmark(
+      const result = await benchmark(
         'Message Serialization',
         () => {
           JSON.stringify(message);
@@ -532,7 +542,7 @@ describe('Performance Benchmarks', () => {
       expect(result.avgTime).toBeLessThan(1);
     });
 
-    it('should benchmark large message serialization', () => {
+    it('should benchmark large message serialization', async () => {
       const tests = Array(100)
         .fill(null)
         .map((_, i) => ({
@@ -551,7 +561,7 @@ describe('Performance Benchmarks', () => {
         runId: 'run-1',
       };
 
-      const result = benchmark(
+      const result = await benchmark(
         'Large Message Serialization (100 tests)',
         () => {
           JSON.stringify(message);
@@ -563,7 +573,7 @@ describe('Performance Benchmarks', () => {
       expect(result.avgTime).toBeLessThan(5);
     });
 
-    it('should benchmark message deserialization performance', () => {
+    it('should benchmark message deserialization performance', async () => {
       const message = JSON.stringify({
         type: 'test_result' as const,
         payload: {
@@ -578,7 +588,7 @@ describe('Performance Benchmarks', () => {
         runId: 'run-1',
       });
 
-      const result = benchmark(
+      const result = await benchmark(
         'Message Deserialization',
         () => {
           JSON.parse(message);
@@ -590,10 +600,10 @@ describe('Performance Benchmarks', () => {
       expect(result.avgTime).toBeLessThan(1);
     });
 
-    it('should benchmark RealtimeReporter run_started message creation', () => {
+    it('should benchmark RealtimeReporter run_started message creation', async () => {
       const reporter = new RealtimeReporter();
 
-      const result = benchmark(
+      const result = await benchmark(
         'RealtimeReporter broadcastRunStarted',
         () => {
           reporter.broadcastRunStarted('run-1', '1.0.0', 100);
@@ -605,11 +615,11 @@ describe('Performance Benchmarks', () => {
       expect(result.avgTime).toBeLessThan(1);
     });
 
-    it('should benchmark progress message creation', () => {
+    it('should benchmark progress message creation', async () => {
       const reporter = new RealtimeReporter();
       reporter.broadcastRunStarted('run-1', '1.0.0', 100);
 
-      const result = benchmark(
+      const result = await benchmark(
         'Progress Message Creation',
         () => {
           reporter.broadcastRunProgress('run-1', {
@@ -629,7 +639,7 @@ describe('Performance Benchmarks', () => {
       expect(result.avgTime).toBeLessThan(1);
     });
 
-    it('should benchmark test result broadcast', () => {
+    it('should benchmark test result broadcast', async () => {
       const reporter = new RealtimeReporter();
       reporter.broadcastRunStarted('run-1', '1.0.0', 100);
 
@@ -647,7 +657,7 @@ describe('Performance Benchmarks', () => {
         logs: [],
       };
 
-      const result = benchmark(
+      const result = await benchmark(
         'Test Result Broadcast',
         () => {
           reporter.broadcastTestResult('run-1', testResult);

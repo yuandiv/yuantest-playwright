@@ -2057,6 +2057,21 @@ program
     }
   });
 
+program
+  .command('mcp-server')
+  .description('Start the YuanTest MCP server (stdio transport)')
+  .action(async () => {
+    try {
+      const { startMCPServer } = await import('../mcp/server');
+      await startMCPServer();
+    } catch (error) {
+      console.error(
+        `Failed to start MCP server: ${error instanceof Error ? error.message : String(error)}`
+      );
+      process.exit(1);
+    }
+  });
+
 if (!process.argv.slice(2).length) {
   program.outputHelp();
   process.exit(0);

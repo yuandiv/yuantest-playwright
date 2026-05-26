@@ -257,7 +257,7 @@ export function FlakyTestsDialog({
     if (isOpen) {
       api.getFlakyHealth().then(data => {
         if (data) setHealthScore(data);
-      }).catch(() => {});
+      }).catch((err) => console.error('[FlakyTestsDialog] getFlakyHealth failed:', err));
     }
   }, [isOpen]);
 

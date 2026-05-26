@@ -6,10 +6,9 @@ export type { LLMChatOptions, LLMChatResult };
 
 /**
  * LLM 客户端（轻量封装，内部委托给 LLMService）
- * 保持 API 兼容性，现有代码无需修改
  *
- * @deprecated 请直接使用 LLMService，LLMClient 将在后续版本中移除。
- * BaseAgent 已直接使用 LLMService，新代码应避免依赖此类。
+ * @deprecated 请直接使用 LLMService。此类仅保留用于向后兼容测试，
+ * 将在下一个主要版本中移除。所有新代码应直接使用 LLMService。
  */
 export class LLMClient {
   private service: LLMService;

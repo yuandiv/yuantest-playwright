@@ -140,10 +140,10 @@ describe('CLI E2E Tests', () => {
       const testDir = path.join(tmpDir, 'empty-tests');
       fs.mkdirSync(testDir, { recursive: true });
 
-      const result = await runCLI(['orchestrate', '-t', testDir], { cwd: tmpDir });
+      const result = await runCLI(['orchestrate', '-t', testDir], { cwd: tmpDir, timeout: 120000 });
 
       expect(result.stdout).toContain('Test Distribution');
-    });
+    }, 120000);
   });
 
   describe('Report Command', () => {

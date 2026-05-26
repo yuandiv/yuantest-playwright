@@ -12,10 +12,60 @@ export class PatchApplier {
   private log = logger.child('PatchApplier');
 
   /**
+   * Apply a patch to content in memory (no disk write).
+   * Returns the patched content, or null if the patch could not be applied.
+   * Use this for transactional patch workflows where disk writes should only
+   * happen after all patches are confirmed.
+   */
+  applyPatchToContent(currentContent: string, patch: HealerPatch): string | null {
+    try {
+      // Exact match first
+      if (currentContent.includes(patch.originalCode)) {
+        const newContent = currentContent.replace(patch.originalCode, patch.patchedCode);
+        if (newContent === currentContent) {
+          this.log.warn(`Patch replacement had no effect`);
+          return null;
+        }
+        return newContent;
+      }
+
+      // Try normalized whitespace match
+      const normalizedContent = this.normalizeWhitespace(currentContent);
+      const normalizedOriginal = this.normalizeWhitespace(patch.originalCode);
+      if (normalizedContent.includes(normalizedOriginal)) {
+        const index = normalizedContent.indexOf(normalizedOriginal);
+        const originalIndex = this.mapNormalizedIndexToOriginal(
+          currentContent,
+          normalizedContent,
+          index,
+          patch.originalCode
+        );
+        if (originalIndex !== -1) {
+          return (
+            currentContent.slice(0, originalIndex) +
+            patch.patchedCode +
+            currentContent.slice(originalIndex + patch.originalCode.length)
+          );
+        }
+      }
+
+      this.log.warn(`Original code not found in content, patch skipped`);
+      return null;
+    } catch (error) {
+      this.log.error(
+        `Failed to apply patch to content: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return null;
+    }
+  }
+
+  /**
    * Apply a patch to file content (simpler version, no security check, no line number matching).
    * Used internally by HealerAgent.
    *
    * Strategy: exact match first, then normalized whitespace match with position mapping.
+   *
+   * @deprecated Use applyPatchToContent for in-memory operations to avoid intermediate disk writes.
    */
   applyPatchToFile(filePath: string, currentContent: string, patch: HealerPatch): boolean {
     try {

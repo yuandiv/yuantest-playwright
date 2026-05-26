@@ -304,4 +304,48 @@ describe('LLMClient', () => {
       expect(headers['Authorization']).toBe('Bearer updated-key');
     });
   });
+
+  describe('edge cases', () => {
+    it('should handle network exception (ECONNREFUSED)', async () => {
+      fetchSpy.mockImplementation(() => Promise.reject(new Error('ECONNREFUSED')));
+
+      await expect(
+        client.chat({ systemPrompt: 'sys', userPrompt: 'usr' })
+      ).rejects.toThrow('ECONNREFUSED');
+    });
+
+    it('should handle finish_reason=content_filter', async () => {
+      fetchSpy.mockImplementation(() =>
+        mockFetchResponse({
+          choices: [{ message: { content: 'Filtered', role: 'assistant' }, finish_reason: 'content_filter' }],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        })
+      );
+
+      const result = await client.chat({ systemPrompt: 'sys', userPrompt: 'usr' });
+
+      expect(result.content).toBe('Filtered');
+      expect(result.finishReason).toBe('content_filter');
+    });
+
+    it('should handle concurrent requests', async () => {
+      let callCount = 0;
+      fetchSpy.mockImplementation(async () => {
+        callCount++;
+        return mockFetchResponse({
+          choices: [{ message: { content: `Response ${callCount}`, role: 'assistant' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        });
+      });
+
+      const results = await Promise.all([
+        client.chat({ systemPrompt: 'sys', userPrompt: 'test1' }),
+        client.chat({ systemPrompt: 'sys', userPrompt: 'test2' }),
+        client.chat({ systemPrompt: 'sys', userPrompt: 'test3' }),
+      ]);
+
+      expect(results).toHaveLength(3);
+      expect(callCount).toBe(3);
+    });
+  });
 });

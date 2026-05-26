@@ -39,14 +39,14 @@ export function AgentPanel({ lang, onClose, onOpenLLMConfig }: AgentPanelProps) 
   const [healHistory, setHealHistory] = useState<AgentHealResult[]>([]);
 
   useEffect(() => {
-    api.getAgentConfig().then(c => { if (c) setConfig(c); }).catch(() => {});
-    api.getProjectContext().then(c => { if (c) setProjectCtx(c); }).catch(() => {});
-    api.getLLMStatus().then(s => { if (s) setLlmStatus(s); }).catch(() => {});
-    api.getRunStatus().then(s => { setExecutorRunning(s?.isRunning || false); }).catch(() => {});
+    api.getAgentConfig().then(c => { if (c) setConfig(c); }).catch((err) => console.error('[AgentPanel] getAgentConfig failed:', err));
+    api.getProjectContext().then(c => { if (c) setProjectCtx(c); }).catch((err) => console.error('[AgentPanel] getProjectContext failed:', err));
+    api.getLLMStatus().then(s => { if (s) setLlmStatus(s); }).catch((err) => console.error('[AgentPanel] getLLMStatus failed:', err));
+    api.getRunStatus().then(s => { setExecutorRunning(s?.isRunning || false); }).catch((err) => console.error('[AgentPanel] getRunStatus failed:', err));
 
     const interval = setInterval(() => {
-      api.getLLMStatus().then(s => { if (s) setLlmStatus(s); }).catch(() => {});
-      api.getRunStatus().then(s => { setExecutorRunning(s?.isRunning || false); }).catch(() => {});
+      api.getLLMStatus().then(s => { if (s) setLlmStatus(s); }).catch((err) => console.error('[AgentPanel] getLLMStatus failed:', err));
+      api.getRunStatus().then(s => { setExecutorRunning(s?.isRunning || false); }).catch((err) => console.error('[AgentPanel] getRunStatus failed:', err));
     }, 5000);
 
     return () => clearInterval(interval);
@@ -54,8 +54,8 @@ export function AgentPanel({ lang, onClose, onOpenLLMConfig }: AgentPanelProps) 
 
   useEffect(() => {
     if (activeTab === 'history') {
-      api.getAgentPlans().then(p => { if (p) setPlans(p); }).catch(() => {});
-      api.getHealHistory().then(h => { if (h) setHealHistory(h); }).catch(() => {});
+      api.getAgentPlans().then(p => { if (p) setPlans(p); }).catch((err) => console.error('[AgentPanel] getAgentPlans failed:', err));
+      api.getHealHistory().then(h => { if (h) setHealHistory(h); }).catch((err) => console.error('[AgentPanel] getHealHistory failed:', err));
     }
   }, [activeTab]);
 

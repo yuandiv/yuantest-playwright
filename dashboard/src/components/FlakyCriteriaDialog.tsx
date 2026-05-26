@@ -142,7 +142,7 @@ export function FlakyCriteriaDialog({ lang, onClose, onSaved }: FlakyCriteriaDia
         }
         setFlakyCriteria({ ...DEFAULT_FLAKY, ...fc });
       }
-    }).catch(() => {});
+    }).catch((err) => console.error('[FlakyCriteriaDialog] getPreferences failed:', err));
   }, []);
 
   useEffect(() => {

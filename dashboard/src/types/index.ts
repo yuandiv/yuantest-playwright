@@ -489,3 +489,60 @@ export interface RetryHistoryEntry {
 
 /** 浏览器类型 */
 export type BrowserType = 'chromium' | 'firefox' | 'webkit';
+
+/** 失败分析摘要 */
+export interface FailureAnalysisSummary {
+  total: number;
+  persistent: number;
+  emerging: number;
+  firstTimeFailures: number;
+  byCategory: Record<string, number>;
+}
+
+/** 因果图节点 */
+export interface CausalNode {
+  id: string;
+  type: 'test' | 'infrastructure' | 'external_service' | 'shared_state';
+  label: string;
+  metadata: Record<string, unknown>;
+}
+
+/** 因果图边 */
+export interface CausalEdge {
+  from: string;
+  to: string;
+  weight: number;
+  type: string;
+  confidence: number;
+}
+
+/** 因果图数据 */
+export interface CausalGraphData {
+  nodes: CausalNode[];
+  edges: CausalEdge[];
+  rootCauses: CausalNode[];
+  impactMap: Record<string, string[]>;
+  builtAt: number;
+}
+
+/** 影响分析数据 */
+export interface ImpactAnalysisData {
+  testId: string;
+  directlyAffected: string[];
+  indirectlyAffected: string[];
+  totalImpact: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  recommendation: string;
+}
+
+/** 错误模式 */
+export interface ErrorPattern {
+  id: string;
+  category: string;
+  name: string;
+  description?: string;
+  regex: string[];
+  rootCauseTemplate: { zh: string; en: string };
+  suggestionsTemplate: { zh: string[]; en: string[] };
+  docLinks?: { title: string; url: string }[];
+}

@@ -445,8 +445,15 @@ describe('Orchestrator', () => {
       await orchestrator.initialize();
       orchestrator.updateDurationHistory('test1.spec.ts', 5000);
 
-      const config = orchestrator.getConfig();
-      expect(config).toBeDefined();
+      const history = (orchestrator as any).durationHistory.get('test1.spec.ts');
+      expect(history.runCount).toBe(1);
+      expect(history.avgDuration).toBe(5000);
+      expect(history.emaDuration).toBe(5000);
+      expect(history.minDuration).toBe(5000);
+      expect(history.maxDuration).toBe(5000);
+      expect(history.lastDuration).toBe(5000);
+      expect(history.variance).toBe(0);
+      expect(history.recentDurations).toEqual([5000]);
     });
 
     it('should update duration history for existing test', async () => {
@@ -463,8 +470,12 @@ describe('Orchestrator', () => {
       orchestrator.updateDurationHistory('test1.spec.ts', 5000);
       orchestrator.updateDurationHistory('test1.spec.ts', 10000);
 
-      const config = orchestrator.getConfig();
-      expect(config).toBeDefined();
+      const history = (orchestrator as any).durationHistory.get('test1.spec.ts');
+      expect(history.runCount).toBe(2);
+      expect(history.avgDuration).toBe(7500);
+      expect(history.emaDuration).toBe(6500);
+      expect(history.minDuration).toBe(5000);
+      expect(history.maxDuration).toBe(10000);
     });
 
     it('should track variance across multiple runs', async () => {
@@ -482,8 +493,10 @@ describe('Orchestrator', () => {
       orchestrator.updateDurationHistory('test1.spec.ts', 10000);
       orchestrator.updateDurationHistory('test1.spec.ts', 7000);
 
-      const config = orchestrator.getConfig();
-      expect(config).toBeDefined();
+      const history = (orchestrator as any).durationHistory.get('test1.spec.ts');
+      expect(history.runCount).toBe(3);
+      expect(history.variance).toBeGreaterThan(0);
+      expect(history.avgDuration).toBeCloseTo(7333.333, 1);
     });
 
     it('should compute EMA with recency weighting', async () => {
@@ -502,8 +515,9 @@ describe('Orchestrator', () => {
       orchestrator.updateDurationHistory('test1.spec.ts', 5000);
       orchestrator.updateDurationHistory('test1.spec.ts', 20000);
 
-      const config = orchestrator.getConfig();
-      expect(config).toBeDefined();
+      const history = (orchestrator as any).durationHistory.get('test1.spec.ts');
+      expect(history.emaDuration).toBe(9500);
+      expect(history.emaDuration).toBeGreaterThan(history.avgDuration);
     });
 
     it('should track min/max/p95 durations', async () => {
@@ -522,8 +536,10 @@ describe('Orchestrator', () => {
         orchestrator.updateDurationHistory('test1.spec.ts', d);
       }
 
-      const config = orchestrator.getConfig();
-      expect(config).toBeDefined();
+      const history = (orchestrator as any).durationHistory.get('test1.spec.ts');
+      expect(history.minDuration).toBe(3000);
+      expect(history.maxDuration).toBe(15000);
+      expect(history.p95Duration).toBe(15000);
     });
   });
 
@@ -544,8 +560,12 @@ describe('Orchestrator', () => {
         { testId: 'test2.spec.ts', duration: 10000 },
       ]);
 
-      const config = orchestrator.getConfig();
-      expect(config).toBeDefined();
+      const history1 = (orchestrator as any).durationHistory.get('test1.spec.ts');
+      const history2 = (orchestrator as any).durationHistory.get('test2.spec.ts');
+      expect(history1.runCount).toBe(1);
+      expect(history1.avgDuration).toBe(5000);
+      expect(history2.runCount).toBe(1);
+      expect(history2.avgDuration).toBe(10000);
     });
   });
 
@@ -699,6 +719,93 @@ describe('Orchestrator', () => {
 
       const config = orchestrator.getConfig();
       expect(config).toBeDefined();
+    });
+  });
+
+  describe('estimateFromSimilarTests', () => {
+    it('should estimate duration from tests in same directory', async () => {
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
+
+      await orchestrator.initialize();
+
+      // Add history for tests in the same directory with runCount >= MIN_RUNS_FOR_CONFIDENCE (3)
+      const history = (orchestrator as any).durationHistory;
+      history.set('tests/auth/login.spec.ts', {
+        testFile: 'tests/auth/login.spec.ts',
+        avgDuration: 2300,
+        runCount: 5,
+        variance: 0,
+        emaDuration: 2300,
+        minDuration: 2000,
+        maxDuration: 2500,
+        p95Duration: 2500,
+        lastDuration: 2200,
+        lastRunTimestamp: Date.now(),
+        recentDurations: [2000, 2500, 2200],
+      });
+      history.set('tests/auth/logout.spec.ts', {
+        testFile: 'tests/auth/logout.spec.ts',
+        avgDuration: 1633,
+        runCount: 4,
+        variance: 0,
+        emaDuration: 1633,
+        minDuration: 1500,
+        maxDuration: 1800,
+        p95Duration: 1800,
+        lastDuration: 1600,
+        lastRunTimestamp: Date.now(),
+        recentDurations: [1500, 1800, 1600],
+      });
+
+      // Estimate for a new test in the same directory
+      const estimate = (orchestrator as any).estimateFromSimilarTests('tests/auth/signup.spec.ts');
+      expect(estimate).not.toBeNull();
+      expect(estimate.estimated).toBeGreaterThan(0);
+    });
+
+    it('should return null when no similar tests exist', async () => {
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
+
+      await orchestrator.initialize();
+
+      const estimate = (orchestrator as any).estimateFromSimilarTests('tests/new/feature.spec.ts');
+      expect(estimate).toBeNull();
+    });
+  });
+
+  describe('loadDurationHistory error handling', () => {
+    it('should handle corrupted JSON in duration history file', async () => {
+      storage.writeText(path.join(outputDir, 'duration-history.json'), 'not valid json {{{');
+
+      const orchestrator = new Orchestrator(
+        {
+          version: '1.0.0',
+          testDir: testDir,
+          outputDir: outputDir,
+        },
+        storage
+      );
+
+      // Should not throw
+      await orchestrator.initialize();
+
+      // Duration history should be empty (fallback)
+      const history = (orchestrator as any).durationHistory;
+      expect(history.size).toBe(0);
     });
   });
 });

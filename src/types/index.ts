@@ -736,6 +736,8 @@ export interface LLMConfig {
   remark: string;
   maxTokens: number;
   temperature: number;
+  /** Agent 循环最大工具调用轮数，默认 5 */
+  maxAgentRounds?: number;
 }
 
 /** 代码差异信息 */
@@ -875,7 +877,7 @@ export interface QuarantineCriteriaConfig {
   retryBackoff: number;
 }
 
-export type AgentType = 'planner' | 'generator' | 'healer';
+export type AgentType = 'planner' | 'generator' | 'healer' | 'pipeline';
 
 export type AgentLoopTarget = 'vscode' | 'claude' | 'opencode';
 
@@ -1050,4 +1052,36 @@ export interface SnapshotRefEntry {
   role: string;
   name: string;
   locator: string;
+}
+
+/**
+ * Agent 间共享的会话上下文。
+ * 在 Plan → Generate → Heal 管线执行过程中累积传递元数据，
+ * 使下游 Agent 可以利用上游 Agent 的产出信息。
+ */
+export interface AgentSessionContext {
+  /** 会话唯一标识 */
+  sessionId: string;
+  /** 会话创建时间 */
+  createdAt: number;
+
+  // ─── Planner 产出 ──────────────────────────────────────────
+  /** Planner 生成的 TestPlan（结构化对象，无需重新解析 Markdown） */
+  plan?: TestPlan;
+  /** Planner 生成计划时的 token 用量 */
+  planTokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+
+  // ─── Generator 产出 ────────────────────────────────────────
+  /** Generator 生成的文件路径列表 */
+  generatedFiles?: string[];
+  /** Generator 生成代码时的 token 用量 */
+  generateTokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+
+  // ─── Healer 产出 ──────────────────────────────────────────
+  /** 修复历史记录（每轮修复的结果） */
+  healHistory?: AgentHealResult[];
+  /** 累计修复轮次 */
+  totalHealRounds?: number;
+  /** 累计修复 token 用量 */
+  healTokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number };
 }

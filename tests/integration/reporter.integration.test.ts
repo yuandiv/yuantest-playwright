@@ -1,5 +1,6 @@
 import { Reporter } from '../../src/reporter';
 import { RunResult, TestResult, SuiteResult } from '../../src/types';
+import { MemoryStorage } from '../../src/storage';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -284,6 +285,52 @@ describe('Reporter Integration', () => {
       expect(stats.totalRuns).toBe(2);
       expect(stats.totalTests).toBe(12);
       expect(stats.passRate).toBeCloseTo(75, 0);
+    });
+  });
+
+  describe('Executor to Reporter flow', () => {
+    it('should generate report from executor result', async () => {
+      const storage = new MemoryStorage();
+      const reporter = new Reporter(outputDir, storage);
+
+      const runResult: RunResult = {
+        id: 'run-report-test',
+        version: '1.0.0',
+        status: 'success',
+        startTime: Date.now() - 3000,
+        endTime: Date.now(),
+        duration: 3000,
+        suites: [{
+          name: 'Integration Suite',
+          totalTests: 3,
+          passed: 2,
+          failed: 1,
+          skipped: 0,
+          duration: 3000,
+          tests: [
+            { id: 'it-1', title: 'should pass 1', fullTitle: 'Integration Suite > should pass 1', status: 'passed', duration: 1000, retries: 0, timestamp: Date.now(), browser: 'chromium' },
+            { id: 'it-2', title: 'should pass 2', fullTitle: 'Integration Suite > should pass 2', status: 'passed', duration: 1000, retries: 0, timestamp: Date.now(), browser: 'chromium' },
+            { id: 'it-3', title: 'should fail', fullTitle: 'Integration Suite > should fail', status: 'failed', duration: 1000, error: 'Expected true', retries: 0, timestamp: Date.now(), browser: 'chromium' },
+          ],
+          timestamp: Date.now(),
+        }],
+        totalTests: 3,
+        passed: 2,
+        failed: 1,
+        skipped: 0,
+        flakyTests: [],
+        metadata: {},
+      };
+
+      const reportPath = await reporter.generateReport(runResult);
+      expect(reportPath).toBeDefined();
+
+      // Verify report can be retrieved
+      const retrieved = await reporter.getReport(runResult.id);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved!.id).toBe('run-report-test');
+      expect(retrieved!.passed).toBe(2);
+      expect(retrieved!.failed).toBe(1);
     });
   });
 });

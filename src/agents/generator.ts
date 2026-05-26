@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaseAgent } from './base-agent';
-import { ToolRegistry } from './tool-registry';
 import { AgentConfig, LLMConfig } from '../types';
 
 const GENERATOR_SYSTEM_PROMPT_ZH =
@@ -59,10 +58,8 @@ export class GeneratorAgent extends BaseAgent {
           : `\nReference Seed Test (use the same fixtures and import paths):\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
     }
 
-    // 创建 ToolRegistry 并筛选 Generator 所需的工具
-    const projectRoot = this.config.projectRoot || process.cwd();
-    const dataDir = path.join(projectRoot, '.yuantest');
-    const fullRegistry = ToolRegistry.createDefaultRegistry(dataDir, projectRoot);
+    // 获取 ToolRegistry 并筛选 Generator 所需的工具
+    const fullRegistry = this.getOrCreateToolRegistry();
     const generatorToolNames = ['read_source_file', 'search_codebase'];
     const tools = fullRegistry
       .getToolSchemas()

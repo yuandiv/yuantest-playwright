@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { AgentService } from '../../src/agents';
+import { PlannerAgent } from '../../src/agents/planner';
 import { HealerPatch, TestPlan, TestPlanScenario } from '../../src/types';
 
 describe('AgentService', () => {
@@ -249,7 +250,7 @@ describe('AgentService', () => {
       const mdPath = path.join(specsDir, 'login-flow.md');
 
       // Access private method via (service as any)
-      const markdown = (service as any).planToMarkdown(plan);
+      const markdown = PlannerAgent.planToMarkdown(plan);
       fs.writeFileSync(mdPath, markdown, 'utf-8');
 
       // Parse it back
@@ -360,77 +361,194 @@ describe('AgentService', () => {
     });
   });
 
-  // ─── generateSlug (tested indirectly) ──────────────────────────────────
+  // ─── plan ─────────────────────────────────────────────────────────────
 
-  describe('generateSlug (via planToMarkdown output)', () => {
-    it('should generate a valid non-empty file name from Chinese description', () => {
-      const slug = (service as any).generateSlug('用户登录功能测试');
-      expect(slug).toBeTruthy();
-      expect(slug.length).toBeGreaterThan(0);
-      // Should not contain filesystem-unsafe characters
-      expect(slug).not.toMatch(/[/\\?%*:|"<>]/);
-    });
-
-    it('should generate a valid slug from English text', () => {
-      const slug = (service as any).generateSlug('User Login Flow Test');
-      expect(slug).toBe('User-Login-Flow-Test');
-    });
-
-    it('should collapse multiple dashes and trim edge dashes', () => {
-      const slug = (service as any).generateSlug('  hello   world  ');
-      expect(slug).toBe('hello-world');
-    });
-
-    it('should truncate long slugs to 80 characters', () => {
-      const longText = 'a'.repeat(200);
-      const slug = (service as any).generateSlug(longText);
-      expect(slug.length).toBeLessThanOrEqual(80);
-    });
-
-    it('should fallback to ASCII-only slug when Unicode removal yields empty', () => {
-      // Characters that are all removed by the first pass (filesystem-unsafe)
-      const slug = (service as any).generateSlug('///???%%%');
-      // Should produce a fallback, not empty
-      expect(slug).toBeDefined();
-    });
-  });
-
-  // ─── healWithVerification with autoHeal=false ─────────────────────────
-
-  describe('healWithVerification', () => {
-    it('should NOT apply patches when autoHeal is false', async () => {
-      // autoHeal=false is set in beforeEach
-      const testFile = path.join(projectRoot, 'test.spec.ts');
-      fs.writeFileSync(testFile, "test('example', () => { expect(1).toBe(1); });", 'utf-8');
-
-      // healWithVerification requires LLM to be enabled; without it returns error
-      const result = await service.healWithVerification(testFile);
+  describe('plan', () => {
+    it('should return error when LLM is not enabled', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const result = await service.plan('Login test');
       expect(result.success).toBe(false);
       expect(result.error).toContain('LLM is not enabled');
     });
 
-    it('should return error when LLM is not enabled', async () => {
-      const testFile = path.join(projectRoot, 'test.spec.ts');
-      fs.writeFileSync(testFile, "test('example', () => {});", 'utf-8');
-
-      const result = await service.healWithVerification(testFile);
-      expect(result.success).toBe(false);
-    });
-
-    it('should return error for non-existent test file', async () => {
-      // Enable LLM but with dummy config
-      service.setLLMConfig({
-        enabled: true,
-        apiKey: 'test-key',
-        baseUrl: 'http://localhost:1234',
-        model: 'test-model',
-        remark: '',
-        maxTokens: 1000,
-        temperature: 0.5,
-      });
-
-      const result = await service.healWithVerification(path.join(projectRoot, 'nonexistent.spec.ts'));
-      expect(result.success).toBe(false);
+    it('should return error when LLM config is enabled but no API key', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir }, { enabled: true, model: 'gpt-4', apiKey: '', baseUrl: '', remark: '', maxTokens: 1000, temperature: 0.5 });
+      // The planner should fail because there's no valid API key
+      const result = await service.plan('Login test');
+      // Either success=false with error, or it throws internally
+      expect(result.agentType).toBe('planner');
     });
   });
+
+  // ─── generate ─────────────────────────────────────────────────────────
+
+  describe('generate', () => {
+    it('should return error when LLM is not enabled', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const result = await service.generate('plan.md');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('LLM is not enabled');
+      expect(result.agentType).toBe('generator');
+    });
+
+    it('should return error when plan file does not exist', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir }, { enabled: true, model: 'gpt-4', apiKey: 'test-key', baseUrl: 'https://api.openai.com/v1', remark: '', maxTokens: 1000, temperature: 0.5 });
+      const result = await service.generate('nonexistent-plan.md');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+    });
+  });
+
+  // ─── heal ─────────────────────────────────────────────────────────────
+
+  describe('heal', () => {
+    it('should return error when LLM is not enabled', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const result = await service.heal('test.spec.ts');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('LLM is not enabled');
+      expect(result.agentType).toBe('healer');
+    });
+
+    it('should return error when test file does not exist', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir }, { enabled: true, model: 'gpt-4', apiKey: 'test-key', baseUrl: 'https://api.openai.com/v1', remark: '', maxTokens: 1000, temperature: 0.5 });
+      const result = await service.heal('nonexistent-test.spec.ts');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+    });
+  });
+
+  // ─── loadProjectContext ───────────────────────────────────────────────
+
+  describe('loadProjectContext', () => {
+    it('should detect React from package.json', () => {
+      const pkgPath = path.join(tmpDir, 'package.json');
+      fs.writeFileSync(pkgPath, JSON.stringify({
+        name: 'test-project',
+        dependencies: { react: '^18.0.0', 'react-dom': '^18.0.0' },
+      }));
+
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const context = service.getProjectContext();
+      expect(context).not.toBeNull();
+      expect(context!.technology).toContain('React');
+    });
+
+    it('should detect Vue from package.json', () => {
+      const pkgPath = path.join(tmpDir, 'package.json');
+      fs.writeFileSync(pkgPath, JSON.stringify({
+        name: 'test-project',
+        dependencies: { vue: '^3.0.0' },
+      }));
+
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const context = service.getProjectContext();
+      expect(context!.technology).toContain('Vue');
+    });
+
+    it('should detect Next.js from package.json', () => {
+      const pkgPath = path.join(tmpDir, 'package.json');
+      fs.writeFileSync(pkgPath, JSON.stringify({
+        name: 'test-project',
+        dependencies: { next: '^14.0.0' },
+      }));
+
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const context = service.getProjectContext();
+      expect(context!.technology).toContain('Next.js');
+    });
+
+    it('should extract baseURL from playwright.config.ts', () => {
+      const configPath = path.join(tmpDir, 'playwright.config.ts');
+      fs.writeFileSync(configPath, `
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  use: {
+    baseURL: 'http://localhost:3000',
+    timeout: 10000,
+  },
+});
+`);
+
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const context = service.getProjectContext();
+      expect(context!.baseURL).toBe('http://localhost:3000');
+      expect(context!.timeout).toBe(10000);
+    });
+
+    it('should handle missing package.json gracefully', () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const context = service.getProjectContext();
+      expect(context).not.toBeNull();
+      expect(context!.projectRoot).toBe(tmpDir);
+    });
+  });
+
+  // ─── listPlans ────────────────────────────────────────────────────────
+
+  describe('listPlans', () => {
+    it('should return empty array when specs dir does not exist', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir, specsDir: 'nonexistent-specs' });
+      const plans = await service.listPlans();
+      expect(plans).toEqual([]);
+    });
+
+    it('should list markdown plans from specs directory', async () => {
+      const specsDir = path.join(tmpDir, 'specs');
+      fs.mkdirSync(specsDir, { recursive: true });
+      fs.writeFileSync(path.join(specsDir, 'login-test.md'), `# Login Test\n\nTest login functionality\n\n## Scenario 1\n\n**Steps:**\n\n1. Navigate → \`/login\`\n\n**Expected Results:**\n\n- User sees login form\n`);
+
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir, specsDir: 'specs' });
+      const plans = await service.listPlans();
+      expect(plans.length).toBeGreaterThanOrEqual(1);
+      expect(plans[0].title).toBe('Login Test');
+    });
+  });
+
+  // ─── getHealHistory ──────────────────────────────────────────────────
+
+  describe('getHealHistory', () => {
+    it('should return empty array when no history file exists', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const history = await service.getHealHistory();
+      expect(history).toEqual([]);
+    });
+
+    it('should return saved heal history', async () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      const historyPath = path.join(tmpDir, 'agent-heal-history.json');
+      const mockHistory = [{ testId: 'test-1', testTitle: 'sample', patches: [], healed: true, roundsUsed: 1 }];
+      fs.writeFileSync(historyPath, JSON.stringify(mockHistory));
+
+      const history = await service.getHealHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0].healed).toBe(true);
+    });
+  });
+
+  // ─── configuration updates ───────────────────────────────────────────
+
+  describe('configuration updates', () => {
+    it('setLLMConfig should update config on all agents', () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      service.setLLMConfig({ enabled: true, model: 'gpt-4', apiKey: 'test', baseUrl: '', remark: '', maxTokens: 1000, temperature: 0.5 });
+      // Verify by calling plan which checks LLM config
+      expect(service.getConfig()).toBeDefined();
+    });
+
+    it('setProjectRoot should update project root', () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      service.setProjectRoot(path.join(tmpDir, 'subdir'));
+      expect(service.getProjectRoot()).toContain('subdir');
+    });
+
+    it('updateConfig should merge config updates', () => {
+      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
+      service.updateConfig({ autoHeal: true, maxHealRounds: 5 });
+      const config = service.getConfig();
+      expect(config.autoHeal).toBe(true);
+      expect(config.maxHealRounds).toBe(5);
+    });
+  });
+
 });

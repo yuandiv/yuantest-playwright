@@ -1,10 +1,8 @@
-import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { t, Lang } from './i18n';
 import { useWebSocket } from './hooks/useWebSocket';
 import * as api from './services/api';
-import { setApiLang } from './services/api';
-import type { RunStatusResponse } from './services/api';
-import { TestCase, RunReport, RunDetail, FlakyTest, QuarantinedTest, ServerRun, TestFile, TestDescribe, HealthMetric } from './types';
+import { TestCase, RunReport, RunDetail } from './types';
 import { Header } from './components/Header';
 import { KPICards } from './components/KPICards';
 import { ExecutorDialog } from './components/ExecutorDialog';
@@ -15,432 +13,76 @@ import { Modal } from './components/Modal';
 import { HealthDashboard } from './components/HealthDashboard';
 import { TestHistoryDialog } from './components/TestHistoryDialog';
 import { AgentPanel } from './components/AgentPanel';
-import { BatchUpdater, MessageRateLimiter } from './utils/performance';
-
-const MAX_LOGS = 100;
-const LOG_BATCH_SIZE = 30;
-const LOG_BATCH_DELAY = 100;
-const STATUS_UPDATE_INTERVAL = 200;
-const LOCAL_STORAGE_SAVE_DELAY = 2000;
-
-interface TestStatusUpdate {
-  status: TestCase['status'];
-  lastDuration: number | null;
-  lastError: string | null;
-}
+import { usePreferences } from './hooks/usePreferences';
+import { useTestTree } from './hooks/useTestTree';
+import { useExecution } from './hooks/useExecution';
+import { useReports } from './hooks/useReports';
+import { useFlakyQuarantine } from './hooks/useFlakyQuarantine';
+import { useHealthMetrics } from './hooks/useHealthMetrics';
 
 function App() {
-  const [lang, setLang] = useState<Lang>('zh');
-  const [wsConnected, setWsConnected] = useState(false);
-  const [testFiles, setTestFiles] = useState<TestFile[]>([]);
-  const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
-  const [reports, setReports] = useState<RunReport[]>([]);
-  const [flakyTests, setFlakyTests] = useState<FlakyTest[]>([]);
-  const [quarantinedTests, setQuarantinedTests] = useState<QuarantinedTest[]>([]);
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [currentTest, setCurrentTest] = useState<string | null>(null);
-  const [logs, setLogs] = useState<Array<{ msg: string; type: string }>>([]);
-  const [activeReportId, setActiveReportId] = useState<number | null>(null);
-  const [versionInput, setVersionInput] = useState('1.0.0');
+  // Local UI state
   const [modalContent, setModalContent] = useState<React.ReactNode | null>(null);
   const [isExecutorDialogOpen, setIsExecutorDialogOpen] = useState(false);
-  const [fileOrder, setFileOrder] = useState<string[]>([]);
-  const [testDir, setTestDir] = useState<string>('./');
-  const [isLoadingTests, setIsLoadingTests] = useState(false);
-  const [configWorkers, setConfigWorkers] = useState<number | undefined>(undefined);
   const [showTestHistory, setShowTestHistory] = useState<TestCase | null>(null);
-  const originalTestFilesRef = useRef<TestFile[]>([]);
-  const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
-  const [showHealthDashboard, setShowHealthDashboard] = useState(false);
   const [isFlakyDialogOpen, setIsFlakyDialogOpen] = useState(false);
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
   const [isLLMConfigOpen, setIsLLMConfigOpen] = useState(false);
-  const [criteriaParams, setCriteriaParams] = useState<{
-    flakyCriteria?: Record<string, number | string>;
-    quarantineCriteria?: Record<string, number | string>;
-  }>({});
-  const [, startTransition] = useTransition();
-  
-  const messageRateLimiter = useRef(new MessageRateLimiter(20, 1000));
-  const logBatchUpdater = useRef<BatchUpdater<{ msg: string; type: string }> | null>(null);
-  const testStatusMapRef = useRef<Map<string, TestStatusUpdate>>(new Map());
-  const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const localStorageTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const versionSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const testCasesRef = useRef<TestCase[]>([]);
-  const hasRestoredFromReportsRef = useRef(false);
-  const lastLoadTestsTimeRef = useRef<number>(0);
-  const LOAD_TESTS_CACHE_TTL = 30000;
+
+  // Custom hooks
+  const preferences = usePreferences();
+  const { lang, versionInput, testDir, criteriaParams, switchLang, setVersionInput, setTestDir } = preferences;
+
+  const reportsHook = useReports();
+  const {
+    reports, setReports, activeReportId, setActiveReportId,
+    loadRunsFromServer, isExecutingFromReports, setIsExecutingFromReports,
+  } = reportsHook;
+
+  const testTree = useTestTree(reports);
+  const {
+    testFiles, testCases, setTestCases, selectedIds, setSelectedIds,
+    expandedPaths, setExpandedPaths, fileOrder, setFileOrder,
+    isLoadingTests, setIsLoadingTests, configWorkers,
+    testCasesRef, lastLoadTestsTimeRef, LOAD_TESTS_CACHE_TTL,
+    scheduleStatusUpdate, loadTests, collectAllPaths, startTransition,
+  } = testTree;
+
+  const execution = useExecution();
+  const {
+    isExecuting, setIsExecuting, currentTest, setCurrentTest,
+    logs, setLogs, wsConnected, setWsConnected,
+    messageRateLimiter, logBatchUpdater, addLog, clearLogs,
+    formatStartError, restoreExecutionState,
+  } = execution;
+
+  const flakyQuarantine = useFlakyQuarantine();
+  const {
+    flakyTests, quarantinedTests, setFlakyTests, setQuarantinedTests,
+    refreshFlakyData, handleReleaseTest, handleValidateReleaseTest,
+    handleClearFlakyHistory,
+  } = flakyQuarantine;
+
+  const healthHook = useHealthMetrics();
+  const {
+    healthMetrics, showHealthDashboard, setShowHealthDashboard,
+    loadHealthMetrics,
+  } = healthHook;
 
   const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
-  useEffect(() => {
-    logBatchUpdater.current = new BatchUpdater<{ msg: string; type: string }>(
-      (batchLogs) => {
-        setLogs(prev => {
-          const newLogs = [...prev, ...batchLogs];
-          return newLogs.slice(-MAX_LOGS);
-        });
-      },
-      { batchSize: LOG_BATCH_SIZE, flushDelay: LOG_BATCH_DELAY, immediateTypes: ['info', 'error', 'success', 'warning'], getType: (item) => item.type }
-    );
+  // handleDeleteReport / handleDeleteAllReports need refreshFlakyData
+  const handleDeleteReport = useCallback((reportId: number) => {
+    setReports(prev => prev.filter(r => r.id !== reportId));
+    refreshFlakyData();
+  }, [refreshFlakyData, setReports]);
 
-    return () => {
-      logBatchUpdater.current?.flush();
-      logBatchUpdater.current?.clear();
-    };
-  }, []);
+  const handleDeleteAllReports = useCallback(() => {
+    setReports([]);
+    refreshFlakyData();
+  }, [refreshFlakyData, setReports]);
 
-  const flushPendingStatusUpdates = useCallback(() => {
-    if (testStatusMapRef.current.size === 0) return;
-    
-    const updates = new Map(testStatusMapRef.current);
-    
-    startTransition(() => {
-      setTestCases(prev => {
-        let changed = false;
-        const next = prev.map(tc => {
-          const update = updates.get(tc.id);
-          if (update) {
-            changed = true;
-            return { ...tc, ...update };
-          }
-          return tc;
-        });
-        return changed ? next : prev;
-      });
-    });
-    
-    testStatusMapRef.current.clear();
-    
-    if (!localStorageTimerRef.current) {
-      localStorageTimerRef.current = setTimeout(() => {
-        localStorageTimerRef.current = null;
-        try {
-          localStorage.setItem('testCasesStatus', JSON.stringify(testCasesRef.current));
-        } catch {}
-      }, LOCAL_STORAGE_SAVE_DELAY);
-    }
-  }, []);
-
-  const scheduleStatusUpdate = useCallback((testId: string, update: TestStatusUpdate) => {
-    testStatusMapRef.current.set(testId, update);
-    
-    if (!statusUpdateTimerRef.current) {
-      statusUpdateTimerRef.current = setTimeout(() => {
-        statusUpdateTimerRef.current = null;
-        flushPendingStatusUpdates();
-      }, STATUS_UPDATE_INTERVAL);
-    }
-  }, [flushPendingStatusUpdates]);
-
-  const restoreTestCasesFromLocalStorage = useCallback((cases: TestCase[]): TestCase[] => {
-    try {
-      const saved = localStorage.getItem('testCasesStatus');
-      if (!saved) return cases;
-      
-      const savedStatus: TestCase[] = JSON.parse(saved);
-      if (!Array.isArray(savedStatus)) return cases;
-      
-      const statusMap = new Map<string, TestCase>();
-      for (const tc of savedStatus) {
-        if (tc.id && tc.status) {
-          statusMap.set(tc.id, tc);
-        }
-      }
-      
-      return cases.map(tc => {
-        const saved = statusMap.get(tc.id);
-        if (saved && saved.status) {
-          return {
-            ...tc,
-            status: saved.status,
-            lastDuration: saved.lastDuration ?? tc.lastDuration,
-            lastError: saved.lastError ?? tc.lastError,
-          };
-        }
-        return tc;
-      });
-    } catch (e) {
-      console.warn('Failed to restore test cases status from localStorage:', e);
-      return cases;
-    }
-  }, []);
-
-  const restoreTestCasesFromReports = useCallback((cases: TestCase[], reportsList: RunReport[]): TestCase[] => {
-    const completedReport = reportsList.find(r => r.status === 'completed' || !r.status);
-    if (!completedReport || !completedReport.details || completedReport.details.length === 0) {
-      return cases;
-    }
-    
-    const detailMap = new Map<string, RunDetail>();
-    for (const detail of completedReport.details) {
-      if (detail.id) {
-        detailMap.set(detail.id, detail);
-      }
-    }
-    
-    return cases.map(tc => {
-      const detail = detailMap.get(tc.id);
-      if (detail) {
-        return {
-          ...tc,
-          status: detail.status,
-          lastDuration: detail.duration ? parseFloat(detail.duration) * 1000 : null,
-          lastError: detail.error,
-        };
-      }
-      return tc;
-    });
-  }, []);
-
-  useEffect(() => {
-    api.getPreferences().then(prefs => {
-      if (prefs) {
-        if (prefs.lang) {
-          setLang(prefs.lang as Lang);
-          setApiLang(prefs.lang);
-        }
-        if (prefs.lastVersion) setVersionInput(prefs.lastVersion);
-        if (prefs.testDir) setTestDir(prefs.testDir);
-        const flakyCriteria: Record<string, number | string> = {};
-        const quarantineCriteria: Record<string, number | string> = {};
-        if (prefs.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
-          const fc = prefs.flakyCriteria as Record<string, unknown>;
-          for (const [k, v] of Object.entries(fc)) {
-            if (typeof v === 'number') flakyCriteria[k] = v;
-          }
-        }
-        if (prefs.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
-          const qc = prefs.quarantineCriteria as Record<string, unknown>;
-          for (const [k, v] of Object.entries(qc)) {
-            if (typeof v === 'number') quarantineCriteria[k] = v;
-          }
-        }
-        if (Object.keys(flakyCriteria).length > 0 || Object.keys(quarantineCriteria).length > 0) {
-          setCriteriaParams({ flakyCriteria, quarantineCriteria });
-        }
-      }
-    });
-  }, []);
-
-  /** 监听判定参数配置变更事件，重新获取偏好配置并更新 criteriaParams */
-  useEffect(() => {
-    const handler = () => {
-      api.getPreferences().then(prefs => {
-        if (prefs) {
-          const flakyCriteria: Record<string, number | string> = {};
-          const quarantineCriteria: Record<string, number | string> = {};
-          if (prefs.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
-            const fc = prefs.flakyCriteria as Record<string, unknown>;
-            for (const [k, v] of Object.entries(fc)) {
-              if (typeof v === 'number') flakyCriteria[k] = v;
-            }
-          }
-          if (prefs.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
-            const qc = prefs.quarantineCriteria as Record<string, unknown>;
-            for (const [k, v] of Object.entries(qc)) {
-              if (typeof v === 'number') quarantineCriteria[k] = v;
-            }
-          }
-          setCriteriaParams({ flakyCriteria, quarantineCriteria });
-        }
-      });
-    };
-    window.addEventListener('criteria-config-changed', handler);
-    return () => window.removeEventListener('criteria-config-changed', handler);
-  }, []);
-
-  useEffect(() => {
-    if (versionInput && versionInput !== '1.0.0') {
-      if (versionSaveTimerRef.current) {
-        clearTimeout(versionSaveTimerRef.current);
-      }
-      
-      versionSaveTimerRef.current = setTimeout(() => {
-        api.savePreferences({ lastVersion: versionInput });
-      }, 1000);
-    }
-    
-    return () => {
-      if (versionSaveTimerRef.current) {
-        clearTimeout(versionSaveTimerRef.current);
-      }
-    };
-  }, [versionInput]);
-
-  const loadRunsFromServer = useCallback(async () => {
-    try {
-      const response = await api.getRuns(20);
-      if (!response) return;
-      const runs = Array.isArray(response) ? response : (response as any).data || [];
-      const newReports: RunReport[] = [];
-      for (const run of runs) {
-        const extractAllTestsFromPlaywright = (suites: any[]): any[] => {
-          const tests: any[] = [];
-          for (const suite of suites) {
-            if (suite.specs && Array.isArray(suite.specs)) {
-              tests.push(...suite.specs);
-            }
-            if (suite.suites && Array.isArray(suite.suites)) {
-              tests.push(...extractAllTestsFromPlaywright(suite.suites));
-            }
-          }
-          return tests;
-        };
-        
-        const extractAllTestsFromRunResult = (suites: any[]): any[] => {
-          const tests: any[] = [];
-          for (const suite of suites) {
-            if (suite.tests && Array.isArray(suite.tests)) {
-              tests.push(...suite.tests);
-            }
-            if (suite.suites && Array.isArray(suite.suites)) {
-              tests.push(...extractAllTestsFromRunResult(suite.suites));
-            }
-          }
-          return tests;
-        };
-        
-        let rawReport: any = null;
-        try {
-          const rawResponse = await fetch(`/api/v1/runs/${run.id}/raw`);
-          if (rawResponse.ok) {
-            rawReport = await rawResponse.json();
-          }
-        } catch (e) {
-          console.warn('Failed to load raw Playwright report:', e);
-        }
-        
-        const isPlaywrightFormat = rawReport?.suites?.some((s: any) => s.specs);
-        const isRunResultFormat = rawReport?.suites?.some((s: any) => s.tests && !s.specs);
-        
-        let allTests: any[] = [];
-        if (isPlaywrightFormat && rawReport?.suites) {
-          allTests = extractAllTestsFromPlaywright(rawReport.suites);
-        } else if (isRunResultFormat && rawReport?.suites) {
-          allTests = extractAllTestsFromRunResult(rawReport.suites);
-        } else if (run.suites) {
-          allTests = extractAllTestsFromRunResult(run.suites);
-        }
-        
-        const details = allTests.map((test: any) => {
-          const testResult = test.tests?.[0]?.results?.[0] || test.results?.[0];
-          const isPassed = test.ok === true || test.status === 'passed' || testResult?.status === 'passed';
-          
-          let attachments: any[] = [];
-          
-          if (testResult?.attachments && Array.isArray(testResult.attachments)) {
-            attachments = testResult.attachments.map((att: any) => ({
-              name: att.name,
-              path: att.path,
-              contentType: att.contentType,
-              body: att.body,
-            }));
-          } else {
-            if (test.screenshots && Array.isArray(test.screenshots)) {
-              attachments.push(...test.screenshots.map((p: string) => ({
-                name: 'screenshot',
-                path: p,
-                contentType: 'image/png',
-              })));
-            }
-            if (test.videos && Array.isArray(test.videos)) {
-              attachments.push(...test.videos.map((p: string) => ({
-                name: 'video',
-                path: p,
-                contentType: 'video/webm',
-              })));
-            }
-            if (test.traces && Array.isArray(test.traces)) {
-              attachments.push(...test.traces.map((p: string) => ({
-                name: 'trace',
-                path: p,
-                contentType: 'application/zip',
-              })));
-            }
-          }
-          
-          let errorMessage = null;
-          if (testResult?.error) {
-            if (typeof testResult.error === 'string') {
-              errorMessage = testResult.error;
-            } else if (testResult.error.message) {
-              errorMessage = testResult.error.message;
-              if (testResult.error.stack) {
-                errorMessage += '\n\nStack trace:\n' + testResult.error.stack;
-              }
-            } else if (testResult.error.value) {
-              errorMessage = testResult.error.value;
-            }
-          } else if (test.error?.message) {
-            errorMessage = test.error.message;
-          } else if (test.error) {
-            errorMessage = typeof test.error === 'string' ? test.error : test.error.message || String(test.error);
-          }
-          
-          return {
-            id: test.id || `${test.title}_${run.id}`,
-            name: test.title,
-            status: isPassed ? 'passed' as const : 'failed' as const,
-            duration: ((test.duration || testResult?.duration || 0) / 1000).toFixed(2),
-            error: errorMessage,
-            attachments,
-            file: test.file,
-            line: test.line,
-            retries: test.retries || testResult?.retry || 0,
-            manualReruns: test.manualReruns || 0,
-            runHistory: test.runHistory || undefined,
-          };
-        });
-        
-        newReports.push({
-          id: run.id,
-          timestamp: new Date(run.startTime).toISOString(),
-          version: run.version || 'unknown',
-          totalTests: run.totalTests,
-          passed: run.passed,
-          failed: run.failed,
-          duration: ((run.duration || 0) / 1000).toFixed(2),
-          details,
-          htmlReportUrl: rawReport?.htmlReportUrl || null,
-          skippedQuarantinedTests: run.metadata?.skippedQuarantinedTests || [],
-          status: run.status === 'success' ? 'completed' : run.status,
-        });
-      }
-      setReports(prev => {
-        const newReportsMap = new Map(prev.map(r => [r.id, r]));
-        for (const r of newReports) {
-          newReportsMap.set(r.id, r);
-        }
-        return Array.from(newReportsMap.values())
-          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-          .slice(0, 50);
-      });
-
-      const runningReport = newReports.find(r => r.status === 'running');
-      if (runningReport) {
-        setIsExecuting(true);
-        setActiveReportId(runningReport.id);
-      }
-    } catch (error) {
-      console.error('Failed to load runs from server:', error);
-    }
-  }, []);
-
-  const loadHealthMetrics = useCallback(async () => {
-    try {
-      const metricsData = await api.getHealthMetrics();
-      if (metricsData) {
-        setHealthMetrics(metricsData);
-      }
-    } catch (error) {
-      console.error('Failed to load health metrics:', error);
-    }
-  }, []);
-
+  // Cross-hook coordinator: handleWsMessage
   const handleWsMessage = useCallback((msg: any) => {
     if (msg.type !== 'log' && !messageRateLimiter.current.shouldProcess(msg.type)) {
       return;
@@ -471,7 +113,7 @@ function App() {
       const { runId, totalTests, passed, failed, skipped, status, testResult } = msg.payload;
       setReports(prev => prev.map(report => {
         if (report.id !== runId) return report;
-        
+
         const newDetails = [...report.details];
         if (testResult) {
           const existingIndex = newDetails.findIndex(d => d.id === testResult.id);
@@ -494,14 +136,14 @@ function App() {
             newDetails.push(newDetail);
           }
         }
-        
+
         const startTime = new Date(report.timestamp).getTime();
         const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
-        
+
         const terminalStatuses = ['completed', 'failed', 'cancelled'];
-        const isTerminal = terminalStatuses.includes(report.status);
+        const isTerminal = report.status ? terminalStatuses.includes(report.status) : false;
         const effectiveStatus = (isTerminal && status === 'running') ? report.status : (status || report.status);
-        
+
         return {
           ...report,
           totalTests: totalTests ?? report.totalTests,
@@ -524,10 +166,10 @@ function App() {
       setIsExecuting(true);
       setCurrentTest(null);
       logBatchUpdater.current?.add({ msg: `📡 ${t('running', lang)}...`, type: 'info' });
-      
+
       const selectedArr = Array.from(selectedIds);
       startTransition(() => {
-        setTestCases(prev => prev.map(tc => 
+        setTestCases(prev => prev.map(tc =>
           selectedIds.has(tc.id) ? { ...tc, status: 'pending' as const } : tc
         ));
       });
@@ -554,7 +196,7 @@ function App() {
       setIsExecuting(false);
       setCurrentTest(null);
       const result = msg.payload;
-      
+
       setReports(prev => prev.map(report => {
         if (report.id !== result.id) return report;
         return {
@@ -567,16 +209,16 @@ function App() {
           status: result.status === 'success' ? 'completed' : 'failed',
         };
       }));
-      
+
       logBatchUpdater.current?.add({ msg: `✅ ${t('idle', lang)}`, type: 'success' });
       logBatchUpdater.current?.flush();
-      
+
       startTransition(() => {
-        setTestCases(prev => prev.map(tc => 
+        setTestCases(prev => prev.map(tc =>
           (tc.status === 'running' || tc.status === 'pending') ? { ...tc, status: 'idle' as const } : tc
         ));
       });
-      
+
       setTimeout(() => {
         loadRunsFromServer();
         loadHealthMetrics();
@@ -587,11 +229,11 @@ function App() {
         msg: `${r.status === 'passed' ? '✅' : '❌'} ${r.fullTitle || r.title} (${((r.duration || 0) / 1000).toFixed(1)}s)`,
         type: r.status === 'passed' ? 'success' : 'error',
       });
-      const newStatus = r.status === 'passed' ? 'passed' as const : 
-                        r.status === 'failed' ? 'failed' as const : 
-                        r.status === 'skipped' ? 'idle' as const : 
+      const newStatus = r.status === 'passed' ? 'passed' as const :
+                        r.status === 'failed' ? 'failed' as const :
+                        r.status === 'skipped' ? 'idle' as const :
                         r.status === 'timedout' ? 'failed' as const : undefined;
-      
+
       if (newStatus && r.id) {
         scheduleStatusUpdate(r.id, {
           status: newStatus,
@@ -602,10 +244,10 @@ function App() {
     } else if (msg.type === 'test_result_batch') {
       const { results, currentProgress } = msg.payload;
       const runId = msg.runId;
-      
+
       setReports(prev => prev.map(report => {
         if (report.id !== runId) return report;
-        
+
         const newDetails = [...report.details];
         for (const r of results) {
           const existingIndex = newDetails.findIndex(d => d.id === r.id);
@@ -628,10 +270,10 @@ function App() {
             newDetails.push(newDetail);
           }
         }
-        
+
         const startTime = new Date(report.timestamp).getTime();
         const elapsedSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
-        
+
         return {
           ...report,
           totalTests: currentProgress?.totalTests ?? report.totalTests,
@@ -642,13 +284,13 @@ function App() {
           details: newDetails,
         };
       }));
-      
+
       for (const r of results) {
-        const newStatus = r.status === 'passed' ? 'passed' as const : 
-                          r.status === 'failed' ? 'failed' as const : 
-                          r.status === 'skipped' ? 'idle' as const : 
+        const newStatus = r.status === 'passed' ? 'passed' as const :
+                          r.status === 'failed' ? 'failed' as const :
+                          r.status === 'skipped' ? 'idle' as const :
                           r.status === 'timedout' ? 'failed' as const : undefined;
-        
+
         if (newStatus && r.id) {
           scheduleStatusUpdate(r.id, {
             status: newStatus,
@@ -673,91 +315,41 @@ function App() {
         });
       }
     }
-  }, [lang, selectedIds, loadRunsFromServer, loadHealthMetrics, scheduleStatusUpdate]);
+  }, [lang, selectedIds, loadRunsFromServer, loadHealthMetrics, scheduleStatusUpdate, isExecuting, setWsConnected, setReports, setActiveReportId, setIsExecuting, setCurrentTest, setTestCases, logBatchUpdater, messageRateLimiter, startTransition]);
 
-  useEffect(() => {
-    testCasesRef.current = testCases;
-  }, [testCases]);
-
-  const restoreExecutionState = useCallback((status: RunStatusResponse) => {
-    if (!status.isRunning || !status.currentRun) return;
-
-    const { currentRun } = status;
-    setIsExecuting(true);
-    if (currentRun.id) {
-      setActiveReportId(currentRun.id);
-    }
-
-    const completedMap = new Map<string, { status: string; duration: number; error?: string }>();
-    for (const r of currentRun.testResults) {
-      completedMap.set(r.id, { status: r.status, duration: r.duration, error: r.error });
-    }
-
-    const testLocations = currentRun.testLocations;
-    const testFiles = currentRun.testFiles;
-
-    const currentCases = testCasesRef.current;
-    const executingIds = new Set<string>();
-
-    if (testLocations && testLocations.length > 0) {
-      const locationSet = new Set(testLocations);
-      for (const tc of currentCases) {
-        const loc = `${tc.file}:${tc.line}`;
-        if (locationSet.has(loc)) {
-          executingIds.add(tc.id);
-        }
-      }
-    } else if (testFiles && testFiles.length > 0) {
-      const fileSet = new Set(testFiles);
-      for (const tc of currentCases) {
-        if (fileSet.has(tc.file)) {
-          executingIds.add(tc.id);
-        }
-      }
-    } else if (currentRun.testResults.length > 0) {
-      // Fallback: use completed test results to infer executing files
-      const executingFiles = new Set<string>();
-      for (const r of currentRun.testResults) {
-        if (r.file) executingFiles.add(r.file);
-      }
-      for (const tc of currentCases) {
-        if (executingFiles.has(tc.file)) {
-          executingIds.add(tc.id);
-        }
-      }
-    }
-
-    if (executingIds.size > 0) {
-      setSelectedIds(executingIds);
-    }
-
-    setTestCases(prev => prev.map(tc => {
-      if (completedMap.has(tc.id)) {
-        const result = completedMap.get(tc.id)!;
-        const newStatus = result.status === 'passed' ? 'passed' as const :
-                         result.status === 'failed' ? 'failed' as const :
-                         result.status === 'timedout' ? 'failed' as const :
-                         result.status === 'skipped' ? 'idle' as const : tc.status;
-        return {
-          ...tc,
-          status: newStatus,
-          lastDuration: result.duration ?? tc.lastDuration,
-          lastError: result.error ?? tc.lastError,
-        };
-      }
-      if (executingIds.has(tc.id)) {
-        return { ...tc, status: 'pending' as const };
-      }
-      return { ...tc, status: 'idle' as const };
-    }));
-  }, []);
-
+  // handleWsReconnect
   const handleWsReconnect = useCallback(() => {
-    console.log('[WebSocket] Reconnected, syncing state...');
-
     api.getRunStatus().then(status => {
       if (status && status.isRunning) {
-        restoreExecutionState(status);
+        const result = restoreExecutionState(status, testCasesRef);
+        if (result) {
+          setIsExecuting(true);
+          if (result.currentRunId) {
+            setActiveReportId(Number(result.currentRunId));
+          }
+          if (result.executingIds.size > 0) {
+            setSelectedIds(result.executingIds);
+          }
+          setTestCases(prev => prev.map(tc => {
+            if (result.completedMap.has(tc.id)) {
+              const res = result.completedMap.get(tc.id)!;
+              const newStatus = res.status === 'passed' ? 'passed' as const :
+                               res.status === 'failed' ? 'failed' as const :
+                               res.status === 'timedout' ? 'failed' as const :
+                               res.status === 'skipped' ? 'idle' as const : tc.status;
+              return {
+                ...tc,
+                status: newStatus,
+                lastDuration: res.duration ?? tc.lastDuration,
+                lastError: res.error ?? tc.lastError,
+              };
+            }
+            if (result.executingIds.has(tc.id)) {
+              return { ...tc, status: 'pending' as const };
+            }
+            return { ...tc, status: 'idle' as const };
+          }));
+        }
       } else {
         setIsExecuting(false);
       }
@@ -768,225 +360,30 @@ function App() {
 
     api.getFlakyTests().then(data => data && setFlakyTests(data));
     api.getQuarantinedTests().then(data => data && setQuarantinedTests(data));
-  }, [loadRunsFromServer, loadHealthMetrics, restoreExecutionState]);
+  }, [loadRunsFromServer, loadHealthMetrics, restoreExecutionState, testCasesRef, setIsExecuting, setActiveReportId, setSelectedIds, setTestCases, setFlakyTests, setQuarantinedTests]);
 
   const { isConnected } = useWebSocket(wsUrl, handleWsMessage, { onReconnect: handleWsReconnect });
 
   useEffect(() => {
     setWsConnected(isConnected());
-  }, [isConnected]);
+  }, [isConnected, setWsConnected]);
 
+  // Sync isExecutingFromReports to isExecuting
   useEffect(() => {
-    if (!isExecuting) return;
-
-    const EXECUTION_HEALTH_CHECK_INTERVAL = 30000;
-
-    const checkExecutionHealth = () => {
-      api.getRunStatus().then(status => {
-        if (!status || !status.isRunning) {
-          setIsExecuting(false);
-          setCurrentTest(null);
-          startTransition(() => {
-            setTestCases(prev => prev.map(tc =>
-              (tc.status === 'running' || tc.status === 'pending') ? { ...tc, status: 'idle' as const } : tc
-            ));
-          });
-        }
-      });
-    };
-
-    const timer = setInterval(checkExecutionHealth, EXECUTION_HEALTH_CHECK_INTERVAL);
-    return () => clearInterval(timer);
-  }, [isExecuting]);
-
-  const addLog = useCallback((msg: string, type: string) => {
-    logBatchUpdater.current?.add({ msg, type });
-  }, []);
-
-  const loadTests = useCallback(async (forceRefresh: boolean = false, testDirOverride?: string): Promise<{
-    count: number;
-    error?: string;
-    rawOutput?: string;
-  }> => {
-    const dirToUse = testDirOverride ?? testDir;
-    console.log('[loadTests] dirToUse:', dirToUse, 'testDir:', testDir, 'testDirOverride:', testDirOverride);
-    const result = await api.getTestsStructured(dirToUse, undefined, forceRefresh);
-    console.log('[loadTests] result:', result ? { 
-      filesLength: result.files?.length, 
-      testsLength: result.tests?.length,
-      configValidation: result.configValidation,
-      error: result.error,
-      rawOutput: result.rawOutput ? '(present)' : undefined
-    } : null);
-    
-    const convertTest = (t: api.DiscoveredTest): TestCase => ({
-      id: t.id,
-      name: t.title,
-      fullTitle: t.fullTitle,
-      file: t.file,
-      line: t.line,
-      column: t.column,
-      lastDuration: null,
-      lastError: null,
-    });
-
-    const convertDescribe = (d: api.DiscoveredDescribe): TestDescribe => ({
-      title: d.title,
-      file: d.file,
-      line: d.line,
-      column: d.column,
-      tests: d.tests.map(convertTest),
-      describes: d.describes.map(convertDescribe),
-    });
-
-    function extractAllTests(files: TestFile[]): TestCase[] {
-      const allTests: TestCase[] = [];
-      for (const file of files) {
-        function collectFromDescribe(describe: TestDescribe) {
-          for (const t of describe.tests) {
-            allTests.push(t);
-          }
-          for (const child of describe.describes) {
-            collectFromDescribe(child);
-          }
-        }
-        for (const t of file.tests) {
-          allTests.push(t);
-        }
-        for (const d of file.describes) {
-          collectFromDescribe(d);
-        }
-      }
-      return allTests;
+    if (isExecutingFromReports) {
+      setIsExecuting(true);
+      setIsExecutingFromReports(false);
     }
+  }, [isExecutingFromReports, setIsExecuting, setIsExecutingFromReports]);
 
-    if (result && result.error) {
-      setTestFiles([]);
-      setTestCases([]);
-      setSelectedIds(new Set());
-      setFileOrder([]);
-      return { count: 0, error: result.error, rawOutput: result.rawOutput };
-    }
-    
-    if (result && result.files && result.files.length > 0) {
-      const files: TestFile[] = result.files.map(f => ({
-        file: f.file,
-        title: f.title,
-        describes: f.describes.map(convertDescribe),
-        tests: f.tests.map(convertTest),
-      }));
-      
-      originalTestFilesRef.current = files;
-      setTestFiles(files);
-      setFileOrder(files.map(f => f.file));
-      setConfigWorkers(result.configValidation?.workers);
-      
-      const cases = extractAllTests(files);
-      const restoredCases = restoreTestCasesFromLocalStorage(cases);
-      setTestCases(restoredCases);
-      setSelectedIds(new Set(cases.map(c => c.id)));
-      return { count: cases.length };
-    } else if (result && result.tests && result.tests.length > 0) {
-      const fileMap = new Map<string, TestFile>();
-      
-      for (const t of result.tests) {
-        const filePath = t.file;
-        if (!fileMap.has(filePath)) {
-          fileMap.set(filePath, {
-            file: filePath,
-            title: filePath.split('/').pop() || filePath,
-            describes: [],
-            tests: [],
-          });
-        }
-        
-        const file = fileMap.get(filePath)!;
-        const fullTitle = t.fullTitle || t.title;
-        const parts = fullTitle.split(' > ');
-        
-        if (parts.length === 1) {
-          file.tests.push(convertTest(t));
-        } else {
-          let currentDescribes = file.describes;
-          for (let i = 0; i < parts.length - 1; i++) {
-            const describeTitle = parts[i];
-            let describe = currentDescribes.find(d => d.title === describeTitle);
-            if (!describe) {
-              describe = {
-                title: describeTitle,
-                file: t.file,
-                line: i === 0 ? t.line : 0,
-                column: 0,
-                tests: [],
-                describes: [],
-              };
-              currentDescribes.push(describe);
-            }
-            currentDescribes = describe.describes;
-          }
-          
-          const lastDescribe = currentDescribes[currentDescribes.length - 1];
-          if (lastDescribe) {
-            lastDescribe.tests.push(convertTest(t));
-          }
-        }
-      }
-      
-      const files = Array.from(fileMap.values());
-      originalTestFilesRef.current = files;
-      setTestFiles(files);
-      setFileOrder(files.map(f => f.file));
-      setConfigWorkers(result.configValidation?.workers);
-      
-      const cases = extractAllTests(files);
-      const restoredCases = restoreTestCasesFromLocalStorage(cases);
-      setTestCases(restoredCases);
-      setSelectedIds(new Set(cases.map(c => c.id)));
-      return { count: cases.length };
-    } else if (result && result.configValidation && !result.configValidation.valid) {
-      setTestFiles([]);
-      setTestCases([]);
-      setSelectedIds(new Set());
-      setFileOrder([]);
-      return { count: 0 };
-    } else {
-      const annotations = await api.getAnnotations(dirToUse);
-      if (annotations && annotations.length > 0) {
-        const seen = new Set<string>();
-        const cases: TestCase[] = [];
-        for (const ann of annotations) {
-          if (!seen.has(ann.testId)) {
-            seen.add(ann.testId);
-            cases.push({
-              id: ann.testId,
-              name: ann.testName,
-              fullTitle: ann.testName,
-              file: ann.file,
-              line: 0,
-              column: 0,
-              lastDuration: null,
-              lastError: null,
-            });
-          }
-        }
-        if (cases.length > 0) {
-          const restoredCases = restoreTestCasesFromLocalStorage(cases);
-          setTestCases(restoredCases);
-          setSelectedIds(new Set(cases.map(c => c.id)));
-          return { count: cases.length };
-        }
-      }
-    }
-    return { count: 0 };
-  }, [testDir, restoreTestCasesFromLocalStorage]);
-
+  // Initial data load
   useEffect(() => {
     const now = Date.now();
     const timeSinceLastLoad = now - lastLoadTestsTimeRef.current;
 
     const loadPromise = timeSinceLastLoad < LOAD_TESTS_CACHE_TTL && testCases.length > 0
       ? Promise.resolve()
-      : loadTests().then(() => { lastLoadTestsTimeRef.current = Date.now(); });
+      : loadTests(false, testDir).then(() => { lastLoadTestsTimeRef.current = Date.now(); });
 
     api.getFlakyTests().then(data => data && setFlakyTests(data));
     api.getQuarantinedTests().then(data => data && setQuarantinedTests(data));
@@ -996,34 +393,44 @@ function App() {
     loadPromise.then(() => {
       api.getRunStatus().then(status => {
         if (status && status.isRunning) {
-          restoreExecutionState(status);
+          const result = restoreExecutionState(status, testCasesRef);
+          if (result) {
+            setIsExecuting(true);
+            if (result.currentRunId) {
+              setActiveReportId(Number(result.currentRunId));
+            }
+            if (result.executingIds.size > 0) {
+              setSelectedIds(result.executingIds);
+            }
+            setTestCases(prev => prev.map(tc => {
+              if (result.completedMap.has(tc.id)) {
+                const res = result.completedMap.get(tc.id)!;
+                const newStatus = res.status === 'passed' ? 'passed' as const :
+                                 res.status === 'failed' ? 'failed' as const :
+                                 res.status === 'timedout' ? 'failed' as const :
+                                 res.status === 'skipped' ? 'idle' as const : tc.status;
+                return {
+                  ...tc,
+                  status: newStatus,
+                  lastDuration: res.duration ?? tc.lastDuration,
+                  lastError: res.error ?? tc.lastError,
+                };
+              }
+              if (result.executingIds.has(tc.id)) {
+                return { ...tc, status: 'pending' as const };
+              }
+              return { ...tc, status: 'idle' as const };
+            }));
+          }
         }
       });
     });
-  }, [loadTests, loadRunsFromServer, loadHealthMetrics, testCases.length, restoreExecutionState]);
+  }, [loadTests, loadRunsFromServer, loadHealthMetrics, testCases.length, restoreExecutionState, testDir, testCasesRef, setIsExecuting, setActiveReportId, setSelectedIds, setTestCases, setFlakyTests, setQuarantinedTests, LOAD_TESTS_CACHE_TTL, lastLoadTestsTimeRef]);
 
-  useEffect(() => {
-    if (hasRestoredFromReportsRef.current) return;
-    if (testCases.length === 0 || reports.length === 0) return;
-    
-    const hasAnyStatus = testCases.some(tc => tc.status && tc.status !== 'idle');
-    if (hasAnyStatus) {
-      hasRestoredFromReportsRef.current = true;
-      return;
-    }
-    
-    const restoredCases = restoreTestCasesFromReports(testCases, reports);
-    const hasChanges = restoredCases.some((tc, i) => tc.status !== testCases[i]?.status);
-    
-    if (hasChanges) {
-      setTestCases(restoredCases);
-    }
-    hasRestoredFromReportsRef.current = true;
-  }, [testCases, reports, restoreTestCasesFromReports]);
-
+  // handleTestDirChange
   const handleTestDirChange = useCallback(async (newTestDir: string) => {
     setIsLoadingTests(true);
-    setTestFiles([]);
+    testTree.setTestFiles([]);
     setTestCases([]);
     setSelectedIds(new Set());
     setFileOrder([]);
@@ -1034,13 +441,13 @@ function App() {
       if (result.success) {
         addLog(`⏳ ${t('loadingTests', lang)}，${t('pleaseWait', lang)}`, 'info');
         setTestDir(newTestDir);
-        
+
         if (result.warnings && result.warnings.length > 0) {
           for (const warning of result.warnings) {
             addLog(`⚠️ ${warning}`, 'info');
           }
         }
-        
+
         const loadResult = await loadTests(true, newTestDir);
         addLog(`✅ ${t('testCasesLoadSuccess', lang)} ${loadResult.count} ${t('testCasesFound', lang)}`, 'success');
         if (loadResult.error) {
@@ -1058,24 +465,9 @@ function App() {
     } finally {
       setIsLoadingTests(false);
     }
-  }, [lang, addLog, loadTests, loadRunsFromServer, loadHealthMetrics]);
+  }, [lang, addLog, loadTests, loadRunsFromServer, loadHealthMetrics, setIsLoadingTests, setTestCases, setSelectedIds, setFileOrder, setTestDir, testTree]);
 
-  const formatStartError = useCallback((error: string): string => {
-    if (error.includes('already in progress') || error.includes('execution is already')) {
-      return t('executorAlreadyRunning', lang);
-    }
-    if (error.includes('Invalid testDir') || error.includes('path traversal')) {
-      return t('invalidTestDir', lang);
-    }
-    if (error.includes('Network') || error.includes('fetch')) {
-      return t('networkError', lang);
-    }
-    if (error.startsWith('HTTP 5')) {
-      return t('serverError', lang);
-    }
-    return error;
-  }, [lang]);
-
+  // handleRun
   const handleRun = async (mode: 'test' | 'describe' | 'file', target: string) => {
     if (isExecuting) {
       addLog(`⚠️ ${t('executorBusy', lang)}`, 'error');
@@ -1084,9 +476,9 @@ function App() {
     setLogs([]);
     logBatchUpdater.current?.clear();
     addLog(`🚀 ${t('startExecution', lang)}...`, 'info');
-    
+
     let result: api.StartRunResult;
-    
+
     if (mode === 'test') {
       const locations = target.includes(',') ? target.split(',') : [target];
       result = await api.startRun({
@@ -1104,15 +496,16 @@ function App() {
         testFiles: [target],
       });
     }
-    
+
     if (result.success) {
       addLog(`✅ ${t('executionStarted', lang)}`, 'success');
     } else {
-      const errorMsg = result.error ? formatStartError(result.error) : t('failedToStart', lang);
+      const errorMsg = result.error ? formatStartError(result.error, lang) : t('failedToStart', lang);
       addLog(`❌ ${t('failedToStart', lang)}: ${errorMsg}`, 'error');
     }
   };
 
+  // handleRunSelected
   const handleRunSelected = async () => {
     if (isExecuting) {
       addLog(`⚠️ ${t('executorBusy', lang)}`, 'error');
@@ -1126,7 +519,7 @@ function App() {
     setLogs([]);
     logBatchUpdater.current?.clear();
     addLog(`🚀 ${t('startExecution', lang)}...`, 'info');
-    
+
     const testLocations = ids.map(id => {
       const tc = testCases.find(c => c.id === id);
       return tc ? `${tc.file}:${tc.line}` : null;
@@ -1142,7 +535,7 @@ function App() {
         return orderA - orderB;
       });
     }
-    
+
     const result = await api.startRun({
       version: versionInput,
       testLocations,
@@ -1150,11 +543,12 @@ function App() {
     if (result.success) {
       addLog(`✅ ${t('executionStarted', lang)}`, 'success');
     } else {
-      const errorMsg = result.error ? formatStartError(result.error) : t('failedToStart', lang);
+      const errorMsg = result.error ? formatStartError(result.error, lang) : t('failedToStart', lang);
       addLog(`❌ ${t('failedToStart', lang)}: ${errorMsg}`, 'error');
     }
   };
 
+  // handleStop
   const handleStop = async () => {
     if (!isExecuting) {
       addLog(`ℹ️ ${t('noTask', lang)}`, 'info');
@@ -1165,110 +559,11 @@ function App() {
     await api.stopRun();
   };
 
-  const handleReleaseTest = async (testId: string) => {
-    await api.releaseTest(testId);
-    const data = await api.getQuarantinedTests();
-    if (data) setQuarantinedTests(data);
-  };
-
-  const handleValidateReleaseTest = async (testId: string) => {
-    const result = await api.validateAndReleaseTest(testId);
-    if (result) {
-      const data = await api.getQuarantinedTests();
-      if (data) setQuarantinedTests(data);
-    }
-  };
-
-  const refreshFlakyData = useCallback(async () => {
-    const [flakyData, quarantinedData] = await Promise.all([
-      api.getFlakyTests(),
-      api.getQuarantinedTests(),
-    ]);
-    if (flakyData) setFlakyTests(flakyData);
-    if (quarantinedData) setQuarantinedTests(quarantinedData);
-  }, []);
-
-  const handleClearFlakyHistory = useCallback(async () => {
-    const success = await api.clearFlakyHistory();
-    if (success) {
-      await refreshFlakyData();
-    }
-  }, [refreshFlakyData]);
-
-  const handleDeleteReport = (reportId: number) => {
-    setReports(prev => prev.filter(r => r.id !== reportId));
-    refreshFlakyData();
-  };
-
-  const handleDeleteAllReports = () => {
-    setReports([]);
-    refreshFlakyData();
-  };
-
-  const switchLang = (l: Lang) => {
-    setLang(l);
-    setApiLang(l);
-    api.savePreferences({ lang: l });
-  };
-
+  // Computed values
   const total = testCases.length;
   const passed = useMemo(() => testCases.filter(tc => tc.status === 'passed').length, [testCases]);
   const failed = useMemo(() => testCases.filter(tc => tc.status === 'failed').length, [testCases]);
   const pending = useMemo(() => testCases.filter(tc => tc.status === 'pending').length, [testCases]);
-
-  const syncTestFilesWithTestCases = useCallback((files: TestFile[], cases: TestCase[]): TestFile[] => {
-    const caseMap = new Map<string, TestCase>();
-    for (const tc of cases) {
-      caseMap.set(tc.id, tc);
-    }
-
-    const syncTestCase = (tc: TestCase): TestCase => {
-      const updated = caseMap.get(tc.id);
-      if (updated) {
-        return {
-          ...tc,
-          status: updated.status,
-          lastDuration: updated.lastDuration,
-          lastError: updated.lastError,
-        };
-      }
-      return tc;
-    };
-
-    const syncDescribe = (d: TestDescribe): TestDescribe => ({
-      ...d,
-      tests: d.tests.map(syncTestCase),
-      describes: d.describes.map(syncDescribe),
-    });
-
-    return files.map(f => ({
-      ...f,
-      tests: f.tests.map(syncTestCase),
-      describes: f.describes.map(syncDescribe),
-    }));
-  }, []);
-
-  const collectAllPaths = useCallback(() => {
-    const paths = new Set<string>();
-    
-    for (const file of testFiles) {
-      paths.add(file.file);
-      
-      const collectDescribePaths = (describe: TestDescribe) => {
-        const path = `${describe.file}::${describe.title}::${describe.line}`;
-        paths.add(path);
-        for (const child of describe.describes) {
-          collectDescribePaths(child);
-        }
-      };
-      
-      for (const describe of file.describes) {
-        collectDescribePaths(describe);
-      }
-    }
-    
-    return paths;
-  }, [testFiles]);
 
   return (
     <div className="max-w-[1680px] mx-auto">
@@ -1286,10 +581,10 @@ function App() {
         onOpenLLMConfig={() => setIsLLMConfigOpen(true)}
         onCloseLLMConfig={() => setIsLLMConfigOpen(false)}
       />
-      
+
       {showHealthDashboard ? (
-        <HealthDashboard 
-          lang={lang} 
+        <HealthDashboard
+          lang={lang}
           data={healthMetrics}
           reports={reports}
           onRefresh={loadHealthMetrics}
@@ -1343,7 +638,7 @@ function App() {
         onExpandedPathsChange={setExpandedPaths}
         onRun={handleRun}
         onStop={handleStop}
-        onClearLogs={() => { setLogs([]); addLog(`✨ ${t('logsCleared', lang)}`, 'info'); }}
+        onClearLogs={() => clearLogs(lang)}
         onVersionChange={setVersionInput}
         onTestDirChange={handleTestDirChange}
         onSelectAll={() => setSelectedIds(new Set(testCases.map(tc => tc.id)))}

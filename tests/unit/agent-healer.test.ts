@@ -698,4 +698,49 @@ describe('HealerAgent', () => {
       expect(result.roundsUsed).toBe(2);
     });
   });
+
+  // ---- edge cases and error handling ----
+
+  describe('edge cases and error handling', () => {
+    it('should handle LLM network error gracefully', async () => {
+      const testFile = path.join(tmpDir, 'network-error.spec.ts');
+      fs.writeFileSync(testFile, `test('network', () => {});`, 'utf-8');
+
+      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+      const healer = new HealerAgent(createAgentConfig(), createLLMConfig());
+      // Network error propagates since healTest does not catch LLM errors
+      await expect(healer.healTest(testFile, { maxRounds: 1 })).rejects.toThrow();
+    });
+
+    it('should handle maxRounds=0 by using config fallback', async () => {
+      const testFile = path.join(tmpDir, 'zero-rounds.spec.ts');
+      fs.writeFileSync(testFile, `test('zero', () => {});`, 'utf-8');
+
+      let callCount = 0;
+      global.fetch = jest.fn().mockImplementation(async () => {
+        callCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content: healerResponseJSON([], { healed: false, summary: 'no fix' }),
+                },
+              },
+            ],
+          }),
+        };
+      });
+
+      // With maxHealRounds=0 in config, the fallback is 3 (0 || 3)
+      const healer = new HealerAgent(createAgentConfig({ maxHealRounds: 0 }), createLLMConfig());
+      const result = await healer.healTest(testFile, { maxRounds: 0 });
+
+      // maxRounds=0 is falsy, so it falls back to config.maxHealRounds (0) then to 3
+      expect(result.healed).toBe(false);
+      expect(result.roundsUsed).toBeGreaterThan(0);
+    });
+  });
 });

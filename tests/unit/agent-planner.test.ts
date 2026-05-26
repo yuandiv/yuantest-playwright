@@ -573,4 +573,25 @@ describe('PlannerAgent', () => {
       expect(userMsg.content).not.toContain('Product Requirement Document');
     });
   });
+
+  // ── Edge cases ────────────────────────────────────────────────────
+
+  describe('edge cases', () => {
+    it('should handle LLM network error', async () => {
+      const planner = new PlannerAgent(createAgentConfig(), createLLMConfig());
+
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      await expect(planner.generatePlan('Test login')).rejects.toThrow();
+    });
+
+    it('should handle empty description', async () => {
+      const planner = new PlannerAgent(createAgentConfig(), createLLMConfig());
+
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      // Should not crash with empty description
+      await expect(planner.generatePlan('')).rejects.toThrow();
+    });
+  });
 });

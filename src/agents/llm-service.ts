@@ -55,8 +55,8 @@ export interface ToolSchema {
   };
 }
 
-/** Agent 循环的最大工具调用轮数 */
-const MAX_AGENT_ROUNDS = 5;
+/** Agent 循环的默认最大工具调用轮数 */
+const DEFAULT_MAX_AGENT_ROUNDS = 5;
 
 /** 默认超时时间（毫秒） */
 const DEFAULT_TIMEOUT = 120000;
@@ -437,11 +437,12 @@ export class LLMService {
       }
 
       // 进入 Agent 工具调用循环
+      const maxRounds = config.maxAgentRounds ?? DEFAULT_MAX_AGENT_ROUNDS;
       let currentToolCalls = firstResponse.toolCalls;
       let currentContent = firstResponse.content ?? null;
       let round = 0;
 
-      while (currentToolCalls && currentToolCalls.length > 0 && round < MAX_AGENT_ROUNDS) {
+      while (currentToolCalls && currentToolCalls.length > 0 && round < maxRounds) {
         round++;
 
         // 将 assistant 的工具调用消息加入历史

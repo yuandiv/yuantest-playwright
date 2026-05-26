@@ -1,4 +1,6 @@
 import { Reporter, JSONReporter } from '../../src/reporter';
+import { MemoryStorage } from '../../src/storage';
+import { RunResult } from '../../src/types';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -654,5 +656,167 @@ describe('JSONReporter', () => {
 
     const parsed = JSON.parse(jsonStr);
     expect(parsed.id).toBe('run-json');
+  });
+});
+
+describe('edge cases and robustness', () => {
+  let tmpDir: string;
+  let storage: MemoryStorage;
+
+  beforeEach(async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'reporter-edge-test-'));
+    storage = new MemoryStorage();
+    await storage.mkdir(tmpDir);
+  });
+
+  it('should handle special characters in test titles', async () => {
+    const reporter = new Reporter(tmpDir, storage);
+    const runResult: RunResult = {
+      id: 'run-special-chars',
+      version: '1.0.0',
+      status: 'failed',
+      startTime: Date.now(),
+      endTime: Date.now(),
+      duration: 1000,
+      suites: [{
+        name: 'Suite with <script>alert("xss")</script>',
+        totalTests: 1,
+        passed: 0,
+        failed: 1,
+        skipped: 0,
+        duration: 1000,
+        tests: [{
+          id: 'test-xss',
+          title: 'Test with "quotes" & <tags>',
+          fullTitle: 'Suite > Test with "quotes" & <tags>',
+          status: 'failed',
+          duration: 1000,
+          error: 'Error: <img onerror=alert(1) src=x>',
+          retries: 0,
+          timestamp: Date.now(),
+          browser: 'chromium',
+        }],
+        timestamp: Date.now(),
+      }],
+      totalTests: 1,
+      passed: 0,
+      failed: 1,
+      skipped: 0,
+      flakyTests: [],
+      metadata: {},
+    };
+
+    // Should not throw
+    const reportPath = await reporter.generateReport(runResult);
+    expect(reportPath).toBeDefined();
+
+    const report = await reporter.getReport('run-special-chars');
+    expect(report).not.toBeNull();
+  });
+
+  it('should handle analyzeFailures for timedout errors', async () => {
+    const reporter = new Reporter(tmpDir, storage);
+    const runResult: RunResult = {
+      id: 'run-timeout',
+      version: '1.0.0',
+      status: 'failed',
+      startTime: Date.now(),
+      endTime: Date.now(),
+      duration: 30000,
+      suites: [{
+        name: 'Timeout Suite',
+        totalTests: 1,
+        passed: 0,
+        failed: 1,
+        skipped: 0,
+        duration: 30000,
+        tests: [{
+          id: 'test-timeout',
+          title: 'should timeout',
+          fullTitle: 'Timeout Suite > should timeout',
+          status: 'failed',
+          duration: 30000,
+          error: 'Timeout of 30000ms exceeded',
+          retries: 0,
+          timestamp: Date.now(),
+          browser: 'chromium',
+        }],
+        timestamp: Date.now(),
+      }],
+      totalTests: 1,
+      passed: 0,
+      failed: 1,
+      skipped: 0,
+      flakyTests: [],
+      metadata: {},
+    };
+
+    const analysis = await reporter.analyzeFailures(runResult);
+    expect(analysis).toHaveLength(1);
+    expect(analysis[0].category).toBe('timeout');
+  });
+
+  it('should handle analyzeFailures for empty suites', async () => {
+    const reporter = new Reporter(tmpDir, storage);
+    const runResult: RunResult = {
+      id: 'run-empty',
+      version: '1.0.0',
+      status: 'success',
+      startTime: Date.now(),
+      endTime: Date.now(),
+      duration: 0,
+      suites: [],
+      totalTests: 0,
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      flakyTests: [],
+      metadata: {},
+    };
+
+    const analysis = await reporter.analyzeFailures(runResult);
+    expect(analysis).toEqual([]);
+  });
+
+  it('should handle JSONReporter with failed tests', async () => {
+    const reporter = new JSONReporter(tmpDir, storage);
+    const runResult: RunResult = {
+      id: 'run-json-fail',
+      version: '1.0.0',
+      status: 'failed',
+      startTime: Date.now(),
+      endTime: Date.now(),
+      duration: 5000,
+      suites: [{
+        name: 'JSON Suite',
+        totalTests: 2,
+        passed: 1,
+        failed: 1,
+        skipped: 0,
+        duration: 5000,
+        tests: [
+          { id: 't1', title: 'pass', fullTitle: 'JSON Suite > pass', status: 'passed', duration: 1000, retries: 0, timestamp: Date.now(), browser: 'chromium' },
+          { id: 't2', title: 'fail', fullTitle: 'JSON Suite > fail', status: 'failed', duration: 4000, error: 'Assertion failed', retries: 0, timestamp: Date.now(), browser: 'chromium' },
+        ],
+        timestamp: Date.now(),
+      }],
+      totalTests: 2,
+      passed: 1,
+      failed: 1,
+      skipped: 0,
+      flakyTests: [],
+      metadata: {},
+    };
+
+    const reportPath = await reporter.generateReport(runResult);
+    expect(reportPath).toBeDefined();
+
+    // Verify JSON is valid by reading the JSON file directly
+    const jsonPath = path.join(tmpDir, 'run-json-fail.json');
+    const content = await storage.readText(jsonPath);
+    expect(content).not.toBeNull();
+    const parsed = JSON.parse(content!);
+    expect(parsed.id).toBe('run-json-fail');
+    expect(parsed.failed).toBe(1);
   });
 });

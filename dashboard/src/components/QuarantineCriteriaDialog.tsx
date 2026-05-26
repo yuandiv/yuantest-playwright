@@ -114,7 +114,7 @@ export function QuarantineCriteriaDialog({ lang, onClose, onSaved }: QuarantineC
         }
         setQuarantineCriteria({ ...DEFAULT_QUARANTINE, ...qc });
       }
-    }).catch(() => {});
+    }).catch((err) => console.error('[QuarantineCriteriaDialog] getPreferences failed:', err));
   }, []);
 
   useEffect(() => {

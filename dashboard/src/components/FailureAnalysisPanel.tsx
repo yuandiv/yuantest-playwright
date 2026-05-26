@@ -3,6 +3,9 @@ import { Lang, t } from '../i18n';
 import { RunReport, AIDiagnosis, LLMConfig } from '../types';
 import * as api from '../services/api';
 import { ClusterCard } from './ClusterCard';
+import { safeNumber } from '../utils/numbers';
+import { CATEGORY_CONFIG, getCategoryConfig } from '../utils/categoryConfig';
+import { categorizeErrorLocal } from '../utils/errorCategorizer';
 
 interface FailureAnalysisPanelProps {
   lang: Lang;
@@ -41,35 +44,7 @@ interface ClusterData {
   representativeError?: string;
 }
 
-function safeNumber(value: any, defaultValue: number = 0): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return defaultValue;
-  }
-  return value;
-}
 
-const CATEGORY_CONFIG: Record<string, { icon: string; color: string; bg: string; border: string; text: string }> = {
-  timeout: { icon: 'fas fa-clock', color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'bg-yellow-100 text-yellow-700' },
-  selector: { icon: 'fas fa-crosshairs', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200', text: 'bg-purple-100 text-purple-700' },
-  network: { icon: 'fas fa-wifi', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', text: 'bg-blue-100 text-blue-700' },
-  assertion: { icon: 'fas fa-exclamation-triangle', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', text: 'bg-red-100 text-red-700' },
-  unknown: { icon: 'fas fa-question-circle', color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200', text: 'bg-gray-100 text-gray-700' },
-};
-
-function getCategoryConfig(category: string) {
-  return CATEGORY_CONFIG[category] || CATEGORY_CONFIG.unknown;
-}
-
-function categorizeErrorLocal(error: string): string {
-  const lower = error.toLowerCase();
-  if (/timeout|timed?\s*out|exceeded.*time/.test(lower)) return 'timeout';
-  if (/selector|element.*not.*found|waiting.*locator|no.*element/.test(lower)) return 'selector';
-  if (/network|fetch|econnrefused|dns|net::|request.*fail|err_connection|cors/.test(lower)) return 'network';
-  if (/assert|expect.*received|expected.*but/.test(lower)) return 'assertion';
-  if (/frame|iframe|context.*destroyed|page.*closed/.test(lower)) return 'frame';
-  if (/auth|unauthorized|forbidden|401|403|login|token/.test(lower)) return 'auth';
-  return 'unknown';
-}
 
 function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests }: FailureAnalysisPanelProps) {
   const [loading, setLoading] = useState(true);

@@ -1,9 +1,10 @@
-// NOTE: @modelcontextprotocol/sdk is required but not currently listed in package.json dependencies.
-// Install it via: npm install @modelcontextprotocol/sdk
-
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  ListToolsRequestSchema,
+  CallToolRequestSchema,
+  type CallToolRequest,
+} from '@modelcontextprotocol/sdk/types.js';
 
 import { diagnosisTools } from './tools/diagnosis';
 import { testTools } from './tools/test';
@@ -41,7 +42,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   };
 });
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest) => {
   const { name, arguments: args } = request.params;
   const tool = allTools.find((t) => t.name === name);
 

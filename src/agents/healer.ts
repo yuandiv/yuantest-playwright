@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaseAgent } from './base-agent';
-import { ToolRegistry } from './tool-registry';
 import { PatchApplier } from './patch-applier';
 import { AgentConfig, HealerPatch, LLMConfig, AgentHealResult } from '../types';
 
@@ -65,16 +64,16 @@ export class HealerAgent extends BaseAgent {
     const allPatches: HealerPatch[] = [];
     let healed = false;
 
+    // 在内存中维护当前文件内容，避免中间状态写入磁盘
+    let memoryContent = originalContent;
+
     for (let round = 1; round <= maxRounds; round++) {
       roundsUsed = round;
       this.log.info(`Healer round ${round}/${maxRounds} for: ${testFileName}`);
 
-      // Read the latest file content for each round
-      const currentContent = fs.readFileSync(testFilePath, 'utf-8');
-
       const result = await this.attemptHeal(
         testFilePath,
-        currentContent,
+        memoryContent,
         currentError,
         currentStackTrace,
         round
@@ -83,7 +82,6 @@ export class HealerAgent extends BaseAgent {
       if (result.patches.length > 0) {
         // Include LLM-returned patches in the result (deduplicated)
         for (const patch of result.patches) {
-          // Deduplicate by originalCode+patchedCode combination
           const isDuplicate = allPatches.some(
             (p) => p.originalCode === patch.originalCode && p.patchedCode === patch.patchedCode
           );
@@ -92,23 +90,20 @@ export class HealerAgent extends BaseAgent {
           }
         }
 
-        // Try to apply patches to the file
+        // 在内存中应用补丁，不写入磁盘
         let anyPatchApplied = false;
-
         for (const patch of result.patches) {
-          const currentFileContent = fs.readFileSync(testFilePath, 'utf-8');
-          const applied = this.patchApplier.applyPatchToFile(
-            testFilePath,
-            currentFileContent,
-            patch
-          );
-          if (applied) {
+          const patched = this.patchApplier.applyPatchToContent(memoryContent, patch);
+          if (patched !== null) {
+            memoryContent = patched;
             anyPatchApplied = true;
           }
         }
 
         if (anyPatchApplied && result.healed) {
           healed = true;
+          // 仅在确认修复成功后才写入磁盘
+          fs.writeFileSync(testFilePath, memoryContent, 'utf-8');
           this.log.info(`Test healed after ${round} round(s): ${testFileName}`);
           break;
         }
@@ -120,15 +115,9 @@ export class HealerAgent extends BaseAgent {
       }
     }
 
-    // Roll back to original content if not healed but patches were applied to the file
+    // 未修复成功时不需要回滚，因为磁盘文件从未被修改
     if (!healed) {
-      const finalContent = fs.readFileSync(testFilePath, 'utf-8');
-      if (finalContent !== originalContent) {
-        this.log.info(
-          `Not healed after all rounds, rolling back to original content: ${testFilePath}`
-        );
-        fs.writeFileSync(testFilePath, originalContent, 'utf-8');
-      }
+      this.log.info(`Not healed after ${roundsUsed} round(s): ${testFileName}`);
     }
 
     return {
@@ -278,10 +267,8 @@ export class HealerAgent extends BaseAgent {
           : `\nNote: This is round ${round} of healing attempts, previous fixes may not have fully resolved the issue.\n`;
     }
 
-    // 创建 ToolRegistry 并筛选 Healer 所需的工具
-    const projectRoot = this.config.projectRoot || process.cwd();
-    const dataDir = path.join(projectRoot, '.yuantest');
-    const fullRegistry = ToolRegistry.createDefaultRegistry(dataDir, projectRoot);
+    // 获取 ToolRegistry 并筛选 Healer 所需的工具
+    const fullRegistry = this.getOrCreateToolRegistry();
     const healerToolNames = ['read_source_file', 'search_codebase', 'run_test', 'read_screenshot'];
     const tools = fullRegistry
       .getToolSchemas()

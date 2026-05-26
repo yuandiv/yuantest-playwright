@@ -8,12 +8,12 @@ import {
   AgentLoopTarget,
   AgentResult,
   TestPlan,
-  TestPlanStep,
   HealerPatch,
   AgentHealResult,
   AgentPrompts,
   LLMConfig,
   ProjectContext,
+  AgentSessionContext,
 } from '../types';
 import { BaseAgent } from './base-agent';
 import { PlannerAgent } from './planner';
@@ -21,6 +21,8 @@ import { GeneratorAgent } from './generator';
 import { HealerAgent } from './healer';
 import { BrowserSessionManager } from './browser-session';
 import { PatchApplier } from './patch-applier';
+import { ProjectContextLoader } from './project-context';
+import { ToolRegistry } from './tool-registry';
 
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
   enabled: true,
@@ -58,15 +60,29 @@ export class AgentService {
     this.generator = new GeneratorAgent(this.config, this.llmConfig);
     this.healer = new HealerAgent(this.config, this.llmConfig);
     this.agents = [this.planner, this.generator, this.healer];
+    this.initSharedToolRegistry();
   }
+
+  /** 创建共享的 ToolRegistry 并分发给所有 Agent */
+  private initSharedToolRegistry(): void {
+    const registry = ToolRegistry.createDefaultRegistry(this.dataDir, this.projectRoot);
+    for (const agent of this.agents) {
+      agent.setToolRegistry(registry);
+    }
+  }
+
+  /** 所有可用的额外配置源，按 key 名映射 */
+  private extraConfigSources: Record<string, unknown> = {};
 
   /** 批量更新所有 Agent 的配置，避免重复创建实例 */
   private updateAllAgentsConfig(): void {
     for (const agent of this.agents) {
+      const requiredKeys = agent.getRequiredExtraConfigKeys();
       const extraParams: Record<string, unknown> = {};
-      if (agent === this.planner) {
-        extraParams.customPrompts = this.prompts;
-        extraParams.browserSessionManager = this.browserSessionManager;
+      for (const key of requiredKeys) {
+        if (key in this.extraConfigSources) {
+          extraParams[key] = this.extraConfigSources[key];
+        }
       }
       agent.updateConfig(this.config, this.llmConfig, extraParams);
     }
@@ -79,6 +95,7 @@ export class AgentService {
 
   setPrompts(prompts: Partial<AgentPrompts> | null): void {
     this.prompts = prompts;
+    this.extraConfigSources.customPrompts = prompts;
     this.updateAllAgentsConfig();
   }
 
@@ -91,6 +108,7 @@ export class AgentService {
     this.projectRoot = path.resolve(root);
     this.config.projectRoot = this.projectRoot;
     this.loadProjectContext();
+    this.initSharedToolRegistry();
     this.updateAllAgentsConfig();
   }
 
@@ -102,121 +120,10 @@ export class AgentService {
     return this.projectContext;
   }
 
+  /** 使用 ProjectContextLoader 加载项目上下文，避免与 project-context.ts 重复 */
   private loadProjectContext(): void {
-    this.projectContext = {
-      projectRoot: this.projectRoot,
-    };
-
-    const configFiles = [
-      path.join(this.projectRoot, 'playwright.config.ts'),
-      path.join(this.projectRoot, 'playwright.config.js'),
-      path.join(this.projectRoot, 'playwright.config.mts'),
-    ];
-
-    let configFilePath: string | undefined;
-    for (const f of configFiles) {
-      if (fs.existsSync(f)) {
-        configFilePath = f;
-        break;
-      }
-    }
-
-    if (configFilePath) {
-      try {
-        const configContent = fs.readFileSync(configFilePath, 'utf-8');
-
-        const baseURLMatch = configContent.match(/baseURL\s*:\s*['"`]([^'"`]+)['"`]/);
-        if (baseURLMatch) {
-          this.projectContext.baseURL = baseURLMatch[1];
-        }
-
-        const timeoutMatch = configContent.match(/timeout\s*:\s*(\d+)/);
-        if (timeoutMatch) {
-          this.projectContext.timeout = parseInt(timeoutMatch[1], 10);
-        }
-
-        const testDirMatch = configContent.match(/testDir\s*:\s*['"`]([^'"`]+)['"`]/);
-        if (testDirMatch) {
-          this.projectContext.testDir = testDirMatch[1];
-        }
-
-        const viewportMatch = configContent.match(
-          /viewport\s*:\s*\{\s*width\s*:\s*(\d+)\s*,\s*height\s*:\s*(\d+)\s*\}/
-        );
-        if (viewportMatch) {
-          this.projectContext.useViewport = {
-            width: parseInt(viewportMatch[1], 10),
-            height: parseInt(viewportMatch[2], 10),
-          };
-        }
-
-        this.log.info(
-          `Loaded project context: baseURL=${this.projectContext.baseURL || 'N/A'}, timeout=${this.projectContext.timeout || 'N/A'}`
-        );
-      } catch (error) {
-        this.log.warn(
-          `Failed to read playwright config: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-    }
-
-    const packageJsonPath = path.join(this.projectRoot, 'package.json');
-    if (fs.existsSync(packageJsonPath)) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-        this.projectContext.packageJson = {
-          name: pkg.name,
-          dependencies: pkg.dependencies,
-          devDependencies: pkg.devDependencies,
-        };
-
-        const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
-        const techStack: string[] = [];
-        if (allDeps.react || allDeps['react-dom']) {
-          techStack.push('React');
-        }
-        if (allDeps.vue || allDeps['vue-router']) {
-          techStack.push('Vue');
-        }
-        if (allDeps.angular || allDeps['@angular/core']) {
-          techStack.push('Angular');
-        }
-        if (allDeps.svelte || allDeps['@sveltejs/kit']) {
-          techStack.push('Svelte');
-        }
-        if (allDeps.next || allDeps['next.js']) {
-          techStack.push('Next.js');
-        }
-        if (allDeps.nuxt || allDeps['nuxt3']) {
-          techStack.push('Nuxt');
-        }
-        if (allDeps.vite) {
-          techStack.push('Vite');
-        }
-        if (allDeps.webpack) {
-          techStack.push('Webpack');
-        }
-        if (techStack.length > 0) {
-          this.projectContext.technology = techStack.join(', ');
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    const fixturePaths = [
-      path.join(this.projectRoot, 'tests', 'fixtures.ts'),
-      path.join(this.projectRoot, 'tests', 'fixtures.js'),
-      path.join(this.projectRoot, 'test', 'fixtures.ts'),
-      path.join(this.projectRoot, 'test', 'fixtures.js'),
-    ];
-    for (const fp of fixturePaths) {
-      if (fs.existsSync(fp)) {
-        this.projectContext.fixtures = path.relative(this.projectRoot, fp).replace(/\\/g, '/');
-        break;
-      }
-    }
-
+    const loader = new ProjectContextLoader();
+    this.projectContext = loader.load(this.projectRoot);
     this.config.projectContext = this.projectContext;
   }
 
@@ -228,9 +135,7 @@ export class AgentService {
 
   /** Check if a resolved path is within the project root (safe for patch writes) */
   private isWithinProjectRoot(resolvedPath: string): boolean {
-    const normalized = path.normalize(resolvedPath);
-    const normalizedRoot = path.normalize(this.projectRoot);
-    return normalized.startsWith(normalizedRoot + path.sep) || normalized === normalizedRoot;
+    return PatchApplier.isWithinProjectRoot(resolvedPath, this.projectRoot);
   }
 
   getConfig(): AgentConfig {
@@ -337,7 +242,8 @@ export class AgentService {
       const planFilePath = path.join(specsDir, `${planFileName}.md`);
       plan.filePath = planFilePath;
 
-      const markdown = this.planToMarkdown(plan);
+      // 委托给 PlannerAgent 的静态方法进行序列化
+      const markdown = PlannerAgent.planToMarkdown(plan);
       fs.writeFileSync(planFilePath, markdown, 'utf-8');
       this.log.info(`Test plan saved to: ${planFilePath}`);
 
@@ -471,19 +377,6 @@ export class AgentService {
 
   async applyPatch(patch: HealerPatch): Promise<boolean> {
     try {
-      const resolvedFilePath = this.resolveProjectPath(patch.filePath);
-
-      // Security check: patch target must be within project root
-      if (!this.isWithinProjectRoot(resolvedFilePath)) {
-        this.log.error(`Security: patch target outside project root: ${resolvedFilePath}`);
-        return false;
-      }
-
-      if (!fs.existsSync(resolvedFilePath)) {
-        this.log.error(`File not found for patch: ${resolvedFilePath}`);
-        return false;
-      }
-
       const applier = new PatchApplier();
       const result = applier.applyPatch(patch, this.projectRoot);
 
@@ -548,195 +441,9 @@ export class AgentService {
     }
   }
 
-  private generateSlug(text: string): string {
-    let slug = text.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
-    slug = slug.replace(/-+/g, '-');
-    slug = slug.replace(/^-+|-+$/g, '');
-    return slug.slice(0, 80);
-  }
-
-  private planToMarkdown(plan: TestPlan): string {
-    let md = `# ${plan.title}\n\n`;
-    md += `${plan.description}\n\n`;
-
-    if (plan.seedTest) {
-      md += `**Seed:** \`${plan.seedTest}\`\n\n`;
-    }
-
-    for (const scenario of plan.scenarios) {
-      md += `## ${scenario.name}\n\n`;
-      md += `**Steps:**\n\n`;
-      for (let i = 0; i < scenario.steps.length; i++) {
-        const step = scenario.steps[i];
-        md += `${i + 1}. ${step.action}`;
-        if (step.target) {
-          md += ` → \`${step.target}\``;
-        }
-        if (step.value) {
-          md += ` = "${step.value}"`;
-        }
-        md += '\n';
-      }
-      md += `\n**Expected Results:**\n\n`;
-      for (const result of scenario.expectedResults) {
-        md += `- ${result}\n`;
-      }
-      md += '\n';
-    }
-
-    return md;
-  }
-
+  /** 委托给 PlannerAgent 的静态方法解析 Markdown 计划 */
   parseMarkdownPlan(filePath: string): TestPlan | null {
-    try {
-      if (!fs.existsSync(filePath)) {
-        return null;
-      }
-
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const titleMatch = content.match(/^# (.+)$/m);
-      const title = titleMatch ? titleMatch[1] : path.basename(filePath, '.md');
-
-      const seedMatch = content.match(/\*\*Seed:\*\* `(.+?)`/);
-      const seedTest = seedMatch ? seedMatch[1] : undefined;
-
-      const descriptionLines: string[] = [];
-      const lines = content.split('\n');
-      let inDescription = false;
-      for (const line of lines) {
-        if (line.startsWith('# ') && !inDescription) {
-          inDescription = true;
-          continue;
-        }
-        if (line.startsWith('## ')) {
-          break;
-        }
-        if (inDescription && line.trim() && !line.startsWith('**Seed:**')) {
-          descriptionLines.push(line.trim());
-        }
-      }
-
-      const scenarios: TestPlan['scenarios'] = [];
-      const scenarioRegex = /^## (.+)$/gm;
-      let scenarioMatch: RegExpExecArray | null;
-
-      while ((scenarioMatch = scenarioRegex.exec(content)) !== null) {
-        const scenarioName = scenarioMatch[1];
-        const scenarioStart = scenarioMatch.index + scenarioMatch[0].length;
-        const nextScenario = content.indexOf('## ', scenarioStart + 1);
-        const scenarioContent = content.slice(
-          scenarioStart,
-          nextScenario === -1 ? undefined : nextScenario
-        );
-
-        const steps: TestPlanStep[] = [];
-        // Try new format first (→ and =)
-        const newFormatRegex = /^\d+\.\s+(.+?)(?:\s+→\s+`(.+?)`)?(?:\s+=\s+"(.+?)")?$/gm;
-        let stepMatch: RegExpExecArray | null;
-        const newFormatSteps: TestPlanStep[] = [];
-        while ((stepMatch = newFormatRegex.exec(scenarioContent)) !== null) {
-          newFormatSteps.push({
-            action: stepMatch[1],
-            target: stepMatch[2] || '',
-            value: stepMatch[3],
-          });
-        }
-        if (newFormatSteps.length > 0) {
-          steps.push(...newFormatSteps);
-        } else {
-          // Fall back to old format (on and with)
-          const stepRegex = /^\d+\.\s+(.+?)(?:\s+on\s+`(.+?)`)?(?:\s+with\s+"(.+?)")?$/gm;
-          while ((stepMatch = stepRegex.exec(scenarioContent)) !== null) {
-            steps.push({
-              action: stepMatch[1],
-              target: stepMatch[2] || '',
-              value: stepMatch[3],
-            });
-          }
-        }
-
-        const expectedResults: string[] = [];
-        const resultRegex = /^- (.+)$/gm;
-        let resultMatch: RegExpExecArray | null;
-        while ((resultMatch = resultRegex.exec(scenarioContent)) !== null) {
-          expectedResults.push(resultMatch[1]);
-        }
-
-        scenarios.push({ name: scenarioName, steps, expectedResults });
-      }
-
-      return {
-        id: `plan-${Date.now()}`,
-        title,
-        description: descriptionLines.join(' '),
-        scenarios,
-        createdAt: Date.now(),
-        seedTest,
-        filePath,
-      };
-    } catch (error) {
-      this.log.warn(
-        `Failed to parse markdown plan: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return null;
-    }
-  }
-
-  async healWithVerification(
-    testFilePath: string,
-    options?: {
-      runId?: string;
-      testId?: string;
-      error?: string;
-      stackTrace?: string;
-    }
-  ): Promise<AgentResult<AgentHealResult>> {
-    if (!this.llmConfig?.enabled) {
-      return {
-        success: false,
-        error: 'LLM is not enabled. Configure LLM settings first.',
-        duration: 0,
-        agentType: 'healer',
-      };
-    }
-
-    const startTime = Date.now();
-    try {
-      const resolvedTestFilePath = this.resolveProjectPath(testFilePath);
-      if (!fs.existsSync(resolvedTestFilePath)) {
-        throw new Error(`Test file not found: ${testFilePath}`);
-      }
-
-      const result = await this.healer.healTest(resolvedTestFilePath, {
-        maxRounds: this.config.maxHealRounds,
-        error: options?.error,
-        stackTrace: options?.stackTrace,
-      });
-
-      // healWithVerification only applies patches when autoHeal is true
-      if (result.healed && result.patches.length > 0 && this.config.autoHeal) {
-        await this.applyPatches(result.patches);
-      }
-
-      await this.saveHealHistory(result);
-
-      return {
-        success: true,
-        data: result,
-        duration: Date.now() - startTime,
-        agentType: 'healer',
-        model: this.llmConfig.model,
-        tokenUsage: this.healer.lastTokenUsage,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        duration: Date.now() - startTime,
-        agentType: 'healer',
-        model: this.llmConfig?.model,
-      };
-    }
+    return PlannerAgent.parseMarkdownPlan(filePath);
   }
 
   async listPlans(): Promise<TestPlan[]> {
@@ -749,7 +456,7 @@ export class AgentService {
     const entries = fs.readdirSync(specsDir);
     for (const entry of entries) {
       if (entry.endsWith('.md')) {
-        const plan = this.parseMarkdownPlan(path.join(specsDir, entry));
+        const plan = PlannerAgent.parseMarkdownPlan(path.join(specsDir, entry));
         if (plan) {
           plans.push(plan);
         }
@@ -757,5 +464,133 @@ export class AgentService {
     }
 
     return plans.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  // ─── 会话上下文管理 ──────────────────────────────────────────
+
+  /** 创建新的会话上下文 */
+  createSessionContext(): AgentSessionContext {
+    return {
+      sessionId: `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: Date.now(),
+    };
+  }
+
+  /**
+   * 执行完整的 Plan → Generate → Heal 管线，
+   * 通过 AgentSessionContext 在 Agent 间传递状态。
+   */
+  async runPipeline(
+    description: string,
+    options?: {
+      seedTest?: string;
+      prdPath?: string;
+      outputDir?: string;
+      autoHeal?: boolean;
+    }
+  ): Promise<AgentResult<AgentSessionContext>> {
+    const session = this.createSessionContext();
+    const startTime = Date.now();
+
+    try {
+      // Phase 1: Plan
+      const planResult = await this.plan(description, {
+        seedTest: options?.seedTest,
+        prdPath: options?.prdPath,
+        outputDir: options?.outputDir,
+      });
+
+      if (!planResult.success || !planResult.data) {
+        return {
+          success: false,
+          error: planResult.error || 'Plan phase failed',
+          duration: Date.now() - startTime,
+          agentType: 'pipeline',
+          data: session,
+        };
+      }
+
+      session.plan = planResult.data;
+      if (planResult.tokenUsage) {
+        session.planTokenUsage = {
+          promptTokens: planResult.tokenUsage.promptTokens,
+          completionTokens: planResult.tokenUsage.completionTokens,
+          totalTokens: planResult.tokenUsage.totalTokens,
+        };
+      }
+
+      // Phase 2: Generate
+      if (!planResult.data.filePath) {
+        return {
+          success: false,
+          error: 'Plan has no file path, cannot generate tests',
+          duration: Date.now() - startTime,
+          agentType: 'pipeline',
+          data: session,
+        };
+      }
+
+      const generateResult = await this.generate(planResult.data.filePath, {
+        outputDir: options?.outputDir,
+        seedTest: options?.seedTest,
+      });
+
+      if (!generateResult.success || !generateResult.data) {
+        return {
+          success: false,
+          error: generateResult.error || 'Generate phase failed',
+          duration: Date.now() - startTime,
+          agentType: 'pipeline',
+          data: session,
+        };
+      }
+
+      session.generatedFiles = generateResult.data;
+      if (generateResult.tokenUsage) {
+        session.generateTokenUsage = {
+          promptTokens: generateResult.tokenUsage.promptTokens,
+          completionTokens: generateResult.tokenUsage.completionTokens,
+          totalTokens: generateResult.tokenUsage.totalTokens,
+        };
+      }
+
+      // Phase 3: Heal (optional, only if autoHeal is enabled)
+      if (options?.autoHeal ?? this.config.autoHeal) {
+        session.healHistory = [];
+        for (const testFile of generateResult.data) {
+          const healResult = await this.heal(testFile);
+          if (healResult.success && healResult.data) {
+            session.healHistory.push(healResult.data);
+            session.totalHealRounds = (session.totalHealRounds || 0) + healResult.data.roundsUsed;
+            if (healResult.tokenUsage) {
+              session.healTokenUsage = {
+                promptTokens:
+                  (session.healTokenUsage?.promptTokens || 0) + healResult.tokenUsage.promptTokens,
+                completionTokens:
+                  (session.healTokenUsage?.completionTokens || 0) +
+                  healResult.tokenUsage.completionTokens,
+                totalTokens:
+                  (session.healTokenUsage?.totalTokens || 0) + healResult.tokenUsage.totalTokens,
+              };
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: session,
+        duration: Date.now() - startTime,
+        agentType: 'pipeline',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+        agentType: 'pipeline',
+        data: session,
+      };
+    }
   }
 }

@@ -1,14 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaseAgent } from './base-agent';
-import { BrowserSessionManager } from './browser-session';
-import { ToolRegistry } from './tool-registry';
 import {
   AgentConfig,
   AgentPrompts,
   LLMConfig,
   TestPlan,
   TestPlanScenario,
+  TestPlanStep,
   ProjectContext,
   AppExplorationResult,
   PageSnapshot,
@@ -208,21 +207,23 @@ Below is an example of a good test plan for a login feature, demonstrating depth
 
 export class PlannerAgent extends BaseAgent {
   private customPrompts: Partial<AgentPrompts> | null = null;
-  private browserSessionManager: BrowserSessionManager | null = null;
 
   protected getAgentName(): string {
     return 'PlannerAgent';
   }
 
+  /** Planner 需要 customPrompts 额外配置（browserSessionManager 已统一通过 explore_app 工具） */
+  public getRequiredExtraConfigKeys(): string[] {
+    return ['customPrompts'];
+  }
+
   constructor(
     config: AgentConfig,
     llmConfig: LLMConfig | null,
-    customPrompts?: Partial<AgentPrompts>,
-    browserSessionManager?: BrowserSessionManager
+    customPrompts?: Partial<AgentPrompts>
   ) {
     super(config, llmConfig);
     this.customPrompts = customPrompts || null;
-    this.browserSessionManager = browserSessionManager || null;
   }
 
   updateConfig(
@@ -234,10 +235,6 @@ export class PlannerAgent extends BaseAgent {
     if (extraParams) {
       if (extraParams.customPrompts !== undefined) {
         this.customPrompts = extraParams.customPrompts as Partial<AgentPrompts> | null;
-      }
-      if (extraParams.browserSessionManager !== undefined) {
-        this.browserSessionManager =
-          extraParams.browserSessionManager as BrowserSessionManager | null;
       }
     }
   }
@@ -290,15 +287,12 @@ export class PlannerAgent extends BaseAgent {
           ? `\n参考 Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`
           : `\nReference Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
 
-      // 如果有 BrowserSessionManager，导航到页面获取快照作为动态上下文
-      if (this.browserSessionManager && this.config.projectContext?.baseURL) {
-        const dynamicContext = await this.capturePageSnapshot(this.config.projectContext.baseURL);
-        if (dynamicContext) {
-          userPrompt +=
-            lang === 'zh'
-              ? `\n## Seed Test 运行后的浏览器状态\n以下是在运行 Seed Test 后捕获的页面状态：\n${dynamicContext}\n`
-              : `\n## Browser State After Running Seed Test\nThe following page state was captured after running the Seed Test:\n${dynamicContext}\n`;
-        }
+      // 提示 LLM 使用 explore_app 工具获取页面信息，统一通过工具路径
+      if (this.config.projectContext?.baseURL) {
+        userPrompt +=
+          lang === 'zh'
+            ? `\n提示：你可以使用 explore_app 工具探索应用页面结构（URL: ${this.config.projectContext.baseURL}），获取更精确的页面元素信息。\n`
+            : `\nHint: You can use the explore_app tool to explore the application's page structure (URL: ${this.config.projectContext.baseURL}) for more precise element information.\n`;
       }
     }
 
@@ -310,10 +304,8 @@ export class PlannerAgent extends BaseAgent {
           : `\nProduct Requirement Document:\n${prdContent.slice(0, 3000)}\n`;
     }
 
-    // 创建 ToolRegistry 并筛选 Planner 所需的工具
-    const projectRoot = this.config.projectRoot || process.cwd();
-    const dataDir = path.join(projectRoot, '.yuantest');
-    const fullRegistry = ToolRegistry.createDefaultRegistry(dataDir, projectRoot);
+    // 获取 ToolRegistry 并筛选 Planner 所需的工具
+    const fullRegistry = this.getOrCreateToolRegistry();
     const plannerToolNames = ['search_codebase', 'read_source_file', 'explore_app'];
     const tools = fullRegistry
       .getToolSchemas()
@@ -539,70 +531,6 @@ export class PlannerAgent extends BaseAgent {
     return lines;
   }
 
-  /**
-   * 导航到目标 URL 并捕获页面快照，作为动态上下文注入到 Planner 的 prompt
-   */
-  private async capturePageSnapshot(targetURL: string): Promise<string | undefined> {
-    if (!this.browserSessionManager) {
-      return undefined;
-    }
-
-    // 根据 config.language 决定标签语言
-    const lang = this.config.language || 'zh';
-
-    let page: import('@playwright/test').Page | null = null;
-    try {
-      const _session = await this.browserSessionManager.getSession('planner-seed', {
-        headless: true,
-      });
-      page = await this.browserSessionManager.getPage('planner-seed');
-      await page.goto(targetURL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-      // 获取页面基本信息
-      const url = page.url();
-      const title = await page.title();
-
-      // 获取可访问性快照
-      let snapshotStr = '';
-      try {
-        const snapshot = await (page as any).accessibility.snapshot();
-        if (snapshot) {
-          snapshotStr = JSON.stringify(snapshot, null, 2).slice(0, 6000);
-        }
-      } catch {
-        // accessibility snapshot 可能不可用
-      }
-
-      const lines: string[] = [
-        lang === 'zh' ? `当前页面 URL: ${url}` : `Current page URL: ${url}`,
-        lang === 'zh' ? `页面标题: ${title}` : `Page title: ${title}`,
-      ];
-
-      if (snapshotStr) {
-        lines.push(
-          lang === 'zh'
-            ? `页面可访问性快照:\n${snapshotStr}`
-            : `Page accessibility snapshot:\n${snapshotStr}`
-        );
-      }
-
-      return lines.join('\n');
-    } catch (error) {
-      this.log.warn(
-        `Failed to capture page snapshot: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return undefined;
-    } finally {
-      if (page) {
-        try {
-          await page.close();
-        } catch {
-          // 忽略关闭错误
-        }
-      }
-    }
-  }
-
   private buildContextPrompt(ctx: ProjectContext, lang: string): string {
     const lines: string[] = [];
 
@@ -825,6 +753,132 @@ export class PlannerAgent extends BaseAgent {
       }
 
       return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  }
+
+  // ─── 计划序列化/反序列化（从 AgentService 迁移） ──────────────────────────
+
+  /** 将 TestPlan 序列化为 Markdown 格式 */
+  static planToMarkdown(plan: TestPlan): string {
+    let md = `# ${plan.title}\n\n`;
+    md += `${plan.description}\n\n`;
+
+    if (plan.seedTest) {
+      md += `**Seed:** \`${plan.seedTest}\`\n\n`;
+    }
+
+    for (const scenario of plan.scenarios) {
+      md += `## ${scenario.name}\n\n`;
+      md += `**Steps:**\n\n`;
+      for (let i = 0; i < scenario.steps.length; i++) {
+        const step = scenario.steps[i];
+        md += `${i + 1}. ${step.action}`;
+        if (step.target) {
+          md += ` → \`${step.target}\``;
+        }
+        if (step.value) {
+          md += ` = "${step.value}"`;
+        }
+        md += '\n';
+      }
+      md += `\n**Expected Results:**\n\n`;
+      for (const result of scenario.expectedResults) {
+        md += `- ${result}\n`;
+      }
+      md += '\n';
+    }
+
+    return md;
+  }
+
+  /** 从 Markdown 文件解析 TestPlan */
+  static parseMarkdownPlan(filePath: string): TestPlan | null {
+    try {
+      if (!fs.existsSync(filePath)) {
+        return null;
+      }
+
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const titleMatch = content.match(/^# (.+)$/m);
+      const title = titleMatch ? titleMatch[1] : path.basename(filePath, '.md');
+
+      const seedMatch = content.match(/\*\*Seed:\*\* `(.+?)`/);
+      const seedTest = seedMatch ? seedMatch[1] : undefined;
+
+      const descriptionLines: string[] = [];
+      const lines = content.split('\n');
+      let inDescription = false;
+      for (const line of lines) {
+        if (line.startsWith('# ') && !inDescription) {
+          inDescription = true;
+          continue;
+        }
+        if (line.startsWith('## ')) {
+          break;
+        }
+        if (inDescription && line.trim() && !line.startsWith('**Seed:**')) {
+          descriptionLines.push(line.trim());
+        }
+      }
+
+      const scenarios: TestPlan['scenarios'] = [];
+      const scenarioRegex = /^## (.+)$/gm;
+      let scenarioMatch: RegExpExecArray | null;
+
+      while ((scenarioMatch = scenarioRegex.exec(content)) !== null) {
+        const scenarioName = scenarioMatch[1];
+        const scenarioStart = scenarioMatch.index + scenarioMatch[0].length;
+        const nextScenario = content.indexOf('## ', scenarioStart + 1);
+        const scenarioContent = content.slice(
+          scenarioStart,
+          nextScenario === -1 ? undefined : nextScenario
+        );
+
+        const steps: TestPlanStep[] = [];
+        const newFormatRegex = /^\d+\.\s+(.+?)(?:\s+→\s+`(.+?)`)?(?:\s+=\s+"(.+?)")?$/gm;
+        let stepMatch: RegExpExecArray | null;
+        const newFormatSteps: TestPlanStep[] = [];
+        while ((stepMatch = newFormatRegex.exec(scenarioContent)) !== null) {
+          newFormatSteps.push({
+            action: stepMatch[1],
+            target: stepMatch[2] || '',
+            value: stepMatch[3],
+          });
+        }
+        if (newFormatSteps.length > 0) {
+          steps.push(...newFormatSteps);
+        } else {
+          const stepRegex = /^\d+\.\s+(.+?)(?:\s+on\s+`(.+?)`)?(?:\s+with\s+"(.+?)")?$/gm;
+          while ((stepMatch = stepRegex.exec(scenarioContent)) !== null) {
+            steps.push({
+              action: stepMatch[1],
+              target: stepMatch[2] || '',
+              value: stepMatch[3],
+            });
+          }
+        }
+
+        const expectedResults: string[] = [];
+        const resultRegex = /^- (.+)$/gm;
+        let resultMatch: RegExpExecArray | null;
+        while ((resultMatch = resultRegex.exec(scenarioContent)) !== null) {
+          expectedResults.push(resultMatch[1]);
+        }
+
+        scenarios.push({ name: scenarioName, steps, expectedResults });
+      }
+
+      return {
+        id: `plan-${Date.now()}`,
+        title,
+        description: descriptionLines.join(' '),
+        scenarios,
+        createdAt: Date.now(),
+        seedTest,
+        filePath,
+      };
     } catch {
       return null;
     }

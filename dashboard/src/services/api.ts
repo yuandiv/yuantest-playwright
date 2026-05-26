@@ -1,4 +1,4 @@
-import type { LLMConfig, LLMStatus, AIDiagnosis, RetryHistoryEntry } from '../types';
+import type { LLMConfig, LLMStatus, AIDiagnosis, RetryHistoryEntry, FlakyTest, QuarantinedTest, CorrelationGroup, FlakyHealthScore, HealthMetric, FailureAnalysisSummary, CausalGraphData, ImpactAnalysisData, ErrorPattern, RunReport, RootCauseAnalysis, TrendAnalysis, PredictionResult, DurationAnomaly } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -264,7 +264,7 @@ export async function getRunStatus(): Promise<RunStatusResponse | null> {
   return fetchJSON(`${API_BASE}/runs/status`);
 }
 
-export async function getRuns(limit: number = 20): Promise<any[] | null> {
+export async function getRuns(limit: number = 20): Promise<RunReport[] | null> {
   return fetchJSON(`${API_BASE}/runs?limit=${limit}`);
 }
 
@@ -299,11 +299,11 @@ export async function deleteAllRuns(): Promise<{ success: boolean; count?: numbe
   }
 }
 
-export async function getFlakyTests(threshold: number = 0.3): Promise<any[] | null> {
+export async function getFlakyTests(threshold: number = 0.3): Promise<FlakyTest[] | null> {
   return fetchJSON(`${API_BASE}/flaky?threshold=${threshold}`);
 }
 
-export async function getQuarantinedTests(): Promise<any[] | null> {
+export async function getQuarantinedTests(): Promise<QuarantinedTest[] | null> {
   return fetchJSON(`${API_BASE}/flaky/quarantined`);
 }
 
@@ -343,44 +343,44 @@ export async function clearFlakyHistory(): Promise<boolean> {
   }
 }
 
-export async function getRootCauseAnalysis(testId: string): Promise<any | null> {
+export async function getRootCauseAnalysis(testId: string): Promise<RootCauseAnalysis | null> {
   return fetchJSON(`${API_BASE}/flaky/${encodeURIComponent(testId)}/root-cause`);
 }
 
-export async function getCorrelations(): Promise<any[] | null> {
+export async function getCorrelations(): Promise<CorrelationGroup[] | null> {
   return fetchJSON(`${API_BASE}/flaky/correlations`);
 }
 
-export async function getFlakyByClassification(classification?: string): Promise<any | null> {
+export async function getFlakyByClassification(classification?: string): Promise<Record<string, FlakyTest[]> | null> {
   const query = classification ? `?classification=${encodeURIComponent(classification)}` : '';
   return fetchJSON(`${API_BASE}/flaky/by-classification${query}`);
 }
 
-export async function getFlakyTrend(testId: string): Promise<any | null> {
+export async function getFlakyTrend(testId: string): Promise<TrendAnalysis | null> {
   return fetchJSON(`${API_BASE}/flaky/trend/${encodeURIComponent(testId)}`);
 }
 
-export async function getFlakyTrends(): Promise<any | null> {
+export async function getFlakyTrends(): Promise<TrendAnalysis[] | null> {
   return fetchJSON(`${API_BASE}/flaky/trends`);
 }
 
-export async function getFlakyHealth(): Promise<any | null> {
+export async function getFlakyHealth(): Promise<FlakyHealthScore | null> {
   return fetchJSON(`${API_BASE}/flaky/health`);
 }
 
-export async function getFlakyPrediction(testId: string): Promise<any | null> {
+export async function getFlakyPrediction(testId: string): Promise<PredictionResult | null> {
   return fetchJSON(`${API_BASE}/flaky/prediction/${encodeURIComponent(testId)}`);
 }
 
-export async function getHighRiskPredictions(): Promise<any[] | null> {
+export async function getHighRiskPredictions(): Promise<PredictionResult[] | null> {
   return fetchJSON(`${API_BASE}/flaky/predictions/high-risk`);
 }
 
-export async function getDurationAnomalies(): Promise<any[] | null> {
+export async function getDurationAnomalies(): Promise<DurationAnomaly[] | null> {
   return fetchJSON(`${API_BASE}/flaky/duration-anomalies`);
 }
 
-export async function getAnnotations(testDir: string = './'): Promise<any[] | null> {
+export async function getAnnotations(testDir: string = './'): Promise<Array<{ type: string; description?: string }> | null> {
   return fetchJSON(`${API_BASE}/annotations?testDir=${encodeURIComponent(testDir)}`);
 }
 
@@ -506,7 +506,7 @@ export async function savePreferences(prefs: Record<string, string>): Promise<bo
   }
 }
 
-export async function getRun(id: string): Promise<any | null> {
+export async function getRun(id: string): Promise<RunReport | null> {
   return fetchJSON(`${API_BASE}/runs/${id}/raw`);
 }
 
@@ -565,7 +565,7 @@ export async function validateTestDir(testDir: string): Promise<{
 export async function getHealthMetrics(options?: {
   startDate?: string;
   endDate?: string;
-}): Promise<any[] | null> {
+}): Promise<HealthMetric[] | null> {
   let url = `${API_BASE}/health/metrics`;
   const params = new URLSearchParams();
   
@@ -620,7 +620,7 @@ export async function requestClusterDiagnosis(
   testResults: Array<{id: string; title: string; name?: string; error?: string; stackTrace?: string; file?: string; line?: number; screenshots?: string[]; logs?: string[]; browser?: string}>,
   lang: string = 'zh',
   runId?: number | string
-): Promise<{enabled: boolean; clusters: Array<{clusterId: string; category: string; testIds: string[]; similarity: number; errorMessage?: string; diagnosis: any}>}> {
+): Promise<{enabled: boolean; clusters: Array<{clusterId: string; category: string; testIds: string[]; similarity: number; errorMessage?: string; diagnosis: AIDiagnosis | null}>}> {
   const response = await fetch(`${API_BASE}/diagnosis/cluster`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -633,7 +633,7 @@ export async function requestClusterDiagnosis(
 /** 获取已持久化的聚类诊断结果 */
 export async function getPersistedClusterResult(
   runId: string | number
-): Promise<{ found: boolean; clusters: Array<{clusterId: string; category: string; testIds: string[]; similarity: number; errorMessage?: string; diagnosis: any}> }> {
+): Promise<{ found: boolean; clusters: Array<{clusterId: string; category: string; testIds: string[]; similarity: number; errorMessage?: string; diagnosis: AIDiagnosis | null}> }> {
   try {
     const res = await fetch(
       `${API_BASE}/diagnosis/cluster?runId=${encodeURIComponent(String(runId))}`
@@ -690,7 +690,7 @@ export async function getTestHistory(testId: string, page: number = 1, pageSize:
   return fetchJSON(`${API_BASE}/tests/${encodeURIComponent(testId)}/history?page=${page}&pageSize=${pageSize}`);
 }
 
-export async function getFailureAnalysis(filter?: 'persistent' | 'emerging' | 'immediate'): Promise<any[] | null> {
+export async function getFailureAnalysis(filter?: 'persistent' | 'emerging' | 'immediate'): Promise<FailureAnalysisSummary | FailureAnalysisSummary[] | null> {
   let url = `${API_BASE}/failures/analysis`;
   if (filter) {
     url += `?filter=${encodeURIComponent(filter)}`;
@@ -698,23 +698,23 @@ export async function getFailureAnalysis(filter?: 'persistent' | 'emerging' | 'i
   return fetchJSON(url);
 }
 
-export async function getRunAnalysis(runId: string | number): Promise<any[] | null> {
+export async function getRunAnalysis(runId: string | number): Promise<FailureAnalysisSummary[] | null> {
   return fetchJSON(`${API_BASE}/analysis/${encodeURIComponent(String(runId))}`);
 }
 
-export async function getCausalGraph(): Promise<any | null> {
+export async function getCausalGraph(): Promise<CausalGraphData | null> {
   return fetchJSON(`${API_BASE}/causal-graph`);
 }
 
-export async function getImpactAnalysis(testId: string): Promise<any | null> {
+export async function getImpactAnalysis(testId: string): Promise<ImpactAnalysisData | null> {
   return fetchJSON(`${API_BASE}/impact-analysis/${encodeURIComponent(testId)}`);
 }
 
-export async function getErrorPatterns(): Promise<any[] | null> {
+export async function getErrorPatterns(): Promise<ErrorPattern[] | null> {
   return fetchJSON(`${API_BASE}/error-patterns`);
 }
 
-export async function getCustomErrorPatterns(): Promise<any[] | null> {
+export async function getCustomErrorPatterns(): Promise<ErrorPattern[] | null> {
   return fetchJSON(`${API_BASE}/error-patterns/custom`);
 }
 
@@ -727,7 +727,7 @@ export async function addErrorPattern(pattern: {
   rootCauseTemplate: { zh: string; en: string };
   suggestionsTemplate: { zh: string[]; en: string[] };
   docLinks?: { title: string; url: string }[];
-}): Promise<any | null> {
+}): Promise<ErrorPattern | null> {
   return fetchJSON(`${API_BASE}/error-patterns`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -735,7 +735,7 @@ export async function addErrorPattern(pattern: {
   });
 }
 
-export async function deleteErrorPattern(patternId: string): Promise<any | null> {
+export async function deleteErrorPattern(patternId: string): Promise<{ success: boolean } | null> {
   return fetchJSON(`${API_BASE}/error-patterns/${encodeURIComponent(patternId)}`, {
     method: 'DELETE',
   });

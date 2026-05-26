@@ -3,6 +3,9 @@ import { Lang, t } from '../i18n';
 import { FlakyTest, QuarantinedTest, RunReport, FlakyClassification } from '../types';
 import * as api from '../services/api';
 import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { safeNumber } from '../utils/numbers';
+import { NODE_TYPE_STYLES, RISK_COLORS } from '../utils/categoryConfig';
+import { categorizeErrorLocal } from '../utils/errorCategorizer';
 
 interface FlakyTestsPanelProps {
   lang: Lang;
@@ -50,37 +53,7 @@ interface ImpactAnalysisData {
   recommendation: string;
 }
 
-function safeNumber(value: any, defaultValue: number = 0): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return defaultValue;
-  }
-  return value;
-}
 
-const NODE_TYPE_STYLES: Record<string, { fill: string; stroke: string; icon: string; label: string }> = {
-  test: { fill: '#dbeafe', stroke: '#3b82f6', icon: 'fa-vial', label: 'Test' },
-  infrastructure: { fill: '#fef3c7', stroke: '#f59e0b', icon: 'fa-server', label: 'Infra' },
-  external_service: { fill: '#fce7f3', stroke: '#ec4899', icon: 'fa-cloud', label: 'ExtSvc' },
-  shared_state: { fill: '#e0e7ff', stroke: '#6366f1', icon: 'fa-database', label: 'Shared' },
-};
-
-const RISK_COLORS: Record<string, string> = {
-  low: '#22c55e',
-  medium: '#f59e0b',
-  high: '#ef4444',
-  critical: '#dc2626',
-};
-
-function categorizeErrorLocal(error: string): string {
-  const lower = error.toLowerCase();
-  if (/timeout|timed?\s*out|exceeded.*time/.test(lower)) return 'timeout';
-  if (/selector|element.*not.*found|waiting.*locator|no.*element/.test(lower)) return 'selector';
-  if (/network|fetch|econnrefused|dns|net::|request.*fail|err_connection|cors/.test(lower)) return 'network';
-  if (/assert|expect.*received|expected.*but/.test(lower)) return 'assertion';
-  if (/frame|iframe|context.*destroyed|page.*closed/.test(lower)) return 'frame';
-  if (/auth|unauthorized|forbidden|401|403|login|token/.test(lower)) return 'auth';
-  return 'unknown';
-}
 
 function CausalGraphView({ graph, lang, onSelectNode }: { graph: CausalGraphData; lang: Lang; onSelectNode: (id: string) => void }) {
   const nodePositions = useMemo(() => {
@@ -254,7 +227,7 @@ export function FlakyTestsPanel({
   useEffect(() => {
     api.getFlakyHealth().then(data => {
       if (data) setHealthScore(data);
-    }).catch(() => {});
+    }).catch((err) => console.error('[FlakyTestsPanel] getFlakyHealth failed:', err));
   }, []);
 
   const handleLoadCausalGraph = async () => {

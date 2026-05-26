@@ -34,10 +34,10 @@ export function LLMConfigDialog({ lang, onClose, onSaved }: LLMConfigDialogProps
         setMaxTokens(config.maxTokens || 2048);
         setTemperature(config.temperature ?? 0.3);
       }
-    }).catch(() => {});
+    }).catch((err) => console.error('[LLMConfigDialog] getLLMConfig failed:', err));
     api.getLLMStatus().then(status => {
       setLlmStatus(status);
-    }).catch(() => {});
+    }).catch((err) => console.error('[LLMConfigDialog] getLLMStatus failed:', err));
   }, []);
 
   const handleTestConnection = async () => {
