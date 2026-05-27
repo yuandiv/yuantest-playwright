@@ -33,3 +33,6 @@ Thumbs.db
 /traces/
 /visual-testing/
 /html-report/
+
+# AtomCode local-scope configs (machine-specific)
+.atomcode

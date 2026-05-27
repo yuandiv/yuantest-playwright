@@ -26,6 +26,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^pixelmatch$': '<rootDir>/tests/__mocks__/pixelmatch.js',
+    '^@playwright/test$': '<rootDir>/tests/__mocks__/playwright.ts',
   },
   testTimeout: 30000,
 };
