@@ -1,7 +1,14 @@
 import { EventEmitter } from 'events';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
-import { RealTimeMessage, RunProgress, RunResult, TestResult } from '../types';
+import {
+  RealTimeMessage,
+  RunProgress,
+  RunResult,
+  TestResult,
+  FlakyClassification,
+  RootCauseType,
+} from '../types';
 import { logger } from '../logger';
 import { CACHE_CONFIG, WEBSOCKET_CONFIG } from '../constants';
 
@@ -44,10 +51,14 @@ export class RealtimeReporter extends EventEmitter {
 
     server.on('upgrade', (request, socket, head) => {
       const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
+      const wss = this.wss;
+      if (!wss) {
+        return;
+      }
 
       if (pathname === '/ws') {
-        this.wss!.handleUpgrade(request, socket, head, (ws) => {
-          this.wss!.emit('connection', ws, request);
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit('connection', ws, request);
         });
       }
     });
@@ -165,13 +176,16 @@ export class RealtimeReporter extends EventEmitter {
       });
     }
 
-    const progress = this.runProgress.get(runId)!;
+    const progress = this.runProgress.get(runId);
+    if (!progress) {
+      return;
+    }
 
     const existingBatch = this.testResultBatch.get(runId);
     const existingInBatch = existingBatch?.findIndex((t) => t.id === result.id);
 
-    if (existingInBatch !== undefined && existingInBatch >= 0) {
-      const oldResult = existingBatch![existingInBatch];
+    if (existingInBatch !== undefined && existingInBatch >= 0 && existingBatch) {
+      const oldResult = existingBatch[existingInBatch];
       if (oldResult.status === 'passed') {
         progress.passed--;
       } else if (oldResult.status === 'failed') {
@@ -180,12 +194,15 @@ export class RealtimeReporter extends EventEmitter {
         progress.skipped--;
       }
 
-      existingBatch![existingInBatch] = result;
+      existingBatch[existingInBatch] = result;
     } else {
       if (!this.testResultBatch.has(runId)) {
         this.testResultBatch.set(runId, []);
       }
-      this.testResultBatch.get(runId)!.push(result);
+      const batchList = this.testResultBatch.get(runId);
+      if (batchList) {
+        batchList.push(result);
+      }
     }
 
     progress.passed += result.status === 'passed' ? 1 : 0;
@@ -206,8 +223,8 @@ export class RealtimeReporter extends EventEmitter {
       }
     }
 
-    const batch = this.testResultBatch.get(runId)!;
-    if (batch.length >= this.BATCH_MAX_SIZE) {
+    const batch = this.testResultBatch.get(runId);
+    if (batch && batch.length >= this.BATCH_MAX_SIZE) {
       this.flushTestResultBatch(runId);
     } else if (!this.batchFlushTimer) {
       this.batchFlushTimer = setTimeout(() => {
@@ -264,7 +281,10 @@ export class RealtimeReporter extends EventEmitter {
       });
     }
 
-    const progress = this.runProgress.get(runId)!;
+    const progress = this.runProgress.get(runId);
+    if (!progress) {
+      return;
+    }
 
     for (const result of results) {
       progress.passed += result.status === 'passed' ? 1 : 0;
@@ -331,7 +351,11 @@ export class RealtimeReporter extends EventEmitter {
   broadcastFlakyDetected(
     runId: string,
     test: TestResult,
-    extra?: { weightedFailureRate?: number; classification?: string; rootCause?: string }
+    extra?: {
+      weightedFailureRate?: number;
+      classification?: FlakyClassification;
+      rootCause?: RootCauseType;
+    }
   ): void {
     const message: RealTimeMessage = {
       type: 'flaky_detected',
@@ -340,8 +364,8 @@ export class RealtimeReporter extends EventEmitter {
         title: test.title,
         failureRate: 0.5,
         weightedFailureRate: extra?.weightedFailureRate ?? 0.5,
-        classification: (extra?.classification as any) ?? 'flaky',
-        rootCause: extra?.rootCause as any,
+        classification: extra?.classification ?? 'flaky',
+        rootCause: extra?.rootCause,
         timestamp: Date.now(),
       },
       timestamp: Date.now(),

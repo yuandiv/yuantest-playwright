@@ -224,6 +224,124 @@ graph TB
   - **Heal History**: Persistent healing history with auto-cleanup (max 100 entries)
   - **Agent Init**: Initialize agent definitions for VSCode/Claude/OpenCode loop targets
 
+### 3.10 ChatService + MCP — AI Chat Service
+
+- **Core Responsibility**: AI-powered chat service with Model Context Protocol (MCP) integration, providing conversational interface for test generation, healing, and browser automation
+- **Key Capabilities**:
+  - Conversational interface for test generation and healing
+  - Model Context Protocol (MCP) integration for tool and resource access
+  - Browser automation through chat commands
+  - Conversation history management
+
+### 3.11 ServiceContainer (DI) — Dependency Injection Container
+
+- **Core Responsibility**: Dependency injection container managing service lifecycle, factory registration, and token-based resolution
+- **Key Capabilities**:
+  - Service lifecycle management (singleton, transient)
+  - Factory registration and token-based resolution
+  - Dependency graph construction and validation
+
+### 3.12 TestDiscovery — Automatic Test File Discovery
+
+- **Core Responsibility**: Automatic test file discovery with structured parsing, pagination, and caching support
+- **Key Capabilities**:
+  - Scan and discover test files in the project
+  - Structured parsing of test metadata
+  - Pagination support for large test suites
+  - Caching of discovery results
+
+### 3.13 VisualTestingManager — Visual Regression Testing
+
+- **Core Responsibility**: Visual regression testing with screenshot comparison, baseline management, and diff reporting
+- **Key Capabilities**:
+  - Screenshot comparison with pixel and perceptual diff algorithms
+  - Baseline image management and versioning
+  - Diff report generation with visual highlighting
+
+### 3.14 TraceManager — Playwright Trace Management
+
+- **Core Responsibility**: Playwright trace file management including discovery, viewing, merging, and cleanup
+- **Key Capabilities**:
+  - Trace file discovery and indexing
+  - Trace viewing and replay
+  - Trace merging across shards
+  - Trace cleanup and retention policies
+
+### 3.15 ArtifactManager — Test Artifact Management
+
+- **Core Responsibility**: Test artifact management for screenshots, videos, downloads, and attachments
+- **Key Capabilities**:
+  - Screenshot capture and storage
+  - Video recording management
+  - Download tracking and organization
+  - Attachment handling for test results
+
+### 3.16 AnnotationManager — Test Annotation Management
+
+- **Core Responsibility**: Test annotation scanning and management (@skip, @only, @fail, @slow, etc.)
+- **Key Capabilities**:
+  - Scan test files for custom annotations
+  - Support for @skip, @only, @fail, @slow, and custom annotations
+  - Annotation-based test filtering and selection
+
+### 3.17 TagManager — Test Tag Management
+
+- **Core Responsibility**: Test tag scanning, filtering, and grep pattern generation
+- **Key Capabilities**:
+  - Scan test files for tags
+  - Tag-based test filtering
+  - Grep pattern generation for tag selection
+
+### 3.18 Logger — Structured Logging
+
+- **Core Responsibility**: Structured logging system with child loggers, log levels, and file-based output
+- **Key Capabilities**:
+  - Structured log output with context
+  - Child logger creation for module-specific logging
+  - Configurable log levels (debug, info, warn, error)
+  - File-based log output with rotation
+
+### 3.19 Cache (LRU/TTL) — In-Memory Caching
+
+- **Core Responsibility**: In-memory caching with LRU eviction and TTL expiration support
+- **Key Capabilities**:
+  - LRU (Least Recently Used) eviction policy
+  - TTL (Time To Live) expiration support
+  - Configurable cache size and TTL values
+
+### 3.20 Validation (Zod) — Request Validation
+
+- **Core Responsibility**: Request validation using Zod schemas for API endpoints
+- **Key Capabilities**:
+  - Zod schema-based request validation
+  - Automatic error response generation for invalid requests
+  - Type-safe validation with inferred types
+
+### 3.21 Middleware — Express Middleware
+
+- **Core Responsibility**: Express middleware for async error handling, request validation, and 404 handling
+- **Key Capabilities**:
+  - Async error handling middleware
+  - Request validation middleware with Zod integration
+  - 404 not-found handler
+
+### 3.22 i18n — Internationalization
+
+- **Core Responsibility**: Internationalization support with Chinese and English languages
+- **Key Capabilities**:
+  - Multi-language support (Chinese, English)
+  - Translation key management
+  - Language detection and switching
+
+### 3.23 Constants — Centralized Constants
+
+- **Core Responsibility**: Centralized constant definitions for defaults, cache config, flaky config, WebSocket config, etc.
+- **Key Capabilities**:
+  - Default values for system configuration
+  - Cache configuration constants
+  - Flaky test configuration constants
+  - WebSocket configuration constants
+
 ## 4. Storage Architecture
 
 ### 4.1 Directory Layout

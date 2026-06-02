@@ -1,37 +1,38 @@
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { TraceManager } from '../../src/trace';
 import { StorageProvider } from '../../src/storage';
 
-jest.mock('child_process', () => ({
-  execSync: jest.fn(),
-  spawn: jest.fn(() => ({
-    on: jest.fn(),
-    stdout: { on: jest.fn() },
-    stderr: { on: jest.fn() },
-    kill: jest.fn(),
-  })),
-}));
-
 describe('TraceManager', () => {
   let traceManager: TraceManager;
-  let mockStorage: jest.Mocked<StorageProvider>;
-  let mockExecSync: jest.MockedFunction<typeof import('child_process').execSync>;
+  let mockStorage: Mocked<StorageProvider>;
+  let mockExecSync: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockExecSync = require('child_process').execSync;
+    const cp = require('child_process');
+    mockExecSync = vi.fn();
+    cp.execSync = mockExecSync;
+    cp.spawn = vi.fn(() => ({
+      on: vi.fn(),
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      kill: vi.fn(),
+    }));
+
     mockStorage = {
-      exists: jest.fn(),
-      readText: jest.fn(),
-      writeText: jest.fn(),
-      writeJSON: jest.fn(),
-      readJSON: jest.fn(),
-      readBuffer: jest.fn(),
-      writeBuffer: jest.fn(),
-      mkdir: jest.fn(),
-      readDir: jest.fn(),
-      readDirWithTypes: jest.fn(),
-      stat: jest.fn(),
-      remove: jest.fn(),
-      copy: jest.fn(),
+      exists: vi.fn(),
+      readText: vi.fn(),
+      writeText: vi.fn(),
+      writeJSON: vi.fn(),
+      readJSON: vi.fn(),
+      readBuffer: vi.fn(),
+      writeBuffer: vi.fn(),
+      mkdir: vi.fn(),
+      readDir: vi.fn(),
+      readDirWithTypes: vi.fn(),
+      stat: vi.fn(),
+      remove: vi.fn(),
+      copy: vi.fn(),
     } as any;
 
     const config = {

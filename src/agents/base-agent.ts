@@ -40,10 +40,14 @@ export abstract class BaseAgent {
   /** 最近一次 callLLM / callLLMWithAgentLoop 调用的 token 用量 */
   public lastTokenUsage?: TokenUsage;
 
-  constructor(config: AgentConfig, llmConfig: LLMConfig | null) {
+  constructor(config: AgentConfig, llmConfig: LLMConfig | null, llmService?: LLMService) {
     this.config = config;
     this.llmEnabled = llmConfig?.enabled ?? false;
-    this.llmService = llmConfig ? new LLMService(llmConfig) : null;
+    if (llmService) {
+      this.llmService = llmService;
+    } else {
+      this.llmService = llmConfig ? new LLMService(llmConfig) : null;
+    }
   }
 
   /** 子类必须提供 Agent 名称，用于 logger 标识 */
@@ -96,6 +100,12 @@ export abstract class BaseAgent {
   /** 设置共享的 ToolRegistry 实例 */
   setToolRegistry(registry: ToolRegistry | null): void {
     this.toolRegistry = registry;
+  }
+
+  /** 设置共享的 LLMService 实例 */
+  setLLMService(service: LLMService | null): void {
+    this.llmService = service;
+    this.llmEnabled = service !== null && (service.getConfig()?.enabled ?? false);
   }
 
   /**

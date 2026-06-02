@@ -1,6 +1,20 @@
+import { vi } from 'vitest';
 import { Executor, ParallelExecutor } from '../../src/executor';
+import { PlaywrightReportParser } from '../../src/executor/playwright-report-parser';
 import { MemoryStorage } from '../../src/storage';
 import { FlakyTestManager } from '../../src/flaky';
+
+vi.mock('../../src/utils/environment', () => ({
+  checkEnvironment: vi.fn().mockResolvedValue({
+    nodeVersion: '18.0.0',
+    nodeOk: true,
+    playwrightAvailable: true,
+    playwrightVersion: '1.40.0',
+    playwrightOk: true,
+    errors: [],
+  }),
+  MIN_PLAYWRIGHT_VERSION: '1.40.0',
+}));
 
 describe('Executor', () => {
   let storage: MemoryStorage;
@@ -166,10 +180,10 @@ describe('Executor', () => {
   describe('events', () => {
     it('should emit run_started event when execute is called', async () => {
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
-      const listener = jest.fn();
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      const listener = vi.fn();
       executor.on('run_started', listener);
       await executor.execute({});
       expect(listener).toHaveBeenCalledWith(
@@ -182,10 +196,10 @@ describe('Executor', () => {
 
     it('should emit run_completed event when execute finishes', async () => {
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
-      const listener = jest.fn();
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      const listener = vi.fn();
       executor.on('run_completed', listener);
       await executor.execute({});
       expect(listener).toHaveBeenCalledWith(
@@ -199,18 +213,19 @@ describe('Executor', () => {
 
     it('should emit test_result event when testEnd progress message is received', async () => {
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       // Start execution to set up _currentRun
       const executePromise = executor.execute({});
 
-      // Simulate progress message
-      (executor as any).processProgressMessage({
+      await new Promise((r) => setTimeout(r, 50));
+
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-1',
@@ -240,16 +255,18 @@ describe('Executor', () => {
 
     it('should emit run_progress event when begin progress message is received', async () => {
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
-      const progressListener = jest.fn();
+      const progressListener = vi.fn();
       executor.on('run_progress', progressListener);
 
       const executePromise = executor.execute({});
 
-      (executor as any).processProgressMessage({
+      await new Promise((r) => setTimeout(r, 50));
+
+      (executor as any).progressTracker.processMessage({
         type: 'begin',
         totalTests: 10,
       });
@@ -266,16 +283,18 @@ describe('Executor', () => {
 
     it('should emit output event when stdout progress message is received', async () => {
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
-      const outputListener = jest.fn();
+      const outputListener = vi.fn();
       executor.on('output', outputListener);
 
       const executePromise = executor.execute({});
 
-      (executor as any).processProgressMessage({
+      await new Promise((r) => setTimeout(r, 50));
+
+      (executor as any).progressTracker.processMessage({
         type: 'stdout',
         text: 'Running test...',
       });
@@ -296,9 +315,9 @@ describe('Executor', () => {
 
     beforeEach(() => {
       executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
     });
 
     afterEach(() => {
@@ -307,23 +326,24 @@ describe('Executor', () => {
 
     it('should handle begin message and set totalTests', async () => {
       const executePromise = executor.execute({});
-      (executor as any).processProgressMessage({
+      await new Promise((r) => setTimeout(r, 50));
+      (executor as any).progressTracker.processMessage({
         type: 'begin',
         totalTests: 25,
       });
       await executePromise;
-      // Verify via the run_progress event
-      const progressListener = jest.fn();
+      const progressListener = vi.fn();
       executor.on('run_progress', progressListener);
     });
 
     it('should handle testBegin message and emit output', async () => {
-      const outputListener = jest.fn();
+      const outputListener = vi.fn();
       executor.on('output', outputListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'testBegin',
         test: { title: 'my test', fullTitle: 'Suite > my test' },
       });
@@ -339,12 +359,13 @@ describe('Executor', () => {
     });
 
     it('should handle testEnd with passed status', async () => {
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-passed',
@@ -372,12 +393,13 @@ describe('Executor', () => {
     });
 
     it('should handle testEnd with failed status', async () => {
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-failed',
@@ -405,12 +427,13 @@ describe('Executor', () => {
     });
 
     it('should handle testEnd with timedOut status mapping to timedout', async () => {
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-timeout',
@@ -437,12 +460,13 @@ describe('Executor', () => {
     });
 
     it('should handle testEnd with skipped status', async () => {
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-skipped',
@@ -470,8 +494,9 @@ describe('Executor', () => {
 
     it('should handle testEnd with retries and add to flakyTests', async () => {
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-flaky',
@@ -495,12 +520,13 @@ describe('Executor', () => {
     });
 
     it('should handle stderr message and emit output', async () => {
-      const outputListener = jest.fn();
+      const outputListener = vi.fn();
       executor.on('output', outputListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'stderr',
         text: 'Warning: deprecated API',
       });
@@ -520,18 +546,18 @@ describe('Executor', () => {
 
       const executePromise = executor.execute({});
 
-      (executor as any).processProgressMessage({
+      await new Promise((r) => setTimeout(r, 50));
+
+      (executor as any).progressTracker.processMessage({
         type: 'globalError',
         message: 'Worker process crashed',
         stack: 'Error: crashed\n    at Worker...',
       });
 
-      // Capture status during execution (before execute resets it to 'success')
       statusDuringRun = executor.currentRun!.status;
 
       await executePromise;
 
-      // The globalError handler sets status to 'failed' during execution
       expect(statusDuringRun).toBe('failed');
       expect(executor.currentRun!.metadata!.globalErrors).toHaveLength(1);
       expect(executor.currentRun!.metadata!.globalErrors![0].message).toBe('Worker process crashed');
@@ -539,8 +565,9 @@ describe('Executor', () => {
 
     it('should aggregate suite stats from multiple testEnd messages', async () => {
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-1', title: 'test1', fullTitle: 'Suite > test1', suiteTitle: 'Suite',
@@ -548,7 +575,7 @@ describe('Executor', () => {
         },
       });
 
-      (executor as any).processProgressMessage({
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-2', title: 'test2', fullTitle: 'Suite > test2', suiteTitle: 'Suite',
@@ -568,7 +595,7 @@ describe('Executor', () => {
       const executor2 = new Executor(config, storage);
       // Don't call execute, so _currentRun is null
       expect(() => {
-        (executor2 as any).processProgressMessage({
+        (executor2 as any).progressTracker.processMessage({
           type: 'begin',
           totalTests: 10,
         });
@@ -581,9 +608,9 @@ describe('Executor', () => {
 
     beforeEach(() => {
       executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
     });
 
     afterEach(() => {
@@ -591,12 +618,12 @@ describe('Executor', () => {
     });
 
     it('should parse progress messages from stderr with marker', async () => {
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
-      // Simulate stderr chunk with progress marker
       const marker = '__PW_PROGRESS__';
       const progressMsg = JSON.stringify({
         type: 'testEnd',
@@ -605,7 +632,7 @@ describe('Executor', () => {
           status: 'passed', duration: 100, error: undefined, retries: 0, browser: 'chromium', attachments: [],
         },
       });
-      (executor as any).handleProgressData(`${marker}${progressMsg}\n`);
+      (executor as any).progressTracker.handleData(`${marker}${progressMsg}\n`);
 
       await executePromise;
 
@@ -617,17 +644,16 @@ describe('Executor', () => {
     it('should buffer incomplete lines', async () => {
       const executePromise = executor.execute({});
 
+      await new Promise((r) => setTimeout(r, 50));
+
       const marker = '__PW_PROGRESS__';
       const progressMsg = JSON.stringify({ type: 'begin', totalTests: 5 });
 
-      // Send partial line (no newline)
-      (executor as any).handleProgressData(`${marker}${progressMsg}`);
+      (executor as any).progressTracker.handleData(`${marker}${progressMsg}`);
 
-      // Should be buffered, not processed yet
       expect(executor.currentRun!.totalTests).toBe(0);
 
-      // Send newline to complete
-      (executor as any).handleProgressData('\n');
+      (executor as any).progressTracker.handleData('\n');
 
       await executePromise;
 
@@ -640,7 +666,7 @@ describe('Executor', () => {
       const marker = '__PW_PROGRESS__';
       // Invalid JSON should not throw
       expect(() => {
-        (executor as any).handleProgressData(`${marker}{invalid json}\n`);
+        (executor as any).progressTracker.handleData(`${marker}{invalid json}\n`);
       }).not.toThrow();
 
       await executePromise;
@@ -650,7 +676,7 @@ describe('Executor', () => {
       const executePromise = executor.execute({});
 
       expect(() => {
-        (executor as any).handleProgressData('Regular stderr output\n');
+        (executor as any).progressTracker.handleData('Regular stderr output\n');
       }).not.toThrow();
 
       await executePromise;
@@ -697,9 +723,9 @@ describe('Executor', () => {
 
     beforeEach(() => {
       executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
     });
 
     afterEach(() => {
@@ -707,10 +733,11 @@ describe('Executor', () => {
     });
 
     it('should process a simple JSON report with one suite', async () => {
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
       const jsonReport = {
         config: {},
@@ -760,10 +787,11 @@ describe('Executor', () => {
     });
 
     it('should process JSON report with failed test', async () => {
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
       const jsonReport = {
         config: {},
@@ -814,10 +842,11 @@ describe('Executor', () => {
     });
 
     it('should process JSON report with nested suites', async () => {
-      const testResultListener = jest.fn();
+      const testResultListener = vi.fn();
       executor.on('test_result', testResultListener);
 
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
       const jsonReport = {
         config: {},
@@ -878,6 +907,7 @@ describe('Executor', () => {
 
     it('should handle flaky tests in JSON report (retry > 0)', async () => {
       const executePromise = executor.execute({});
+      await new Promise((r) => setTimeout(r, 50));
 
       const jsonReport = {
         config: {},
@@ -930,7 +960,7 @@ describe('Executor', () => {
     });
 
     it('should map timedOut status to timedout', () => {
-      const result = (executor as any).mapJSONTestResult(
+      const result = PlaywrightReportParser.mapTestResult(
         { id: 'spec-1', title: 'test', ok: false, tags: [] },
         { projectName: 'chromium', results: [{
           status: 'timedOut', duration: 30000, retry: 0, startTime: new Date().toISOString(),
@@ -943,7 +973,7 @@ describe('Executor', () => {
     });
 
     it('should map skipped status', () => {
-      const result = (executor as any).mapJSONTestResult(
+      const result = PlaywrightReportParser.mapTestResult(
         { id: 'spec-1', title: 'test', ok: true, tags: [] },
         { projectName: 'chromium', results: [{
           status: 'skipped', duration: 0, retry: 0, startTime: new Date().toISOString(),
@@ -956,7 +986,7 @@ describe('Executor', () => {
     });
 
     it('should map interrupted status to failed', () => {
-      const result = (executor as any).mapJSONTestResult(
+      const result = PlaywrightReportParser.mapTestResult(
         { id: 'spec-1', title: 'test', ok: false, tags: [] },
         { projectName: 'chromium', results: [{
           status: 'interrupted', duration: 100, retry: 0, startTime: new Date().toISOString(),
@@ -969,7 +999,7 @@ describe('Executor', () => {
     });
 
     it('should extract error message from result.error.message', () => {
-      const result = (executor as any).mapJSONTestResult(
+      const result = PlaywrightReportParser.mapTestResult(
         { id: 'spec-1', title: 'test', ok: false, tags: [] },
         { projectName: 'chromium', results: [{
           status: 'failed', duration: 100, retry: 0, startTime: new Date().toISOString(),
@@ -985,7 +1015,7 @@ describe('Executor', () => {
     });
 
     it('should extract error from result.error.value when message is absent', () => {
-      const result = (executor as any).mapJSONTestResult(
+      const result = PlaywrightReportParser.mapTestResult(
         { id: 'spec-1', title: 'test', ok: false, tags: [] },
         { projectName: 'chromium', results: [{
           status: 'failed', duration: 100, retry: 0, startTime: new Date().toISOString(),
@@ -1000,7 +1030,7 @@ describe('Executor', () => {
     });
 
     it('should map attachments to screenshots/videos/traces', () => {
-      const result = (executor as any).mapJSONTestResult(
+      const result = PlaywrightReportParser.mapTestResult(
         { id: 'spec-1', title: 'test', ok: false, tags: [] },
         { projectName: 'chromium', results: [{
           status: 'failed', duration: 100, retry: 0, startTime: new Date().toISOString(),
@@ -1026,7 +1056,7 @@ describe('Executor', () => {
     });
 
     it('should generate ID from file:line:title when spec.id is absent', () => {
-      const result = (executor as any).mapJSONTestResult(
+      const result = PlaywrightReportParser.mapTestResult(
         { id: '', title: 'my test', ok: true, tags: [], file: 'test.spec.ts', line: 10 },
         { projectName: 'chromium', results: [{
           status: 'passed', duration: 50, retry: 0, startTime: new Date().toISOString(),
@@ -1063,31 +1093,40 @@ describe('Executor', () => {
 
     it('getTestLocations returns locations during execution', async () => {
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      let resolveBlock: () => void;
+      const blockPromise = new Promise<void>((resolve) => { resolveBlock = resolve; });
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
+        await blockPromise;
+      });
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       const executePromise = executor.execute({ testLocations: ['test1.ts:10', 'test2.ts:20'] });
 
-      // During execution, should return the locations
+      await new Promise((r) => setTimeout(r, 50));
       expect(executor.getTestLocations()).toEqual(['test1.ts:10', 'test2.ts:20']);
 
+      resolveBlock!();
       await executePromise;
 
-      // After execution, should return null
       expect(executor.getTestLocations()).toBeNull();
     });
 
     it('getCompletedTestResults returns results during execution', async () => {
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      let resolveBlock: () => void;
+      const blockPromise = new Promise<void>((resolve) => { resolveBlock = resolve; });
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
+        await blockPromise;
+      });
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       const executePromise = executor.execute({});
 
-      // Simulate a test result
-      (executor as any).processProgressMessage({
+      await new Promise((r) => setTimeout(r, 50));
+
+      (executor as any).progressTracker.processMessage({
         type: 'testEnd',
         test: {
           id: 'test-1', title: 'test1', fullTitle: 'Suite > test1', suiteTitle: 'Suite',
@@ -1099,6 +1138,7 @@ describe('Executor', () => {
       expect(completed).toHaveLength(1);
       expect(completed[0].id).toBe('test-1');
 
+      resolveBlock!();
       await executePromise;
 
       expect(executor.getCompletedTestResults()).toEqual([]);
@@ -1108,10 +1148,19 @@ describe('Executor', () => {
   describe('execute', () => {
     it('should throw error if already running', async () => {
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      let resolveBlock: () => void;
+      const blockPromise = new Promise<void>((resolve) => { resolveBlock = resolve; });
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
+        await blockPromise;
+      });
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+
       const firstRun = executor.execute();
+      await new Promise((r) => setTimeout(r, 50));
       await expect(executor.execute()).rejects.toThrow('already running');
-      await firstRun.catch(() => {});
+      resolveBlock!();
+      await firstRun;
     });
   });
 
@@ -1127,9 +1176,9 @@ describe('Executor', () => {
     });
 
     it('should execute successfully and return RunResult with status success', async () => {
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       const result = await executor.execute({});
 
@@ -1147,18 +1196,18 @@ describe('Executor', () => {
       const delayPromise = new Promise<void>((resolve) => {
         resolveDelay = resolve;
       });
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
         await delayPromise;
       });
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       const startedEvents: any[] = [];
       executor.on('run_started', (payload) => startedEvents.push(payload));
 
       const executePromise = executor.execute({});
 
-      // run_started should have been emitted synchronously before runPlaywrightTests resolves
+      await new Promise((r) => setTimeout(r, 50));
       expect(startedEvents.length).toBe(1);
       expect(startedEvents[0]).toEqual({
         runId: expect.any(String),
@@ -1170,9 +1219,9 @@ describe('Executor', () => {
     });
 
     it('should emit run_completed event on success', async () => {
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       const completedEvents: any[] = [];
       executor.on('run_completed', (payload) => completedEvents.push(payload));
@@ -1189,11 +1238,11 @@ describe('Executor', () => {
     });
 
     it('should set status to failed and emit error event when execution throws', async () => {
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
         throw new Error('Playwright crashed');
       });
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       const errorEvents: any[] = [];
       executor.on('error', (payload) => errorEvents.push(payload));
@@ -1207,11 +1256,11 @@ describe('Executor', () => {
     });
 
     it('should always reset isRunning and emit run_completed even on error', async () => {
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {
         throw new Error('Something went wrong');
       });
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       const completedEvents: any[] = [];
       executor.on('run_completed', (payload) => completedEvents.push(payload));
@@ -1228,9 +1277,9 @@ describe('Executor', () => {
     });
 
     it('should allow re-execution after a run completes', async () => {
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       const firstResult = await executor.execute({});
       expect(firstResult.status).toBe('success');
@@ -1308,7 +1357,7 @@ describe('ParallelExecutor', () => {
 
       // Mock execute on each internal executor
       for (const executor of (parallelExecutor as any).executors) {
-        jest.spyOn(executor, 'execute').mockImplementation(async (opts: any) => ({
+        vi.spyOn(executor, 'execute').mockImplementation(async (opts: any) => ({
           id: `run-shard-${opts.shardIndex}`,
           version: '1.0.0',
           status: 'success',
@@ -1337,7 +1386,7 @@ describe('ParallelExecutor', () => {
       const parallelExecutor = new ParallelExecutor(config, shardCount, storage);
 
       // First shard succeeds
-      jest.spyOn((parallelExecutor as any).executors[0], 'execute').mockImplementation(async (opts: any) => ({
+      vi.spyOn((parallelExecutor as any).executors[0], 'execute').mockImplementation(async (opts: any) => ({
         id: `run-shard-0`,
         version: '1.0.0',
         status: 'success',
@@ -1354,7 +1403,7 @@ describe('ParallelExecutor', () => {
       }));
 
       // Second shard throws
-      jest.spyOn((parallelExecutor as any).executors[1], 'execute').mockRejectedValue(new Error('Shard failed'));
+      vi.spyOn((parallelExecutor as any).executors[1], 'execute').mockRejectedValue(new Error('Shard failed'));
 
       const results = await parallelExecutor.execute();
 
@@ -1371,7 +1420,7 @@ describe('ParallelExecutor', () => {
       const executionOrder: number[] = [];
 
       for (let i = 0; i < shardCount; i++) {
-        jest.spyOn((parallelExecutor as any).executors[i], 'execute').mockImplementation(async (opts: any) => {
+        vi.spyOn((parallelExecutor as any).executors[i], 'execute').mockImplementation(async (opts: any) => {
           executionOrder.push(opts.shardIndex);
           await new Promise(resolve => setTimeout(resolve, 10));
           return {
@@ -1407,7 +1456,7 @@ describe('ParallelExecutor', () => {
 
       // Mock cancel on each executor
       for (const executor of (parallelExecutor as any).executors) {
-        jest.spyOn(executor, 'cancel').mockImplementation(async () => {});
+        vi.spyOn(executor, 'cancel').mockImplementation(async () => {});
       }
 
       await parallelExecutor.cancelAll();

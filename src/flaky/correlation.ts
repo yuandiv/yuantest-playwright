@@ -35,10 +35,10 @@ class UnionFind {
     }
 
     if (this.parent.get(x) !== x) {
-      this.parent.set(x, this.find(this.parent.get(x)!));
+      this.parent.set(x, this.find(this.parent.get(x) as string));
     }
 
-    return this.parent.get(x)!;
+    return this.parent.get(x) as string;
   }
 
   /**
@@ -155,11 +155,11 @@ function isSameFile(testA: FlakyTest, testB: FlakyTest): boolean {
 function hasSameErrorPattern(testA: FlakyTest, testB: FlakyTest): boolean {
   const errorsA = testA.history
     .filter((h) => h.error && (h.status === 'failed' || h.status === 'timedout'))
-    .map((h) => h.error!.toLowerCase());
+    .map((h) => (h.error as string).toLowerCase());
 
   const errorsB = testB.history
     .filter((h) => h.error && (h.status === 'failed' || h.status === 'timedout'))
-    .map((h) => h.error!.toLowerCase());
+    .map((h) => (h.error as string).toLowerCase());
 
   if (errorsA.length === 0 || errorsB.length === 0) {
     return false;
@@ -298,7 +298,7 @@ export function analyzeCorrelations(
     if (!groups.has(root)) {
       groups.set(root, []);
     }
-    groups.get(root)!.push(test.testId);
+    (groups.get(root) as string[]).push(test.testId);
   }
 
   const testMap = new Map<string, FlakyTest>();

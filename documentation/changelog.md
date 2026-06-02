@@ -4,6 +4,26 @@ This file records all important changes to the project.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.1.2 (2026-05-28)
+
+### Bug Fixes
+
+- Fixed WebSocket connection stability issues
+- Fixed test discovery cache invalidation
+
+## 1.1.1 (2026-05-24)
+
+### Features
+
+- Added Chat API with MCP (Model Context Protocol) integration
+- Added Test Discovery REST API endpoints
+- Added `diagnoseWithHeal()` method for auto-healing failing tests
+
+### Bug Fixes
+
+- Fixed DashboardServer constructor parameter handling
+- Fixed CLI subcommand syntax for trace, annotations, tags, artifacts, visual commands
+
 ## [1.1.0] - 2026-05-20
 
 ### Added

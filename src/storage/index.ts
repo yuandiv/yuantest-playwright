@@ -1,16 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { ErrorCode, PlaywrightRunnerError, Result, Ok, Err, createError } from '../types';
+import { logger as _loggerInstance, ChildLogger } from '../logger';
 
-type LoggerType = typeof import('../logger').logger;
+type LoggerType = typeof _loggerInstance;
 
-let _logger: LoggerType | null = null;
+let _loggerCache: LoggerType | undefined;
 function getLogger(): LoggerType {
-  if (!_logger) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    _logger = require('../logger').logger;
+  if (!_loggerCache) {
+    _loggerCache = _loggerInstance;
   }
-  return _logger!;
+  return _loggerCache ?? _loggerInstance;
+}
+
+export function setLogger(logger: LoggerType): void {
+  _loggerCache = logger;
 }
 
 interface MemoryFile {
@@ -42,7 +46,7 @@ function classifyFileSystemError(error: unknown, filePath: string): PlaywrightRu
 
 export class MemoryStorage implements StorageProvider {
   private store = new Map<string, MemoryFile>();
-  private _log: ReturnType<LoggerType['child']> | null = null;
+  private _log: ChildLogger | null = null;
 
   private get log() {
     if (!this._log) {
@@ -90,7 +94,7 @@ export class MemoryStorage implements StorageProvider {
     }
   }
 
-  async writeJSON(filePath: string, data: any): Promise<void> {
+  async writeJSON(filePath: string, data: unknown): Promise<void> {
     const content = JSON.stringify(data, null, 2);
     await this.writeText(filePath, content);
   }
@@ -282,7 +286,7 @@ export class MemoryStorage implements StorageProvider {
 
 export interface StorageProvider {
   readJSON<T>(filePath: string): Promise<T | null>;
-  writeJSON(filePath: string, data: any): Promise<void>;
+  writeJSON(filePath: string, data: unknown): Promise<void>;
   readText(filePath: string): Promise<string | null>;
   writeText(filePath: string, content: string): Promise<void>;
   appendText(filePath: string, content: string): Promise<void>;
@@ -308,7 +312,7 @@ export interface StorageProviderWithResult {
 }
 
 export class FilesystemStorage implements StorageProvider, StorageProviderWithResult {
-  private _log: ReturnType<LoggerType['child']> | null = null;
+  private _log: ChildLogger | null = null;
 
   private get log() {
     if (!this._log) {
@@ -340,7 +344,7 @@ export class FilesystemStorage implements StorageProvider, StorageProviderWithRe
     }
   }
 
-  async writeJSON(filePath: string, data: any): Promise<void> {
+  async writeJSON(filePath: string, data: unknown): Promise<void> {
     const dir = path.dirname(filePath);
     await this.mkdir(dir);
     await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');

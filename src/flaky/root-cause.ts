@@ -151,7 +151,7 @@ function detectDataRace(test: FlakyTest, context: AnalysisContext): RootCauseEvi
           if (!shardResults.has(shard)) {
             shardResults.set(shard, { passed: 0, failed: 0 });
           }
-          const results = shardResults.get(shard)!;
+          const results = shardResults.get(shard) as { passed: number; failed: number };
           if (t.status === 'passed') {
             results.passed++;
           } else if (t.status === 'failed' || t.status === 'timedout') {

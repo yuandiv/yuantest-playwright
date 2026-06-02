@@ -80,7 +80,10 @@ export class TagManager {
       });
     }
 
-    const tag = this.tags.get(tagName)!;
+    const tag = this.tags.get(tagName);
+    if (!tag) {
+      return;
+    }
     if (!tag.testIds.includes(testId)) {
       tag.testIds.push(testId);
     }

@@ -1,14 +1,17 @@
-import { LLMClient, LLMChatOptions } from '../../src/agents/llm-client';
+import type { MockInstance } from 'vitest';
+import { vi } from 'vitest';
+import { LLMService, LLMChatOptions } from '../../src/agents/llm-service';
 import { LLMConfig } from '../../src/types';
 
-// Mock the logger module
-jest.mock('../../src/logger', () => ({
+const { logger } = await import('../../src/logger');
+
+vi.mock('../../src/logger', () => ({
   logger: {
-    child: jest.fn().mockReturnValue({
-      warn: jest.fn(),
-      info: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
+    child: vi.fn().mockReturnValue({
+      warn: vi.fn(),
+      info: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
     }),
   },
 }));
@@ -32,13 +35,13 @@ function mockFetchResponse(body: unknown, ok = true, status = 200, statusText = 
   } as Response);
 }
 
-describe('LLMClient', () => {
-  let client: LLMClient;
-  let fetchSpy: jest.SpiedFunction<typeof global.fetch>;
+describe('LLMService', () => {
+  let client: LLMService;
+  let fetchSpy: MockInstance<typeof global.fetch>;
 
   beforeEach(() => {
-    client = new LLMClient({ ...defaultConfig });
-    fetchSpy = jest.spyOn(global, 'fetch');
+    client = new LLMService({ ...defaultConfig });
+    fetchSpy = vi.spyOn(global, 'fetch');
   });
 
   afterEach(() => {
@@ -47,7 +50,7 @@ describe('LLMClient', () => {
 
   describe('URL construction', () => {
     it('should construct URL correctly when baseUrl has no trailing slash', async () => {
-      client = new LLMClient({ ...defaultConfig, baseUrl: 'http://localhost:11434' });
+      client = new LLMService({ ...defaultConfig, baseUrl: 'http://localhost:11434' });
       fetchSpy.mockImplementation(() =>
         mockFetchResponse({
           choices: [{ message: { content: 'hello' }, finish_reason: 'stop' }],
@@ -61,7 +64,7 @@ describe('LLMClient', () => {
     });
 
     it('should construct URL correctly when baseUrl has a trailing slash', async () => {
-      client = new LLMClient({ ...defaultConfig, baseUrl: 'http://localhost:11434/' });
+      client = new LLMService({ ...defaultConfig, baseUrl: 'http://localhost:11434/' });
       fetchSpy.mockImplementation(() =>
         mockFetchResponse({
           choices: [{ message: { content: 'hello' }, finish_reason: 'stop' }],
@@ -75,7 +78,7 @@ describe('LLMClient', () => {
     });
 
     it('should construct URL correctly when baseUrl has multiple trailing slashes', async () => {
-      client = new LLMClient({ ...defaultConfig, baseUrl: 'http://localhost:11434///' });
+      client = new LLMService({ ...defaultConfig, baseUrl: 'http://localhost:11434///' });
       fetchSpy.mockImplementation(() =>
         mockFetchResponse({
           choices: [{ message: { content: 'hello' }, finish_reason: 'stop' }],
@@ -153,7 +156,7 @@ describe('LLMClient', () => {
     });
 
     it('should NOT send Authorization header when apiKey is empty', async () => {
-      client = new LLMClient({ ...defaultConfig, apiKey: '' });
+      client = new LLMService({ ...defaultConfig, apiKey: '' });
       fetchSpy.mockImplementation(() =>
         mockFetchResponse({
           choices: [{ message: { content: 'hello' }, finish_reason: 'stop' }],
@@ -213,8 +216,7 @@ describe('LLMClient', () => {
 
   describe('chat() finish_reason=length', () => {
     it('should log a warning when finish_reason is "length"', async () => {
-      const { logger } = require('../../src/logger');
-      const childLogger = logger.child('LLMClient');
+      const childLogger = logger.child('LLMService');
 
       fetchSpy.mockImplementation(() =>
         mockFetchResponse({
@@ -234,7 +236,7 @@ describe('LLMClient', () => {
 
   describe('chat() timeout', () => {
     it('should abort request after timeout', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       fetchSpy.mockImplementation((_input: string | URL | Request, init?: RequestInit) => {
         return new Promise((_resolve, reject) => {
@@ -252,11 +254,11 @@ describe('LLMClient', () => {
         timeout: 5000,
       });
 
-      jest.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(5000);
 
       await expect(chatPromise).rejects.toThrow();
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
   });
 

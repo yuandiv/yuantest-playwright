@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -19,7 +20,7 @@ function getPrivateMethods(agent: GeneratorAgent): PrivateMethods {
 
 /** Mock LLMService.chatWithAgentLoop to return a given response text */
 function mockAgentLoop(responseText: string) {
-  return jest.spyOn(LLMService.prototype, 'chatWithAgentLoop').mockResolvedValue({
+  return vi.spyOn(LLMService.prototype, 'chatWithAgentLoop').mockResolvedValue({
     responseText,
     reasoningSteps: [],
     analysisMode: 'single' as const,

@@ -9,31 +9,23 @@ All API paths use the `/api/v1/` prefix.
 ## Constructor
 
 ```typescript
-new DashboardServer(config?: DashboardConfig)
+new DashboardServer(port?: number, outputDir?: string, dataDir?: string)
 ```
 
-### DashboardConfig Type
+### Parameters
 
-| Field | Type | Default | Description |
+| Parameter | Type | Default | Description |
 |------|------|--------|------|
 | `port` | `number` | `5274` | Server listening port |
 | `outputDir` | `string` | `'./test-reports'` | Test report output directory |
 | `dataDir` | `string` | `'./test-data'` | Persistent data storage directory |
-| `host` | `string` | `'localhost'` | Server listening address |
-| `openBrowser` | `boolean` | `false` | Whether to automatically open browser on startup |
 
 ### Example
 
 ```typescript
 import { DashboardServer } from 'yuantest-playwright';
 
-const server = new DashboardServer({
-  port: 5274,
-  outputDir: './test-reports',
-  dataDir: './test-data',
-  host: 'localhost',
-  openBrowser: false,
-});
+const server = new DashboardServer(5274, './test-reports', './test-data');
 
 await server.start();
 ```
@@ -80,6 +72,14 @@ Get the report generator instance.
 
 ```typescript
 const reporter = server.getReporter();
+```
+
+### `getContainer(): ServiceContainer`
+
+Get the dependency injection container instance for accessing registered services.
+
+```typescript
+const container = server.getContainer();
 ```
 
 ### `getExecutor(): Executor | null`
@@ -1288,6 +1288,406 @@ Save user preference configuration.
 
 ---
 
+### Test Discovery
+
+#### `GET /api/v1/tests`
+
+Discover tests in the project directory.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|------|------|--------|------|
+| `testDir` | `string` | Current test directory | Test directory path |
+| `configPath` | `string` | | Playwright config file path |
+| `structured` | `string` | `'false'` | Return structured result with files grouping (`'true'` or `'false'`) |
+| `force` | `string` | `'false'` | Force refresh cache (`'true'` or `'false'`) |
+
+**Response Example:**
+
+```json
+{
+  "total": 42,
+  "tests": [
+    {
+      "id": "test-id-1",
+      "title": "Login test",
+      "fullTitle": "Auth > Login test",
+      "file": "tests/auth.spec.ts",
+      "line": 10,
+      "column": 1,
+      "tags": ["@smoke"],
+      "annotations": []
+    }
+  ],
+  "configValidation": { "valid": true }
+}
+```
+
+#### `GET /api/v1/tests/stats`
+
+Get test discovery statistics.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|------|------|--------|------|
+| `testDir` | `string` | Current test directory | Test directory path |
+
+**Response Example:**
+
+```json
+{
+  "totalFiles": 10,
+  "totalTests": 42,
+  "totalSuites": 8
+}
+```
+
+#### `POST /api/v1/tests/refresh`
+
+Refresh test discovery cache.
+
+**Request Body (Optional):**
+
+```json
+{
+  "testDir": "./tests",
+  "configPath": "playwright.config.ts"
+}
+```
+
+**Response Example:**
+
+```json
+{
+  "success": true,
+  "message": "Tests cache refreshed",
+  "total": 42
+}
+```
+
+---
+
+### Chat
+
+#### `GET /api/v1/chat/conversations`
+
+List all conversations.
+
+**Response Example:**
+
+```json
+[
+  {
+    "id": "conv-1",
+    "title": "Login flow test",
+    "messageCount": 5,
+    "createdAt": 1715673600000,
+    "updatedAt": 1715673700000
+  }
+]
+```
+
+#### `POST /api/v1/chat/conversations`
+
+Create a new conversation.
+
+**Request Body (Optional):**
+
+```json
+{
+  "title": "Login flow test"
+}
+```
+
+**Response Example:**
+
+```json
+{
+  "id": "conv-1",
+  "title": "Login flow test",
+  "messages": [],
+  "createdAt": 1715673600000,
+  "updatedAt": 1715673600000
+}
+```
+
+#### `GET /api/v1/chat/conversations/:id`
+
+Get a specific conversation with all messages.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|------|------|------|
+| `id` | `string` | Conversation ID |
+
+**Error Response:**
+
+| Status Code | Description |
+|--------|------|
+| `404` | Conversation not found |
+
+#### `DELETE /api/v1/chat/conversations/:id`
+
+Delete a conversation.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|------|------|------|
+| `id` | `string` | Conversation ID |
+
+**Response Example:**
+
+```json
+{
+  "success": true
+}
+```
+
+#### `POST /api/v1/chat/conversations/:id/messages`
+
+Send a message in a conversation. Response is streamed via Server-Sent Events (SSE).
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|------|------|------|
+| `id` | `string` | Conversation ID |
+
+**Request Body:**
+
+```json
+{
+  "message": "Generate a login test"
+}
+```
+
+**Response:**
+
+- `Content-Type: text/event-stream`
+- `Cache-Control: no-cache`
+- `Connection: keep-alive`
+- `X-Accel-Buffering: no`
+
+**SSE Event Types:**
+
+| Event Type | Description |
+|------|------|
+| `token` | Token stream |
+| `tool_call` | Tool call event with name, arguments, and result preview |
+| `tool_result` | Tool execution result |
+| `done` | Conversation complete with full response |
+| `error` | Error occurred |
+
+**Error Response:**
+
+| Status Code | Description |
+|--------|------|
+| `400` | Missing message |
+| `404` | Conversation not found |
+
+#### `GET /api/v1/chat/mcp-status`
+
+Get MCP (Model Context Protocol) connection status.
+
+**Response Example:**
+
+```json
+{
+  "servers": [
+    {
+      "id": "server-1",
+      "name": "playwright-mcp",
+      "connected": true,
+      "toolCount": 5
+    }
+  ],
+  "totalTools": 5,
+  "connectedCount": 1,
+  "totalCount": 1
+}
+```
+
+#### `POST /api/v1/chat/mcp-reconnect`
+
+Reconnect all MCP servers.
+
+**Response Example:**
+
+```json
+{
+  "success": true,
+  "status": {
+    "servers": [],
+    "totalTools": 5,
+    "connectedCount": 1,
+    "totalCount": 1
+  }
+}
+```
+
+#### `GET /api/v1/chat/tools`
+
+Get all available tools (builtin + MCP).
+
+**Response Example:**
+
+```json
+[
+  { "name": "read_file", "description": "Read file content", "source": "builtin" },
+  { "name": "mcp__playwright_mcp__browser_navigate", "description": "Navigate browser", "source": "mcp" }
+]
+```
+
+#### `GET /api/v1/chat/mcp-configs`
+
+Get MCP configuration list.
+
+**Response Example:**
+
+```json
+[
+  {
+    "id": "config-1",
+    "name": "playwright-mcp",
+    "enabled": true,
+    "command": "npx",
+    "args": ["@playwright/mcp@latest", "--headed"],
+    "description": "Playwright browser automation",
+    "source": "builtin",
+    "createdAt": 1715673600000,
+    "updatedAt": 1715673600000
+  }
+]
+```
+
+#### `PUT /api/v1/chat/mcp-configs/:id`
+
+Update an MCP configuration.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|------|------|------|
+| `id` | `string` | Configuration ID |
+
+**Request Body:**
+
+```json
+{
+  "enabled": false,
+  "args": ["@playwright/mcp@latest"]
+}
+```
+
+**Error Response:**
+
+| Status Code | Description |
+|--------|------|
+| `404` | Configuration not found |
+
+#### `DELETE /api/v1/chat/mcp-configs/:id`
+
+Delete an MCP configuration.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|------|------|------|
+| `id` | `string` | Configuration ID |
+
+**Response Example:**
+
+```json
+{
+  "success": true
+}
+```
+
+#### `POST /api/v1/chat/mcp-configs/batch`
+
+Batch import MCP configurations from a JSON object.
+
+**Request Body:**
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["my-mcp-server"],
+      "env": { "API_KEY": "xxx" }
+    }
+  }
+}
+```
+
+**Response Example:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error Response:**
+
+| Status Code | Description |
+|--------|------|
+| `400` | Missing mcpServers object |
+
+#### `GET /api/v1/chat/mcp-presets`
+
+Get builtin MCP presets with their addition status.
+
+**Response Example:**
+
+```json
+[
+  {
+    "name": "playwright-mcp",
+    "enabled": true,
+    "command": "npx",
+    "args": ["@playwright/mcp@latest", "--headed"],
+    "description": "Playwright browser automation (headed mode)",
+    "source": "builtin",
+    "added": true
+  }
+]
+```
+
+#### `POST /api/v1/chat/mcp-presets/add`
+
+Add a builtin MCP preset to configurations.
+
+**Request Body:**
+
+```json
+{
+  "name": "playwright-mcp"
+}
+```
+
+**Response Example:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error Response:**
+
+| Status Code | Description |
+|--------|------|
+| `400` | Missing name |
+| `404` | Preset not found |
+
+---
+
 ## WebSocket Events
 
 DashboardServer pushes real-time events via WebSocket (path `/ws`). All messages are in JSON format, containing `type`, `payload`, `timestamp`, and `runId` fields.
@@ -1659,14 +2059,6 @@ client.disconnect();
 ## Type Definitions
 
 ```typescript
-interface DashboardConfig {
-  port: number;
-  outputDir: string;
-  dataDir: string;
-  host: string;
-  openBrowser: boolean;
-}
-
 interface DashboardStats {
   totalRuns: number;
   totalTests: number;

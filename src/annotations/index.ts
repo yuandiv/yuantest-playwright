@@ -204,8 +204,8 @@ export class AnnotationManager {
     return false;
   }
 
-  getPlaywrightAnnotations(): Record<string, any> {
-    const annotations: Record<string, any> = {};
+  getPlaywrightAnnotations(): Record<string, boolean> {
+    const annotations: Record<string, boolean> = {};
 
     if (this.config.respectSkip) {
       annotations.skip = true;

@@ -1,25 +1,27 @@
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { AnnotationManager } from '../../src/annotations';
 import { StorageProvider } from '../../src/storage';
 
 describe('AnnotationManager', () => {
   let annotationManager: AnnotationManager;
-  let mockStorage: jest.Mocked<StorageProvider>;
+  let mockStorage: Mocked<StorageProvider>;
 
   beforeEach(() => {
     mockStorage = {
-      exists: jest.fn(),
-      readText: jest.fn(),
-      writeText: jest.fn(),
-      writeJSON: jest.fn(),
-      readJSON: jest.fn(),
-      readBuffer: jest.fn(),
-      writeBuffer: jest.fn(),
-      mkdir: jest.fn(),
-      readDir: jest.fn(),
-      readDirWithTypes: jest.fn(),
-      stat: jest.fn(),
-      remove: jest.fn(),
-      copy: jest.fn(),
+      exists: vi.fn(),
+      readText: vi.fn(),
+      writeText: vi.fn(),
+      writeJSON: vi.fn(),
+      readJSON: vi.fn(),
+      readBuffer: vi.fn(),
+      writeBuffer: vi.fn(),
+      mkdir: vi.fn(),
+      readDir: vi.fn(),
+      readDirWithTypes: vi.fn(),
+      stat: vi.fn(),
+      remove: vi.fn(),
+      copy: vi.fn(),
     } as any;
 
     annotationManager = new AnnotationManager({}, mockStorage);

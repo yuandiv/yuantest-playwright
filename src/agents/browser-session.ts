@@ -1,4 +1,4 @@
-import { chromium, Browser, BrowserContext, Page } from '@playwright/test';
+import { chromium, Browser, BrowserContext, Page } from 'playwright-core';
 import { logger } from '../logger';
 
 export interface BrowserSessionOptions {
@@ -33,7 +33,7 @@ export class BrowserSessionManager {
       const sessions = Array.from(this.sessions.values());
       for (const session of sessions) {
         try {
-          session.browser.close();
+          void session.browser.close();
         } catch {
           // best-effort cleanup on process exit
         }

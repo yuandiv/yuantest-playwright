@@ -202,7 +202,7 @@ export class TraceManager {
     }
   }
 
-  getTraceConfigForPlaywright(): Record<string, any> {
+  getTraceConfigForPlaywright(): Record<string, unknown> {
     if (!this.config.enabled) {
       return { trace: 'off' };
     }

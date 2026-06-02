@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BaseAgent } from './base-agent';
 import { PatchApplier } from './patch-applier';
+import { LLMService } from './llm-service';
 import { AgentConfig, HealerPatch, LLMConfig, AgentHealResult } from '../types';
 
 const HEALER_SYSTEM_PROMPT_ZH =
@@ -37,8 +38,8 @@ export class HealerAgent extends BaseAgent {
     return 'HealerAgent';
   }
 
-  constructor(config: AgentConfig, llmConfig: LLMConfig | null) {
-    super(config, llmConfig);
+  constructor(config: AgentConfig, llmConfig: LLMConfig | null, llmService?: LLMService) {
+    super(config, llmConfig, llmService);
   }
 
   async healTest(

@@ -278,26 +278,26 @@ export function createRunsRouter(deps: RouterDeps): Router {
   );
 
   router.get('/runs/status', async (req: Request, res: Response) => {
-    const status = deps.executor.current?.isCurrentlyRunning() || false;
-    const currentRun = deps.executor.current
-      ? await deps.executor.current.getCurrentStatus()
-      : null;
+    const executorCurrent = deps.executor.current;
+    const status = executorCurrent?.isCurrentlyRunning() || false;
+    const currentRun = executorCurrent ? await executorCurrent.getCurrentStatus() : null;
     res.json({
       isRunning: status,
-      currentRun: currentRun
-        ? {
-            id: currentRun.id || null,
-            version: deps.executor.current!.getConfig().version,
-            totalTests: currentRun.totalTests,
-            passed: currentRun.passed,
-            failed: currentRun.failed,
-            skipped: currentRun.skipped,
-            testResults: deps.executor.current!.getCompletedTestResults(),
-            testLocations: deps.executor.current!.getTestLocations(),
-            testFiles: deps.executor.current!.getTestFiles(),
-            grepPattern: deps.executor.current!.getGrepPattern(),
-          }
-        : null,
+      currentRun:
+        currentRun && executorCurrent
+          ? {
+              id: currentRun.id || null,
+              version: executorCurrent.getConfig().version,
+              totalTests: currentRun.totalTests,
+              passed: currentRun.passed,
+              failed: currentRun.failed,
+              skipped: currentRun.skipped,
+              testResults: executorCurrent.getCompletedTestResults(),
+              testLocations: executorCurrent.getTestLocations(),
+              testFiles: executorCurrent.getTestFiles(),
+              grepPattern: executorCurrent.getGrepPattern(),
+            }
+          : null,
     });
   });
 

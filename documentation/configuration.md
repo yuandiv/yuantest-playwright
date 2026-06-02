@@ -54,6 +54,8 @@ interface TestConfig {
   testMatch?: string[];
   testIgnore?: string[];
   ignoreDirs?: string[];
+  environmentTag?: string;
+  quarantine?: QuarantineConfig;
 }
 ```
 
@@ -86,12 +88,26 @@ interface TestConfig {
 | `testMatch` | `string[]` | No | - | Glob patterns to match test files |
 | `testIgnore` | `string[]` | No | - | Glob patterns to ignore test files |
 | `ignoreDirs` | `string[]` | No | See below | List of directories to ignore, defaults to `FILE_PATTERNS.IGNORE_DIRS` |
+| `environmentTag` | `string` | No | - | Environment tag for multi-environment reporting |
+| `quarantine` | `QuarantineConfig` | No | - | Quarantine configuration, see [QuarantineConfig](#9-quarantineconfig-quarantine-configuration) |
 
 Default value for `ignoreDirs`:
 
 ```
 ['node_modules', '__snapshots__', '__image_snapshots__', '.git', 'dist', 'build', 'coverage', '.next', '.nuxt', '.output', '.svelte-kit']
 ```
+
+### QuarantineConfig
+
+```typescript
+interface QuarantineConfig {
+  enabled: boolean;
+  threshold: number;
+  autoQuarantine: boolean;
+}
+```
+
+> Full definition with all optional fields, see [QuarantineConfig](#9-quarantineconfig-quarantine-configuration).
 
 ### BrowserType
 
@@ -481,6 +497,7 @@ interface LLMConfig {
   remark: string;
   maxTokens: number;
   temperature: number;
+  maxAgentRounds: number;
 }
 ```
 
@@ -495,6 +512,7 @@ interface LLMConfig {
 | `remark` | `string` | `''` | Configuration remark information |
 | `maxTokens` | `number` | `2048` | Maximum number of tokens to generate |
 | `temperature` | `number` | `0.3` | Generation temperature parameter (0~1), lower is more deterministic |
+| `maxAgentRounds` | `number` | `5` | Maximum agent loop rounds |
 
 ### AI Diagnostic Modes
 

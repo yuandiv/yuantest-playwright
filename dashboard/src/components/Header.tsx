@@ -14,13 +14,13 @@ interface HeaderProps {
   onOpenExecutor: () => void;
   showHealthDashboard?: boolean;
   onToggleHealthDashboard?: () => void;
-  onOpenAgentPanel?: () => void;
+  onOpenChatPanel?: () => void;
   isLLMConfigOpen?: boolean;
   onOpenLLMConfig?: () => void;
   onCloseLLMConfig?: () => void;
 }
 
-export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, onOpenAgentPanel, isLLMConfigOpen, onOpenLLMConfig, onCloseLLMConfig }: HeaderProps) {
+export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, onOpenChatPanel, isLLMConfigOpen, onOpenLLMConfig, onCloseLLMConfig }: HeaderProps) {
   const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
   const [showLLMConfigInternal, setShowLLMConfigInternal] = useState(false);
   
@@ -87,9 +87,9 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
             <span>{t('healthDashboard', lang) || 'Dashboard'}</span>
           </button>
         )}
-        {onOpenAgentPanel && (
+        {onOpenChatPanel && (
           <button
-            onClick={onOpenAgentPanel}
+            onClick={onOpenChatPanel}
             className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
             title={llmStatus === 'green' ? (t('agentDependencyReady', lang) || 'Agents ready') : (t('agentDependencyLLMRequired', lang) || 'LLM configuration required')}
           >

@@ -5,7 +5,7 @@ import { HTTP_STATUS } from '../../constants';
 import { loadConfigFile, mergeConfig } from '../../config/loader';
 import { Executor } from '../../executor';
 import { logger } from '../../logger';
-import type { TestConfig, RunResult } from '../../types';
+import type { TestConfig, RunResult, FlakyClassification } from '../../types';
 
 export function createFlakyRouter(deps: RouterDeps): Router {
   const router = Router();
@@ -166,7 +166,9 @@ export function createFlakyRouter(deps: RouterDeps): Router {
         res.json(stats.classificationBreakdown);
         return;
       }
-      const tests = deps.flakyManager.current.getTestsByClassification(classification as any);
+      const tests = deps.flakyManager.current.getTestsByClassification(
+        classification as FlakyClassification
+      );
       res.json(tests);
     })
   );

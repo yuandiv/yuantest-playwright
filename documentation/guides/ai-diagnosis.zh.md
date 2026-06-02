@@ -243,14 +243,17 @@ interface ErrorPattern {
 
 ### 工具定义
 
-Agent 循环提供 4 个工具（以 OpenAI function calling 格式定义）：
+Agent 循环提供 7 个默认工具（由 `ToolRegistry.createDefaultRegistry()` 注册，以 OpenAI function calling 格式定义）：
 
 | 工具名称 | 参数 | 说明 |
 |----------|------|------|
-| `read_source_file` | `path` (必填), `startLine?`, `endLine?` | 读取源代码文件 |
-| `search_codebase` | `pattern` (必填), `filePattern?` | 在代码库中搜索代码模式 |
-| `query_test_history` | `testId` (必填), `limit?` (默认 5) | 查询测试历史运行记录 |
-| `read_screenshot` | `testId` (必填) | 读取失败截图（返回 base64） |
+| `read_file` | `path` (必填), `startLine?`, `endLine?` | 读取文件内容 |
+| `search_files` | `pattern` (必填), `filePattern?` | 按模式搜索文件 |
+| `run_test` | `testFilePath` (必填), `options?` | 运行指定测试 |
+| `apply_patch` | `filePath` (必填), `patch` (必填) | 对文件应用补丁 |
+| `explore_app` | `url` (必填), `action?` | 探索应用页面 |
+| `get_heal_history` | `testFilePath` (必填) | 获取测试修复历史 |
+| `list_plans` | `options?` | 列出测试计划 |
 
 ### 推理循环
 
@@ -291,6 +294,16 @@ interface ReasoningStep {
 | `agent` | 成功执行了 Agent 多轮工具调用循环 |
 | `single` | LLM 不支持 tool_calling 或直接给出最终答案，使用单次调用 |
 | `fallback` | LLM 响应解析失败，使用原始文本作为摘要 |
+
+### 诊断与修复
+
+`diagnoseWithHeal()` 方法将诊断与自动修复结合：
+
+```typescript
+diagnoseWithHeal(testFilePath: string, options?: { error?: string; stackTrace?: string; apply?: boolean }): Promise<AgentResult<AgentHealResult>>
+```
+
+诊断失败测试并自动尝试修复。
 
 ---
 
@@ -394,6 +407,7 @@ interface LLMConfig {
   remark: string;        // 配置备注
   maxTokens: number;     // 最大生成 token 数
   temperature: number;   // 生成温度
+  maxAgentRounds: number; // Agent 最大循环轮数（默认：5）
 }
 ```
 
@@ -408,6 +422,7 @@ const DEFAULT_CONFIG: LLMConfig = {
   remark: '',
   maxTokens: 2048,
   temperature: 0.3,
+  maxAgentRounds: 5,
 };
 ```
 
@@ -467,6 +482,7 @@ interface AIDiagnosis {
   calibratedConfidence: number;  // 校准后的置信度 (0-1)
   analysisMode: 'agent' | 'single' | 'fallback'; // 分析模式
   relatedFailures?: string[];    // 关联失败信息
+  healerPatch?: HealerPatch;     // 自动生成的修复补丁（使用 diagnoseWithHeal 时）
 }
 ```
 

@@ -23,6 +23,7 @@ import { BrowserSessionManager } from './browser-session';
 import { PatchApplier } from './patch-applier';
 import { ProjectContextLoader } from './project-context';
 import { ToolRegistry } from './tool-registry';
+import { LLMService } from './llm-service';
 
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
   enabled: true,
@@ -45,27 +46,46 @@ export class AgentService {
   private planner: PlannerAgent;
   private generator: GeneratorAgent;
   private healer: HealerAgent;
-  /** 所有 Agent 实例的数组，用于批量更新配置 */
   private agents: BaseAgent[];
+  private sharedLLMService: LLMService | null = null;
+  private sharedToolRegistry: ToolRegistry | null = null;
 
-  constructor(dataDir: string, config?: Partial<AgentConfig>, llmConfig?: LLMConfig) {
+  constructor(
+    dataDir: string,
+    config?: Partial<AgentConfig>,
+    llmConfig?: LLMConfig,
+    sharedLLMService?: LLMService,
+    sharedToolRegistry?: ToolRegistry
+  ) {
     this.dataDir = dataDir;
     this.projectRoot = config?.projectRoot || process.cwd();
     this.config = { ...DEFAULT_AGENT_CONFIG, ...config };
     if (llmConfig) {
       this.llmConfig = llmConfig;
     }
+    this.sharedLLMService = sharedLLMService ?? null;
+    this.sharedToolRegistry = sharedToolRegistry ?? null;
     this.loadProjectContext();
-    this.planner = new PlannerAgent(this.config, this.llmConfig);
-    this.generator = new GeneratorAgent(this.config, this.llmConfig);
-    this.healer = new HealerAgent(this.config, this.llmConfig);
+    this.planner = new PlannerAgent(
+      this.config,
+      this.llmConfig,
+      undefined,
+      this.sharedLLMService ?? undefined
+    );
+    this.generator = new GeneratorAgent(
+      this.config,
+      this.llmConfig,
+      this.sharedLLMService ?? undefined
+    );
+    this.healer = new HealerAgent(this.config, this.llmConfig, this.sharedLLMService ?? undefined);
     this.agents = [this.planner, this.generator, this.healer];
     this.initSharedToolRegistry();
   }
 
   /** 创建共享的 ToolRegistry 并分发给所有 Agent */
   private initSharedToolRegistry(): void {
-    const registry = ToolRegistry.createDefaultRegistry(this.dataDir, this.projectRoot);
+    const registry =
+      this.sharedToolRegistry ?? ToolRegistry.createDefaultRegistry(this.dataDir, this.projectRoot);
     for (const agent of this.agents) {
       agent.setToolRegistry(registry);
     }

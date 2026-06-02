@@ -7,7 +7,7 @@ AI-powered test creation and healing agent system.
 ## Constructor
 
 ```typescript
-new AgentService(dataDir: string, config?: Partial<AgentConfig>, llmConfig?: LLMConfig)
+new AgentService(dataDir: string, config?: Partial<AgentConfig>, llmConfig?: LLMConfig, sharedLLMService?: LLMService, sharedToolRegistry?: ToolRegistry)
 ```
 
 ### Parameters
@@ -17,6 +17,8 @@ new AgentService(dataDir: string, config?: Partial<AgentConfig>, llmConfig?: LLM
 | `dataDir` | `string` | Yes | Data directory for storing heal history and plans |
 | `config` | `Partial<AgentConfig>` | No | Agent configuration (merged with defaults) |
 | `llmConfig` | `LLMConfig` | No | LLM configuration for AI operations |
+| `sharedLLMService` | `LLMService` | No | Shared LLM service instance for dependency injection |
+| `sharedToolRegistry` | `ToolRegistry` | No | Shared tool registry instance for dependency injection |
 
 ### Default Configuration
 
@@ -223,6 +225,85 @@ Get the current project context information.
 getProjectContext(): ProjectContext | null
 ```
 
+### parseMarkdownPlan()
+
+Parse a test plan from Markdown text.
+
+```typescript
+static parseMarkdownPlan(markdown: string): TestPlan
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `markdown` | `string` | Markdown text containing the test plan |
+
+**Returns**: `TestPlan` — Parsed test plan with scenarios, steps, and expected results.
+
+### createSessionContext()
+
+Create a new agent session context for sharing state between agents.
+
+```typescript
+createSessionContext(): AgentSessionContext
+```
+
+**Returns**: `AgentSessionContext` — New session context instance.
+
+### runPipeline()
+
+Run the full pipeline: plan → generate → (optional) run.
+
+```typescript
+async runPipeline(
+  description: string,
+  options?: { seedTest?: string; prdPath?: string; outputDir?: string; autoRun?: boolean }
+): Promise<AgentResult>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `description` | `string` | Feature description for test planning |
+| `options.seedTest` | `string` | Reference seed test file path |
+| `options.prdPath` | `string` | Product requirement document path |
+| `options.outputDir` | `string` | Output directory for generated files |
+| `options.autoRun` | `boolean` | Whether to automatically run generated tests |
+
+**Returns**: `Promise<AgentResult>` — Pipeline execution result.
+
+## Sub-Modules
+
+### BaseAgent
+
+Abstract base class providing `callLLM()`, `callLLMWithAgentLoop()`, `updateConfig()`, `setToolRegistry()`, `setLLMService()`, `isLLMEnabled()` methods.
+
+### LLMService
+
+LLM service class providing `chat()`, `chatWithTools()`, `chatStream()`, `chatWithAgentLoop()`, `updateConfig()`, `getConfig()` methods.
+
+### BrowserSessionManager
+
+Browser session management providing `getSession()`, `getPage()`, `getActivePage()`, `closeSession()`, `closeAll()`, `getActiveSessionIds()` methods.
+
+### AppExplorer
+
+Application explorer that crawls page structure using BFS.
+
+### PatchApplier
+
+Patch application providing `applyPatchToContent()`, `applyPatch()`, `isWithinProjectRoot()` (static) methods.
+
+### ProjectContextLoader
+
+Project context loader with `load()` method.
+
+### TestRunner
+
+Test runner providing `runTest()`, `runSingleTest()` methods.
+
+### ToolRegistry
+
+Tool registry providing `registerTool()`, `unregisterTool()`, `getToolSchemas()`, `executeTool()`, `createDefaultRegistry()` (static, registers 7 default tools) methods.
+
 ## Sub-Agents
 
 ### PlannerAgent
@@ -350,6 +431,112 @@ interface AgentHealResult {
   patches: HealerPatch[];
   healed: boolean;
   roundsUsed: number;
+}
+
+// Agent session context
+interface AgentSessionContext {
+  sessionId: string;
+  sharedState: Map<string, unknown>;
+  createdAt: number;
+}
+
+// Agent prompts
+interface AgentPrompts {
+  systemPrompt?: string;
+  userPrompt?: string;
+  planningPrompt?: string;
+  generationPrompt?: string;
+  healingPrompt?: string;
+}
+
+// Call LLM options
+interface CallLLMOptions {
+  temperature?: number;
+  maxTokens?: number;
+  timeout?: number;
+}
+
+// Agent loop result
+interface AgentLoopResult {
+  success: boolean;
+  output?: string;
+  error?: string;
+  toolCalls?: ToolCallInfo[];
+  tokenUsage?: TokenUsage;
+}
+
+// Agent loop options
+interface AgentLoopOptions {
+  maxIterations?: number;
+  timeout?: number;
+  onToolCall?: (toolCall: ToolCallInfo) => void;
+}
+
+// LLM chat options
+interface LLMChatOptions {
+  temperature?: number;
+  maxTokens?: number;
+  timeout?: number;
+  stream?: boolean;
+}
+
+// Token usage
+interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+// LLM chat result
+interface LLMChatResult {
+  content: string;
+  model: string;
+  tokenUsage: TokenUsage;
+  toolCalls?: ToolCallInfo[];
+}
+
+// Tool call information
+interface ToolCallInfo {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  result?: unknown;
+}
+
+// Chat message
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  toolCallId?: string;
+  toolCalls?: ToolCallInfo[];
+}
+
+// Tool schema definition
+interface ToolSchema {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+// Test run result
+interface TestRunResult {
+  testId: string;
+  testTitle: string;
+  status: 'passed' | 'failed' | 'skipped' | 'timedOut';
+  duration: number;
+  error?: string;
+  stackTrace?: string;
+  retries: number;
+}
+
+// Test run summary
+interface TestRunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  duration: number;
+  results: TestRunResult[];
 }
 ```
 

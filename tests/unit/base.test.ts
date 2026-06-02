@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { BaseManager, ManagedManager } from '../../src/base';
 
 class TestManager extends BaseManager {
@@ -94,7 +95,7 @@ describe('BaseManager', () => {
     });
 
     it('should emit and receive events', () => {
-      const listener = jest.fn();
+      const listener = vi.fn();
       manager.on('test-event', listener);
       manager.emit('test-event', { data: 'test' });
       expect(listener).toHaveBeenCalledWith({ data: 'test' });
@@ -106,12 +107,12 @@ describe('ManagedManager', () => {
   let manager: TestManagedManager;
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     manager = new TestManagedManager();
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('scheduleSave', () => {
@@ -119,7 +120,7 @@ describe('ManagedManager', () => {
       manager.testScheduleSave();
       expect(manager.saveCalled).toBe(false);
 
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       expect(manager.saveCalled).toBe(true);
     });
 
@@ -128,15 +129,15 @@ describe('ManagedManager', () => {
       manager.testScheduleSave();
       manager.testScheduleSave();
 
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       expect(manager.saveCalled).toBe(true);
     });
 
     it('should not save if not dirty', () => {
       manager.testScheduleSave();
-      jest.advanceTimersByTime(500);
+      vi.advanceTimersByTime(500);
       manager.testScheduleSave();
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       expect(manager.saveCalled).toBe(true);
     });
   });
@@ -154,7 +155,7 @@ describe('ManagedManager', () => {
       manager.testScheduleSave();
       await manager.testFlush();
 
-      jest.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(2000);
       expect(manager.saveCalled).toBe(true);
     });
   });

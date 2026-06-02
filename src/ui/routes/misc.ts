@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
 import { asyncHandler, validateBody } from '../../middleware';
 import { SavePreferencesRequestSchema, SetTestDirRequestSchema } from '../../validation';
@@ -317,7 +317,7 @@ export function createMiscRouter(deps: RouterDeps): Router {
           path.join(deps.dataDir.current, 'user-preferences.json'),
           merged
         );
-      } catch (prefError) {
+      } catch {
         // Ignore preference save errors for testdir
       }
 

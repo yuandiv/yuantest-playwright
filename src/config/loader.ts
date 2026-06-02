@@ -1,3 +1,10 @@
+/**
+ * YuanTest 配置文件加载器
+ *
+ * 职责：发现和加载 YuanTest 自身的配置文件（yuantest.config.ts/js/json、.yuantrc 等），
+ * 合并 CLI 参数与文件配置，提取 Dashboard 配置。
+ * 不负责 Playwright 原生配置的处理（由 merger.ts 处理）。
+ */
 import { TestConfig, BrowserType, TraceConfig, ArtifactConfig } from '../types';
 import * as path from 'path';
 import { logger } from '../logger';

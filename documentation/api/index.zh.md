@@ -29,6 +29,36 @@ import {
 | **Reporter** | 报告生成器，支持 JSON/HTML 报告和失败分析 | [Reporter API](reporter.md) |
 | **FlakyTestManager** | Flaky 测试管理器，分类/根因/关联/趋势/预测/因果图/隔离 | [FlakyTestManager API](flaky.md) |
 | **DashboardServer** | Dashboard 服务器，REST API + WebSocket 实时推送 | [DashboardServer API](dashboard.md) |
+| **ChatService** | AI 聊天服务，集成 MCP | [ChatService API](chat.md) |
+| **RealtimeReporter** | 通过 WebSocket 实时事件广播 | [RealtimeReporter API](realtime-reporter.md) |
+| **TraceManager** | Playwright Trace 文件管理 | [TraceManager API](trace.md) |
+| **AnnotationManager** | 测试注解扫描和管理 | [AnnotationManager API](annotation.md) |
+| **TagManager** | 测试标签扫描和过滤 | [TagManager API](tag.md) |
+| **ArtifactManager** | 测试产物管理 | [ArtifactManager API](artifact.md) |
+| **VisualTestingManager** | 视觉回归测试 | [VisualTestingManager API](visual-testing.md) |
+| **TestDiscovery** | 自动测试文件发现 | [TestDiscovery API](test-discovery.md) |
+| **ServiceContainer** | 依赖注入容器 | [ServiceContainer API](service-container.md) |
+| **Storage** | 存储抽象层 | [Storage API](storage.md) |
+| **Cache** | 内存缓存 | [Cache API](cache.md) |
+| **Logger** | 结构化日志 | [Logger API](logger.md) |
+
+## 模块概览
+
+| 模块 | 类 | 说明 |
+|--------|-------|-------------|
+| AgentService | `AgentService`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent` | AI 代理系统，用于测试计划、生成和修复 |
+| ChatService | `ChatService`, `ConversationStore`, `MCPClientManager`, `MCPConfigService` | AI 聊天服务，集成 MCP |
+| RealtimeReporter | `RealtimeReporter`, `RealtimeReporterClient` | 通过 WebSocket 实时事件广播 |
+| TraceManager | `TraceManager` | Playwright Trace 文件管理 |
+| AnnotationManager | `AnnotationManager` | 测试注解扫描和管理 |
+| TagManager | `TagManager` | 测试标签扫描和过滤 |
+| ArtifactManager | `ArtifactManager` | 测试产物管理 |
+| VisualTestingManager | `VisualTestingManager` | 视觉回归测试 |
+| TestDiscovery | `TestDiscovery` | 自动测试文件发现 |
+| ServiceContainer | `ServiceContainer`, `MutableRef`, `TOKENS` | 依赖注入容器 |
+| Storage | `StorageProvider`, `MemoryStorage`, `FilesystemStorage` | 存储抽象层 |
+| Cache | `LRUCache`, `TTLCache` | 内存缓存 |
+| Logger | `Logger`, `ChildLogger` | 结构化日志 |
 
 ## 快速示例
 

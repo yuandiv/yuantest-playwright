@@ -139,10 +139,10 @@ class UnionFind {
     }
 
     if (this.parent.get(x) !== x) {
-      this.parent.set(x, this.find(this.parent.get(x)!));
+      this.parent.set(x, this.find(this.parent.get(x) as string));
     }
 
-    return this.parent.get(x)!;
+    return this.parent.get(x) as string;
   }
 
   /** 合并两个元素所在的集合，按秩合并 */
@@ -202,8 +202,8 @@ export function clusterFailures(
 
   for (let i = 0; i < failedTests.length; i++) {
     for (let j = i + 1; j < failedTests.length; j++) {
-      const keywordsA = keywordMap.get(failedTests[i].id)!;
-      const keywordsB = keywordMap.get(failedTests[j].id)!;
+      const keywordsA = keywordMap.get(failedTests[i].id) as string[];
+      const keywordsB = keywordMap.get(failedTests[j].id) as string[];
 
       const sharedCount = keywordsA.filter((k) => keywordsB.includes(k)).length;
       const similarity = jaccardSimilarity(keywordsA, keywordsB);
@@ -239,7 +239,7 @@ export function clusterFailures(
     if (!groups.has(root)) {
       groups.set(root, []);
     }
-    groups.get(root)!.push(test.id);
+    (groups.get(root) as string[]).push(test.id);
   }
 
   const testMap = new Map<string, TestResult>();
@@ -257,7 +257,7 @@ export function clusterFailures(
       continue;
     }
 
-    const representative = testMap.get(root)!;
+    const representative = testMap.get(root) as TestResult;
     const error = representative.error || representative.stackTrace || '';
 
     let totalSimilarity = 0;

@@ -114,7 +114,11 @@ export class FlakyTestManager extends ManagedManager {
   }
 
   private async loadHistory(): Promise<void> {
-    const data = await this.storage.readJSON<any>(this.historyFile);
+    const data = await this.storage.readJSON<{
+      flakyTests?: Record<string, FlakyTest>;
+      quarantine?: string[];
+      lastUpdated?: string;
+    }>(this.historyFile);
     if (data) {
       if (data.flakyTests) {
         Object.entries(data.flakyTests).forEach(([id, test]) => {
@@ -388,7 +392,7 @@ export class FlakyTestManager extends ManagedManager {
       return false;
     }
 
-    const flakyTest = this.flakyTests.get(testId)!;
+    const flakyTest = this.flakyTests.get(testId) as FlakyTest;
     flakyTest.isQuarantined = true;
     flakyTest.quarantinedAt = Date.now();
     flakyTest.consecutivePassesSinceQuarantine = 0;

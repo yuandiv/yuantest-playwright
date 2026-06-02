@@ -5,7 +5,6 @@ import {
   LLMConfig,
   AIDiagnosis,
   LLMStatus,
-  ReasoningStep,
   ContextUsed,
   CodeDiff,
   DocLink,
@@ -15,14 +14,8 @@ import { matchPatterns, buildFewShotExamples, ErrorPattern } from './knowledge-b
 import { enrichContext, EnrichedContext } from './context-enricher';
 import { LLMService } from '../agents/llm-service';
 import { ToolRegistry } from '../agents/tool-registry';
+import { TTLCache } from '../cache';
 
-/** 缓存条目接口 */
-interface CacheEntry {
-  result: AIDiagnosis;
-  timestamp: number;
-}
-
-/** 默认 LLM 配置 */
 const DEFAULT_CONFIG: LLMConfig = {
   enabled: false,
   apiKey: '',
@@ -33,30 +26,32 @@ const DEFAULT_CONFIG: LLMConfig = {
   temperature: 0.3,
 };
 
-/** 缓存最大条目数 */
 const CACHE_MAX_SIZE = 100;
-
-/** 缓存过期时间（毫秒） */
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
 export class DiagnosisService {
   private dataDir: string;
   private config: LLMConfig;
-  private cache: Map<string, CacheEntry> = new Map();
+  private cache = new TTLCache<AIDiagnosis>(CACHE_TTL_MS, { maxSize: CACHE_MAX_SIZE });
   private log = logger.child('DiagnosisService');
   private llmService: LLMService | null = null;
   private toolRegistry: ToolRegistry | null = null;
 
-  constructor(dataDir: string) {
+  constructor(dataDir: string, sharedLLMService?: LLMService, sharedToolRegistry?: ToolRegistry) {
     this.dataDir = dataDir;
     try {
       this.config = this.loadConfig();
     } catch {
       this.config = { ...DEFAULT_CONFIG };
     }
-    // 初始化 LLMService 和 ToolRegistry
-    if (this.config.enabled) {
+    if (sharedLLMService) {
+      this.llmService = sharedLLMService;
+    } else if (this.config.enabled) {
       this.llmService = new LLMService(this.config);
+    }
+    if (sharedToolRegistry) {
+      this.toolRegistry = sharedToolRegistry;
+    } else if (this.config.enabled) {
       this.toolRegistry = ToolRegistry.createDefaultRegistry(this.dataDir, process.cwd());
     }
   }
@@ -416,30 +411,16 @@ export class DiagnosisService {
    * @returns 缓存的诊断结果，不存在或已过期返回 null
    */
   private getFromCache(key: string): AIDiagnosis | null {
-    const entry = this.cache.get(key);
-    if (!entry) {
-      return null;
-    }
-    if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
-      this.cache.delete(key);
-      return null;
-    }
-    return entry.result;
+    return this.cache.get(key);
   }
 
   /**
-   * 将诊断结果存入缓存（LRU 淘汰策略）
+   * 将诊断结果存入缓存（TTLCache 内部处理 LRU 淘汰策略）
    * @param key - 缓存键
    * @param result - 诊断结果
    */
   private setCache(key: string, result: AIDiagnosis): void {
-    if (this.cache.size >= CACHE_MAX_SIZE) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey !== undefined) {
-        this.cache.delete(oldestKey);
-      }
-    }
-    this.cache.set(key, { result, timestamp: Date.now() });
+    this.cache.set(key, result);
   }
 
   /**
@@ -537,7 +518,7 @@ export class DiagnosisService {
       this.ensureServices();
 
       // 获取工具 schema 列表
-      const tools = this.toolRegistry!.getToolSchemas();
+      const tools = (this.toolRegistry as ToolRegistry).getToolSchemas();
 
       // 使用 LLMService.chatWithAgentLoop 替代本地 agentLoop
       const toolExecutor = async (
@@ -545,20 +526,15 @@ export class DiagnosisService {
         args: Record<string, unknown>
       ): Promise<string> => {
         try {
-          return await this.toolRegistry!.executeTool(toolName, args);
+          return await (this.toolRegistry as ToolRegistry).executeTool(toolName, args);
         } catch (error) {
           return `Tool execution error (${toolName}): ${error instanceof Error ? error.message : String(error)}`;
         }
       };
 
-      const { responseText, reasoningSteps, analysisMode } =
-        await this.llmService!.chatWithAgentLoop(
-          prompt,
-          this.config,
-          tools,
-          prompt.screenshotBase64,
-          toolExecutor
-        );
+      const { responseText, reasoningSteps, analysisMode } = await (
+        this.llmService as LLMService
+      ).chatWithAgentLoop(prompt, this.config, tools, prompt.screenshotBase64, toolExecutor);
 
       const diagnosis = this.parseResponse(responseText, patterns);
 
@@ -679,7 +655,7 @@ export class DiagnosisService {
       let fullResponse = '';
 
       // 使用 LLMService.chatStream 替代本地 callLLMStream
-      for await (const chunk of this.llmService!.chatStream(prompt, this.config)) {
+      for await (const chunk of (this.llmService as LLMService).chatStream(prompt, this.config)) {
         fullResponse += chunk;
         yield JSON.stringify({ type: 'chunk', content: chunk }) + '\n';
       }
@@ -875,7 +851,6 @@ export class DiagnosisService {
   clearCache(): void {
     this.cache.clear();
   }
-
   async diagnoseWithHeal(
     testInfo: {
       title: string;

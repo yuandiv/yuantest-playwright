@@ -350,6 +350,7 @@ export class TestDiscovery {
 
     const maxStdoutSize = CACHE_CONFIG.DISCOVERY_MAX_STDOUT_SIZE;
     const warnThreshold = maxStdoutSize * 0.8;
+    const DISCOVERY_TIMEOUT_MS = 120000;
 
     return new Promise((resolve) => {
       const proc = spawn('npx', args, {
@@ -362,6 +363,57 @@ export class TestDiscovery {
       let stderr = '';
       let stdoutSize = 0;
       let truncated = false;
+      let settled = false;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      };
+
+      const finalize = (result: {
+        stdout: string;
+        stderr: string;
+        exitCode: number | null;
+        truncated?: boolean;
+      }) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+
+      timeoutId = setTimeout(() => {
+        if (settled) {
+          return;
+        }
+        this.log.warn(
+          `Playwright list timeout after ${DISCOVERY_TIMEOUT_MS}ms, killing process...`
+        );
+        if (proc.pid) {
+          try {
+            if (process.platform === 'win32') {
+              spawn('taskkill', ['/F', '/T', '/PID', proc.pid.toString()], {
+                stdio: 'ignore',
+              });
+            } else {
+              process.kill(-proc.pid, 'SIGKILL');
+            }
+          } catch {
+            proc.kill('SIGKILL');
+          }
+        }
+        finalize({
+          stdout: stripAnsi(stdout),
+          stderr: `Discovery timed out after ${DISCOVERY_TIMEOUT_MS / 1000}s`,
+          exitCode: -1,
+          truncated,
+        });
+      }, DISCOVERY_TIMEOUT_MS);
 
       proc.stdout?.on('data', (data: Buffer) => {
         if (truncated) {
@@ -396,7 +448,7 @@ export class TestDiscovery {
       });
 
       proc.on('error', (error) => {
-        resolve({
+        finalize({
           stdout,
           stderr: `Failed to run playwright list: ${error.message}`,
           exitCode: -1,
@@ -405,7 +457,7 @@ export class TestDiscovery {
       });
 
       proc.on('close', (code) => {
-        resolve({
+        finalize({
           stdout: stripAnsi(stdout),
           stderr: stripAnsi(stderr),
           exitCode: code,

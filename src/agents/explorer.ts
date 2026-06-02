@@ -1,5 +1,18 @@
 import * as fs from 'fs';
-import { chromium, Browser, Page, BrowserContext } from '@playwright/test';
+import { chromium, Browser, Page, BrowserContext } from 'playwright-core';
+
+interface AccessibilitySnapshotNode {
+  role?: string;
+  name?: string;
+  value?: string;
+  children?: AccessibilitySnapshotNode[];
+}
+
+type PageWithAccessibility = Page & {
+  accessibility: {
+    snapshot(options?: { interestingOnly?: boolean }): Promise<AccessibilitySnapshotNode | null>;
+  };
+};
 import { logger } from '../logger';
 import {
   AppExplorationResult,
@@ -110,7 +123,7 @@ export class AppExplorer {
       const queue: { url: string; depth: number }[] = [{ url: baseURL, depth: 0 }];
 
       while (queue.length > 0 && pages.length < maxPages) {
-        const { url, depth } = queue.shift()!;
+        const { url, depth } = queue.shift() as { url: string; depth: number };
 
         const normalizedUrl = this.normalizeUrl(url, baseURL);
         if (visitedUrls.has(normalizedUrl)) {
@@ -386,7 +399,9 @@ export class AppExplorer {
     const elements: InteractiveElement[] = [];
 
     try {
-      const snapshot = await (page as any).accessibility.snapshot({ interestingOnly: true });
+      const snapshot = await (page as PageWithAccessibility).accessibility.snapshot({
+        interestingOnly: true,
+      });
       if (!snapshot) {
         return [];
       }
@@ -456,7 +471,7 @@ export class AppExplorer {
       }>;
     },
     elements: InteractiveElement[],
-    parentName?: string
+    _parentName?: string
   ): void {
     const { role, name, children } = node;
 
@@ -495,7 +510,7 @@ export class AppExplorer {
     const forms: FormInfo[] = [];
 
     try {
-      const snapshot = await (page as any).accessibility.snapshot();
+      const snapshot = await (page as PageWithAccessibility).accessibility.snapshot();
       if (!snapshot?.children) {
         return [];
       }
@@ -641,7 +656,9 @@ export class AppExplorer {
     const links: LinkInfo[] = [];
 
     try {
-      const snapshot = await (page as any).accessibility.snapshot({ interestingOnly: true });
+      const snapshot = await (page as PageWithAccessibility).accessibility.snapshot({
+        interestingOnly: true,
+      });
       if (!snapshot) {
         return [];
       }

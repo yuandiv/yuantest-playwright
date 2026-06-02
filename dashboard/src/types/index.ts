@@ -546,3 +546,34 @@ export interface ErrorPattern {
   suggestionsTemplate: { zh: string[]; en: string[] };
   docLinks?: { title: string; url: string }[];
 }
+
+/** MCP 服务器状态 */
+export interface MCPServerStatus {
+  id: string;
+  name: string;
+  connected: boolean;
+  toolCount: number;
+  error?: string;
+}
+
+/** MCP 连接状态 */
+export interface MCPConnectionStatus {
+  servers: MCPServerStatus[];
+  totalTools: number;
+  connectedCount: number;
+  totalCount: number;
+}
+
+/** MCP 服务器配置 */
+export interface MCPConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  description?: string;
+  source?: string;
+  createdAt: number;
+  updatedAt: number;
+}

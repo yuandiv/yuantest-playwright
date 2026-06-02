@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaseAgent } from './base-agent';
+import { LLMService } from './llm-service';
 import {
   AgentConfig,
   AgentPrompts,
@@ -220,9 +221,10 @@ export class PlannerAgent extends BaseAgent {
   constructor(
     config: AgentConfig,
     llmConfig: LLMConfig | null,
-    customPrompts?: Partial<AgentPrompts>
+    customPrompts?: Partial<AgentPrompts>,
+    llmService?: LLMService
   ) {
-    super(config, llmConfig);
+    super(config, llmConfig, llmService);
     this.customPrompts = customPrompts || null;
   }
 

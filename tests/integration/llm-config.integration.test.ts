@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { DiagnosisService } from '../../src/diagnosis';
 import { LLMConfig } from '../../src/types';
 import * as fs from 'fs';
@@ -119,7 +121,7 @@ describe('LLM Config API Integration', () => {
         ],
       };
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(diagnosisResponse),
       });
@@ -150,7 +152,7 @@ describe('LLM Config API Integration', () => {
       expect(result.timestamp).toBeGreaterThan(0);
 
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+      const [url, options] = (global.fetch as Mock).mock.calls[0];
       expect(url).toBe('http://localhost:11434/v1/chat/completions');
       expect(options.method).toBe('POST');
       const body = JSON.parse(options.body);
@@ -161,7 +163,7 @@ describe('LLM Config API Integration', () => {
 
     it('should use cache on second diagnosis of same test', async () => {
       let callCount = 0;
-      global.fetch = jest.fn().mockImplementation(() => {
+      global.fetch = vi.fn().mockImplementation(() => {
         callCount++;
         return Promise.resolve({
           ok: true,
@@ -209,7 +211,7 @@ describe('LLM Config API Integration', () => {
 
     it('should clear cache when config changes', async () => {
       let callCount = 0;
-      global.fetch = jest.fn().mockImplementation(() => {
+      global.fetch = vi.fn().mockImplementation(() => {
         callCount++;
         return Promise.resolve({
           ok: true,
@@ -268,7 +270,7 @@ describe('LLM Config API Integration', () => {
     });
 
     it('should return green status when configured and reachable', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true });
+      global.fetch = vi.fn().mockResolvedValue({ ok: true });
 
       await service.saveConfig({
         enabled: true,
@@ -287,7 +289,7 @@ describe('LLM Config API Integration', () => {
     });
 
     it('should return red status when configured but unreachable', async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 
       await service.saveConfig({
         enabled: true,
@@ -324,7 +326,7 @@ describe('LLM Config API Integration', () => {
 
   describe('test connection', () => {
     it('should test connection with custom config', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true });
+      global.fetch = vi.fn().mockResolvedValue({ ok: true });
 
       const result = await service.testConnection({
         enabled: true,
@@ -344,7 +346,7 @@ describe('LLM Config API Integration', () => {
     });
 
     it('should test connection with API key', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true });
+      global.fetch = vi.fn().mockResolvedValue({ ok: true });
 
       const result = await service.testConnection({
         enabled: true,

@@ -1,45 +1,38 @@
 export { Orchestrator, ShardOptimizer } from './orchestrator';
 export { Executor, ParallelExecutor } from './executor';
+export { PlaywrightReportParser } from './executor/playwright-report-parser';
+export type { PlaywrightJSONReport, ParsedReport } from './executor/playwright-report-parser';
+export { ProgressTracker } from './executor/progress-tracker';
+export type { ProgressMessage } from './executor/progress-tracker';
 export { Reporter, JSONReporter } from './reporter';
 export { RealtimeReporter, RealtimeReporterClient } from './realtime';
 export { FlakyTestManager } from './flaky';
-export {
-  classifyTest,
-  calculateWeightedFailureRate,
-  calculateConsecutiveFailures,
-  calculateConsecutivePasses,
-  isStatisticallySignificant,
-  wilsonConfidenceInterval,
-} from './flaky/classifier';
 export { RootCauseAnalyzer } from './flaky/root-cause';
-export { analyzeCorrelations } from './flaky/correlation';
-export {
-  TrendAnalyzer,
-  calculateHealthScore,
-  aggregateTimeSeries,
-  detectTrendDirection,
-  detectChangePoints,
-  detectSeasonalPattern,
-  correlateCodeChanges,
-  generateForecast,
-  linearRegression,
-} from './flaky/trend';
-export { FlakyPredictor, detectDurationAnomaly, predictFailure } from './flaky/predictor';
-export {
-  QuarantineStrategyManager,
-  generateQuarantineStrategy,
-  checkQuarantineBudget,
-  determineIsolationLevel,
-  getRetryPolicyForRootCause,
-} from './flaky/quarantine-strategy';
+export { TrendAnalyzer } from './flaky/trend';
+export { FlakyPredictor } from './flaky/predictor';
+export { QuarantineStrategyManager } from './flaky/quarantine-strategy';
 export { CausalGraphBuilder } from './flaky/causal-graph';
 export { AgentService } from './agents';
 export { PlannerAgent } from './agents/planner';
 export { GeneratorAgent } from './agents/generator';
 export { HealerAgent } from './agents/healer';
 export { DashboardServer } from './ui/server';
-export { PlaywrightConfigBuilder, PlaywrightConfigOptions } from './config';
-export { loadConfigFile, mergeConfig, getDashboardConfig } from './config/loader';
+export {
+  PlaywrightConfigBuilder,
+  PlaywrightConfigOptions,
+  loadConfigFile,
+  mergeConfig,
+  getDashboardConfig,
+  PlaywrightConfigMerger,
+  configMerger,
+} from './config';
+export type {
+  YuanTestConfigFile,
+  PlaywrightProjectConfig,
+  PlaywrightConfigFile as PlaywrightNativeConfigFile,
+  MergedPlaywrightConfig,
+  ConfigValidationResult,
+} from './config';
 export { TraceManager } from './trace';
 export { AnnotationManager } from './annotations';
 export { TagManager } from './tags';
@@ -87,6 +80,14 @@ export {
   PROGRESS_MARKER,
   LOG_LEVELS,
 } from './constants';
+
+export { ServiceContainer } from './container/service-container';
+export type { Factory, Lifecycle } from './container/service-container';
+export { MutableRef } from './container/mutable-ref';
+export { TOKENS } from './container/tokens';
+export type { ServiceToken } from './container/tokens';
+export { registerCoreServices } from './container/registrations';
+export type { ContainerOptions } from './container/registrations';
 
 export {
   TestConfig,

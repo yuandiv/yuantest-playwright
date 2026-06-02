@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaseAgent } from './base-agent';
+import { LLMService } from './llm-service';
 import { AgentConfig, LLMConfig } from '../types';
 
 const GENERATOR_SYSTEM_PROMPT_ZH =
@@ -30,8 +31,8 @@ export class GeneratorAgent extends BaseAgent {
     return 'GeneratorAgent';
   }
 
-  constructor(config: AgentConfig, llmConfig: LLMConfig | null) {
-    super(config, llmConfig);
+  constructor(config: AgentConfig, llmConfig: LLMConfig | null, llmService?: LLMService) {
+    super(config, llmConfig, llmService);
   }
 
   async generateTests(

@@ -262,13 +262,16 @@ yuantest rerun <run-id> <test-id>
 
 ```bash
 # 列出所有 Trace 文件
-yuantest trace list
+yuantest trace --list
 
 # 查看 Trace 详情
-yuantest trace show <trace-id>
+yuantest trace --view <trace-file>
 
-# 删除 Trace 文件
-yuantest trace delete <trace-id>
+# 删除 7 天前的 Trace 文件
+yuantest trace --clean
+
+# 查看 Trace 统计信息
+yuantest trace --stats
 ```
 
 ---
@@ -279,10 +282,10 @@ yuantest trace delete <trace-id>
 
 ```bash
 # 扫描测试文件中的注解
-yuantest annotations --scan
+yuantest annotations --test-dir <dir>
 
 # JSON 格式输出
-yuantest annotations --json
+yuantest annotations --test-dir <dir> --output annotation-report.json
 ```
 
 支持的注解类型：`@skip`、`@only`、`@fail`、`@slow`、`@fixme`、`@todo`、`@serial`、`@parallel`
@@ -290,11 +293,11 @@ yuantest annotations --json
 ### 标签管理
 
 ```bash
-# 列出所有标签
-yuantest tags --list
+# 扫描测试文件中的标签
+yuantest tags --test-dir <dir>
 
 # JSON 格式输出
-yuantest tags --json
+yuantest tags --test-dir <dir> --output tag-report.json
 ```
 
 ---
@@ -303,13 +306,13 @@ yuantest tags --json
 
 ```bash
 # 列出所有产物
-yuantest artifacts list
+yuantest artifacts --list
 
-# 下载产物
-yuantest artifacts download <artifact-id>
+# 查看产物统计信息
+yuantest artifacts --stats
 
-# 删除产物
-yuantest artifacts delete <artifact-id>
+# 删除 7 天前的产物
+yuantest artifacts --clean
 ```
 
 产物类型：截图（screenshot）、视频（video）、下载（download）、Trace（trace）、附件（attachment）
@@ -320,13 +323,16 @@ yuantest artifacts delete <artifact-id>
 
 ```bash
 # 比较视觉测试结果
-yuantest visual compare
+yuantest visual --dir <dir>
 
-# 审批视觉差异
-yuantest visual approve <test-id>
+# 更新所有基线为当前截图
+yuantest visual --dir <dir> --update
 
-# 更新基线
-yuantest visual baseline <test-id>
+# 查看视觉测试统计信息
+yuantest visual --dir <dir> --stats
+
+# 生成视觉测试报告
+yuantest visual --dir <dir> --report visual-report.json
 ```
 
 ---

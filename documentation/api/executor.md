@@ -38,12 +38,14 @@ async execute(options?: {
   shardIndex?: number;
   shardTotal?: number;
   grepPattern?: string;
+  grepInvertPattern?: string;
   tagFilter?: string[];
   updateSnapshots?: boolean;
   projectFilter?: string;
   testFiles?: string[];
   testLocations?: string[];
   parentRunId?: string;
+  environmentTag?: string;
 }): Promise<RunResult>
 ```
 
@@ -54,12 +56,14 @@ async execute(options?: {
 | `shardIndex` | `number` | Shard index (0-based) |
 | `shardTotal` | `number` | Total number of shards |
 | `grepPattern` | `string` | Regex pattern to match test titles |
+| `grepInvertPattern` | `string` | Inverted grep match pattern to exclude tests |
 | `tagFilter` | `string[]` | List of tag filters |
 | `updateSnapshots` | `boolean` | Whether to update snapshots |
 | `projectFilter` | `string` | Playwright project filter |
 | `testFiles` | `string[]` | Specified list of test files |
 | `testLocations` | `string[]` | Specified list of test locations |
 | `parentRunId` | `string` | Parent run ID, used for rerun scenarios |
+| `environmentTag` | `string` | Environment tag for multi-environment reporting |
 
 #### Execution Flow
 
@@ -102,6 +106,10 @@ Cancellation behavior:
 | `getTagManager()` | `TagManager \| null` | Get the tag manager |
 | `getArtifactManager()` | `ArtifactManager \| null` | Get the artifact manager |
 | `getVisualManager()` | `VisualTestingManager \| null` | Get the visual testing manager |
+| `getTestLocations()` | `string[]` | Get the list of test locations |
+| `getTestFiles()` | `string[]` | Get the list of test files |
+| `getGrepPattern()` | `string` | Get the grep match pattern |
+| `getCompletedTestResults()` | `TestResult[]` | Get the list of completed test results |
 
 ### Properties
 
@@ -142,7 +150,49 @@ Creates `shardCount` Executor instances, each shard using an independent output 
 | Method | Return Type | Description |
 |--------|-------------|-------------|
 | `execute()` | `Promise<RunResult[]>` | Execute all shards in parallel |
+| `executeAndMergeReports()` | `Promise<RunResult>` | Execute all shards and merge their reports into a single result |
+| `mergeShardReports()` | `RunResult` | Merge all shard reports into a single result |
 | `cancelAll()` | `Promise<void>` | Cancel all shard executions |
+
+## PlaywrightReportParser Class
+
+A parser for Playwright JSON report files.
+
+### Constructor
+
+```typescript
+constructor()
+```
+
+Creates a PlaywrightReportParser instance.
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `parse(filePath)` | `Promise<ParsedReport>` | Parse a Playwright JSON report file |
+| `parseContent(content)` | `ParsedReport` | Parse Playwright JSON report content string |
+
+## ProgressTracker Class
+
+A tracker for test run progress.
+
+### Constructor
+
+```typescript
+constructor()
+```
+
+Creates a ProgressTracker instance.
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `startRun(runId, totalTests)` | `void` | Start tracking a test run |
+| `updateProgress(runId, result)` | `ProgressMessage` | Update progress with a test result |
+| `getProgress(runId)` | `ProgressMessage \| null` | Get current progress for a run |
+| `completeRun(runId)` | `void` | Mark a run as completed |
 
 ## Type Definitions
 
@@ -175,6 +225,8 @@ interface TestConfig {
   testMatch?: string[];
   testIgnore?: string[];
   ignoreDirs?: string[];
+  environmentTag?: string;
+  quarantine?: QuarantineConfig;
 }
 ```
 
@@ -354,6 +406,76 @@ interface RunMetadataGlobalError {
   message: string;
   stack: string;
   timestamp: number;
+}
+```
+
+### QuarantineConfig
+
+```typescript
+interface QuarantineConfig {
+  enabled: boolean;
+  threshold: number;
+  autoQuarantine: boolean;
+}
+```
+
+### ParsedReport
+
+```typescript
+interface ParsedReport {
+  suites: SuiteResult[];
+  totalTests: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  duration: number;
+  metadata?: RunMetadata;
+}
+```
+
+### ProgressMessage
+
+```typescript
+interface ProgressMessage {
+  runId: string;
+  totalTests: number;
+  completed: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  progress: number;
+  isCompleted: boolean;
+}
+```
+
+### PlaywrightJSONReport
+
+```typescript
+interface PlaywrightJSONReport {
+  config: {
+    files: string[];
+    projects: { name: string; outputDir: string; repeatEach: number; retries: number; use: Record<string, unknown> }[];
+    version: string;
+  };
+  suites: {
+    title: string;
+    file: string;
+    specs: {
+      title: string;
+      ok: boolean;
+      tags: string[];
+      tests: {
+        projectName: string;
+        results: {
+          status: string;
+          duration: number;
+          error?: { message: string; stack: string };
+          attachments: { name: string; path?: string; contentType: string }[];
+        }[];
+        status: string;
+      }[];
+    }[];
+  }[];
 }
 ```
 

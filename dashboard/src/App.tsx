@@ -12,7 +12,7 @@ import { ReporterPanel } from './components/ReporterPanel';
 import { Modal } from './components/Modal';
 import { HealthDashboard } from './components/HealthDashboard';
 import { TestHistoryDialog } from './components/TestHistoryDialog';
-import { AgentPanel } from './components/AgentPanel';
+import { ChatPanel } from './components/ChatPanel';
 import { usePreferences } from './hooks/usePreferences';
 import { useTestTree } from './hooks/useTestTree';
 import { useExecution } from './hooks/useExecution';
@@ -26,8 +26,7 @@ function App() {
   const [isExecutorDialogOpen, setIsExecutorDialogOpen] = useState(false);
   const [showTestHistory, setShowTestHistory] = useState<TestCase | null>(null);
   const [isFlakyDialogOpen, setIsFlakyDialogOpen] = useState(false);
-  const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false);
-  const [isLLMConfigOpen, setIsLLMConfigOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
 
   // Custom hooks
   const preferences = usePreferences();
@@ -576,10 +575,7 @@ function App() {
         onOpenExecutor={() => setIsExecutorDialogOpen(true)}
         showHealthDashboard={showHealthDashboard}
         onToggleHealthDashboard={() => setShowHealthDashboard(!showHealthDashboard)}
-        onOpenAgentPanel={() => setIsAgentPanelOpen(true)}
-        isLLMConfigOpen={isLLMConfigOpen}
-        onOpenLLMConfig={() => setIsLLMConfigOpen(true)}
-        onCloseLLMConfig={() => setIsLLMConfigOpen(false)}
+        onOpenChatPanel={() => setIsChatPanelOpen(true)}
       />
 
       {showHealthDashboard ? (
@@ -669,11 +665,10 @@ function App() {
         onClearFlakyHistory={handleClearFlakyHistory}
       />
       <Modal content={modalContent} onClose={() => setModalContent(null)} />
-      {isAgentPanelOpen && (
-        <AgentPanel
+      {isChatPanelOpen && (
+        <ChatPanel
           lang={lang}
-          onClose={() => setIsAgentPanelOpen(false)}
-          onOpenLLMConfig={() => setIsLLMConfigOpen(true)}
+          onClose={() => setIsChatPanelOpen(false)}
         />
       )}
     </div>

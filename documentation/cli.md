@@ -49,6 +49,9 @@ yuantest run [testFiles...] [options]
 | `--visual-threshold` | | Visual difference threshold (0-1) | 0.2 |
 | `--annotations` | | Enable annotation scanning | false |
 | `--html-report` | | Generate Playwright HTML report | true |
+| `--shard-index` | | Run a specific shard index (0-based, for multi-machine) | |
+| `--shard-total` | | Total number of shards (for multi-machine) | |
+| `--environment-tag` | | Environment tag for multi-environment reporting | |
 
 ### Examples
 

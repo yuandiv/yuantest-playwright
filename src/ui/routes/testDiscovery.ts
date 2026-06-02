@@ -3,6 +3,7 @@ import type { RouterDeps } from './types';
 import { asyncHandler } from '../../middleware';
 import { getErrorMessage } from '../../types';
 import { logger } from '../../logger';
+import { checkEnvironment } from '../../utils/environment';
 
 export function createTestDiscoveryRouter(deps: RouterDeps): Router {
   const router = Router();
@@ -142,7 +143,11 @@ export function createTestDiscoveryRouter(deps: RouterDeps): Router {
       }
     } catch (error: unknown) {
       log.error('Failed to discover tests', error instanceof Error ? error : undefined);
-      res.status(500).json({ error: getErrorMessage(error) });
+      const envCheck = await checkEnvironment();
+      res.status(500).json({
+        error: getErrorMessage(error),
+        environmentCheck: !envCheck.nodeOk || !envCheck.playwrightOk ? envCheck : undefined,
+      });
     }
   });
 

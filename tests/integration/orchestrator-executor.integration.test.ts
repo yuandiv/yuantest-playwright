@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { Orchestrator } from '../../src/orchestrator';
 import { Executor } from '../../src/executor';
 import { MemoryStorage } from '../../src/storage';
@@ -5,6 +6,18 @@ import { RunResult, BrowserType } from '../../src/types';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+
+vi.mock('../../src/utils/environment', () => ({
+  checkEnvironment: vi.fn().mockResolvedValue({
+    nodeVersion: '18.0.0',
+    nodeOk: true,
+    playwrightAvailable: true,
+    playwrightVersion: '1.40.0',
+    playwrightOk: true,
+    errors: [],
+  }),
+  MIN_PLAYWRIGHT_VERSION: '1.40.0',
+}));
 
 describe('Orchestrator-Executor Integration', () => {
   let tmpDir: string;
@@ -190,7 +203,7 @@ describe('Orchestrator-Executor Integration', () => {
         outputDir: outputDir,
       });
 
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
       const runPromise = executor.execute();
       await expect(executor.execute()).rejects.toThrow('Executor is already running');
       await runPromise.catch(() => {});
@@ -256,9 +269,9 @@ describe('Orchestrator-Executor Integration', () => {
 
       // Create executor and verify it can use the shard info
       const executor = new Executor(config, storage);
-      jest.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
-      jest.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'runPlaywrightTests').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'prepareRun').mockImplementation(async () => {});
+      vi.spyOn(executor as any, 'postProcessRun').mockImplementation(async () => {});
 
       // Execute with shard info from orchestrator
       const runResult = await executor.execute({

@@ -49,6 +49,9 @@ yuantest run [testFiles...] [options]
 | `--visual-threshold` | | 视觉差异阈值（0-1） | 0.2 |
 | `--annotations` | | 启用注解扫描 | false |
 | `--html-report` | | 生成 Playwright HTML 报告 | true |
+| `--shard-index` | | 运行特定分片索引（从 0 开始，用于多机执行） | |
+| `--shard-total` | | 分片总数（用于多机执行） | |
+| `--environment-tag` | | 环境标签，用于多环境报告 | |
 
 ### 示例
 

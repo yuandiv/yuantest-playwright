@@ -262,13 +262,16 @@ The system will find the file and line information for the specified test from t
 
 ```bash
 # List all trace files
-yuantest trace list
+yuantest trace --list
 
 # View trace details
-yuantest trace show <trace-id>
+yuantest trace --view <trace-file>
 
-# Delete trace file
-yuantest trace delete <trace-id>
+# Delete trace files older than 7 days
+yuantest trace --clean
+
+# Show trace statistics
+yuantest trace --stats
 ```
 
 ---
@@ -279,10 +282,10 @@ yuantest trace delete <trace-id>
 
 ```bash
 # Scan annotations in test files
-yuantest annotations --scan
+yuantest annotations --test-dir <dir>
 
 # JSON format output
-yuantest annotations --json
+yuantest annotations --test-dir <dir> --output annotation-report.json
 ```
 
 Supported annotation types: `@skip`, `@only`, `@fail`, `@slow`, `@fixme`, `@todo`, `@serial`, `@parallel`
@@ -290,11 +293,11 @@ Supported annotation types: `@skip`, `@only`, `@fail`, `@slow`, `@fixme`, `@todo
 ### Tag Management
 
 ```bash
-# List all tags
-yuantest tags --list
+# Scan tags in test files
+yuantest tags --test-dir <dir>
 
 # JSON format output
-yuantest tags --json
+yuantest tags --test-dir <dir> --output tag-report.json
 ```
 
 ---
@@ -303,13 +306,13 @@ yuantest tags --json
 
 ```bash
 # List all artifacts
-yuantest artifacts list
+yuantest artifacts --list
 
-# Download artifact
-yuantest artifacts download <artifact-id>
+# Show artifact statistics
+yuantest artifacts --stats
 
-# Delete artifact
-yuantest artifacts delete <artifact-id>
+# Delete artifacts older than 7 days
+yuantest artifacts --clean
 ```
 
 Artifact types: screenshot, video, download, trace, attachment
@@ -320,13 +323,16 @@ Artifact types: screenshot, video, download, trace, attachment
 
 ```bash
 # Compare visual test results
-yuantest visual compare
+yuantest visual --dir <dir>
 
-# Approve visual differences
-yuantest visual approve <test-id>
+# Update all baselines with current screenshots
+yuantest visual --dir <dir> --update
 
-# Update baseline
-yuantest visual baseline <test-id>
+# Show visual testing statistics
+yuantest visual --dir <dir> --stats
+
+# Generate visual testing report
+yuantest visual --dir <dir> --report visual-report.json
 ```
 
 ---

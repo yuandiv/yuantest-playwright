@@ -2,11 +2,11 @@ import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
 import { asyncHandler } from '../../middleware';
 import { logger } from '../../logger';
-import type { RootCauseAnalysis, TestResult } from '../../types';
+import type { RootCauseAnalysis } from '../../types';
 
 export function createDiagnosisRouter(deps: RouterDeps): Router {
   const router = Router();
-  const log = logger.child('DiagnosisRouter');
+  const _log = logger.child('DiagnosisRouter');
 
   router.get(
     '/llm/config',
@@ -265,7 +265,7 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
 
         const diagnosisPromises = clusters.map(async (cluster) => {
           const representative = testResults.find(
-            (t: any) => t.id === cluster.representativeTestId
+            (t: Record<string, unknown>) => t.id === cluster.representativeTestId
           );
           if (!representative) {
             return {

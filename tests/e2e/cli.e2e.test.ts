@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -71,7 +72,7 @@ function runCLI(
   });
 }
 
-jest.setTimeout(60000);
+vi.setConfig({ testTimeout: 60000 });
 
 describe('CLI E2E Tests', () => {
   let tmpDir: string;

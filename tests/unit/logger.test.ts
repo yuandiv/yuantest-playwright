@@ -1,10 +1,11 @@
+import { vi } from 'vitest';
 import { Logger, ChildLogger, LogLevel, logger } from '../../src/logger';
 
 describe('Logger', () => {
   let loggerInstance: Logger;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     loggerInstance = Logger.getInstance();
   });
 
@@ -64,7 +65,7 @@ describe('Logger', () => {
     });
 
     it('should log info messages', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
       loggerInstance.info('TestModule', 'Info message');
 
@@ -73,7 +74,7 @@ describe('Logger', () => {
     });
 
     it('should log info messages', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
       loggerInstance.info('TestModule', 'Info message');
 
@@ -82,7 +83,7 @@ describe('Logger', () => {
     });
 
     it('should log warning messages', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
       loggerInstance.warn('TestModule', 'Warning message');
 
@@ -91,7 +92,7 @@ describe('Logger', () => {
     });
 
     it('should log error messages', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
       loggerInstance.error('TestModule', 'Error message');
 
@@ -100,7 +101,7 @@ describe('Logger', () => {
     });
 
     it('should log error with stack trace', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
       const error = new Error('Test error');
 
       loggerInstance.error('TestModule', 'Error occurred', error);
@@ -111,7 +112,7 @@ describe('Logger', () => {
 
     it('should not log messages below log level', async () => {
       await loggerInstance.init('./logs', 'ERROR');
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
       loggerInstance.debug('TestModule', 'Debug message');
 
@@ -132,7 +133,7 @@ describe('Logger', () => {
     });
 
     it('should log with child logger', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
       const childLogger = loggerInstance.child('ChildModule');
 
       childLogger.info('Info from child');
@@ -142,7 +143,7 @@ describe('Logger', () => {
     });
 
     it('should log info with child logger', async () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
       const childLogger = loggerInstance.child('ChildModule');
 
       childLogger.info('Info from child');
@@ -152,7 +153,7 @@ describe('Logger', () => {
     });
 
     it('should log warning with child logger', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
       const childLogger = loggerInstance.child('ChildModule');
 
       childLogger.warn('Warning from child');
@@ -162,7 +163,7 @@ describe('Logger', () => {
     });
 
     it('should log error with child logger', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
       const childLogger = loggerInstance.child('ChildModule');
 
       childLogger.error('Error from child');
@@ -192,7 +193,7 @@ describe('Logger', () => {
   describe('flush', () => {
     it('should flush log queue', async () => {
       await loggerInstance.init();
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
       loggerInstance.info('TestModule', 'Message 1');
       loggerInstance.info('TestModule', 'Message 2');
@@ -224,7 +225,7 @@ describe('ChildLogger', () => {
   });
 
   it('should delegate info to parent', async () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
     childLogger.info('Info message');
 
@@ -233,7 +234,7 @@ describe('ChildLogger', () => {
   });
 
   it('should delegate info to parent', () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
     childLogger.info('Info message');
 
@@ -242,7 +243,7 @@ describe('ChildLogger', () => {
   });
 
   it('should delegate warn to parent', () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
     childLogger.warn('Warning message');
 
@@ -251,7 +252,7 @@ describe('ChildLogger', () => {
   });
 
   it('should delegate error to parent', () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
 
     childLogger.error('Error message');
 
@@ -260,7 +261,7 @@ describe('ChildLogger', () => {
   });
 
   it('should delegate error with Error object to parent', () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation();
     const error = new Error('Test error');
 
     childLogger.error('Error occurred', error);

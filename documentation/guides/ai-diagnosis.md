@@ -238,14 +238,17 @@ Source file: [index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main
 
 ### Tool Definitions
 
-The Agent loop provides 4 tools (defined in OpenAI function calling format):
+The Agent loop provides 7 default tools (registered by `ToolRegistry.createDefaultRegistry()`, defined in OpenAI function calling format):
 
 | Tool Name | Parameters | Description |
 |-----------|------------|-------------|
-| `read_source_file` | `path` (required), `startLine?`, `endLine?` | Read source code file |
-| `search_codebase` | `pattern` (required), `filePattern?` | Search code patterns in codebase |
-| `query_test_history` | `testId` (required), `limit?` (default 5) | Query test history run records |
-| `read_screenshot` | `testId` (required) | Read failure screenshot (returns base64) |
+| `read_file` | `path` (required), `startLine?`, `endLine?` | Read file content |
+| `search_files` | `pattern` (required), `filePattern?` | Search files by pattern |
+| `run_test` | `testFilePath` (required), `options?` | Run a specific test |
+| `apply_patch` | `filePath` (required), `patch` (required) | Apply a patch to a file |
+| `explore_app` | `url` (required), `action?` | Explore application pages |
+| `get_heal_history` | `testFilePath` (required) | Get heal history for a test |
+| `list_plans` | `options?` | List test plans |
 
 ### Reasoning Loop
 
@@ -286,6 +289,16 @@ interface ReasoningStep {
 | `agent` | Successfully executed Agent multi-turn tool calling loop |
 | `single` | LLM doesn't support tool_calling or directly gave final answer, using single call |
 | `fallback` | LLM response parsing failed, using raw text as summary |
+
+### Diagnosis with Heal
+
+The `diagnoseWithHeal()` method combines diagnosis with automatic healing:
+
+```typescript
+diagnoseWithHeal(testFilePath: string, options?: { error?: string; stackTrace?: string; apply?: boolean }): Promise<AgentResult<AgentHealResult>>
+```
+
+Diagnose a failing test and automatically attempt to heal it.
 
 ---
 
@@ -386,6 +399,7 @@ interface LLMConfig {
   remark: string;        // Configuration remark
   maxTokens: number;     // Maximum generation tokens
   temperature: number;   // Generation temperature
+  maxAgentRounds: number; // Maximum agent loop rounds (default: 5)
 }
 ```
 
@@ -400,6 +414,7 @@ const DEFAULT_CONFIG: LLMConfig = {
   remark: '',
   maxTokens: 2048,
   temperature: 0.3,
+  maxAgentRounds: 5,
 };
 ```
 
@@ -458,6 +473,7 @@ interface AIDiagnosis {
   calibratedConfidence: number;  // Calibrated confidence (0-1)
   analysisMode: 'agent' | 'single' | 'fallback'; // Analysis mode
   relatedFailures?: string[];    // Related failure information
+  healerPatch?: HealerPatch;     // Auto-generated healing patch (when diagnoseWithHeal is used)
 }
 ```
 

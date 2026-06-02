@@ -60,7 +60,12 @@ export function aggregateTimeSeries(
     if (!buckets.has(bucketKey)) {
       buckets.set(bucketKey, { passed: 0, failed: 0, durations: [], total: 0 });
     }
-    const bucket = buckets.get(bucketKey)!;
+    const bucket = buckets.get(bucketKey) as {
+      passed: number;
+      failed: number;
+      durations: number[];
+      total: number;
+    };
     bucket.total++;
     bucket.durations.push(entry.duration);
     if (entry.status === 'passed') {
@@ -74,7 +79,12 @@ export function aggregateTimeSeries(
   const bucketKeys = Array.from(buckets.keys()).sort();
 
   for (const key of bucketKeys) {
-    const bucket = buckets.get(key)!;
+    const bucket = buckets.get(key) as {
+      passed: number;
+      failed: number;
+      durations: number[];
+      total: number;
+    };
     const avgDuration =
       bucket.durations.length > 0
         ? bucket.durations.reduce((s, d) => s + d, 0) / bucket.durations.length
@@ -285,12 +295,12 @@ export function detectSeasonalPattern(
       dayCounts.set(day, { total: 0, failed: 0 });
     }
 
-    hourCounts.get(hour)!.total++;
-    dayCounts.get(day)!.total++;
+    (hourCounts.get(hour) as { total: number; failed: number }).total++;
+    (dayCounts.get(day) as { total: number; failed: number }).total++;
 
     if (entry.status === 'failed' || entry.status === 'timedout') {
-      hourCounts.get(hour)!.failed++;
-      dayCounts.get(day)!.failed++;
+      (hourCounts.get(hour) as { total: number; failed: number }).failed++;
+      (dayCounts.get(day) as { total: number; failed: number }).failed++;
     }
   }
 

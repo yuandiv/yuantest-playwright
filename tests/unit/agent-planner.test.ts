@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { PlannerAgent, PLANNER_SYSTEM_PROMPT_ZH, PLANNER_SYSTEM_PROMPT_EN, PLANNER_FEW_SHOT_ZH, PLANNER_FEW_SHOT_EN } from '../../src/agents/planner';
 import { AgentConfig, LLMConfig, AppExplorationResult, PageSnapshot } from '../../src/types';
 import * as fs from 'fs';
@@ -32,7 +34,7 @@ function createAgentConfig(overrides: Partial<AgentConfig> = {}): AgentConfig {
 
 /** Build a mock fetch that returns the given content string from the LLM. */
 function mockFetchWithContent(content: string) {
-  return jest.fn().mockResolvedValue({
+  return vi.fn().mockResolvedValue({
     ok: true,
     json: async () => ({
       choices: [{ message: { content }, finish_reason: 'stop' }],
@@ -124,7 +126,7 @@ describe('PlannerAgent', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   // ── generatePlan / parsePlanResponse ─────────────────────────────
@@ -281,7 +283,7 @@ describe('PlannerAgent', () => {
       const agent = new PlannerAgent(createAgentConfig({ language: 'zh' }), createLLMConfig());
       await agent.generatePlan('登录功能');
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const systemMsg = body.messages.find((m: { role: string }) => m.role === 'system');
 
@@ -295,7 +297,7 @@ describe('PlannerAgent', () => {
       const agent = new PlannerAgent(createAgentConfig({ language: 'en' }), createLLMConfig());
       await agent.generatePlan('Login feature');
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const systemMsg = body.messages.find((m: { role: string }) => m.role === 'system');
 
@@ -309,7 +311,7 @@ describe('PlannerAgent', () => {
       const agent = new PlannerAgent(createAgentConfig(), createLLMConfig());
       await agent.generatePlan('登录功能');
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const systemMsg = body.messages.find((m: { role: string }) => m.role === 'system');
 
@@ -328,7 +330,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('登录功能');
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const systemMsg = body.messages.find((m: { role: string }) => m.role === 'system');
 
@@ -362,7 +364,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('登录功能');
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -393,7 +395,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('Login feature');
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -409,7 +411,7 @@ describe('PlannerAgent', () => {
       const agent = new PlannerAgent(createAgentConfig({ language: 'en' }), createLLMConfig());
       await agent.generatePlan('Login feature');
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -448,7 +450,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('登录功能', { seedTest: seedPath });
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -469,7 +471,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('Login feature', { seedTest: seedPath });
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -490,7 +492,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('登录功能', { prdPath });
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -511,7 +513,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('Login feature', { prdPath });
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -532,7 +534,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('Login feature', { prdPath });
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -550,7 +552,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('Login feature', { seedTest: '/nonexistent/seed.spec.ts' });
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -566,7 +568,7 @@ describe('PlannerAgent', () => {
       );
       await agent.generatePlan('Login feature', { prdPath: '/nonexistent/prd.md' });
 
-      const fetchCall = (global.fetch as jest.Mock).mock.calls[0];
+      const fetchCall = (global.fetch as Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1].body);
       const userMsg = body.messages.find((m: { role: string }) => m.role === 'user');
 
@@ -580,7 +582,7 @@ describe('PlannerAgent', () => {
     it('should handle LLM network error', async () => {
       const planner = new PlannerAgent(createAgentConfig(), createLLMConfig());
 
-      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
       await expect(planner.generatePlan('Test login')).rejects.toThrow();
     });
@@ -588,7 +590,7 @@ describe('PlannerAgent', () => {
     it('should handle empty description', async () => {
       const planner = new PlannerAgent(createAgentConfig(), createLLMConfig());
 
-      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
       // Should not crash with empty description
       await expect(planner.generatePlan('')).rejects.toThrow();

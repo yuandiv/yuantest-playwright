@@ -1,3 +1,5 @@
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import {
   walkDir,
   walkDirWithCallback,
@@ -13,23 +15,23 @@ import * as path from 'path';
 import { StorageProvider } from '../../src/storage';
 
 describe('filesystem utils', () => {
-  let mockStorage: jest.Mocked<StorageProvider>;
+  let mockStorage: Mocked<StorageProvider>;
 
   beforeEach(() => {
     mockStorage = {
-      exists: jest.fn(),
-      readText: jest.fn(),
-      writeText: jest.fn(),
-      writeJSON: jest.fn(),
-      readJSON: jest.fn(),
-      readBuffer: jest.fn(),
-      writeBuffer: jest.fn(),
-      mkdir: jest.fn(),
-      readDir: jest.fn(),
-      readDirWithTypes: jest.fn(),
-      stat: jest.fn(),
-      remove: jest.fn(),
-      copy: jest.fn(),
+      exists: vi.fn(),
+      readText: vi.fn(),
+      writeText: vi.fn(),
+      writeJSON: vi.fn(),
+      readJSON: vi.fn(),
+      readBuffer: vi.fn(),
+      writeBuffer: vi.fn(),
+      mkdir: vi.fn(),
+      readDir: vi.fn(),
+      readDirWithTypes: vi.fn(),
+      stat: vi.fn(),
+      remove: vi.fn(),
+      copy: vi.fn(),
     } as any;
   });
 
@@ -64,7 +66,7 @@ describe('filesystem utils', () => {
 
   describe('walkDirWithCallback', () => {
     it('should not call callback if directory does not exist', () => {
-      const callback = jest.fn();
+      const callback = vi.fn();
 
       walkDirWithCallback('/nonexistent', callback);
 
@@ -73,7 +75,7 @@ describe('filesystem utils', () => {
 
     it('should call callback for each file', () => {
       const testDir = path.join(__dirname, '../../');
-      const callback = jest.fn();
+      const callback = vi.fn();
 
       walkDirWithCallback(testDir, callback, { extensions: ['.ts'] });
 
@@ -138,7 +140,7 @@ describe('filesystem utils', () => {
   describe('walkDirWithCallbackAsync', () => {
     it('should not call callback if directory does not exist', async () => {
       mockStorage.exists.mockResolvedValue(false);
-      const callback = jest.fn();
+      const callback = vi.fn();
 
       await walkDirWithCallbackAsync('/nonexistent', callback, {}, mockStorage);
 
@@ -150,7 +152,7 @@ describe('filesystem utils', () => {
       mockStorage.readDirWithTypes.mockResolvedValue([
         { name: 'file1.ts', isFile: () => true, isDirectory: () => false } as any,
       ]);
-      const callback = jest.fn();
+      const callback = vi.fn();
 
       await walkDirWithCallbackAsync('/test-dir', callback, {}, mockStorage);
 
@@ -160,7 +162,7 @@ describe('filesystem utils', () => {
     it('should handle errors when reading directory', async () => {
       mockStorage.exists.mockResolvedValue(true);
       mockStorage.readDirWithTypes.mockRejectedValue(new Error('Read error'));
-      const callback = jest.fn();
+      const callback = vi.fn();
 
       await walkDirWithCallbackAsync('/test-dir', callback, {}, mockStorage);
 

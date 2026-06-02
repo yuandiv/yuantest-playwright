@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { StorageProvider, getStorage } from '../storage';
+import type { StorageProvider } from '../storage';
 import { LOG_LEVELS, CACHE_CONFIG } from '../constants';
 
 enum LogLevel {
@@ -31,11 +31,20 @@ class Logger {
   private readonly FLUSH_INTERVAL_MS = CACHE_CONFIG.FLUSH_INTERVAL_MS;
   private readonly MAX_QUEUE_SIZE = CACHE_CONFIG.MAX_QUEUE_SIZE;
   private writeStream: fs.WriteStream | null = null;
-  private storage: StorageProvider;
+  private _storage: StorageProvider | null = null;
   private initPromise: Promise<void> | null = null;
 
-  private constructor() {
-    this.storage = getStorage();
+  private constructor() {}
+
+  private get storage(): StorageProvider {
+    if (!this._storage) {
+      throw new Error('StorageProvider not initialized. Call setStorage() first.');
+    }
+    return this._storage;
+  }
+
+  setStorage(storage: StorageProvider): void {
+    this._storage = storage;
   }
 
   static getInstance(): Logger {
@@ -64,7 +73,11 @@ class Logger {
         this.level = LogLevel[upper as keyof typeof LogLevel];
       }
     }
-    await this.storage.mkdir(this.logDir);
+    if (this._storage) {
+      await this.storage.mkdir(this.logDir);
+    } else {
+      await fs.promises.mkdir(this.logDir, { recursive: true });
+    }
     const dateStr = new Date().toISOString().split('T')[0];
     this.currentLogFile = path.join(this.logDir, `yuantest-${dateStr}.log`);
     this.writeStream = fs.createWriteStream(this.currentLogFile, { flags: 'a', encoding: 'utf-8' });
@@ -138,8 +151,9 @@ class Logger {
     }
     this.flush();
     if (this.writeStream && !this.writeStream.destroyed) {
+      const stream = this.writeStream;
       await new Promise<void>((resolve) => {
-        this.writeStream!.end(() => resolve());
+        stream.end(() => resolve());
       });
       this.writeStream = null;
     }
@@ -216,3 +230,6 @@ class ChildLogger {
 
 export const logger = Logger.getInstance();
 export { Logger, ChildLogger, LogLevel };
+export function initLoggerStorage(storage: StorageProvider): void {
+  logger.setStorage(storage);
+}

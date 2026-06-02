@@ -9,31 +9,23 @@ DashboardServer 提供 Web Dashboard 和 REST API 服务，用于管理测试运
 ## 构造函数
 
 ```typescript
-new DashboardServer(config?: DashboardConfig)
+new DashboardServer(port?: number, outputDir?: string, dataDir?: string)
 ```
 
-### DashboardConfig 类型
+### 参数
 
-| 字段 | 类型 | 默认值 | 说明 |
+| 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `port` | `number` | `5274` | 服务器监听端口 |
 | `outputDir` | `string` | `'./test-reports'` | 测试报告输出目录 |
 | `dataDir` | `string` | `'./test-data'` | 持久化数据存储目录 |
-| `host` | `string` | `'localhost'` | 服务器监听地址 |
-| `openBrowser` | `boolean` | `false` | 启动时是否自动打开浏览器 |
 
 ### 示例
 
 ```typescript
 import { DashboardServer } from 'yuantest-playwright';
 
-const server = new DashboardServer({
-  port: 5274,
-  outputDir: './test-reports',
-  dataDir: './test-data',
-  host: 'localhost',
-  openBrowser: false,
-});
+const server = new DashboardServer(5274, './test-reports', './test-data');
 
 await server.start();
 ```
@@ -80,6 +72,14 @@ const flakyManager = server.getFlakyManager();
 
 ```typescript
 const reporter = server.getReporter();
+```
+
+### `getContainer(): ServiceContainer`
+
+获取依赖注入容器实例，用于访问已注册的服务。
+
+```typescript
+const container = server.getContainer();
 ```
 
 ### `getExecutor(): Executor | null`
@@ -1288,6 +1288,406 @@ data: {"type":"error","error":"Connection timeout"}
 
 ---
 
+### 测试发现
+
+#### `GET /api/v1/tests`
+
+发现项目目录中的测试。
+
+**查询参数：**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `testDir` | `string` | 当前测试目录 | 测试目录路径 |
+| `configPath` | `string` | | Playwright 配置文件路径 |
+| `structured` | `string` | `'false'` | 返回按文件分组的结构化结果（`'true'` 或 `'false'`） |
+| `force` | `string` | `'false'` | 强制刷新缓存（`'true'` 或 `'false'`） |
+
+**响应示例：**
+
+```json
+{
+  "total": 42,
+  "tests": [
+    {
+      "id": "test-id-1",
+      "title": "Login test",
+      "fullTitle": "Auth > Login test",
+      "file": "tests/auth.spec.ts",
+      "line": 10,
+      "column": 1,
+      "tags": ["@smoke"],
+      "annotations": []
+    }
+  ],
+  "configValidation": { "valid": true }
+}
+```
+
+#### `GET /api/v1/tests/stats`
+
+获取测试发现统计信息。
+
+**查询参数：**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `testDir` | `string` | 当前测试目录 | 测试目录路径 |
+
+**响应示例：**
+
+```json
+{
+  "totalFiles": 10,
+  "totalTests": 42,
+  "totalSuites": 8
+}
+```
+
+#### `POST /api/v1/tests/refresh`
+
+刷新测试发现缓存。
+
+**请求体（可选）：**
+
+```json
+{
+  "testDir": "./tests",
+  "configPath": "playwright.config.ts"
+}
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "message": "Tests cache refreshed",
+  "total": 42
+}
+```
+
+---
+
+### 聊天
+
+#### `GET /api/v1/chat/conversations`
+
+列出所有对话。
+
+**响应示例：**
+
+```json
+[
+  {
+    "id": "conv-1",
+    "title": "Login flow test",
+    "messageCount": 5,
+    "createdAt": 1715673600000,
+    "updatedAt": 1715673700000
+  }
+]
+```
+
+#### `POST /api/v1/chat/conversations`
+
+创建新对话。
+
+**请求体（可选）：**
+
+```json
+{
+  "title": "Login flow test"
+}
+```
+
+**响应示例：**
+
+```json
+{
+  "id": "conv-1",
+  "title": "Login flow test",
+  "messages": [],
+  "createdAt": 1715673600000,
+  "updatedAt": 1715673600000
+}
+```
+
+#### `GET /api/v1/chat/conversations/:id`
+
+获取指定对话及所有消息。
+
+**路径参数：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 对话 ID |
+
+**错误响应：**
+
+| 状态码 | 说明 |
+|--------|------|
+| `404` | 对话不存在 |
+
+#### `DELETE /api/v1/chat/conversations/:id`
+
+删除对话。
+
+**路径参数：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 对话 ID |
+
+**响应示例：**
+
+```json
+{
+  "success": true
+}
+```
+
+#### `POST /api/v1/chat/conversations/:id/messages`
+
+在对话中发送消息，响应通过 Server-Sent Events (SSE) 流式返回。
+
+**路径参数：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 对话 ID |
+
+**请求体：**
+
+```json
+{
+  "message": "Generate a login test"
+}
+```
+
+**响应：**
+
+- `Content-Type: text/event-stream`
+- `Cache-Control: no-cache`
+- `Connection: keep-alive`
+- `X-Accel-Buffering: no`
+
+**SSE 事件类型：**
+
+| 事件类型 | 说明 |
+|------|------|
+| `token` | Token 流 |
+| `tool_call` | 工具调用事件，包含名称、参数和结果预览 |
+| `tool_result` | 工具执行结果 |
+| `done` | 对话完成，包含完整响应 |
+| `error` | 发生错误 |
+
+**错误响应：**
+
+| 状态码 | 说明 |
+|--------|------|
+| `400` | 缺少 message |
+| `404` | 对话不存在 |
+
+#### `GET /api/v1/chat/mcp-status`
+
+获取 MCP（模型上下文协议）连接状态。
+
+**响应示例：**
+
+```json
+{
+  "servers": [
+    {
+      "id": "server-1",
+      "name": "playwright-mcp",
+      "connected": true,
+      "toolCount": 5
+    }
+  ],
+  "totalTools": 5,
+  "connectedCount": 1,
+  "totalCount": 1
+}
+```
+
+#### `POST /api/v1/chat/mcp-reconnect`
+
+重连所有 MCP 服务器。
+
+**响应示例：**
+
+```json
+{
+  "success": true,
+  "status": {
+    "servers": [],
+    "totalTools": 5,
+    "connectedCount": 1,
+    "totalCount": 1
+  }
+}
+```
+
+#### `GET /api/v1/chat/tools`
+
+获取所有可用工具（内置 + MCP）。
+
+**响应示例：**
+
+```json
+[
+  { "name": "read_file", "description": "Read file content", "source": "builtin" },
+  { "name": "mcp__playwright_mcp__browser_navigate", "description": "Navigate browser", "source": "mcp" }
+]
+```
+
+#### `GET /api/v1/chat/mcp-configs`
+
+获取 MCP 配置列表。
+
+**响应示例：**
+
+```json
+[
+  {
+    "id": "config-1",
+    "name": "playwright-mcp",
+    "enabled": true,
+    "command": "npx",
+    "args": ["@playwright/mcp@latest", "--headed"],
+    "description": "Playwright browser automation",
+    "source": "builtin",
+    "createdAt": 1715673600000,
+    "updatedAt": 1715673600000
+  }
+]
+```
+
+#### `PUT /api/v1/chat/mcp-configs/:id`
+
+更新 MCP 配置。
+
+**路径参数：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 配置 ID |
+
+**请求体：**
+
+```json
+{
+  "enabled": false,
+  "args": ["@playwright/mcp@latest"]
+}
+```
+
+**错误响应：**
+
+| 状态码 | 说明 |
+|--------|------|
+| `404` | 配置不存在 |
+
+#### `DELETE /api/v1/chat/mcp-configs/:id`
+
+删除 MCP 配置。
+
+**路径参数：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 配置 ID |
+
+**响应示例：**
+
+```json
+{
+  "success": true
+}
+```
+
+#### `POST /api/v1/chat/mcp-configs/batch`
+
+从 JSON 对象批量导入 MCP 配置。
+
+**请求体：**
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "npx",
+      "args": ["my-mcp-server"],
+      "env": { "API_KEY": "xxx" }
+    }
+  }
+}
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true
+}
+```
+
+**错误响应：**
+
+| 状态码 | 说明 |
+|--------|------|
+| `400` | 缺少 mcpServers 对象 |
+
+#### `GET /api/v1/chat/mcp-presets`
+
+获取内置 MCP 预设及其添加状态。
+
+**响应示例：**
+
+```json
+[
+  {
+    "name": "playwright-mcp",
+    "enabled": true,
+    "command": "npx",
+    "args": ["@playwright/mcp@latest", "--headed"],
+    "description": "Playwright browser automation (headed mode)",
+    "source": "builtin",
+    "added": true
+  }
+]
+```
+
+#### `POST /api/v1/chat/mcp-presets/add`
+
+将内置 MCP 预设添加到配置。
+
+**请求体：**
+
+```json
+{
+  "name": "playwright-mcp"
+}
+```
+
+**响应示例：**
+
+```json
+{
+  "success": true
+}
+```
+
+**错误响应：**
+
+| 状态码 | 说明 |
+|--------|------|
+| `400` | 缺少 name |
+| `404` | 预设不存在 |
+
+---
+
 ## WebSocket 事件
 
 DashboardServer 通过 WebSocket（路径 `/ws`）推送实时事件。所有消息均为 JSON 格式，包含 `type`、`payload`、`timestamp`、`runId` 字段。
@@ -1659,14 +2059,6 @@ client.disconnect();
 ## 类型定义
 
 ```typescript
-interface DashboardConfig {
-  port: number;
-  outputDir: string;
-  dataDir: string;
-  host: string;
-  openBrowser: boolean;
-}
-
 interface DashboardStats {
   totalRuns: number;
   totalTests: number;

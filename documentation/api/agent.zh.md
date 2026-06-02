@@ -7,7 +7,7 @@ AI 驱动的测试创建和修复代理系统。
 ## 构造函数
 
 ```typescript
-new AgentService(dataDir: string, config?: Partial<AgentConfig>, llmConfig?: LLMConfig)
+new AgentService(dataDir: string, config?: Partial<AgentConfig>, llmConfig?: LLMConfig, sharedLLMService?: LLMService, sharedToolRegistry?: ToolRegistry)
 ```
 
 ### 参数
@@ -17,6 +17,8 @@ new AgentService(dataDir: string, config?: Partial<AgentConfig>, llmConfig?: LLM
 | `dataDir` | `string` | 是 | 数据目录，用于存储修复历史和计划 |
 | `config` | `Partial<AgentConfig>` | 否 | 代理配置（与默认值合并） |
 | `llmConfig` | `LLMConfig` | 否 | LLM 配置，用于 AI 操作 |
+| `sharedLLMService` | `LLMService` | 否 | 共享 LLM 服务实例，用于依赖注入 |
+| `sharedToolRegistry` | `ToolRegistry` | 否 | 共享工具注册表实例，用于依赖注入 |
 
 ### 默认配置
 
@@ -223,6 +225,85 @@ getProjectRoot(): string
 getProjectContext(): ProjectContext | null
 ```
 
+### parseMarkdownPlan()
+
+从 Markdown 文本解析测试计划。
+
+```typescript
+static parseMarkdownPlan(markdown: string): TestPlan
+```
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `markdown` | `string` | 包含测试计划的 Markdown 文本 |
+
+**返回值**：`TestPlan` — 解析后的测试计划，包含场景、步骤和预期结果。
+
+### createSessionContext()
+
+创建新的 Agent 会话上下文，用于在代理之间共享状态。
+
+```typescript
+createSessionContext(): AgentSessionContext
+```
+
+**返回值**：`AgentSessionContext` — 新的会话上下文实例。
+
+### runPipeline()
+
+运行完整流水线：计划 → 生成 → (可选)运行。
+
+```typescript
+async runPipeline(
+  description: string,
+  options?: { seedTest?: string; prdPath?: string; outputDir?: string; autoRun?: boolean }
+): Promise<AgentResult>
+```
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `description` | `string` | 功能描述，用于测试规划 |
+| `options.seedTest` | `string` | 参考测试文件路径 |
+| `options.prdPath` | `string` | 产品需求文档路径 |
+| `options.outputDir` | `string` | 生成文件的输出目录 |
+| `options.autoRun` | `boolean` | 是否自动运行生成的测试 |
+
+**返回值**：`Promise<AgentResult>` — 流水线执行结果。
+
+## 子模块
+
+### BaseAgent
+
+抽象基类，提供 `callLLM()`、`callLLMWithAgentLoop()`、`updateConfig()`、`setToolRegistry()`、`setLLMService()`、`isLLMEnabled()` 方法。
+
+### LLMService
+
+LLM 服务类，提供 `chat()`、`chatWithTools()`、`chatStream()`、`chatWithAgentLoop()`、`updateConfig()`、`getConfig()` 方法。
+
+### BrowserSessionManager
+
+浏览器会话管理，提供 `getSession()`、`getPage()`、`getActivePage()`、`closeSession()`、`closeAll()`、`getActiveSessionIds()` 方法。
+
+### AppExplorer
+
+应用探索器，使用 BFS 爬取页面结构。
+
+### PatchApplier
+
+补丁应用，提供 `applyPatchToContent()`、`applyPatch()`、`isWithinProjectRoot()`（静态）方法。
+
+### ProjectContextLoader
+
+项目上下文加载器，提供 `load()` 方法。
+
+### TestRunner
+
+测试运行器，提供 `runTest()`、`runSingleTest()` 方法。
+
+### ToolRegistry
+
+工具注册表，提供 `registerTool()`、`unregisterTool()`、`getToolSchemas()`、`executeTool()`、`createDefaultRegistry()`（静态，注册 7 个默认工具）方法。
+
 ## 子代理
 
 ### PlannerAgent
@@ -350,6 +431,112 @@ interface AgentHealResult {
   patches: HealerPatch[];
   healed: boolean;
   roundsUsed: number;
+}
+
+// 代理会话上下文
+interface AgentSessionContext {
+  sessionId: string;
+  sharedState: Map<string, unknown>;
+  createdAt: number;
+}
+
+// 代理提示词
+interface AgentPrompts {
+  systemPrompt?: string;
+  userPrompt?: string;
+  planningPrompt?: string;
+  generationPrompt?: string;
+  healingPrompt?: string;
+}
+
+// 调用 LLM 选项
+interface CallLLMOptions {
+  temperature?: number;
+  maxTokens?: number;
+  timeout?: number;
+}
+
+// 代理循环结果
+interface AgentLoopResult {
+  success: boolean;
+  output?: string;
+  error?: string;
+  toolCalls?: ToolCallInfo[];
+  tokenUsage?: TokenUsage;
+}
+
+// 代理循环选项
+interface AgentLoopOptions {
+  maxIterations?: number;
+  timeout?: number;
+  onToolCall?: (toolCall: ToolCallInfo) => void;
+}
+
+// LLM 聊天选项
+interface LLMChatOptions {
+  temperature?: number;
+  maxTokens?: number;
+  timeout?: number;
+  stream?: boolean;
+}
+
+// Token 使用统计
+interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+// LLM 聊天结果
+interface LLMChatResult {
+  content: string;
+  model: string;
+  tokenUsage: TokenUsage;
+  toolCalls?: ToolCallInfo[];
+}
+
+// 工具调用信息
+interface ToolCallInfo {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  result?: unknown;
+}
+
+// 聊天消息
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  toolCallId?: string;
+  toolCalls?: ToolCallInfo[];
+}
+
+// 工具模式定义
+interface ToolSchema {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+// 测试运行结果
+interface TestRunResult {
+  testId: string;
+  testTitle: string;
+  status: 'passed' | 'failed' | 'skipped' | 'timedOut';
+  duration: number;
+  error?: string;
+  stackTrace?: string;
+  retries: number;
+}
+
+// 测试运行摘要
+interface TestRunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  duration: number;
+  results: TestRunResult[];
 }
 ```
 

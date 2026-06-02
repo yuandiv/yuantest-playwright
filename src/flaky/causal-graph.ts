@@ -161,8 +161,8 @@ function inferDependencyEdges(
           coFailure.set(idB, new Map());
         }
 
-        const pairA = coFailure.get(idA)!;
-        const pairB = coFailure.get(idB)!;
+        const pairA = coFailure.get(idA) as Map<string, { both: number; either: number }>;
+        const pairB = coFailure.get(idB) as Map<string, { both: number; either: number }>;
 
         if (!pairA.has(idB)) {
           pairA.set(idB, { both: 0, either: 0 });
@@ -171,10 +171,10 @@ function inferDependencyEdges(
           pairB.set(idA, { both: 0, either: 0 });
         }
 
-        pairA.get(idB)!.both++;
-        pairA.get(idB)!.either++;
-        pairB.get(idA)!.both++;
-        pairB.get(idA)!.either++;
+        (pairA.get(idB) as { both: number; either: number }).both++;
+        (pairA.get(idB) as { both: number; either: number }).either++;
+        (pairB.get(idA) as { both: number; either: number }).both++;
+        (pairB.get(idA) as { both: number; either: number }).either++;
       }
     }
 
@@ -268,7 +268,7 @@ function buildImpactMap(graph: CausalGraph, maxDepth: number): Map<string, strin
     if (!adjacency.has(edge.from)) {
       adjacency.set(edge.from, []);
     }
-    adjacency.get(edge.from)!.push(edge.to);
+    (adjacency.get(edge.from) as string[]).push(edge.to);
   }
 
   const impactMap = new Map<string, string[]>();
@@ -278,7 +278,7 @@ function buildImpactMap(graph: CausalGraph, maxDepth: number): Map<string, strin
     const queue: { id: string; depth: number }[] = [{ id: node.id, depth: 0 }];
 
     while (queue.length > 0) {
-      const current = queue.shift()!;
+      const current = queue.shift() as { id: string; depth: number };
       if (visited.has(current.id) || current.depth > maxDepth) {
         continue;
       }

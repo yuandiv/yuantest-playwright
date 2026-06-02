@@ -1,14 +1,6 @@
 import { EventEmitter } from 'events';
 import { spawn, ChildProcess } from 'child_process';
-import {
-  TestConfig,
-  TestResult,
-  RunResult,
-  SuiteResult,
-  BrowserType,
-  ErrorCode,
-  Artifact,
-} from '../types';
+import { TestConfig, RunResult, RunMetadata, ErrorCode, Artifact } from '../types';
 import { PlaywrightRunnerError } from '../types';
 import * as path from 'path';
 import dayjs from 'dayjs';
@@ -23,104 +15,10 @@ import { StorageProvider, getStorage } from '../storage';
 import { PlaywrightConfigMerger } from '../config/merger';
 import { stripAnsi } from '../utils/strings';
 import { safePathForCLI, buildSpawnEnv } from '../utils/filesystem';
-
-const PROGRESS_MARKER = '__PW_PROGRESS__';
-
-interface PlaywrightJSONAttachment {
-  name: string;
-  contentType?: string;
-  path?: string;
-  body?: string;
-}
-
-interface PlaywrightJSONTestResult {
-  workerIndex: number;
-  parallelIndex: number;
-  status: 'passed' | 'failed' | 'timedOut' | 'skipped' | 'interrupted';
-  duration: number;
-  error?: { message?: string; value?: string; stack?: string };
-  errors?: string[];
-  stdout?: Array<{ text?: string; buffer?: string }>;
-  stderr?: string[];
-  retry: number;
-  startTime: string;
-  annotations: Array<{ type: string; description?: string }>;
-  attachments: PlaywrightJSONAttachment[];
-}
-
-interface PlaywrightJSONTest {
-  timeout: number;
-  annotations: Array<{ type: string; description?: string }>;
-  expectedStatus: string;
-  projectId: string;
-  projectName: string;
-  results: PlaywrightJSONTestResult[];
-  status: 'expected' | 'unexpected' | 'flaky' | 'skipped';
-}
-
-interface PlaywrightJSONSpec {
-  id: string;
-  title: string;
-  ok: boolean;
-  tags: string[];
-  tests: PlaywrightJSONTest[];
-  file?: string;
-  line?: number;
-  column?: number;
-}
-
-interface PlaywrightJSONSuite {
-  title: string;
-  file?: string;
-  line?: number;
-  column?: number;
-  specs: PlaywrightJSONSpec[];
-  suites?: PlaywrightJSONSuite[];
-}
-
-interface PlaywrightJSONStats {
-  startTime: string;
-  duration: number;
-  expected: number;
-  skipped: number;
-  unexpected: number;
-  flaky: number;
-}
-
-interface PlaywrightJSONReport {
-  config: Record<string, unknown>;
-  suites: PlaywrightJSONSuite[];
-  errors: unknown[];
-  stats: PlaywrightJSONStats;
-}
-
-interface ProgressMessage {
-  type: 'begin' | 'testBegin' | 'testEnd' | 'stdout' | 'stderr' | 'end' | 'globalError';
-  totalTests?: number;
-  test?: {
-    id: string;
-    title: string;
-    fullTitle?: string;
-    suiteTitle: string;
-    status: string;
-    duration: number;
-    error?: string;
-    retries: number;
-    browser: string;
-    file?: string;
-    line?: number;
-    column?: number;
-    attachments: PlaywrightJSONAttachment[];
-  };
-  text?: string;
-  consoleLogs?: string[];
-  passed?: number;
-  failed?: number;
-  skipped?: number;
-  unexpected?: number;
-  message?: string;
-  stack?: string;
-}
+import { checkEnvironment, MIN_PLAYWRIGHT_VERSION } from '../utils/environment';
+import { PROGRESS_MARKER } from '../constants';
+import { PlaywrightReportParser, PlaywrightJSONReport } from './playwright-report-parser';
+import { ProgressTracker } from './progress-tracker';
 
 export class Executor extends EventEmitter {
   private config: TestConfig;
@@ -134,22 +32,17 @@ export class Executor extends EventEmitter {
   private visualManager: VisualTestingManager | null = null;
   private flakyManager: FlakyTestManager | null = null;
   private log = logger.child('Executor');
-  private stderrBuffer = '';
   private lastExecuteOptions: {
     testFiles?: string[];
     testLocations?: string[];
     grepPattern?: string;
   } | null = null;
-  private realtimeStats = { passed: 0, failed: 0, skipped: 0, totalTests: 0 };
   private storage: StorageProvider;
   private skippedQuarantinedTests: string[] = [];
   private configMerger: PlaywrightConfigMerger;
   private resolvedOutputDir: string = '';
   private parentRunId: string | null = null;
-  private suiteIndex: Map<string, SuiteResult> = new Map();
-  private testIndex: Map<string, TestResult> = new Map();
-  private testSuiteIndex: Map<string, SuiteResult> = new Map();
-  private lastProgressTimestamp: number = 0;
+  private progressTracker: ProgressTracker;
 
   get currentRun(): RunResult | null {
     return this._currentRun;
@@ -253,7 +146,18 @@ export class Executor extends EventEmitter {
     this.storage = storage || getStorage();
     this.flakyManager = flakyManager || null;
     this.configMerger = new PlaywrightConfigMerger(this.storage);
+    this.progressTracker = new ProgressTracker(this.storage);
+    this.forwardProgressTrackerEvents();
     this.initializeManagers();
+  }
+
+  private forwardProgressTrackerEvents(): void {
+    this.progressTracker.on('output', (data) => this.emit('output', data));
+    this.progressTracker.on('run_progress', (data) => this.emit('run_progress', data));
+    this.progressTracker.on('test_result', (data) => this.emit('test_result', data));
+    this.progressTracker.on('parse_error', (jsonStr: string) => {
+      this.log.debug(`Failed to parse progress message: ${jsonStr}`);
+    });
   }
 
   private initializeManagers(): void {
@@ -306,62 +210,80 @@ export class Executor extends EventEmitter {
     }
 
     this.isRunning = true;
-    const runId = this.generateRunId();
-    const startTime = Date.now();
-
-    this.suiteIndex.clear();
-    this.testIndex.clear();
-    this.testSuiteIndex.clear();
-
-    this._currentRun = {
-      id: runId,
-      version: this.config.version,
-      status: 'success',
-      startTime,
-      suites: [],
-      totalTests: 0,
-      passed: 0,
-      failed: 0,
-      skipped: 0,
-      flakyTests: [],
-      metadata: {},
-    };
-
-    this.realtimeStats = { passed: 0, failed: 0, skipped: 0, totalTests: 0 };
-    this.stderrBuffer = '';
-    this.skippedQuarantinedTests = [];
-    this.parentRunId = options?.parentRunId || null;
-    this.lastExecuteOptions = {
-      testFiles: options?.testFiles,
-      testLocations: options?.testLocations,
-      grepPattern: options?.grepPattern,
-    };
-
-    this.log.info(`Run started: ${runId}`);
-    this.emit('run_started', { runId, timestamp: startTime });
 
     try {
-      const filteredOptions = await this.filterQuarantinedTests(options);
-      await this.prepareRun(filteredOptions);
-      await this.runPlaywrightTests(filteredOptions);
-      await this.postProcessRun(runId);
-      this._currentRun.status = 'success';
-    } catch (error: unknown) {
-      this._currentRun.status = 'failed';
-      this.log.error(`Run failed: ${runId}`, error instanceof Error ? error : undefined);
-      this.emit('error', { error: error instanceof Error ? error.message : String(error), runId });
+      const envCheck = await checkEnvironment();
+      if (!envCheck.playwrightAvailable) {
+        throw new PlaywrightRunnerError(
+          'Playwright CLI is not available. Please install @playwright/test (npm install @playwright/test)',
+          'ENV_ERROR' as ErrorCode
+        );
+      }
+      if (!envCheck.playwrightOk) {
+        this.log.warn(
+          `Playwright version ${envCheck.playwrightVersion} is below minimum ${MIN_PLAYWRIGHT_VERSION}, execution may fail`
+        );
+      }
+
+      const runId = this.generateRunId();
+      const startTime = Date.now();
+
+      this.progressTracker.reset();
+
+      this._currentRun = {
+        id: runId,
+        version: this.config.version,
+        status: 'success',
+        startTime,
+        suites: [],
+        totalTests: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        flakyTests: [],
+        metadata: {},
+      };
+      this.progressTracker.currentRun = this._currentRun;
+
+      this.skippedQuarantinedTests = [];
+      this.parentRunId = options?.parentRunId || null;
+      this.lastExecuteOptions = {
+        testFiles: options?.testFiles,
+        testLocations: options?.testLocations,
+        grepPattern: options?.grepPattern,
+      };
+
+      this.log.info(`Run started: ${runId}`);
+      this.emit('run_started', { runId, timestamp: startTime });
+
+      try {
+        const filteredOptions = await this.filterQuarantinedTests(options);
+        await this.prepareRun(filteredOptions);
+        await this.runPlaywrightTests(filteredOptions);
+        await this.postProcessRun(runId);
+        this._currentRun.status = 'success';
+      } catch (error: unknown) {
+        this._currentRun.status = 'failed';
+        this.log.error(`Run failed: ${runId}`, error instanceof Error ? error : undefined);
+        this.emit('error', {
+          error: error instanceof Error ? error.message : String(error),
+          runId,
+        });
+      } finally {
+        this._currentRun.endTime = Date.now();
+        this._currentRun.duration = this._currentRun.endTime - this._currentRun.startTime;
+        (this._currentRun.metadata as RunMetadata).skippedQuarantinedTests =
+          this.skippedQuarantinedTests;
+        this.log.info(
+          `Run completed: ${runId} (${this._currentRun.passed}/${this._currentRun.totalTests} passed, ${this.skippedQuarantinedTests.length} quarantined tests skipped)`
+        );
+        this.emit('run_completed', this._currentRun);
+      }
+
+      return this._currentRun;
     } finally {
       this.isRunning = false;
-      this._currentRun.endTime = Date.now();
-      this._currentRun.duration = this._currentRun.endTime - this._currentRun.startTime;
-      this._currentRun.metadata!.skippedQuarantinedTests = this.skippedQuarantinedTests;
-      this.log.info(
-        `Run completed: ${runId} (${this._currentRun.passed}/${this._currentRun.totalTests} passed, ${this.skippedQuarantinedTests.length} quarantined tests skipped)`
-      );
-      this.emit('run_completed', this._currentRun);
     }
-
-    return this._currentRun;
   }
 
   private async prepareRun(_options?: {
@@ -394,7 +316,9 @@ export class Executor extends EventEmitter {
 
     if (this.annotationManager) {
       const annotations = await this.annotationManager.scanDirectory(this.config.testDir);
-      this._currentRun!.metadata!.annotations = annotations.map((a) => ({
+      const run = this._currentRun as RunResult;
+      run.metadata = run.metadata || {};
+      (run.metadata as RunMetadata).annotations = annotations.map((a) => ({
         type: a.type,
         testName: a.testName,
         file: a.file,
@@ -402,12 +326,14 @@ export class Executor extends EventEmitter {
 
       const summary = this.annotationManager.getSummary();
       this.log.info(`Annotations scanned: ${summary.total} found`);
-      this.emit('annotations_scanned', { runId: this._currentRun!.id, summary });
+      this.emit('annotations_scanned', { runId: run.id, summary });
     }
 
     if (this.tagManager) {
       const tags = await this.tagManager.scanDirectory(this.config.testDir);
-      this._currentRun!.metadata!.tags = tags.map((t) => ({
+      const run = this._currentRun as RunResult;
+      run.metadata = run.metadata || {};
+      (run.metadata as RunMetadata).tags = tags.map((t) => ({
         name: t.name,
         count: t.testIds.length,
       }));
@@ -416,125 +342,8 @@ export class Executor extends EventEmitter {
       this.log.info(
         `Tags scanned: ${summary.totalTags} tags, ${summary.totalTaggedTests} tagged tests`
       );
-      this.emit('tags_scanned', { runId: this._currentRun!.id, summary });
+      this.emit('tags_scanned', { runId: run.id, summary });
     }
-  }
-
-  private async writeProgressReporter(reporterPath: string): Promise<void> {
-    const reporterCode = `
-const fs = require('fs');
-const path = require('path');
-const MARKER = '${PROGRESS_MARKER}';
-
-class ProgressReporter {
-  onBegin(_config, suite) {
-    const emit = (msg) => {
-      process.stderr.write(MARKER + JSON.stringify(msg) + '\\n');
-    };
-    this.emit = emit;
-    this.consoleLogs = new Map();
-    emit({ type: 'begin', totalTests: suite.allTests().length });
-  }
-
-  onTestBegin(test, result) {
-    const fullTitle = this.getFullTitle(test);
-    this.emit({ type: 'testBegin', test: { title: test.title, fullTitle: fullTitle } });
-  }
-
-  onStdOut(chunk, test, result) {
-    const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
-    if (text.trim()) {
-      if (test) {
-        this.emit({ type: 'stdout', test: { title: test.title, fullTitle: this.getFullTitle(test) }, text: text });
-      } else {
-        this.emit({ type: 'stdout', test: null, text: text });
-      }
-    }
-  }
-
-  onStdErr(chunk, test, result) {
-    const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
-    if (text.trim()) {
-      if (test && /error|warn|ERR/i.test(text)) {
-        const testId = test.id;
-        if (!this.consoleLogs.has(testId)) {
-          this.consoleLogs.set(testId, []);
-        }
-        this.consoleLogs.get(testId).push(text.trim());
-      }
-      if (test) {
-        this.emit({ type: 'stderr', test: { title: test.title, fullTitle: this.getFullTitle(test) }, text: text });
-      } else {
-        this.emit({ type: 'stderr', test: null, text: text });
-      }
-    }
-  }
-
-  onTestEnd(test, result) {
-    const suiteTitle = test.parent ? test.parent.title : '';
-    const lastResult = result;
-    const fullTitle = this.getFullTitle(test);
-    const location = test.location || {};
-    const testId = test.id;
-    const consoleLogs = this.consoleLogs.has(testId) ? this.consoleLogs.get(testId) : [];
-    this.emit({
-      type: 'testEnd',
-      test: {
-        id: testId,
-        title: test.title,
-        fullTitle: fullTitle,
-        suiteTitle: suiteTitle,
-        status: lastResult.status,
-        duration: lastResult.duration,
-        error: lastResult.error ? (lastResult.error.message || '') : undefined,
-        retries: lastResult.retry || 0,
-        browser: (test.parent && test.parent.project) ? test.parent.project.name : 'chromium',
-        file: location.file,
-        line: location.line,
-        column: location.column,
-        attachments: (lastResult.attachments || []).map(function(a) {
-          return { name: a.name, contentType: a.contentType, path: a.path, body: a.body ? a.body.toString('utf-8') : undefined };
-        })
-      },
-      consoleLogs: consoleLogs
-    });
-    this.consoleLogs.delete(testId);
-  }
-
-  getFullTitle(test) {
-    const titles = [];
-    let current = test.parent;
-    while (current && current.title) {
-      if (current.title && !current.title.endsWith('.ts') && !current.title.endsWith('.tsx') && !current.title.endsWith('.js') && !current.title.endsWith('.jsx')) {
-        titles.unshift(current.title);
-      }
-      current = current.parent;
-    }
-    titles.push(test.title);
-    return titles.join(' > ');
-  }
-
-  onEnd(result) {
-    this.emit({ type: 'end', passed: 0, failed: 0, skipped: 0 });
-  }
-
-  onError(error) {
-    this.emit({ type: 'globalError', message: error.message || String(error), stack: error.stack || '' });
-  }
-
-  printsToStdio() {
-    return false;
-  }
-}
-
-module.exports = ProgressReporter;
-`;
-    const reporterDir = path.dirname(reporterPath);
-    if (!(await this.storage.exists(reporterDir))) {
-      const fs = await import('fs/promises');
-      await fs.mkdir(reporterDir, { recursive: true });
-    }
-    await this.storage.writeText(reporterPath, reporterCode);
   }
 
   private async writeEnvironmentTagConfig(
@@ -590,228 +399,6 @@ module.exports = defineConfig({
     }
   }
 
-  private handleProgressData(chunk: string): void {
-    this.stderrBuffer += chunk;
-
-    const lines = this.stderrBuffer.split('\n');
-    this.stderrBuffer = lines.pop() || '';
-
-    for (const line of lines) {
-      const markerIndex = line.indexOf(PROGRESS_MARKER);
-      if (markerIndex === -1) {
-        continue;
-      }
-
-      const jsonStr = line.substring(markerIndex + PROGRESS_MARKER.length);
-      try {
-        const msg: ProgressMessage = JSON.parse(jsonStr);
-        this.processProgressMessage(msg);
-      } catch {
-        this.log.debug(`Failed to parse progress message: ${jsonStr}`);
-      }
-    }
-  }
-
-  private processProgressMessage(msg: ProgressMessage): void {
-    if (!this._currentRun) {
-      return;
-    }
-
-    this.lastProgressTimestamp = Date.now();
-
-    if (msg.type === 'begin' && msg.totalTests !== undefined) {
-      this.realtimeStats.totalTests = msg.totalTests;
-      this._currentRun.totalTests = msg.totalTests;
-      this.emit('run_progress', {
-        runId: this._currentRun.id,
-        status: 'running',
-        totalTests: msg.totalTests,
-        passed: 0,
-        failed: 0,
-        skipped: 0,
-      });
-    } else if (msg.type === 'testBegin' && msg.test) {
-      this.emit('output', {
-        data: `▶ ${msg.test.fullTitle || msg.test.title}`,
-        timestamp: Date.now(),
-        runId: this._currentRun.id,
-        type: 'info',
-      });
-      this.emit('run_progress', {
-        runId: this._currentRun.id,
-        status: 'running',
-        totalTests: this.realtimeStats.totalTests,
-        passed: this.realtimeStats.passed,
-        failed: this.realtimeStats.failed,
-        skipped: this.realtimeStats.skipped,
-        currentTest: msg.test.fullTitle || msg.test.title,
-      });
-    } else if (msg.type === 'stdout' && msg.text) {
-      this.emit('output', {
-        data: stripAnsi(msg.text.replace(/\n$/, '')),
-        timestamp: Date.now(),
-        runId: this._currentRun.id,
-        type: 'stdout',
-      });
-    } else if (msg.type === 'stderr' && msg.text) {
-      this.emit('output', {
-        data: stripAnsi(msg.text.replace(/\n$/, '')),
-        timestamp: Date.now(),
-        runId: this._currentRun.id,
-        type: 'stderr',
-      });
-    } else if (msg.type === 'globalError' && msg.message) {
-      if (!this._currentRun.metadata) {
-        this._currentRun.metadata = {};
-      }
-      if (!this._currentRun.metadata.globalErrors) {
-        this._currentRun.metadata.globalErrors = [];
-      }
-      this._currentRun.metadata.globalErrors.push({
-        message: msg.message,
-        stack: msg.stack || '',
-        timestamp: Date.now(),
-      });
-      this.emit('output', {
-        data: `⚠️ Global Error: ${msg.message}`,
-        timestamp: Date.now(),
-        runId: this._currentRun.id,
-        type: 'stderr',
-      });
-      this._currentRun.status = 'failed';
-    } else if (msg.type === 'testEnd' && msg.test) {
-      const test = msg.test;
-      const status: TestResult['status'] =
-        test.status === 'passed'
-          ? 'passed'
-          : test.status === 'skipped'
-            ? 'skipped'
-            : test.status === 'timedOut'
-              ? 'timedout'
-              : 'failed';
-
-      const testResult: TestResult = {
-        id: test.id,
-        title: test.title,
-        fullTitle: test.fullTitle || test.title,
-        file: test.file,
-        line: test.line,
-        column: test.column,
-        status,
-        duration: test.duration || 0,
-        error: test.error ? stripAnsi(test.error) : undefined,
-        stackTrace:
-          test.error && test.error.includes('\n    at')
-            ? stripAnsi(test.error.substring(test.error.indexOf('\n    at')))
-            : undefined,
-        retries: test.retries || 0,
-        timestamp: Date.now(),
-        browser: (test.browser || 'chromium') as BrowserType,
-        screenshots:
-          status !== 'passed'
-            ? (test.attachments || [])
-                .filter((a) => a.name === 'screenshot' || a.contentType?.startsWith('image/'))
-                .map((a) => a.path || a.body)
-                .filter((p): p is string => !!p)
-            : undefined,
-        videos:
-          status !== 'passed'
-            ? (test.attachments || [])
-                .filter((a) => a.name === 'video' || a.contentType?.startsWith('video/'))
-                .map((a) => a.path || a.body)
-                .filter((p): p is string => !!p)
-            : undefined,
-        traces:
-          status !== 'passed'
-            ? (test.attachments || [])
-                .filter((a) => a.name === 'trace')
-                .map((a) => a.path || a.body)
-                .filter((p): p is string => !!p)
-            : undefined,
-        logs: status !== 'passed' ? msg.consoleLogs || [] : undefined,
-      };
-
-      const suiteName = test.suiteTitle || 'Test Suite';
-      let suite = this.suiteIndex.get(suiteName);
-      if (!suite) {
-        suite = {
-          name: suiteName,
-          totalTests: 0,
-          passed: 0,
-          failed: 0,
-          skipped: 0,
-          duration: 0,
-          tests: [],
-          timestamp: Date.now(),
-        };
-        this._currentRun.suites.push(suite);
-        this.suiteIndex.set(suiteName, suite);
-      }
-
-      const existingTest = this.testIndex.get(testResult.id);
-      if (existingTest) {
-        const ownerSuite = this.testSuiteIndex.get(testResult.id) || suite;
-        ownerSuite.duration -= existingTest.duration;
-        const idx = ownerSuite.tests.indexOf(existingTest);
-        if (idx >= 0) {
-          ownerSuite.tests[idx] = testResult;
-        }
-        ownerSuite.duration += testResult.duration;
-
-        if (existingTest.status === 'passed') {
-          ownerSuite.passed--;
-          this.realtimeStats.passed--;
-        } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
-          ownerSuite.failed--;
-          this.realtimeStats.failed--;
-        } else if (existingTest.status === 'skipped') {
-          ownerSuite.skipped--;
-          this.realtimeStats.skipped--;
-        }
-      } else {
-        suite.tests.push(testResult);
-        suite.totalTests++;
-        suite.duration += testResult.duration;
-        this.testSuiteIndex.set(testResult.id, suite);
-
-        if (status === 'passed') {
-          suite.passed++;
-          this.realtimeStats.passed++;
-        } else if (status === 'failed' || status === 'timedout') {
-          suite.failed++;
-          this.realtimeStats.failed++;
-        } else if (status === 'skipped') {
-          suite.skipped++;
-          this.realtimeStats.skipped++;
-        }
-
-        if (this.realtimeStats.totalTests === 0) {
-          this._currentRun.totalTests++;
-          this.realtimeStats.totalTests = this._currentRun.totalTests;
-        }
-      }
-      this.testIndex.set(testResult.id, testResult);
-      this._currentRun.passed = this.realtimeStats.passed;
-      this._currentRun.failed = this.realtimeStats.failed;
-      this._currentRun.skipped = this.realtimeStats.skipped;
-
-      if (testResult.retries > 0) {
-        this._currentRun.flakyTests.push(testResult);
-      }
-
-      this.emit('test_result', testResult);
-      this.emit('run_progress', {
-        runId: this._currentRun.id,
-        status: 'running',
-        totalTests: this.realtimeStats.totalTests,
-        passed: this.realtimeStats.passed,
-        failed: this.realtimeStats.failed,
-        skipped: this.realtimeStats.skipped,
-        currentTest: testResult.fullTitle || testResult.title,
-      });
-    }
-  }
-
   private async runPlaywrightTests(options?: {
     shardIndex?: number;
     shardTotal?: number;
@@ -846,7 +433,7 @@ module.exports = defineConfig({
 
     const jsonReportPath = path.join(resolvedOutputDir, 'results.json');
     const progressReporterPath = path.join(resolvedOutputDir, 'progress-reporter.cjs');
-    await this.writeProgressReporter(progressReporterPath);
+    await this.progressTracker.writeReporter(progressReporterPath);
 
     const runId = this._currentRun?.id || `run_${Date.now()}`;
     const htmlReportPath = path.join(resolvedOutputDir, 'html-reports', runId);
@@ -982,7 +569,7 @@ module.exports = defineConfig({
 
     const workers = this.config.workers || 1;
     const shardTotal = options?.shardTotal || 1;
-    const totalTests = Math.max(this.realtimeStats.totalTests || 1, 1);
+    const totalTests = Math.max(this.progressTracker.stats.totalTests || 1, 1);
     const timeoutPerTest = this.config.timeout || 30000;
     const estimatedDuration = (timeoutPerTest * totalTests) / workers / shardTotal;
     const PROCESS_TIMEOUT_MS = estimatedDuration + 120000;
@@ -1035,7 +622,7 @@ module.exports = defineConfig({
       proc.stderr?.on('data', (chunk: Buffer) => {
         try {
           const text = chunk.toString();
-          this.handleProgressData(text);
+          this.progressTracker.handleData(text);
           const cleanText = text
             .split('\n')
             .filter((line) => !line.includes(PROGRESS_MARKER))
@@ -1057,8 +644,6 @@ module.exports = defineConfig({
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
       let stallCheckId: ReturnType<typeof setInterval> | null = null;
 
-      this.lastProgressTimestamp = Date.now();
-
       const cleanup = () => {
         if (timeoutId) {
           clearTimeout(timeoutId);
@@ -1078,7 +663,7 @@ module.exports = defineConfig({
           }
           return;
         }
-        const elapsed = Date.now() - this.lastProgressTimestamp;
+        const elapsed = Date.now() - this.progressTracker.progressTimestamp;
         if (elapsed > 300000) {
           this.log.warn(
             `No progress received for ${Math.round(elapsed / 1000)}s, process may be stalled`
@@ -1094,9 +679,7 @@ module.exports = defineConfig({
         settled = true;
         cleanup();
         this.currentProcess = null;
-        if (this.stderrBuffer) {
-          this.handleProgressData('\n');
-        }
+        this.progressTracker.flushBuffer();
         resolve(code);
       };
 
@@ -1188,125 +771,55 @@ module.exports = defineConfig({
       return;
     }
 
-    const jsonSuites: SuiteResult[] = [];
-    const jsonFlaky: TestResult[] = [];
+    const parsed = PlaywrightReportParser.parseReport(report);
+    const testIndex = this.progressTracker.getTestIndex();
+    const suiteIndex = this.progressTracker.getSuiteIndex();
+    const testSuiteIndex = this.progressTracker.getTestSuiteIndex();
 
-    const processSuite = (suite: PlaywrightJSONSuite, parentFile?: string, parentLine?: number) => {
-      const suiteResult: SuiteResult = {
-        name: suite.title,
-        totalTests: 0,
-        passed: 0,
-        failed: 0,
-        skipped: 0,
-        duration: 0,
-        tests: [],
-        timestamp: Date.now(),
-      };
-
-      const currentFile = suite.file || parentFile;
-      const currentLine = suite.line || parentLine;
-
-      for (const spec of suite.specs) {
-        for (const test of spec.tests) {
-          const lastResult = test.results[test.results.length - 1];
-          if (!lastResult) {
-            continue;
-          }
-
-          const mapped = this.mapJSONTestResult(spec, test, lastResult, currentFile, currentLine);
-
-          const existingTest = this.findExistingTest(mapped.id);
-          if (existingTest) {
-            if (!existingTest.screenshots?.length && mapped.screenshots?.length) {
-              existingTest.screenshots = mapped.screenshots;
-            }
-            if (!existingTest.videos?.length && mapped.videos?.length) {
-              existingTest.videos = mapped.videos;
-            }
-            if (!existingTest.traces?.length && mapped.traces?.length) {
-              existingTest.traces = mapped.traces;
-            }
-            if (mapped.error && !existingTest.error) {
-              existingTest.error = mapped.error;
-            }
-            if (lastResult.retry > 0 && !existingTest.retries) {
-              existingTest.retries = lastResult.retry;
-            }
-            if (!existingTest.file && mapped.file) {
-              existingTest.file = mapped.file;
-            }
-            if (!existingTest.line && mapped.line) {
-              existingTest.line = mapped.line;
-            }
-          } else {
-            suiteResult.tests.push(mapped);
-            suiteResult.totalTests++;
-            suiteResult.duration += lastResult.duration || 0;
-            this.testIndex.set(mapped.id, mapped);
-            this.testSuiteIndex.set(mapped.id, suiteResult);
-
-            if (mapped.status === 'passed') {
-              suiteResult.passed++;
-            } else if (mapped.status === 'failed' || mapped.status === 'timedout') {
-              suiteResult.failed++;
-            } else if (mapped.status === 'skipped') {
-              suiteResult.skipped++;
-            }
-
-            this.emit('test_result', mapped);
-          }
-
-          if (lastResult.retry > 0) {
-            jsonFlaky.push(mapped);
-          }
-        }
-      }
-
-      if (suite.suites) {
-        for (const childSuite of suite.suites) {
-          const childResult = processSuite(childSuite, currentFile, currentLine);
-          suiteResult.totalTests += childResult.totalTests;
-          suiteResult.passed += childResult.passed;
-          suiteResult.failed += childResult.failed;
-          suiteResult.skipped += childResult.skipped;
-          suiteResult.duration += childResult.duration;
-          suiteResult.tests.push(...childResult.tests);
-        }
-      }
-
-      if (suiteResult.totalTests > 0) {
-        jsonSuites.push(suiteResult);
-      }
-
-      return suiteResult;
-    };
-
-    for (const suite of report.suites) {
-      processSuite(suite);
-    }
-
-    const _jsonTotal = jsonSuites.reduce((sum, s) => sum + s.totalTests, 0);
-    const _jsonPassed = jsonSuites.reduce((sum, s) => sum + s.passed, 0);
-    const _jsonFailed = jsonSuites.reduce((sum, s) => sum + s.failed, 0);
-    const _jsonSkipped = jsonSuites.reduce((sum, s) => sum + s.skipped, 0);
-
-    for (const jsonSuite of jsonSuites) {
-      const existingSuite = this.suiteIndex.get(jsonSuite.name);
+    for (const jsonSuite of parsed.suites) {
+      const existingSuite = suiteIndex.get(jsonSuite.name);
       if (!existingSuite) {
         this._currentRun.suites.push(jsonSuite);
-        this.suiteIndex.set(jsonSuite.name, jsonSuite);
+        suiteIndex.set(jsonSuite.name, jsonSuite);
         for (const test of jsonSuite.tests) {
-          this.testIndex.set(test.id, test);
-          this.testSuiteIndex.set(test.id, jsonSuite);
+          const existingTest = testIndex.get(test.id);
+          if (!existingTest) {
+            testIndex.set(test.id, test);
+            testSuiteIndex.set(test.id, jsonSuite);
+            this.emit('test_result', test);
+          }
         }
       } else {
         for (const test of jsonSuite.tests) {
-          if (!this.testIndex.has(test.id)) {
+          const existingTest = testIndex.get(test.id);
+          if (existingTest) {
+            if (!existingTest.screenshots?.length && test.screenshots?.length) {
+              existingTest.screenshots = test.screenshots;
+            }
+            if (!existingTest.videos?.length && test.videos?.length) {
+              existingTest.videos = test.videos;
+            }
+            if (!existingTest.traces?.length && test.traces?.length) {
+              existingTest.traces = test.traces;
+            }
+            if (test.error && !existingTest.error) {
+              existingTest.error = test.error;
+            }
+            if (test.retries > 0 && !existingTest.retries) {
+              existingTest.retries = test.retries;
+            }
+            if (!existingTest.file && test.file) {
+              existingTest.file = test.file;
+            }
+            if (!existingTest.line && test.line) {
+              existingTest.line = test.line;
+            }
+          } else {
             existingSuite.tests.push(test);
             existingSuite.totalTests++;
             existingSuite.duration += test.duration;
-            this.testIndex.set(test.id, test);
-            this.testSuiteIndex.set(test.id, existingSuite);
+            testIndex.set(test.id, test);
+            testSuiteIndex.set(test.id, existingSuite);
             if (test.status === 'passed') {
               existingSuite.passed++;
             } else if (test.status === 'failed' || test.status === 'timedout') {
@@ -1314,6 +827,7 @@ module.exports = defineConfig({
             } else if (test.status === 'skipped') {
               existingSuite.skipped++;
             }
+            this.emit('test_result', test);
           }
         }
       }
@@ -1325,7 +839,7 @@ module.exports = defineConfig({
     this._currentRun.skipped = this._currentRun.suites.reduce((sum, s) => sum + s.skipped, 0);
 
     const flakyIds = new Set(this._currentRun.flakyTests.map((f) => f.id));
-    for (const f of jsonFlaky) {
+    for (const f of parsed.flakyTests) {
       if (!flakyIds.has(f.id)) {
         this._currentRun.flakyTests.push(f);
         flakyIds.add(f.id);
@@ -1333,7 +847,7 @@ module.exports = defineConfig({
     }
 
     this.log.info(
-      `Test run completed in ${report.stats.duration}ms (unexpected: ${report.stats.unexpected}, flaky: ${report.stats.flaky}, skipped: ${report.stats.skipped})`
+      `Test run completed in ${parsed.stats.duration}ms (unexpected: ${parsed.stats.unexpected}, flaky: ${parsed.stats.flaky}, skipped: ${parsed.stats.skipped})`
     );
 
     this.emit('run_progress', {
@@ -1344,88 +858,6 @@ module.exports = defineConfig({
       failed: this._currentRun.failed,
       skipped: this._currentRun.skipped,
     });
-  }
-
-  private processOwnJSONReport(report: any): void {
-    if (!this._currentRun) {
-      return;
-    }
-
-    this.log.info('Processing own JSON report format');
-
-    for (const suite of report.suites) {
-      for (const test of suite.tests) {
-        const existingTest = this.findExistingTest(test.id);
-        if (!existingTest) {
-          this.emit('test_result', test);
-        }
-      }
-    }
-
-    this._currentRun.totalTests = this._currentRun.suites.reduce((sum, s) => sum + s.totalTests, 0);
-    this._currentRun.passed = this._currentRun.suites.reduce((sum, s) => sum + s.passed, 0);
-    this._currentRun.failed = this._currentRun.suites.reduce((sum, s) => sum + s.failed, 0);
-    this._currentRun.skipped = this._currentRun.suites.reduce((sum, s) => sum + s.skipped, 0);
-  }
-
-  private findExistingTest(testId: string): TestResult | undefined {
-    return this.testIndex.get(testId);
-  }
-
-  private mapJSONTestResult(
-    spec: PlaywrightJSONSpec,
-    test: PlaywrightJSONTest,
-    result: PlaywrightJSONTestResult,
-    parentFile?: string,
-    parentLine?: number
-  ): TestResult {
-    const status: TestResult['status'] =
-      result.status === 'passed'
-        ? 'passed'
-        : result.status === 'skipped'
-          ? 'skipped'
-          : result.status === 'timedOut'
-            ? 'timedout'
-            : 'failed';
-
-    const testId = spec.id || `${spec.file || parentFile}:${spec.line || parentLine}:${spec.title}`;
-
-    return {
-      id: testId,
-      title: spec.title || 'Unknown Test',
-      fullTitle: spec.title,
-      file: spec.file || parentFile,
-      line: spec.line || parentLine,
-      column: spec.column,
-      status,
-      duration: result.duration || 0,
-      error:
-        result.error?.message || result.error?.value
-          ? stripAnsi(result.error?.message || result.error?.value || '')
-          : undefined,
-      stackTrace: result.error?.stack ? stripAnsi(result.error.stack) : undefined,
-      retries: result.retry || 0,
-      timestamp: Date.now(),
-      browser: (test.projectName || 'chromium') as BrowserType,
-      screenshots: (result.attachments || [])
-        .filter(
-          (a: PlaywrightJSONAttachment) =>
-            a.name === 'screenshot' || a.contentType?.startsWith('image/')
-        )
-        .map((a: PlaywrightJSONAttachment) => a.path || a.body)
-        .filter((p): p is string => !!p),
-      videos: (result.attachments || [])
-        .filter(
-          (a: PlaywrightJSONAttachment) => a.name === 'video' || a.contentType?.startsWith('video/')
-        )
-        .map((a: PlaywrightJSONAttachment) => a.path || a.body)
-        .filter((p): p is string => !!p),
-      traces: (result.attachments || [])
-        .filter((a: PlaywrightJSONAttachment) => a.name === 'trace')
-        .map((a: PlaywrightJSONAttachment) => a.path || a.body)
-        .filter((p): p is string => !!p),
-      logs: result.stderr?.map(stripAnsi).filter((l: string) => l.trim()) || [],
-    };
   }
 
   private async postProcessRun(runId: string): Promise<void> {
@@ -1442,7 +874,9 @@ module.exports = defineConfig({
     if (this.traceManager) {
       try {
         const traces = await this.traceManager.discoverTraces(runId);
-        this._currentRun!.metadata!.traces = {
+        const currentRun = this._currentRun as RunResult;
+        currentRun.metadata = currentRun.metadata || {};
+        (currentRun.metadata as RunMetadata).traces = {
           total: traces.length,
           files: traces.map((t) => ({
             testId: t.testId,
@@ -1460,7 +894,9 @@ module.exports = defineConfig({
     if (this.artifactManager) {
       try {
         const artifacts = await this.artifactManager.discoverArtifacts(runId);
-        this._currentRun!.metadata!.artifacts = {
+        const currentRun = this._currentRun as RunResult;
+        currentRun.metadata = currentRun.metadata || {};
+        (currentRun.metadata as RunMetadata).artifacts = {
           total: artifacts.length,
           byType: artifacts.reduce((acc: Record<string, number>, a: Artifact) => {
             acc[a.type] = (acc[a.type] || 0) + 1;
@@ -1476,10 +912,12 @@ module.exports = defineConfig({
 
     if (this.visualManager) {
       try {
-        const testIds = this._currentRun!.suites.flatMap((s) => s.tests).map((t) => t.id);
+        const currentRun = this._currentRun as RunResult;
+        const testIds = currentRun.suites.flatMap((s) => s.tests).map((t) => t.id);
         const visualResults = await this.visualManager.runVisualTests(testIds);
         const visualSummary = this.visualManager.getSummary();
-        this._currentRun!.metadata!.visualTesting = {
+        currentRun.metadata = currentRun.metadata || {};
+        (currentRun.metadata as RunMetadata).visualTesting = {
           ...visualSummary,
           results: visualResults.map((r) => ({
             testId: r.testId,
@@ -1542,15 +980,12 @@ module.exports = defineConfig({
   }
 
   private async mergeBlobReport(runId: string): Promise<void> {
-    const blobReportDir = path.join(this.resolvedOutputDir, 'blob-reports', this.parentRunId!);
-    const originalHtmlReportDir = path.join(
-      this.resolvedOutputDir,
-      'html-reports',
-      this.parentRunId!
-    );
+    const parentRunId = this.parentRunId as string;
+    const blobReportDir = path.join(this.resolvedOutputDir, 'blob-reports', parentRunId);
+    const originalHtmlReportDir = path.join(this.resolvedOutputDir, 'html-reports', parentRunId);
 
     this.log.info(
-      `Attempting to merge blob report for rerun: ${runId} into original report: ${this.parentRunId!}`
+      `Attempting to merge blob report for rerun: ${runId} into original report: ${parentRunId}`
     );
     this.log.info(`Blob report directory: ${blobReportDir}`);
     this.log.info(`Original HTML report directory: ${originalHtmlReportDir}`);
@@ -1733,7 +1168,7 @@ module.exports = defineConfig({
 
     const remapList = (paths: string[] | undefined): string[] => {
       if (!paths) {
-        return paths!;
+        return [];
       }
       return paths.map((p) => {
         const normalized = p.replace(/\\/g, '/');
@@ -1786,10 +1221,6 @@ module.exports = defineConfig({
     }
   }
 
-  /**
-   * 在 Windows 平台上杀死整个进程树
-   * 使用 taskkill 命令确保所有子进程都被终止
-   */
   private async killProcessTreeWindows(pid: number): Promise<void> {
     return new Promise<void>((resolve) => {
       const killProcess = spawn('taskkill', ['/F', '/T', '/PID', pid.toString()], {
@@ -1818,10 +1249,6 @@ module.exports = defineConfig({
     });
   }
 
-  /**
-   * 在 Unix 平台上杀死整个进程树
-   * 首先尝试 SIGTERM，然后是 SIGKILL
-   */
   private killProcessTreeUnix(pid: number): void {
     try {
       process.kill(-pid, 'SIGTERM');
@@ -1885,7 +1312,7 @@ module.exports = defineConfig({
     if (!this.isRunning) {
       return [];
     }
-    return Array.from(this.testIndex.values()).map((t) => ({
+    return Array.from(this.progressTracker.getTestIndex().values()).map((t) => ({
       id: t.id,
       title: t.title,
       status: t.status,

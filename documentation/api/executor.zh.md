@@ -60,6 +60,7 @@ async execute(options?: {
 | `testFiles` | `string[]` | 指定测试文件列表 |
 | `testLocations` | `string[]` | 指定测试位置列表 |
 | `parentRunId` | `string` | 父运行 ID，用于重跑场景 |
+| `environmentTag` | `string` | 环境标签，用于多环境报告 |
 
 #### 执行流程
 
@@ -143,6 +144,46 @@ constructor(config: TestConfig, shardCount: number, storage?: StorageProvider)
 |------|----------|------|
 | `execute()` | `Promise<RunResult[]>` | 并行执行所有分片 |
 | `cancelAll()` | `Promise<void>` | 取消所有分片执行 |
+
+## PlaywrightReportParser 类
+
+Playwright JSON 报告文件解析器。
+
+### 构造函数
+
+```typescript
+constructor()
+```
+
+创建 PlaywrightReportParser 实例。
+
+### 方法
+
+| 方法 | 返回类型 | 说明 |
+|------|----------|------|
+| `parse(filePath)` | `Promise<ParsedReport>` | 解析 Playwright JSON 报告文件 |
+| `parseContent(content)` | `ParsedReport` | 解析 Playwright JSON 报告内容字符串 |
+
+## ProgressTracker 类
+
+测试运行进度追踪器。
+
+### 构造函数
+
+```typescript
+constructor()
+```
+
+创建 ProgressTracker 实例。
+
+### 方法
+
+| 方法 | 返回类型 | 说明 |
+|------|----------|------|
+| `startRun(runId, totalTests)` | `void` | 开始追踪测试运行 |
+| `updateProgress(runId, result)` | `ProgressMessage` | 使用测试结果更新进度 |
+| `getProgress(runId)` | `ProgressMessage \| null` | 获取运行当前进度 |
+| `completeRun(runId)` | `void` | 标记运行为已完成 |
 
 ## 类型定义
 
@@ -354,6 +395,76 @@ interface RunMetadataGlobalError {
   message: string;
   stack: string;
   timestamp: number;
+}
+```
+
+### QuarantineConfig
+
+```typescript
+interface QuarantineConfig {
+  enabled: boolean;
+  threshold: number;
+  autoQuarantine: boolean;
+}
+```
+
+### ParsedReport
+
+```typescript
+interface ParsedReport {
+  suites: SuiteResult[];
+  totalTests: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  duration: number;
+  metadata?: RunMetadata;
+}
+```
+
+### ProgressMessage
+
+```typescript
+interface ProgressMessage {
+  runId: string;
+  totalTests: number;
+  completed: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  progress: number;
+  isCompleted: boolean;
+}
+```
+
+### PlaywrightJSONReport
+
+```typescript
+interface PlaywrightJSONReport {
+  config: {
+    files: string[];
+    projects: { name: string; outputDir: string; repeatEach: number; retries: number; use: Record<string, unknown> }[];
+    version: string;
+  };
+  suites: {
+    title: string;
+    file: string;
+    specs: {
+      title: string;
+      ok: boolean;
+      tags: string[];
+      tests: {
+        projectName: string;
+        results: {
+          status: string;
+          duration: number;
+          error?: { message: string; stack: string };
+          attachments: { name: string; path?: string; contentType: string }[];
+        }[];
+        status: string;
+      }[];
+    }[];
+  }[];
 }
 ```
 

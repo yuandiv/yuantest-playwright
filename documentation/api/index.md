@@ -31,6 +31,36 @@ import {
 | **FlakyTestManager** | Flaky test manager, classification/root cause/correlation/trend/prediction/causal graph/quarantine | [FlakyTestManager API](flaky.md) |
 | **DashboardServer** | Dashboard server, REST API + WebSocket real-time push | [DashboardServer API](dashboard.md) |
 | **AgentService** | AI agent system, test planning/generation/healing | [AgentService API](agent.md) |
+| **ChatService** | AI chat service with MCP integration | [ChatService API](chat.md) |
+| **RealtimeReporter** | Real-time event broadcasting via WebSocket | [RealtimeReporter API](realtime-reporter.md) |
+| **TraceManager** | Playwright trace file management | [TraceManager API](trace.md) |
+| **AnnotationManager** | Test annotation scanning and management | [AnnotationManager API](annotation.md) |
+| **TagManager** | Test tag scanning and filtering | [TagManager API](tag.md) |
+| **ArtifactManager** | Test artifact management | [ArtifactManager API](artifact.md) |
+| **VisualTestingManager** | Visual regression testing | [VisualTestingManager API](visual-testing.md) |
+| **TestDiscovery** | Automatic test file discovery | [TestDiscovery API](test-discovery.md) |
+| **ServiceContainer** | Dependency injection container | [ServiceContainer API](service-container.md) |
+| **Storage** | Storage abstraction layer | [Storage API](storage.md) |
+| **Cache** | In-memory caching | [Cache API](cache.md) |
+| **Logger** | Structured logging | [Logger API](logger.md) |
+
+## Module Overview
+
+| Module | Class | Description |
+|--------|-------|-------------|
+| AgentService | `AgentService`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent` | AI agent system for test planning, generation, and healing |
+| ChatService | `ChatService`, `ConversationStore`, `MCPClientManager`, `MCPConfigService` | AI chat service with MCP integration |
+| RealtimeReporter | `RealtimeReporter`, `RealtimeReporterClient` | Real-time event broadcasting via WebSocket |
+| TraceManager | `TraceManager` | Playwright trace file management |
+| AnnotationManager | `AnnotationManager` | Test annotation scanning and management |
+| TagManager | `TagManager` | Test tag scanning and filtering |
+| ArtifactManager | `ArtifactManager` | Test artifact management |
+| VisualTestingManager | `VisualTestingManager` | Visual regression testing |
+| TestDiscovery | `TestDiscovery` | Automatic test file discovery |
+| ServiceContainer | `ServiceContainer`, `MutableRef`, `TOKENS` | Dependency injection container |
+| Storage | `StorageProvider`, `MemoryStorage`, `FilesystemStorage` | Storage abstraction layer |
+| Cache | `LRUCache`, `TTLCache` | In-memory caching |
+| Logger | `Logger`, `ChildLogger` | Structured logging |
 
 ## Quick Example
 

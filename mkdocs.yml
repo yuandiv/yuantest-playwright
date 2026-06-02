@@ -45,6 +45,7 @@ nav:
   - Guides:
       - Flaky Test Management: guides/flaky-management.md
       - AI Diagnosis: guides/ai-diagnosis.md
+      - Agent System: guides/agent-system.md
   - API Reference:
       - Overview: api/index.md
       - Orchestrator: api/orchestrator.md
@@ -52,6 +53,19 @@ nav:
       - Reporter: api/reporter.md
       - FlakyTestManager: api/flaky.md
       - DashboardServer: api/dashboard.md
+      - AgentService: api/agent.md
+      - ChatService: api/chat.md
+      - RealtimeReporter: api/realtime.md
+      - TraceManager: api/trace.md
+      - AnnotationManager: api/annotations.md
+      - TagManager: api/tags.md
+      - ArtifactManager: api/artifacts.md
+      - VisualTestingManager: api/visual.md
+      - TestDiscovery: api/discovery.md
+      - ServiceContainer: api/container.md
+      - Storage: api/storage.md
+      - Cache: api/cache.md
+      - Logger: api/logger.md
   - CLI Commands: cli.md
   - Configuration: configuration.md
   - Changelog: changelog.md
@@ -108,7 +122,7 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/yuandiv/yuantest-playwright
     - icon: fontawesome/brands/npm
-      link: https://www.npmjs.com/package/@yuantest/playwright
+      link: https://www.npmjs.com/package/yuantest-playwright
 
 extra_css:
   - stylesheets/extra.css

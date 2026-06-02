@@ -1,3 +1,10 @@
+/**
+ * Playwright 原生配置合并器
+ *
+ * 职责：发现、加载、验证和合并 Playwright 原生配置文件（playwright.config.ts/js/mts），
+ * 将 YuanTest 的运行参数与 Playwright 原生配置合并为最终执行配置。
+ * 不负责 YuanTest 自身配置的加载（由 loader.ts 处理）。
+ */
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { logger } from '../logger';
@@ -112,6 +119,7 @@ export class PlaywrightConfigMerger {
   private log = logger.child('PlaywrightConfigMerger');
   private storage: StorageProvider;
   private lang: Lang = 'zh';
+  private configCache = new Map<string, { mtime: number; config: PlaywrightConfigFile }>();
 
   constructor(storage?: StorageProvider, lang?: Lang) {
     this.storage = storage || getStorage();
@@ -184,13 +192,17 @@ export class PlaywrightConfigMerger {
         workers: config.workers,
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const prefix = t('configParseFailed', this.lang);
+      // 避免重复添加 configParseFailed 前缀
+      const errorMessage = errorMsg.startsWith(prefix) ? errorMsg : `${prefix}: ${errorMsg}`;
       return {
         valid: false,
         configPath,
         configExists: true,
         testDir: null,
         testDirAbsolute: null,
-        error: `${t('configParseFailed', this.lang)}: ${error instanceof Error ? error.message : String(error)}`,
+        error: errorMessage,
         warnings,
       };
     }
@@ -203,45 +215,112 @@ export class PlaywrightConfigMerger {
       throw new Error(`${t('configFileNotFound', this.lang)}: ${absolutePath}`);
     }
 
+    // 检查缓存
+    let stat: Awaited<ReturnType<typeof this.storage.stat>> | undefined;
     try {
-      const config = await this.loadConfigInSubprocess(absolutePath);
-      return typeof config === 'function'
-        ? (config as () => PlaywrightConfigFile)()
-        : (config as PlaywrightConfigFile);
-    } catch (subprocessError) {
-      this.log.debug?.(
-        `Subprocess load failed, trying in-process load: ${subprocessError instanceof Error ? subprocessError.message : String(subprocessError)}`
-      );
+      stat = (await this.storage.stat(absolutePath)) ?? undefined;
+    } catch {
+      // stat 失败，跳过缓存
+    }
+    if (stat) {
+      const cached = this.configCache.get(absolutePath);
+      if (cached && cached.mtime >= stat.mtimeMs) {
+        this.log.debug?.(`Using cached config for ${absolutePath}`);
+        return cached.config;
+      }
+    }
 
-      const config = await this.loadConfigWithJiti(absolutePath);
-      return typeof config === 'function'
-        ? (config as () => PlaywrightConfigFile)()
-        : (config as PlaywrightConfigFile);
+    // 先尝试进程内加载（快），@playwright/test 不会在主进程被顶层导入
+    try {
+      const config = this.loadConfigWithJiti(absolutePath);
+      const result =
+        typeof config === 'function'
+          ? (config as () => PlaywrightConfigFile)()
+          : (config as PlaywrightConfigFile);
+
+      // 写入缓存
+      if (stat) {
+        this.configCache.set(absolutePath, { mtime: stat.mtimeMs, config: result });
+      }
+
+      return result;
+    } catch (inProcessError) {
+      const inProcessMsg =
+        inProcessError instanceof Error ? inProcessError.message : String(inProcessError);
+      this.log.debug?.(`In-process load failed, trying subprocess load: ${inProcessMsg}`);
+
+      // 进程内加载失败时，回退到子进程加载（兜底）
+      try {
+        const config = await this.loadConfigInSubprocess(absolutePath);
+        const result =
+          typeof config === 'function'
+            ? (config as () => PlaywrightConfigFile)()
+            : (config as PlaywrightConfigFile);
+
+        // 写入缓存
+        if (stat) {
+          this.configCache.set(absolutePath, { mtime: stat.mtimeMs, config: result });
+        }
+
+        return result;
+      } catch (subprocessError) {
+        const subprocessMsg =
+          subprocessError instanceof Error ? subprocessError.message : String(subprocessError);
+        throw new Error(`In-process: ${inProcessMsg} | Subprocess: ${subprocessMsg}`, {
+          cause: subprocessError,
+        });
+      }
     }
   }
 
   private async loadConfigInSubprocess(absolutePath: string): Promise<unknown> {
     const CONFIG_LOAD_TIMEOUT = 30000;
+    const fs = await import('fs');
+
+    // 使用临时文件方式执行，避免 Windows 上 -e 参数的转义问题
+    const loaderScript = `
+      const configPath = process.argv[2];
+
+      async function loadConfig() {
+        try {
+          const config = require(configPath);
+          const result = config?.default ?? config;
+          console.log(JSON.stringify(result));
+        } catch (error) {
+          console.error('ERROR:', error.message);
+          process.exit(1);
+        }
+      }
+
+      loadConfig();
+    `;
+
+    const tmpDir = path.dirname(absolutePath);
+    const tmpFile = path.join(tmpDir, `.yuantest-config-loader-${Date.now()}.js`);
 
     return new Promise((resolve, reject) => {
-      const loaderScript = `
-        const configPath = process.argv[1];
-        
-        async function loadConfig() {
-          try {
-            const config = require(configPath);
-            const result = config?.default ?? config;
-            console.log(JSON.stringify(result));
-          } catch (error) {
-            console.error('ERROR:', error.message);
-            process.exit(1);
-          }
-        }
-        
-        loadConfig();
-      `;
+      try {
+        fs.writeFileSync(tmpFile, loaderScript, 'utf-8');
+      } catch (writeError) {
+        reject(
+          new Error(
+            `Failed to write temp loader script: ${writeError instanceof Error ? writeError.message : String(writeError)}`
+          )
+        );
+        return;
+      }
 
-      const child = spawn('node', ['-e', loaderScript, absolutePath], {
+      const cleanupTempFile = () => {
+        try {
+          if (fs.existsSync(tmpFile)) {
+            fs.unlinkSync(tmpFile);
+          }
+        } catch {
+          // Ignore cleanup errors
+        }
+      };
+
+      const child = spawn('node', [tmpFile, absolutePath], {
         cwd: path.dirname(absolutePath),
         env: { ...process.env, NODE_OPTIONS: '--require tsx/cjs' },
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -265,10 +344,17 @@ export class PlaywrightConfigMerger {
         }
         settled = true;
         cleanup();
+        cleanupTempFile();
 
         if (error) {
           try {
-            child.kill('SIGTERM');
+            if (process.platform === 'win32') {
+              spawn('taskkill', ['/F', '/T', '/PID', (child.pid as number).toString()], {
+                stdio: 'ignore',
+              });
+            } else {
+              child.kill('SIGTERM');
+            }
           } catch {
             // Ignore kill errors
           }
@@ -321,9 +407,8 @@ export class PlaywrightConfigMerger {
       try {
         return this.loadConfigWithTsx(absolutePath);
       } catch (tsxError) {
-        this.log.debug?.(
-          `tsx load failed, trying jiti: ${tsxError instanceof Error ? tsxError.message : String(tsxError)}`
-        );
+        const tsxMsg = tsxError instanceof Error ? tsxError.message : String(tsxError);
+        this.log.warn?.(`tsx load failed for ${absolutePath}, trying jiti: ${tsxMsg}`);
       }
     }
 
@@ -344,8 +429,9 @@ export class PlaywrightConfigMerger {
       delete require.cache[require.resolve(absolutePath)];
       return jiti(absolutePath);
     } catch (jitiError) {
-      this.log.debug?.(
-        `jiti load failed, trying with require fallback: ${jitiError instanceof Error ? jitiError.message : String(jitiError)}`
+      const jitiMsg = jitiError instanceof Error ? jitiError.message : String(jitiError);
+      this.log.warn?.(
+        `jiti load failed for ${absolutePath}, trying with require fallback: ${jitiMsg}`
       );
 
       try {
@@ -377,10 +463,9 @@ export class PlaywrightConfigMerger {
       const config = tsx.require(absolutePath, callerPath);
       return config?.default ?? config;
     } catch (error) {
-      throw new Error(
-        `tsx load failed: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error }
-      );
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.log.warn?.(`tsx load failed for ${absolutePath}: ${errMsg}`);
+      throw new Error(`tsx load failed: ${errMsg}`, { cause: error });
     }
   }
 

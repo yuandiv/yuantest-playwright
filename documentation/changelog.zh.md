@@ -5,6 +5,26 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
 本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## 1.1.2 (2026-05-28)
+
+### Bug 修复
+
+- 修复 WebSocket 连接稳定性问题
+- 修复测试发现缓存失效问题
+
+## 1.1.1 (2026-05-24)
+
+### 新功能
+
+- 新增 Chat API，支持 MCP（模型上下文协议）集成
+- 新增测试发现 REST API 端点
+- 新增 `diagnoseWithHeal()` 方法，用于自动修复失败测试
+
+### Bug 修复
+
+- 修复 DashboardServer 构造函数参数处理
+- 修复 trace、annotations、tags、artifacts、visual 命令的 CLI 子命令语法
+
 ## [1.1.0] - 2026-05-20
 
 ### 新增

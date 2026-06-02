@@ -1,25 +1,12 @@
 import express, { Express, Request, Response, NextFunction, Router } from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
-import { RealtimeReporter } from '../realtime';
-import { Reporter } from '../reporter';
-import { FlakyTestManager } from '../flaky';
-import { TraceManager } from '../trace';
-import { AnnotationManager } from '../annotations';
-import { TagManager } from '../tags';
-import { ArtifactManager } from '../artifacts';
-import { VisualTestingManager } from '../visual';
-import { DiagnosisService } from '../diagnosis';
-import { AgentService } from '../agents';
 import { getCustomPatterns, loadPatternsFromConfig } from '../diagnosis/knowledge-base';
 import { Executor } from '../executor';
-import { TestDiscovery } from '../discovery';
 import { RunResult, TestResult } from '../types';
 import { loadConfigFile } from '../config/loader';
-import { PlaywrightConfigMerger } from '../config/merger';
 import { logger } from '../logger';
-import { StorageProvider, getStorage } from '../storage';
-import { LRUCache } from '../cache';
+import { StorageProvider } from '../storage';
 import { errorHandler, notFoundHandler } from '../middleware';
 import { Lang, setLang } from '../i18n';
 import * as path from 'path';
@@ -41,32 +28,36 @@ import { createFailureAnalysisRouter } from './routes/failureAnalysis';
 import { createErrorPatternsRouter } from './routes/errorPatterns';
 import { createDiagnosisRouter } from './routes/diagnosis';
 import { createAgentsRouter } from './routes/agents';
+import { createChatRouter } from './routes/chat';
 import { createMiscRouter } from './routes/misc';
+
+import { ServiceContainer } from '../container/service-container';
+import { MutableRef } from '../container/mutable-ref';
+import { TOKENS } from '../container/tokens';
+import { registerCoreServices } from '../container/registrations';
+import { buildRouterDeps } from '../container/router-deps-builder';
+
+import { RealtimeReporter } from '../realtime';
+import { Reporter } from '../reporter';
+import { FlakyTestManager } from '../flaky';
+import { TraceManager } from '../trace';
+import { ArtifactManager } from '../artifacts';
+import { VisualTestingManager } from '../visual';
+import { DiagnosisService } from '../diagnosis';
+import { AgentService } from '../agents';
+import { ChatService } from '../chat/chat-service';
+import { MCPConfigService } from './services/mcp-config-service';
+import { TestDiscovery } from '../discovery';
+import { LRUCache } from '../cache';
 
 export class DashboardServer {
   private app: Express;
   private server: ReturnType<typeof createServer>;
-  private realtimeReporter: RealtimeReporter;
-  private reporter: Reporter;
-  private flakyManager: FlakyTestManager;
-  private traceManager: TraceManager;
-  private artifactManager: ArtifactManager;
-  private annotationManager: AnnotationManager;
-  private tagManager: TagManager;
-  private visualManager: VisualTestingManager;
-  private diagnosisService: DiagnosisService;
+  private container: ServiceContainer;
   private executor: { current: Executor | null } = { current: null };
   private port: number;
   private staticPath: string;
-  private outputDir: { current: string };
-  private dataDir: { current: string };
-  private testDir: { current: string };
   private log = logger.child('DashboardServer');
-  private storage: StorageProvider;
-  private testDiscovery: TestDiscovery;
-  private cache: LRUCache<unknown>;
-  private agentService: AgentService;
-  private configMerger: PlaywrightConfigMerger;
   private testResultBuffer: Array<{ result: TestResult; suiteName: string }> = [];
   private testResultBufferTimer: { current: NodeJS.Timeout | null } = { current: null };
   private readonly TEST_RESULT_BATCH_SIZE = 50;
@@ -79,64 +70,14 @@ export class DashboardServer {
     dataDir: string = './test-data'
   ) {
     this.port = port;
-    this.outputDir = { current: outputDir };
-    this.dataDir = { current: dataDir };
-    this.testDir = { current: './' };
     this.staticPath = path.join(__dirname, '../public');
-    this.storage = getStorage();
-    this.testDiscovery = new TestDiscovery();
-    this.configMerger = new PlaywrightConfigMerger(this.storage);
-    this.cache = new LRUCache({
-      maxSize: process.env.CACHE_MAX_SIZE ? parseInt(process.env.CACHE_MAX_SIZE, 10) : 100,
-    });
-    this.agentService = new AgentService(dataDir);
+
+    this.container = new ServiceContainer();
+    registerCoreServices(this.container, { port, outputDir, dataDir });
 
     this.app = express();
     this.app.use(cors());
     this.app.use(express.json());
-
-    this.realtimeReporter = new RealtimeReporter();
-
-    try {
-      this.diagnosisService = new DiagnosisService(dataDir);
-    } catch (error) {
-      this.log.warn(`Failed to initialize DiagnosisService: ${error}`);
-      this.diagnosisService = new DiagnosisService(dataDir);
-    }
-
-    this.flakyManager = new FlakyTestManager(dataDir, {}, this.storage);
-    this.reporter = new Reporter(outputDir, this.storage, this.diagnosisService, this.flakyManager);
-
-    this.traceManager = new TraceManager(
-      {
-        enabled: true,
-        mode: 'on',
-        screenshots: true,
-        snapshots: true,
-        sources: true,
-        attachments: true,
-      },
-      path.join(this.outputDir.current, 'test-results')
-    );
-
-    this.artifactManager = new ArtifactManager(
-      { enabled: true, screenshots: 'on', videos: 'on' },
-      path.join(this.outputDir.current, 'test-results')
-    );
-
-    this.annotationManager = new AnnotationManager();
-    this.tagManager = new TagManager();
-
-    this.visualManager = new VisualTestingManager(
-      {
-        enabled: true,
-        threshold: 0.2,
-        maxDiffPixelRatio: 0.01,
-        maxDiffPixels: 10,
-        updateSnapshots: false,
-      },
-      path.join(this.outputDir.current, '../visual-testing')
-    );
 
     this.server = createServer(this.app);
 
@@ -144,10 +85,13 @@ export class DashboardServer {
     this.setupStaticFiles();
   }
 
+  getContainer(): ServiceContainer {
+    return this.container;
+  }
+
   private setupRoutes(): void {
     const v1Router = Router();
 
-    // Language middleware
     v1Router.use((req: Request, res: Response, next: NextFunction) => {
       const lang =
         (req.query.lang as Lang) ||
@@ -155,34 +99,23 @@ export class DashboardServer {
         'zh';
       if (lang === 'zh' || lang === 'en') {
         setLang(lang);
-        this.testDiscovery.setLang(lang);
+        this.container.resolve<TestDiscovery>(TOKENS.TestDiscovery).setLang(lang);
       }
       next();
     });
 
-    // Build the dependency injection object
-    this.deps = {
+    this.deps = buildRouterDeps(this.container, {
       executor: this.executor,
-      reporter: { current: this.reporter },
-      realtimeReporter: this.realtimeReporter,
-      flakyManager: { current: this.flakyManager },
-      diagnosisService: this.diagnosisService,
-      agentService: this.agentService,
-      testDiscovery: this.testDiscovery,
-      cache: this.cache,
-      storage: this.storage,
-      configMerger: this.configMerger,
-      traceManager: { current: this.traceManager },
-      artifactManager: { current: this.artifactManager },
-      annotationManager: this.annotationManager,
-      tagManager: this.tagManager,
-      visualManager: { current: this.visualManager },
-      outputDir: this.outputDir,
-      dataDir: this.dataDir,
-      testDir: this.testDir,
-      processAttachmentPath: (p: string) => processAttachmentPath(p, this.outputDir.current),
+      processAttachmentPath: (p: string) =>
+        processAttachmentPath(
+          p,
+          this.container.resolve<MutableRef<string>>(TOKENS.OutputDir).current
+        ),
       processRunAttachmentPaths: (run: RunResult) =>
-        processRunAttachmentPaths(run, this.outputDir.current),
+        processRunAttachmentPaths(
+          run,
+          this.container.resolve<MutableRef<string>>(TOKENS.OutputDir).current
+        ),
       isPathSafe,
       discoverFilesInDir,
       invalidateAllCache: () => this.invalidateAllCache(),
@@ -196,9 +129,8 @@ export class DashboardServer {
       flushTestResultBuffer: () => this.flushTestResultBuffer(),
       TEST_RESULT_BATCH_SIZE: this.TEST_RESULT_BATCH_SIZE,
       TEST_RESULT_BATCH_INTERVAL: this.TEST_RESULT_BATCH_INTERVAL,
-    };
+    });
 
-    // Mount route modules
     v1Router.use(createHealthRouter(this.deps));
     v1Router.use(createTestDiscoveryRouter(this.deps));
     v1Router.use(createRunsRouter(this.deps));
@@ -208,6 +140,12 @@ export class DashboardServer {
     v1Router.use(createErrorPatternsRouter(this.deps));
     v1Router.use(createDiagnosisRouter(this.deps));
     v1Router.use(createAgentsRouter(this.deps));
+    v1Router.use(
+      createChatRouter(
+        this.container.resolve<ChatService>(TOKENS.ChatService),
+        this.container.resolve<MCPConfigService>(TOKENS.MCPConfigService)
+      )
+    );
     v1Router.use(createMiscRouter(this.deps));
 
     this.app.use('/api/v1', v1Router);
@@ -221,7 +159,8 @@ export class DashboardServer {
     line?: number
   ): Promise<TestResult | null> {
     try {
-      const run = await this.reporter.getReport(runId);
+      const reporter = this.container.resolve<Reporter>(TOKENS.Reporter);
+      const run = await reporter.getReport(runId);
       if (!run) {
         return null;
       }
@@ -253,58 +192,68 @@ export class DashboardServer {
     if (fileConfig?.testDir) {
       return fileConfig.testDir;
     }
-    return this.testDir.current;
+    return this.container.resolve<MutableRef<string>>(TOKENS.TestDir).current;
   }
 
   private invalidateAllCache(): void {
     const startTime = Date.now();
-    this.cache.invalidate('tests:');
-    this.cache.invalidate('runs');
-    this.cache.invalidate('runs:summaries');
-    this.cache.invalidate('runs:all');
-    this.cache.invalidate('stats');
-    this.cache.invalidate('health:');
-    this.cache.invalidate('traces:');
-    this.cache.invalidate('artifacts:');
-    this.testDiscovery.invalidateCache();
+    const cache = this.container.resolve<LRUCache<unknown>>(TOKENS.LRUCache);
+    const testDiscovery = this.container.resolve<TestDiscovery>(TOKENS.TestDiscovery);
+    cache.invalidate('tests:');
+    cache.invalidate('runs');
+    cache.invalidate('runs:summaries');
+    cache.invalidate('runs:all');
+    cache.invalidate('stats');
+    cache.invalidate('health:');
+    cache.invalidate('traces:');
+    cache.invalidate('artifacts:');
+    testDiscovery.invalidateCache();
     const duration = Date.now() - startTime;
     this.log.debug(`All caches invalidated in ${duration}ms`);
   }
 
   private async updatePathsForTestDir(testDir: string): Promise<void> {
     const absoluteDir = path.resolve(testDir);
-    this.testDir.current = testDir;
-    this.outputDir.current = path.join(absoluteDir, 'test-reports');
-    this.dataDir.current = path.join(absoluteDir, 'test-data');
+    const outputDirRef = this.container.resolve<MutableRef<string>>(TOKENS.OutputDir);
+    const dataDirRef = this.container.resolve<MutableRef<string>>(TOKENS.DataDir);
+    const testDirRef = this.container.resolve<MutableRef<string>>(TOKENS.TestDir);
+
+    testDirRef.current = testDir;
+    outputDirRef.current = path.join(absoluteDir, 'test-reports');
+    dataDirRef.current = path.join(absoluteDir, 'test-data');
+
+    const storage = this.container.resolve<StorageProvider>(TOKENS.StorageProvider);
 
     try {
-      await this.storage.mkdir(this.outputDir.current);
+      await storage.mkdir(outputDirRef.current);
     } catch (e) {
       this.log.warn(
-        `Failed to create outputDir ${this.outputDir.current}: ${e instanceof Error ? e.message : String(e)}`
+        `Failed to create outputDir ${outputDirRef.current}: ${e instanceof Error ? e.message : String(e)}`
       );
     }
     try {
-      await this.storage.mkdir(this.dataDir.current);
+      await storage.mkdir(dataDirRef.current);
     } catch (e) {
       this.log.warn(
-        `Failed to create dataDir ${this.dataDir.current}: ${e instanceof Error ? e.message : String(e)}`
+        `Failed to create dataDir ${dataDirRef.current}: ${e instanceof Error ? e.message : String(e)}`
       );
     }
 
-    this.flakyManager = new FlakyTestManager(this.dataDir.current, {}, this.storage);
-    this.reporter = new Reporter(
-      this.outputDir.current,
-      this.storage,
-      this.diagnosisService,
-      this.flakyManager
+    const newFlakyManager = new FlakyTestManager(dataDirRef.current, {}, storage);
+    const diagnosisService = this.container.resolve<DiagnosisService>(TOKENS.DiagnosisService);
+    const newReporter = new Reporter(
+      outputDirRef.current,
+      storage,
+      diagnosisService,
+      newFlakyManager
     );
 
-    // Update mutable references in deps
-    this.deps.flakyManager.current = this.flakyManager;
-    this.deps.reporter.current = this.reporter;
+    this.container.override(TOKENS.FlakyTestManager, newFlakyManager);
+    this.container.override(TOKENS.Reporter, newReporter);
+    this.deps.flakyManager.current = newFlakyManager;
+    this.deps.reporter.current = newReporter;
 
-    this.traceManager = new TraceManager(
+    const newTraceManager = new TraceManager(
       {
         enabled: true,
         mode: 'on',
@@ -313,17 +262,19 @@ export class DashboardServer {
         sources: true,
         attachments: true,
       },
-      path.join(this.outputDir.current, 'test-results')
+      path.join(outputDirRef.current, 'test-results')
     );
-    this.deps.traceManager.current = this.traceManager;
+    this.container.override(TOKENS.TraceManager, newTraceManager);
+    this.deps.traceManager.current = newTraceManager;
 
-    this.artifactManager = new ArtifactManager(
+    const newArtifactManager = new ArtifactManager(
       { enabled: true, screenshots: 'on', videos: 'on' },
-      path.join(this.outputDir.current, 'test-results')
+      path.join(outputDirRef.current, 'test-results')
     );
-    this.deps.artifactManager.current = this.artifactManager;
+    this.container.override(TOKENS.ArtifactManager, newArtifactManager);
+    this.deps.artifactManager.current = newArtifactManager;
 
-    this.visualManager = new VisualTestingManager(
+    const newVisualManager = new VisualTestingManager(
       {
         enabled: true,
         threshold: 0.2,
@@ -333,25 +284,28 @@ export class DashboardServer {
       },
       path.join(absoluteDir, 'visual-testing')
     );
-    this.deps.visualManager.current = this.visualManager;
+    this.container.override(TOKENS.VisualTestingManager, newVisualManager);
+    this.deps.visualManager.current = newVisualManager;
 
-    void logger.init(this.dataDir.current);
-    this.agentService.setProjectRoot(absoluteDir);
+    void logger.init(dataDirRef.current);
+    this.container.resolve<AgentService>(TOKENS.AgentService).setProjectRoot(absoluteDir);
 
     this.invalidateAllCache();
 
     this.log.info(
       `Paths updated for test directory: ${absoluteDir}\n` +
-        `  outputDir: ${this.outputDir.current}\n` +
-        `  dataDir: ${this.dataDir.current}\n` +
-        `  traces: ${path.join(this.outputDir.current, 'test-results')}\n` +
-        `  artifacts: ${path.join(this.outputDir.current, 'test-results')}`
+        `  outputDir: ${outputDirRef.current}\n` +
+        `  dataDir: ${dataDirRef.current}\n` +
+        `  traces: ${path.join(outputDirRef.current, 'test-results')}\n` +
+        `  artifacts: ${path.join(outputDirRef.current, 'test-results')}`
     );
   }
 
   private setupStaticFiles(): void {
+    const outputDirRef = this.container.resolve<MutableRef<string>>(TOKENS.OutputDir);
+
     this.app.use('/html-reports', (req: Request, res: Response, next: NextFunction) => {
-      const htmlReportsPath = path.resolve(this.outputDir.current, 'html-reports');
+      const htmlReportsPath = path.resolve(outputDirRef.current, 'html-reports');
       if (fs.existsSync(htmlReportsPath)) {
         express.static(htmlReportsPath)(req, res, next);
       } else {
@@ -360,7 +314,7 @@ export class DashboardServer {
     });
 
     this.app.use('/test-results', (req: Request, res: Response, next: NextFunction) => {
-      const testResultsPath = path.resolve(this.outputDir.current, 'test-results');
+      const testResultsPath = path.resolve(outputDirRef.current, 'test-results');
       if (fs.existsSync(testResultsPath)) {
         express.static(testResultsPath)(req, res, next);
       } else {
@@ -391,19 +345,22 @@ export class DashboardServer {
     const batch = this.testResultBuffer.splice(0);
     const runId = this.executor.current?.currentRun?.id || '';
 
-    this.reporter.updatePendingReportBatch(runId, batch).catch((err) => {
+    const reporter = this.container.resolve<Reporter>(TOKENS.Reporter);
+    const realtimeReporter = this.container.resolve<RealtimeReporter>(TOKENS.RealtimeReporter);
+
+    reporter.updatePendingReportBatch(runId, batch).catch((err) => {
       this.log.warn(
         `Batch update pending report failed: ${err instanceof Error ? err.message : String(err)}`
       );
     });
 
     const results = batch.map((b) => b.result);
-    this.realtimeReporter.broadcastTestResultBatch(runId, results);
+    realtimeReporter.broadcastTestResultBatch(runId, results);
 
-    const pendingReport = this.reporter.getPendingReport(runId);
+    const pendingReport = reporter.getPendingReport(runId);
     const isStillRunning = this.executor.current?.isCurrentlyRunning() ?? false;
     if (pendingReport) {
-      this.realtimeReporter.broadcastReportUpdated(runId, {
+      realtimeReporter.broadcastReportUpdated(runId, {
         totalTests: pendingReport.totalTests,
         passed: pendingReport.passed,
         failed: pendingReport.failed,
@@ -414,26 +371,31 @@ export class DashboardServer {
   }
 
   async start(): Promise<void> {
+    const dataDirRef = this.container.resolve<MutableRef<string>>(TOKENS.DataDir);
+    const storage = this.container.resolve<StorageProvider>(TOKENS.StorageProvider);
+    const flakyManager = this.container.resolve<FlakyTestManager>(TOKENS.FlakyTestManager);
+    const realtimeReporter = this.container.resolve<RealtimeReporter>(TOKENS.RealtimeReporter);
+
     try {
-      const prefs = await this.storage.readJSON<Record<string, unknown>>(
-        path.join(this.dataDir.current, 'user-preferences.json')
+      const prefs = await storage.readJSON<Record<string, unknown>>(
+        path.join(dataDirRef.current, 'user-preferences.json')
       );
       if (prefs?.testDir && typeof prefs.testDir === 'string') {
         await this.updatePathsForTestDir(prefs.testDir);
         this.log.info(`Restored testDir from preferences: ${prefs.testDir}`);
       }
       if (prefs?.autoQuarantine !== undefined && typeof prefs.autoQuarantine === 'boolean') {
-        this.flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
+        flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
         this.log.info(`Restored autoQuarantine from preferences: ${prefs.autoQuarantine}`);
       }
       if (prefs?.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
-        this.flakyManager.setConfig({
+        flakyManager.setConfig({
           flakyCriteria: prefs.flakyCriteria as Record<string, unknown>,
         });
         this.log.info('Restored flakyCriteria from preferences');
       }
       if (prefs?.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
-        this.flakyManager.setConfig({
+        flakyManager.setConfig({
           quarantineCriteria: prefs.quarantineCriteria as Record<string, unknown>,
         });
         this.log.info('Restored quarantineCriteria from preferences');
@@ -443,8 +405,8 @@ export class DashboardServer {
     }
 
     try {
-      const prefs = await this.storage.readJSON<Record<string, unknown>>(
-        path.join(this.dataDir.current, 'user-preferences.json')
+      const prefs = await storage.readJSON<Record<string, unknown>>(
+        path.join(dataDirRef.current, 'user-preferences.json')
       );
       if (prefs?.customErrorPatterns && Array.isArray(prefs.customErrorPatterns)) {
         loadPatternsFromConfig(
@@ -490,8 +452,15 @@ export class DashboardServer {
       );
     }
 
-    void logger.init(this.dataDir.current);
-    this.realtimeReporter.initialize(this.server);
+    void logger.init(dataDirRef.current);
+    realtimeReporter.initialize(this.server);
+
+    const chatService = this.container.resolve<ChatService>(TOKENS.ChatService);
+    chatService.initMCP().catch((err) => {
+      this.log.warn(
+        `Failed to initialize MCP: ${err instanceof Error ? err.message : String(err)}`
+      );
+    });
 
     return new Promise<void>((resolve) => {
       this.server.listen(this.port, () => {
@@ -515,15 +484,15 @@ export class DashboardServer {
         docLinks: p.docLinks,
       }));
 
+      const dataDirRef = this.container.resolve<MutableRef<string>>(TOKENS.DataDir);
+      const storage = this.container.resolve<StorageProvider>(TOKENS.StorageProvider);
+
       const existing =
-        (await this.storage.readJSON<Record<string, unknown>>(
-          path.join(this.dataDir.current, 'user-preferences.json')
+        (await storage.readJSON<Record<string, unknown>>(
+          path.join(dataDirRef.current, 'user-preferences.json')
         )) || {};
       const merged = { ...existing, customErrorPatterns: serializedPatterns };
-      await this.storage.writeJSON(
-        path.join(this.dataDir.current, 'user-preferences.json'),
-        merged
-      );
+      await storage.writeJSON(path.join(dataDirRef.current, 'user-preferences.json'), merged);
       this.log.info(`Saved ${serializedPatterns.length} custom error patterns to user preferences`);
     } catch (e) {
       this.log.warn(
@@ -533,8 +502,9 @@ export class DashboardServer {
   }
 
   async stop(): Promise<void> {
+    const realtimeReporter = this.container.resolve<RealtimeReporter>(TOKENS.RealtimeReporter);
     await logger.shutdown();
-    this.realtimeReporter.shutdown();
+    realtimeReporter.shutdown();
     return new Promise<void>((resolve) => {
       this.server.close(() => {
         this.log.info('Dashboard stopped');
@@ -544,15 +514,15 @@ export class DashboardServer {
   }
 
   getRealtimeReporter(): RealtimeReporter {
-    return this.realtimeReporter;
+    return this.container.resolve<RealtimeReporter>(TOKENS.RealtimeReporter);
   }
 
   getFlakyManager(): FlakyTestManager {
-    return this.flakyManager;
+    return this.container.resolve<FlakyTestManager>(TOKENS.FlakyTestManager);
   }
 
   getReporter(): Reporter {
-    return this.reporter;
+    return this.container.resolve<Reporter>(TOKENS.Reporter);
   }
 
   getExecutor(): Executor | null {

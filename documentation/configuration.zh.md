@@ -55,6 +55,8 @@ interface TestConfig {
   testMatch?: string[];
   testIgnore?: string[];
   ignoreDirs?: string[];
+  environmentTag?: string;
+  quarantine?: QuarantineConfig;
 }
 ```
 
@@ -87,12 +89,26 @@ interface TestConfig {
 | `testMatch` | `string[]` | 否 | - | 匹配测试文件的全局模式 |
 | `testIgnore` | `string[]` | 否 | - | 忽略测试文件的全局模式 |
 | `ignoreDirs` | `string[]` | 否 | 见下方 | 忽略的目录列表，默认为 `FILE_PATTERNS.IGNORE_DIRS` |
+| `environmentTag` | `string` | 否 | - | 环境标签，用于多环境报告 |
+| `quarantine` | `QuarantineConfig` | 否 | - | 隔离配置，详见 [QuarantineConfig](#9-quarantineconfig-quarantine-configuration) |
 
 `ignoreDirs` 默认值：
 
 ```
 ['node_modules', '__snapshots__', '__image_snapshots__', '.git', 'dist', 'build', 'coverage', '.next', '.nuxt', '.output', '.svelte-kit']
 ```
+
+### QuarantineConfig
+
+```typescript
+interface QuarantineConfig {
+  enabled: boolean;
+  threshold: number;
+  autoQuarantine: boolean;
+}
+```
+
+> 完整定义及所有可选字段，详见 [QuarantineConfig](#9-quarantineconfig-quarantine-configuration)。
 
 ### BrowserType
 
@@ -486,6 +502,7 @@ interface LLMConfig {
   remark: string;
   maxTokens: number;
   temperature: number;
+  maxAgentRounds: number;
 }
 ```
 
@@ -500,6 +517,7 @@ interface LLMConfig {
 | `remark` | `string` | `''` | 配置备注信息 |
 | `maxTokens` | `number` | `2048` | 最大生成 Token 数 |
 | `temperature` | `number` | `0.3` | 生成温度参数（0~1），越低越确定 |
+| `maxAgentRounds` | `number` | `5` | Agent 最大循环轮数 |
 
 ### AI 诊断模式
 

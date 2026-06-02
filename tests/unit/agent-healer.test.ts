@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { HealerAgent } from '../../src/agents/healer';
 import { AgentConfig, LLMConfig, HealerPatch, AgentHealResult } from '../../src/types';
 import * as fs from 'fs';
@@ -87,7 +88,7 @@ describe('HealerAgent', () => {
         { originalCode: "test('example'", patchedCode: "test('fixed'", reason: 'update name' },
       ]);
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: validJSON } }],
@@ -113,7 +114,7 @@ describe('HealerAgent', () => {
       ]);
       const wrappedInCodeBlock = '```json\n' + jsonContent + '\n```';
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: wrappedInCodeBlock } }],
@@ -131,7 +132,7 @@ describe('HealerAgent', () => {
       const testFile = path.join(tmpDir, 'parse-invalid.spec.ts');
       fs.writeFileSync(testFile, `test('invalid', () => {});`, 'utf-8');
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: 'this is not json at all' } }],
@@ -159,7 +160,7 @@ describe('HealerAgent', () => {
         healed: true,
       });
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: jsonWithBadPatches } }],
@@ -182,7 +183,7 @@ describe('HealerAgent', () => {
       fs.writeFileSync(testFile, `test('login flow works', async ({ page }) => {});`, 'utf-8');
 
       // Provide a response that marks healed=true immediately
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: healerResponseJSON([], { healed: true }) } }],
@@ -205,7 +206,7 @@ describe('HealerAgent', () => {
         'utf-8'
       );
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: healerResponseJSON([], { healed: true }) } }],
@@ -223,7 +224,7 @@ describe('HealerAgent', () => {
       const testFile = path.join(tmpDir, 'fallback-name.spec.ts');
       fs.writeFileSync(testFile, `// no test() calls here`, 'utf-8');
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: healerResponseJSON([], { healed: true }) } }],
@@ -252,7 +253,7 @@ describe('HealerAgent', () => {
         },
       ]);
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: json } }],
@@ -280,7 +281,7 @@ describe('HealerAgent', () => {
         { originalCode, patchedCode, reason: 'multi-line change' },
       ]);
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [{ message: { content: json } }],
@@ -315,7 +316,7 @@ describe('HealerAgent', () => {
       // Track what content is sent to the LLM in each round
       const sentContents: string[] = [];
 
-      global.fetch = jest.fn().mockImplementation(async (_url: string, opts: any) => {
+      global.fetch = vi.fn().mockImplementation(async (_url: string, opts: any) => {
         const body = JSON.parse(opts.body);
         const userPrompt = body.messages[1].content;
         // Extract the code block from the user prompt
@@ -401,7 +402,7 @@ describe('HealerAgent', () => {
       const originalContent = `test('rollback', async () => {\n  await page.click('#btn');\n});`;
       fs.writeFileSync(testFile, originalContent, 'utf-8');
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [
@@ -439,7 +440,7 @@ describe('HealerAgent', () => {
       const originalContent = `test('no-rollback', async () => {\n  await page.click('#old');\n});`;
       fs.writeFileSync(testFile, originalContent, 'utf-8');
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [
@@ -478,7 +479,7 @@ describe('HealerAgent', () => {
       fs.writeFileSync(testFile, originalContent, 'utf-8');
 
       // LLM returns no patches
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [
@@ -511,7 +512,7 @@ describe('HealerAgent', () => {
       const originalContent = `test('exact', async () => {\n  await page.click('#btn');\n});`;
       fs.writeFileSync(testFile, originalContent, 'utf-8');
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [
@@ -546,7 +547,7 @@ describe('HealerAgent', () => {
       const originalContent = `test('no-match', async () => {\n  await page.click('#btn');\n});`;
       fs.writeFileSync(testFile, originalContent, 'utf-8');
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [
@@ -590,7 +591,7 @@ describe('HealerAgent', () => {
       fs.writeFileSync(testFile, fileContent, 'utf-8');
 
       // Patch specifies code with single spaces (normalized)
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [
@@ -626,7 +627,7 @@ describe('HealerAgent', () => {
       fs.writeFileSync(testFile, fileContent, 'utf-8');
 
       // Patch specifies code with single spaces (normalized form matches)
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           choices: [
@@ -671,7 +672,7 @@ describe('HealerAgent', () => {
       fs.writeFileSync(testFile, `test('rounds', () => {});`, 'utf-8');
 
       let callCount = 0;
-      global.fetch = jest.fn().mockImplementation(async () => {
+      global.fetch = vi.fn().mockImplementation(async () => {
         callCount++;
         return {
           ok: true,
@@ -706,7 +707,7 @@ describe('HealerAgent', () => {
       const testFile = path.join(tmpDir, 'network-error.spec.ts');
       fs.writeFileSync(testFile, `test('network', () => {});`, 'utf-8');
 
-      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 
       const healer = new HealerAgent(createAgentConfig(), createLLMConfig());
       // Network error propagates since healTest does not catch LLM errors
@@ -718,7 +719,7 @@ describe('HealerAgent', () => {
       fs.writeFileSync(testFile, `test('zero', () => {});`, 'utf-8');
 
       let callCount = 0;
-      global.fetch = jest.fn().mockImplementation(async () => {
+      global.fetch = vi.fn().mockImplementation(async () => {
         callCount++;
         return {
           ok: true,

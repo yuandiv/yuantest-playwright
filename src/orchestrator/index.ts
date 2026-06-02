@@ -73,7 +73,11 @@ export class Orchestrator extends ManagedManager {
       'duration-history.json'
     );
     try {
-      const data = await this.storage.readJSON<any>(historyFile);
+      const data = await this.storage.readJSON<{
+        history?: Array<Partial<TestDurationHistory> & { testFile: string }>;
+        calibrationFactor?: number;
+        predictionFeedback?: ShardPredictionFeedback[];
+      }>(historyFile);
       if (data && data.history) {
         for (const entry of data.history) {
           const migrated: TestDurationHistory = {
@@ -462,7 +466,7 @@ export class Orchestrator extends ManagedManager {
     return { ...this.config };
   }
 
-  async createPlaywrightConfig(): Promise<any> {
+  async createPlaywrightConfig(): Promise<Record<string, unknown>> {
     return {
       testDir: this.config.testDir,
       timeout: this.config.timeout,
@@ -558,7 +562,10 @@ export class ShardOptimizer {
         totalShards,
         optimized
       );
-      optimized.get(bestShard)!.push(test);
+      const bestShardList = optimized.get(bestShard);
+      if (bestShardList) {
+        bestShardList.push(test);
+      }
       currentLoad[bestShard] += test.duration;
       shardVarianceSums[bestShard] += test.variance;
     }
@@ -569,7 +576,10 @@ export class ShardOptimizer {
       );
       const minLoadShard = effectiveLoad.indexOf(Math.min(...effectiveLoad));
 
-      optimized.get(minLoadShard)!.push(test);
+      const minLoadList = optimized.get(minLoadShard);
+      if (minLoadList) {
+        minLoadList.push(test);
+      }
       currentLoad[minLoadShard] += test.duration;
       shardVarianceSums[minLoadShard] += test.variance;
     }
@@ -613,9 +623,10 @@ export class ShardOptimizer {
       const newVarianceSum = shardVarianceSums[i] + test.variance;
       const riskComponent = Math.sqrt(newVarianceSum);
       const loadComponent = currentLoad[i] + test.duration;
-      const hasSimilarRisk = optimized
-        .get(i)!
-        .some((existing) => this.computeRiskScore(existing) > HIGH_VARIANCE_THRESHOLD);
+      const shardList = optimized.get(i);
+      const hasSimilarRisk = shardList
+        ? shardList.some((existing) => this.computeRiskScore(existing) > HIGH_VARIANCE_THRESHOLD)
+        : false;
       const diversityPenalty = hasSimilarRisk ? test.duration * 0.3 : 0;
 
       const score = loadComponent + this.riskPenalty * riskComponent + diversityPenalty;
@@ -657,8 +668,11 @@ export class ShardOptimizer {
       let bestSwap: { fromIdx: number; toIdx: number; improvement: number } | null = null;
       let bestImprovement = 0;
 
-      const heavyTests = optimized.get(heaviestShard)!;
-      const lightTests = optimized.get(lightestShard)!;
+      const heavyTests = optimized.get(heaviestShard);
+      const lightTests = optimized.get(lightestShard);
+      if (!heavyTests || !lightTests) {
+        continue;
+      }
 
       for (let fi = 0; fi < heavyTests.length; fi++) {
         const fromTest = heavyTests[fi];

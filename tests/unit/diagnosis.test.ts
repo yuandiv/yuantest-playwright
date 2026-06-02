@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { DiagnosisService } from '../../src/diagnosis';
 import { LLMConfig } from '../../src/types';
 import * as fs from 'fs';
@@ -217,7 +218,7 @@ describe('DiagnosisService', () => {
         ],
       };
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -266,7 +267,7 @@ describe('DiagnosisService', () => {
         ],
       };
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -291,7 +292,7 @@ describe('DiagnosisService', () => {
     });
 
     it('should return error diagnosis when LLM call fails', async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error('Connection refused'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('Connection refused'));
 
       await service.saveConfig({
         enabled: true,
@@ -316,7 +317,7 @@ describe('DiagnosisService', () => {
     });
 
     it('should return error diagnosis when LLM returns non-ok status', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
@@ -362,7 +363,7 @@ describe('DiagnosisService', () => {
         ],
       };
 
-      global.fetch = jest.fn().mockImplementation(() => {
+      global.fetch = vi.fn().mockImplementation(() => {
         callCount++;
         return Promise.resolve({
           ok: true,
@@ -410,7 +411,7 @@ describe('DiagnosisService', () => {
         ],
       };
 
-      global.fetch = jest.fn().mockImplementation(() => {
+      global.fetch = vi.fn().mockImplementation(() => {
         callCount++;
         return Promise.resolve({
           ok: true,
@@ -454,7 +455,7 @@ describe('DiagnosisService', () => {
 
   describe('testConnection', () => {
     it('should return failure when service is unreachable', async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 
       const result = await service.testConnection({
         enabled: true,
@@ -471,7 +472,7 @@ describe('DiagnosisService', () => {
     });
 
     it('should return success when API responds ok', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
       });
 
@@ -489,7 +490,7 @@ describe('DiagnosisService', () => {
     });
 
     it('should return failure when API responds non-ok', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
@@ -518,7 +519,7 @@ describe('DiagnosisService', () => {
     });
 
     it('should return red when configured but unreachable', async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 
       await service.saveConfig({
         enabled: true,
@@ -537,7 +538,7 @@ describe('DiagnosisService', () => {
     });
 
     it('should return green when configured and reachable', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true });
+      global.fetch = vi.fn().mockResolvedValue({ ok: true });
 
       await service.saveConfig({
         enabled: true,
@@ -564,7 +565,7 @@ describe('DiagnosisService', () => {
     /** 应在匹配知识库模式时提高校准置信度 */
     it('应在匹配知识库模式时提高校准置信度', async () => {
       const mockResponse = createMockLLMResponse({ confidence: 0.8, category: 'timeout' });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -584,7 +585,7 @@ describe('DiagnosisService', () => {
     /** 应在无上下文时校准置信度低于原始置信度 */
     it('应在无上下文时校准置信度低于原始置信度', async () => {
       const mockResponse = createMockLLMResponse({ confidence: 0.9 });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -602,7 +603,7 @@ describe('DiagnosisService', () => {
     /** 应在有截图和源代码上下文时增加校准置信度 */
     it('应在有截图和源代码上下文时增加校准置信度', async () => {
       const mockResponse = createMockLLMResponse({ confidence: 0.7 });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -633,7 +634,7 @@ describe('DiagnosisService', () => {
     /** 生成的 prompt 应包含上下文信息 */
     it('生成的 prompt 应包含环境信息上下文', async () => {
       const mockResponse = createMockLLMResponse();
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -652,7 +653,7 @@ describe('DiagnosisService', () => {
     /** 生成的 prompt 应包含知识库 few-shot 示例 */
     it('生成的 prompt 应包含知识库 few-shot 示例', async () => {
       const mockResponse = createMockLLMResponse({ category: 'timeout' });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -674,7 +675,7 @@ describe('DiagnosisService', () => {
         rootCause: '选择器在 UI 变更后已过时',
         suggestions: ['更新选择器', '添加等待元素'],
       });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -697,7 +698,7 @@ describe('DiagnosisService', () => {
     /** 应正确解析 category 字段 */
     it('应正确解析 category 字段', async () => {
       const mockResponse = createMockLLMResponse({ category: 'network' });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -728,7 +729,7 @@ describe('DiagnosisService', () => {
           },
         ],
       });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -752,7 +753,7 @@ describe('DiagnosisService', () => {
           { title: 'Selectors', url: 'https://playwright.dev/docs/selectors' },
         ],
       });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -781,7 +782,7 @@ describe('DiagnosisService', () => {
         confidence: 0.8,
         category: 'timeout',
       });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -799,7 +800,7 @@ describe('DiagnosisService', () => {
     /** 应正确解析 contextUsed 字段 */
     it('应正确解析 contextUsed 字段', async () => {
       const mockResponse = createMockLLMResponse();
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -832,7 +833,7 @@ describe('DiagnosisService', () => {
           },
         ],
       };
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -850,7 +851,7 @@ describe('DiagnosisService', () => {
     /** 应正确解析 analysisMode 字段 */
     it('应正确解析 analysisMode 字段', async () => {
       const mockResponse = createMockLLMResponse();
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -874,7 +875,7 @@ describe('DiagnosisService', () => {
           'string value',
         ],
       });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -922,7 +923,7 @@ describe('DiagnosisService', () => {
       };
 
       let callCount = 0;
-      global.fetch = jest.fn().mockImplementation(() => {
+      global.fetch = vi.fn().mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
           return Promise.resolve({
@@ -960,7 +961,7 @@ describe('DiagnosisService', () => {
       );
 
       let callCount = 0;
-      global.fetch = jest.fn().mockImplementation(() => {
+      global.fetch = vi.fn().mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
           return Promise.reject(new Error('Agent loop error'));
@@ -987,7 +988,7 @@ describe('DiagnosisService', () => {
     /** 低置信度时应自动追加"建议人工确认" */
     it('低置信度时应自动追加"建议人工确认"', async () => {
       const mockResponse = createMockLLMResponse({ confidence: 0.2 });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -1009,7 +1010,7 @@ describe('DiagnosisService', () => {
     /** 英文模式下低置信度应追加英文警告 */
     it('英文模式下低置信度应追加英文警告', async () => {
       const mockResponse = createMockLLMResponse({ confidence: 0.2 });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -1031,7 +1032,7 @@ describe('DiagnosisService', () => {
     /** 高置信度时不应追加警告 */
     it('高置信度时不应追加警告', async () => {
       const mockResponse = createMockLLMResponse({ confidence: 0.95 });
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockResponse),
       });
@@ -1089,7 +1090,7 @@ describe('DiagnosisService', () => {
         },
       };
 
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         body: mockStream,
       });

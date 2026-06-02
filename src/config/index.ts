@@ -1,3 +1,14 @@
+/**
+ * Playwright 配置构建器
+ *
+ * 职责：根据 YuanTest 的 TestConfig 生成 Playwright 原生配置文件内容和 CLI 参数。
+ * 不负责加载或合并配置文件（由 loader.ts 和 merger.ts 分别处理）。
+ *
+ * 配置层模块划分：
+ * - config/index.ts (本文件) → PlaywrightConfigBuilder：生成 Playwright 配置
+ * - config/loader.ts          → loadConfigFile/mergeConfig/getDashboardConfig：加载 YuanTest 自身配置
+ * - config/merger.ts          → PlaywrightConfigMerger：发现、加载、验证、合并 Playwright 原生配置
+ */
 import {
   TestConfig,
   TraceConfig,
@@ -313,3 +324,13 @@ ${useOptions.join('\n')}
     return pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
+
+export { loadConfigFile, mergeConfig, getDashboardConfig } from './loader';
+export type { YuanTestConfigFile } from './loader';
+export { PlaywrightConfigMerger, configMerger } from './merger';
+export type {
+  PlaywrightProjectConfig,
+  PlaywrightConfigFile,
+  MergedPlaywrightConfig,
+  ConfigValidationResult,
+} from './merger';
