@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.1.3](https://github.com/yuandiv/yuantest-playwright/compare/v1.1.2...v1.1.3) (2026-06-02)
+
+
+### 🐛 Bug 修复
+
+* fix test error ([9bed2af](https://github.com/yuandiv/yuantest-playwright/commit/9bed2af557efaf53c25197ee50aaedeba553b38d))
+
 ### [1.1.2](https://github.com/yuandiv/yuantest-playwright/compare/v1.1.1...v1.1.2) (2026-05-26)
 
 ### [1.1.1](https://github.com/yuandiv/yuantest-playwright/compare/v1.1.0...v1.1.1) (2026-05-22)
