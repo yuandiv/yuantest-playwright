@@ -1,7 +1,7 @@
 # YuanTest Playwright
 
 [![npm version](https://badge.fury.io/js/yuantest-playwright.svg)](https://badge.fury.io/js/yuantest-playwright)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 
@@ -70,7 +70,7 @@
 - 不绑定任何专有数据格式
 
 ### 纯 Playwright 生态
-- 完全开源，MIT 许可证，无门槛
+- 完全开源，GPL-3.0 许可证，无门槛
 - 基于 Playwright 原生能力，版本升级无兼容问题
 - 完全兼容 Playwright 社区
 
@@ -148,4 +148,4 @@ yuantest prediction --high-risk
 
 ## 📝 许可证
 
-MIT © [YuanDiv](https://github.com/yuandiv)
+GPL-3.0 © [YuanDiv](https://github.com/yuandiv)

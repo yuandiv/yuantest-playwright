@@ -1,7 +1,7 @@
 # YuanTest Playwright
 
 [![npm version](https://badge.fury.io/js/yuantest-playwright.svg)](https://www.npmjs.com/package/yuantest-playwright)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 
@@ -59,7 +59,7 @@ A powerful Playwright test orchestrator, executor, and reporter with CLI tools a
 - Can switch back to native Playwright at any time
 
 ### Pure Playwright Ecosystem
-- Fully open source, MIT license
+- Fully open source, GPL-3.0 license
 - Based on Playwright native capabilities, no compatibility issues
 
 ## 📦 Installation
@@ -111,4 +111,4 @@ Contributions, bug reports, and suggestions are welcome!
 
 ## 📝 License
 
-MIT © [YuanDiv](https://github.com/yuandiv)
+GPL-3.0 © [YuanDiv](https://github.com/yuandiv)

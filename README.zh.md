@@ -1,7 +1,7 @@
 # yuantest-playwright
 
 [![npm version](https://badge.fury.io/js/yuantest-playwright.svg)](https://badge.fury.io/js/yuantest-playwright)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/yuandiv/yuantest-playwright/actions/workflows/ci.yml/badge.svg)](https://github.com/yuandiv/yuantest-playwright/actions/workflows/ci.yml)
@@ -59,7 +59,7 @@ yuantest-playwright 是一个综合性的 Playwright 测试编排、执行和报
 
 - **零学习成本** — 所有 CLI 参数与 Playwright CLI 完全一致，无需学习新命令。
 - **零迁移成本** — 纯 Playwright 命令，无专有 API，随时可切换回原生 Playwright，无需修改测试代码。
-- **纯 Playwright 生态** — 完全开源（MIT），基于 Playwright 原生能力构建，无兼容性问题。
+- **纯 Playwright 生态** — 完全开源（GPL-3.0），基于 Playwright 原生能力构建，无兼容性问题。
 
 ## 💡 核心能力
 
@@ -161,7 +161,7 @@ spawn('npx', ['playwright', 'test', ...args]);
 |------|---------------------|-------------------|
 | **学习成本** | ✅ 零学习成本 - 参数与 Playwright CLI 一致 | ⚠️ 需学习 Allure 配置和注解 |
 | **迁移成本** | ✅ 零迁移成本 - 纯 Playwright 命令 | ⚠️ 需配置 Allure Server 和 History |
-| **生态依赖** | ✅ 纯 Playwright 生态 - MIT 协议 | ⚠️ 依赖 Allure 生态 |
+| **生态依赖** | ✅ 纯 Playwright 生态 - GPL-3.0 协议 | ⚠️ 依赖 Allure 生态 |
 | **定位** | 全栈测试管理平台 | 报告生成器 |
 | **实时性** | ✅ WebSocket 实时推送 | ❌ 测试结束后生成报告 |
 | **Web Dashboard** | ✅ 内置 React Dashboard | ✅ Allure Server (需额外部署) |
@@ -896,7 +896,7 @@ export default config;
 
 ## 📝 License
 
-MIT © [YuanDiv](https://github.com/yuandiv)
+GPL-3.0 © [YuanDiv](https://github.com/yuandiv)
 
 ## 🙏 致谢
 
@@ -921,7 +921,7 @@ MIT © [YuanDiv](https://github.com/yuandiv)
 **不会。** yuantest-playwright 使用纯 Playwright 命令执行测试，无专有 API。您可以随时切换回原生 Playwright，无需修改任何测试代码，真正的零迁移成本。
 
 ### Q: 项目维护情况如何？
-**完全开源。** MIT 协议，纯 Playwright 生态，无任何壁垒。基于 Playwright 原生能力构建，版本升级无兼容性问题。
+**完全开源。** GPL-3.0 协议，纯 Playwright 生态，无任何壁垒。基于 Playwright 原生能力构建，版本升级无兼容性问题。
 
 ### Q: 与 Playwright 原生功能兼容吗？
 **完全兼容。** 通过 Playwright CLI 执行测试，支持所有原生功能：Trace、截图、视频、快照等。自动收集和管理所有 Playwright 产物。

@@ -1,7 +1,7 @@
 # yuantest-playwright
 
 [![npm version](https://badge.fury.io/js/yuantest-playwright.svg)](https://badge.fury.io/js/yuantest-playwright)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![CI](https://github.com/yuandiv/yuantest-playwright/actions/workflows/ci.yml/badge.svg)](https://github.com/yuandiv/yuantest-playwright/actions/workflows/ci.yml)
@@ -59,7 +59,7 @@ yuantest-playwright is a comprehensive Playwright test orchestration, execution,
 
 - **Zero Learning Curve** — All CLI parameters are identical to Playwright CLI. No new commands to learn.
 - **Zero Migration Cost** — Pure Playwright commands with no proprietary APIs. Switch back to native Playwright anytime without modifying test code.
-- **Pure Playwright Ecosystem** — Fully open-source (MIT), built on Playwright native capabilities with no compatibility issues.
+- **Pure Playwright Ecosystem** — Fully open-source (GPL-3.0), built on Playwright native capabilities with no compatibility issues.
 
 ## 💡 Core Capabilities
 
@@ -161,7 +161,7 @@ This means:
 |-----------|---------------------|-------------------|
 | **Learning Curve** | ✅ Zero learning curve - parameters identical to Playwright CLI | ⚠️ Need to learn Allure configuration and annotations |
 | **Migration Cost** | ✅ Zero migration cost - pure Playwright commands | ⚠️ Need to configure Allure Server and History |
-| **Ecosystem Dependency** | ✅ Pure Playwright ecosystem - MIT license | ⚠️ Depends on Allure ecosystem |
+| **Ecosystem Dependency** | ✅ Pure Playwright ecosystem - GPL-3.0 license | ⚠️ Depends on Allure ecosystem |
 | **Positioning** | Full-stack test management platform | Report generator |
 | **Real-time** | ✅ WebSocket real-time push | ❌ Generate report after test completion |
 | **Web Dashboard** | ✅ Built-in React Dashboard | ✅ Allure Server (requires extra deployment) |
@@ -895,7 +895,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## 📝 License
 
-MIT © [YuanDiv](https://github.com/yuandiv)
+GPL-3.0 © [YuanDiv](https://github.com/yuandiv)
 
 ## 🙏 Acknowledgments
 
@@ -920,7 +920,7 @@ Thanks to the following open source projects:
 **No.** yuantest-playwright uses pure Playwright commands to execute tests with no proprietary APIs. You can switch back to native Playwright anytime without modifying any test code - truly zero migration cost.
 
 ### Q: How is the project maintained?
-**Fully open source.** MIT license, pure Playwright ecosystem, no barriers. Built on Playwright native capabilities, no compatibility issues with version upgrades.
+**Fully open source.** GPL-3.0 license, pure Playwright ecosystem, no barriers. Built on Playwright native capabilities, no compatibility issues with version upgrades.
 
 ### Q: Is it compatible with Playwright native features?
 **Fully compatible.** Tests are executed via Playwright CLI, supporting all native features: Trace, screenshots, videos, snapshots, etc. Automatically collects and manages all Playwright artifacts.

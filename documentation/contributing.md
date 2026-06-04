@@ -126,4 +126,4 @@ yuantest-playwright/
 
 ## License
 
-This project is licensed under the MIT License. By submitting code, you agree to license your code under the same license.
+This project is licensed under the GPL-3.0 License. By submitting code, you agree to license your code under the same license.
