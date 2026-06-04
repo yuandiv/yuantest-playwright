@@ -19,6 +19,8 @@ export interface ChatMessage {
     name: string;
     success: boolean;
   };
+  /** 模型思考内容（仅 assistant 类型，来自 reasoning_content 或 <arg_key> 标签） */
+  thinkingContent?: string;
   timestamp: number;
 }
 

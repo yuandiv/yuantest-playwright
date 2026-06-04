@@ -567,13 +567,10 @@ module.exports = defineConfig({
       this.log.warn(`Config warnings: ${mergedConfig.warnings.join('; ')}`);
     }
 
-    const workers = this.config.workers || 1;
-    const shardTotal = options?.shardTotal || 1;
-    const totalTests = Math.max(this.progressTracker.stats.totalTests || 1, 1);
-    const timeoutPerTest = this.config.timeout || 30000;
-    const estimatedDuration = (timeoutPerTest * totalTests) / workers / shardTotal;
-    const PROCESS_TIMEOUT_MS = estimatedDuration + 120000;
-    const effectiveTimeout = Math.min(Math.max(PROCESS_TIMEOUT_MS, 300000), 7200000);
+    // 默认不设进程级超时，仅当用户显式配置 processTimeout > 0 时启用
+    // 已有 stall 检测（300s 无进度告警）作为防护
+    const effectiveTimeout =
+      this.config.processTimeout && this.config.processTimeout > 0 ? this.config.processTimeout : 0;
 
     const exitCode = await new Promise<number>((resolve, reject) => {
       const proc = spawn('npx', ['playwright', ...args], {
@@ -607,15 +604,12 @@ module.exports = defineConfig({
       this.currentProcess = proc;
 
       proc.stdout?.on('data', (chunk: Buffer) => {
+        // stdout 由 ProgressReporter 通过 progress channel 统一处理，
+        // 此处仅记录到日志，不再发射 output 事件以避免重复打印
         const text = chunk.toString();
         const strippedText = stripAnsi(text);
         if (strippedText.trim()) {
-          this.emit('output', {
-            data: strippedText,
-            timestamp: Date.now(),
-            runId: this._currentRun?.id || '',
-            type: 'stdout',
-          });
+          this.log.debug(`[stdout] ${strippedText.trim()}`);
         }
       });
 
@@ -683,43 +677,46 @@ module.exports = defineConfig({
         resolve(code);
       };
 
-      timeoutId = setTimeout(async () => {
-        if (settled) {
-          return;
-        }
-        this.log.warn(`Process timeout after ${effectiveTimeout}ms, killing process tree...`);
-        this.emit('output', {
-          data: `⚠️ Execution timed out after ${Math.round(effectiveTimeout / 1000)}s, terminating process...`,
-          timestamp: Date.now(),
-          runId: this._currentRun?.id || '',
-          type: 'stderr',
-        });
+      timeoutId =
+        effectiveTimeout > 0
+          ? setTimeout(async () => {
+              if (settled) {
+                return;
+              }
+              this.log.warn(`Process timeout after ${effectiveTimeout}ms, killing process tree...`);
+              this.emit('output', {
+                data: `⚠️ Execution timed out after ${Math.round(effectiveTimeout / 1000)}s, terminating process...`,
+                timestamp: Date.now(),
+                runId: this._currentRun?.id || '',
+                type: 'stderr',
+              });
 
-        if (proc.pid) {
-          if (process.platform === 'win32') {
-            await this.killProcessTreeWindows(proc.pid);
-          } else {
-            this.killProcessTreeUnix(proc.pid);
-          }
-        }
+              if (proc.pid) {
+                if (process.platform === 'win32') {
+                  await this.killProcessTreeWindows(proc.pid);
+                } else {
+                  this.killProcessTreeUnix(proc.pid);
+                }
+              }
 
-        if (this._currentRun) {
-          this._currentRun.status = 'failed';
-          if (!this._currentRun.metadata) {
-            this._currentRun.metadata = {};
-          }
-          if (!this._currentRun.metadata.globalErrors) {
-            this._currentRun.metadata.globalErrors = [];
-          }
-          this._currentRun.metadata.globalErrors.push({
-            message: `Execution timed out after ${Math.round(effectiveTimeout / 1000)}s`,
-            stack: '',
-            timestamp: Date.now(),
-          });
-        }
+              if (this._currentRun) {
+                this._currentRun.status = 'failed';
+                if (!this._currentRun.metadata) {
+                  this._currentRun.metadata = {};
+                }
+                if (!this._currentRun.metadata.globalErrors) {
+                  this._currentRun.metadata.globalErrors = [];
+                }
+                this._currentRun.metadata.globalErrors.push({
+                  message: `Execution timed out after ${Math.round(effectiveTimeout / 1000)}s`,
+                  stack: '',
+                  timestamp: Date.now(),
+                });
+              }
 
-        finalize(1);
-      }, effectiveTimeout);
+              finalize(1);
+            }, effectiveTimeout)
+          : null;
 
       proc.on('error', (error) => {
         if (settled) {

@@ -11,7 +11,7 @@ import {
 import type { LLMConfig } from '../types';
 
 export interface SSEEvent {
-  type: 'token' | 'tool_call' | 'tool_result' | 'done' | 'error';
+  type: 'token' | 'tool_call' | 'tool_result' | 'thinking' | 'done' | 'error';
   data: unknown;
 }
 
@@ -150,18 +150,13 @@ export class ChatService {
     const tools = this.getAllToolSchemas();
 
     try {
-      const result = await this.llmService.chatWithAgentLoop(
+      const stream = this.llmService.chatWithAgentLoopStream(
         { system: systemPrompt, user: userMessage },
         this.llmService.getConfig(),
         tools.length > 0 ? tools : undefined,
         undefined,
         async (toolName, args) => {
           const toolResult = await this.executeTool(toolName, args);
-
-          onEvent({
-            type: 'tool_call',
-            data: { name: toolName, arguments: args, result: toolResult.slice(0, 500) },
-          });
 
           this.store.addMessage(conversationId, {
             role: 'tool_call',
@@ -179,25 +174,48 @@ export class ChatService {
         }
       );
 
-      this.store.addMessage(conversationId, {
-        role: 'assistant',
-        content: result.responseText,
-      });
+      let fullContent = '';
 
-      if (conversation.messages.length <= 1) {
-        const title = userMessage.slice(0, 30) + (userMessage.length > 30 ? '...' : '');
-        this.store.updateTitle(conversationId, title);
+      for await (const event of stream) {
+        if (event.type === 'token') {
+          fullContent += event.data;
+          onEvent({ type: 'token', data: event.data });
+        } else if (event.type === 'thinking') {
+          onEvent({ type: 'thinking', data: { content: event.data } });
+        } else if (event.type === 'tool_call') {
+          onEvent({
+            type: 'tool_call',
+            data: { name: event.data.name, arguments: event.data.arguments },
+          });
+        } else if (event.type === 'tool_result') {
+          onEvent({
+            type: 'tool_result',
+            data: { name: event.data.name, result: event.data.result },
+          });
+        } else if (event.type === 'done') {
+          this.store.addMessage(conversationId, {
+            role: 'assistant',
+            content: event.data.content || fullContent,
+            thinkingContent: event.data.thinkingContent || undefined,
+          });
+
+          if (conversation.messages.length <= 1) {
+            const title = userMessage.slice(0, 30) + (userMessage.length > 30 ? '...' : '');
+            this.store.updateTitle(conversationId, title);
+          }
+
+          onEvent({
+            type: 'done',
+            data: {
+              content: event.data.content || fullContent,
+              thinkingContent: event.data.thinkingContent,
+              analysisMode: event.data.analysisMode,
+              reasoningSteps: event.data.reasoningSteps,
+              totalUsage: event.data.totalUsage,
+            },
+          });
+        }
       }
-
-      onEvent({
-        type: 'done',
-        data: {
-          content: result.responseText,
-          analysisMode: result.analysisMode,
-          reasoningSteps: result.reasoningSteps,
-          totalUsage: result.totalUsage,
-        },
-      });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.log.warn(`Chat message failed: ${errorMsg}`);
@@ -257,6 +275,12 @@ export class ChatService {
     }
 
     parts.push('请根据用户的描述，自动选择合适的工具来完成任务。如果需要多个步骤，请逐步执行。');
+    parts.push('');
+    parts.push('## 任务拆分');
+    parts.push('对于复杂问题，请先分析任务，将复杂任务拆分为多个子任务，并使用任务列表格式展示：');
+    parts.push('- [ ] 待完成的子任务');
+    parts.push('- [x] 已完成的子任务');
+    parts.push('在执行过程中，逐步将已完成的子任务标记为 [x]，让用户可以清晰追踪进度。');
 
     return parts.join('\n');
   }

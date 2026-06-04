@@ -13,6 +13,8 @@ export interface ChatMessageData {
     name: string;
     success: boolean;
   };
+  resultContent?: string;
+  thinkingContent?: string;
   timestamp: number;
 }
 
@@ -67,12 +69,13 @@ export interface ToolInfo {
 }
 
 export interface SSEEventData {
-  type: 'token' | 'tool_call' | 'tool_result' | 'done' | 'error';
+  type: 'token' | 'tool_call' | 'tool_result' | 'thinking' | 'done' | 'error';
   data: unknown;
 }
 
 export interface ChatDoneData {
   content: string;
+  thinkingContent?: string;
   analysisMode: 'agent' | 'single' | 'fallback';
   reasoningSteps: Array<{
     step: number;

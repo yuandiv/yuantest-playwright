@@ -62,6 +62,8 @@ export interface YuanTestConfigFile {
     exclude?: string[];
   };
   environmentTag?: string;
+  /** 进程级超时（毫秒），0 表示不限制 */
+  processTimeout?: number;
   htmlReport?: boolean;
   dashboard?: {
     port?: number;
@@ -134,7 +136,8 @@ function loadJsConfig(filePath: string): YuanTestConfigFile {
         ? (result as () => YuanTestConfigFile)()
         : (result as YuanTestConfigFile);
     } catch (tsxError) {
-      console.warn(
+      const log = logger.child('ConfigLoader');
+      log.debug(
         `tsx load failed, trying jiti: ${tsxError instanceof Error ? tsxError.message : String(tsxError)}`
       );
     }
@@ -303,6 +306,9 @@ export function mergeConfig(
 
     if (fileConfig.environmentTag !== undefined) {
       base.environmentTag = fileConfig.environmentTag;
+    }
+    if (fileConfig.processTimeout !== undefined) {
+      base.processTimeout = fileConfig.processTimeout;
     }
   }
 

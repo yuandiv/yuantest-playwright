@@ -3,7 +3,6 @@ import { Lang } from '../i18n';
 import { t } from '../i18n';
 import * as api from '../services/api';
 import { LLMStatus } from '../types';
-import { LLMConfigDialog } from './LLMConfigDialog';
 
 interface HeaderProps {
   lang: Lang;
@@ -15,19 +14,10 @@ interface HeaderProps {
   showHealthDashboard?: boolean;
   onToggleHealthDashboard?: () => void;
   onOpenChatPanel?: () => void;
-  isLLMConfigOpen?: boolean;
-  onOpenLLMConfig?: () => void;
-  onCloseLLMConfig?: () => void;
 }
 
-export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, onOpenChatPanel, isLLMConfigOpen, onOpenLLMConfig, onCloseLLMConfig }: HeaderProps) {
+export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, onOpenChatPanel }: HeaderProps) {
   const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
-  const [showLLMConfigInternal, setShowLLMConfigInternal] = useState(false);
-  
-  const showLLMConfig = isLLMConfigOpen ?? showLLMConfigInternal;
-  const setShowLLMConfig = onOpenLLMConfig && onCloseLLMConfig 
-    ? (open: boolean) => open ? onOpenLLMConfig() : onCloseLLMConfig()
-    : setShowLLMConfigInternal;
 
   useEffect(() => {
     const fetchStatus = () => {
@@ -41,13 +31,6 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
     const interval = setInterval(fetchStatus, 60000);
     return () => clearInterval(interval);
   }, []);
-
-  const handleLLMConfigSaved = () => {
-    api.getLLMStatus().then(status => {
-      if (status) setLlmStatus(status.status);
-    }).catch((err) => console.error('[Header] getLLMStatus failed:', err));
-    window.dispatchEvent(new CustomEvent('llm-config-changed'));
-  };
 
   return (
     <div className="flex justify-between items-center mb-5">
@@ -127,25 +110,6 @@ export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchL
           ></span>
           <span>{t('executor', lang)}</span>
         </button>
-        <button
-          onClick={() => setShowLLMConfig(true)}
-          className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-full shadow-sm border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-          title={llmStatus === 'green' ? (t('llmConnected', lang) || 'LLM Connected') : llmStatus === 'red' ? (t('llmConnectionFailed', lang) || 'LLM Connection Failed') : (t('llmNotConfigured', lang) || 'LLM Not Configured')}
-        >
-          <span 
-            className={`w-2 h-2 rounded-full inline-block ${
-              llmStatus === 'green' ? 'bg-green-500 animate-pulse' : llmStatus === 'red' ? 'bg-red-500' : 'bg-yellow-500'
-            }`}
-          ></span>
-          <span>{t('llmConfig', lang) || 'LLM Config'}</span>
-        </button>
-        {showLLMConfig && (
-          <LLMConfigDialog
-            lang={lang}
-            onClose={() => setShowLLMConfig(false)}
-            onSaved={handleLLMConfigSaved}
-          />
-        )}
         <a
           href="https://yuantest-playwright.readthedocs.io/"
           target="_blank"

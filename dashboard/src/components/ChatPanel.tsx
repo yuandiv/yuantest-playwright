@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChatMessage, TypingIndicator } from './chat/ChatMessage';
 import { ConversationList } from './chat/ConversationList';
-import { MCPConfigDialog } from './MCPConfigDialog';
+import { AgentConfigDialog } from './AgentConfigDialog';
 import { Lang, t, formatTemplate } from '../i18n';
 import {
   listConversations,
@@ -79,7 +79,7 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
   const [streamingMessages, setStreamingMessages] = useState<ChatMessageData[]>([]);
   const [mcpStatus, setMcpStatus] = useState<MCPConnectionStatus | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [showMCPConfig, setShowMCPConfig] = useState(false);
+  const [showAgentConfig, setShowAgentConfig] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -154,7 +154,28 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
     setStreamingMessages([userMsg]);
 
     await sendMessage(convId, text, (event: SSEEventData) => {
-      if (event.type === 'tool_call') {
+      if (event.type === 'token') {
+        const token = event.data as string;
+        setStreamingMessages((prev) => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && lastMsg.role === 'assistant') {
+            return prev.map((m, i) =>
+              i === prev.length - 1
+                ? { ...m, content: m.content + token }
+                : m
+            );
+          }
+          return [
+            ...prev,
+            {
+              id: `streaming-assistant-${Date.now()}`,
+              role: 'assistant' as const,
+              content: token,
+              timestamp: Date.now(),
+            },
+          ];
+        });
+      } else if (event.type === 'tool_call') {
         const data = event.data as { name: string; arguments: string; result?: string };
         setStreamingMessages((prev) => [
           ...prev,
@@ -178,17 +199,50 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
             timestamp: Date.now(),
           },
         ]);
+      } else if (event.type === 'thinking') {
+        const data = event.data as { content: string };
+        setStreamingMessages((prev) => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && lastMsg.role === 'assistant') {
+            return prev.map((m, i) =>
+              i === prev.length - 1
+                ? { ...m, thinkingContent: (m.thinkingContent || '') + data.content }
+                : m
+            );
+          }
+          return [
+            ...prev,
+            {
+              id: `streaming-thinking-${Date.now()}`,
+              role: 'assistant' as const,
+              content: '',
+              thinkingContent: data.content,
+              timestamp: Date.now(),
+            },
+          ];
+        });
       } else if (event.type === 'done') {
         const data = event.data as ChatDoneData;
-        setStreamingMessages((prev) => [
-          ...prev,
-          {
-            id: `streaming-done-${Date.now()}`,
-            role: 'assistant',
-            content: data.content,
-            timestamp: Date.now(),
-          },
-        ]);
+        setStreamingMessages((prev) => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && lastMsg.role === 'assistant') {
+            return prev.map((m, i) =>
+              i === prev.length - 1
+                ? { ...m, content: data.content || m.content, thinkingContent: data.thinkingContent || m.thinkingContent }
+                : m
+            );
+          }
+          return [
+            ...prev,
+            {
+              id: `streaming-done-${Date.now()}`,
+              role: 'assistant',
+              content: data.content,
+              thinkingContent: data.thinkingContent,
+              timestamp: Date.now(),
+            },
+          ];
+        });
         setIsLoading(false);
         getConversation(convId!).then((conv) => {
           if (conv) setActiveConv(conv);
@@ -220,18 +274,44 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
     }
   };
 
-  const handleMCPSaved = useCallback(async () => {
-    setIsReconnecting(true);
-    await reconnectMCP();
-    await loadMCPStatus();
-    setIsReconnecting(false);
-  }, [loadMCPStatus]);
+  const handleAgentConfigSaved = useCallback(async (type: 'llm' | 'mcp') => {
+    if (type === 'mcp') {
+      setIsReconnecting(true);
+      await reconnectMCP();
+      await loadMCPStatus();
+      setIsReconnecting(false);
+    }
+    if (type === 'llm') {
+      window.dispatchEvent(new CustomEvent('llm-config-changed'));
+    }
+  }, [loadMCPStatus, reconnectMCP]);
 
   const displayMessages: ChatMessageData[] = (() => {
-    if (streamingMessages.length > 0) {
-      return streamingMessages;
+    const source = streamingMessages.length > 0 ? streamingMessages : activeConv?.messages || [];
+    // 合并连续的 tool_call + tool_result 为单条消息
+    const merged: ChatMessageData[] = [];
+    let i = 0;
+    while (i < source.length) {
+      const msg = source[i];
+      if (msg.role === 'tool_call' && i + 1 < source.length && source[i + 1].role === 'tool_result') {
+        const resultMsg = source[i + 1];
+        merged.push({
+          ...msg,
+          id: msg.id,
+          role: 'tool_call',
+          content: msg.content,
+          toolCall: msg.toolCall,
+          toolResult: resultMsg.toolResult,
+          resultContent: resultMsg.content,
+          timestamp: msg.timestamp,
+        });
+        i += 2;
+      } else {
+        merged.push(msg);
+        i++;
+      }
     }
-    return activeConv?.messages || [];
+    return merged;
   })();
 
   return (
@@ -274,9 +354,9 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
                 )}
               </div>
               <button
-                onClick={() => setShowMCPConfig(true)}
+                onClick={() => setShowAgentConfig(true)}
                 className="text-gray-400 hover:text-gray-600 p-1"
-                title={t('mcpConfig', lang)}
+                title={t('agentConfig', lang) || '智能体设置'}
               >
                 <i className="fas fa-cog"></i>
               </button>
@@ -294,10 +374,17 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
                 </div>
               ) : (
                 <>
-                  {displayMessages.map((msg) => (
-                    <ChatMessage key={msg.id} message={msg} />
-                  ))}
-                  {isLoading && <TypingIndicator />}
+                  {displayMessages.map((msg, idx) => {
+                    // 计算 tool_call 的步骤序号
+                    let stepIndex: number | undefined;
+                    if (msg.role === 'tool_call') {
+                      stepIndex = displayMessages
+                        .slice(0, idx)
+                        .filter((m) => m.role === 'tool_call').length + 1;
+                    }
+                    return <ChatMessage key={msg.id} message={msg} stepIndex={stepIndex} />;
+                  })}
+                  {isLoading && !streamingMessages.some(m => m.role === 'assistant') && <TypingIndicator />}
                 </>
               )}
               <div ref={messagesEndRef} />
@@ -331,11 +418,12 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
           </div>
         </div>
       </div>
-      {showMCPConfig && (
-        <MCPConfigDialog
+      {showAgentConfig && (
+        <AgentConfigDialog
           lang={lang}
-          onClose={() => setShowMCPConfig(false)}
-          onSaved={handleMCPSaved}
+          onClose={() => setShowAgentConfig(false)}
+          onLLMSaved={() => handleAgentConfigSaved('llm')}
+          onMCPSaved={() => handleAgentConfigSaved('mcp')}
         />
       )}
     </>

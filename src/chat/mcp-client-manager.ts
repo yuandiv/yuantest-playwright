@@ -118,7 +118,7 @@ export class MCPClientManager {
         });
       }
 
-      await connection.client.connect(connection.transport);
+      await connection.client.connect(connection.transport, { timeout: 120000 });
       connection.connected = true;
 
       await this.refreshToolsForConnection(connection);

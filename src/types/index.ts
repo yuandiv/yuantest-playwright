@@ -25,6 +25,8 @@ export interface TestConfig {
   testMatch?: string[];
   testIgnore?: string[];
   ignoreDirs?: string[];
+  /** 进程级超时（毫秒），0 表示不限制。默认根据用例数和 timeout 自动估算 */
+  processTimeout?: number;
 }
 
 export type BrowserType = 'chromium' | 'firefox' | 'webkit';
@@ -736,8 +738,6 @@ export interface LLMConfig {
   remark: string;
   maxTokens: number;
   temperature: number;
-  /** Agent 循环最大工具调用轮数，默认 5 */
-  maxAgentRounds?: number;
 }
 
 /** 代码差异信息 */

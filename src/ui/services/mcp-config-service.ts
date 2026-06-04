@@ -47,8 +47,8 @@ export class MCPConfigService {
         name: 'playwright-mcp',
         enabled: true,
         command: 'npx',
-        args: ['@playwright/mcp@latest', '--headed'],
-        description: 'Playwright 浏览器自动化工具（有头模式，去掉 --headed 即无头模式）',
+        args: ['@playwright/mcp@latest'],
+        description: 'Playwright 浏览器自动化工具（默认有头模式，加 --headless 即无头模式）',
         source: 'builtin',
       },
       {
@@ -57,6 +57,54 @@ export class MCPConfigService {
         command: 'npx',
         args: ['-y', '@modelcontextprotocol/server-filesystem', '.'],
         description: '文件系统读写工具',
+        source: 'builtin',
+      },
+      {
+        name: 'windows-mcp',
+        enabled: false,
+        command: 'uvx',
+        args: ['windows-mcp', 'serve'],
+        description: 'Windows 操作系统自动化工具（文件导航、应用控制、UI 交互，需 Python 3.13+）',
+        source: 'builtin',
+      },
+      {
+        name: 'chrome-mcp',
+        enabled: false,
+        command: 'npx',
+        args: ['-y', 'mcp-chrome-bridge'],
+        description: 'Chrome 浏览器自动化工具（需安装 Chrome 扩展，复用现有登录状态）',
+        source: 'builtin',
+      },
+      {
+        name: 'context7',
+        enabled: false,
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp'],
+        description: '获取最新库文档和代码示例，避免 LLM 生成过时代码',
+        source: 'builtin',
+      },
+      {
+        name: 'markitdown-mcp',
+        enabled: false,
+        command: 'npx',
+        args: ['-y', 'markitdown-mcp-npx'],
+        description: '文件格式转换工具（29+ 格式转 Markdown，需 Python 3.10+）',
+        source: 'builtin',
+      },
+      {
+        name: 'excel-mcp-server',
+        enabled: false,
+        command: 'npx',
+        args: ['-y', '@negokaz/excel-mcp-server'],
+        description: 'Excel 文件读写工具（支持 xlsx/xlsm/xltx/xltm 格式）',
+        source: 'builtin',
+      },
+      {
+        name: 'mcp-doc-forge',
+        enabled: false,
+        command: 'npx',
+        args: ['-y', '@cablate/mcp-doc-forge'],
+        description: '文档处理工具（DOCX/PDF/HTML 读取转换、PDF 合并拆分、文本清洗比较）',
         source: 'builtin',
       },
     ];
@@ -78,11 +126,16 @@ export class MCPConfigService {
     }
 
     const presets = MCPConfigService.getBuiltinPresets();
-    const existingNames = new Set(Array.from(this.configs.values()).map((c) => c.name));
+    const existingByName = new Map<string, MCPConfig>();
+    for (const config of this.configs.values()) {
+      existingByName.set(config.name, config);
+    }
 
     let added = 0;
+    let updated = 0;
     for (const preset of presets) {
-      if (!existingNames.has(preset.name)) {
+      const existing = existingByName.get(preset.name);
+      if (!existing) {
         const now = Date.now();
         const config: MCPConfig = {
           id: crypto.randomUUID(),
@@ -98,12 +151,24 @@ export class MCPConfigService {
         };
         this.configs.set(config.id, config);
         added++;
+      } else if (existing.source === 'builtin') {
+        const needsUpdate =
+          existing.command !== preset.command ||
+          JSON.stringify(existing.args) !== JSON.stringify(preset.args) ||
+          existing.description !== preset.description;
+        if (needsUpdate) {
+          existing.command = preset.command;
+          existing.args = preset.args;
+          existing.description = preset.description;
+          existing.updatedAt = Date.now();
+          updated++;
+        }
       }
     }
 
-    if (added > 0) {
+    if (added > 0 || updated > 0) {
       changed = true;
-      this.log.info(`Initialized ${added} builtin MCP presets`);
+      this.log.info(`Initialized ${added} builtin MCP presets, updated ${updated}`);
     }
 
     if (changed) {

@@ -298,6 +298,20 @@ export class PlaywrightConfigMerger {
     const tmpDir = path.dirname(absolutePath);
     const tmpFile = path.join(tmpDir, `.yuantest-config-loader-${Date.now()}.js`);
 
+    // 检测 tsx 是否可用，仅在可用时添加 --require tsx/cjs
+    let tsxAvailable = false;
+    try {
+      require.resolve('tsx/cjs/api');
+      tsxAvailable = true;
+    } catch {
+      // tsx 不可用，不添加 --require
+    }
+
+    const envOptions: Record<string, string> = { ...(process.env as Record<string, string>) };
+    if (tsxAvailable) {
+      envOptions.NODE_OPTIONS = (envOptions.NODE_OPTIONS || '') + ' --require tsx/cjs';
+    }
+
     return new Promise((resolve, reject) => {
       try {
         fs.writeFileSync(tmpFile, loaderScript, 'utf-8');
@@ -322,7 +336,7 @@ export class PlaywrightConfigMerger {
 
       const child = spawn('node', [tmpFile, absolutePath], {
         cwd: path.dirname(absolutePath),
-        env: { ...process.env, NODE_OPTIONS: '--require tsx/cjs' },
+        env: envOptions,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
@@ -408,7 +422,7 @@ export class PlaywrightConfigMerger {
         return this.loadConfigWithTsx(absolutePath);
       } catch (tsxError) {
         const tsxMsg = tsxError instanceof Error ? tsxError.message : String(tsxError);
-        this.log.warn?.(`tsx load failed for ${absolutePath}, trying jiti: ${tsxMsg}`);
+        this.log.debug?.(`tsx load failed for ${absolutePath}, trying jiti: ${tsxMsg}`);
       }
     }
 
@@ -464,7 +478,7 @@ export class PlaywrightConfigMerger {
       return config?.default ?? config;
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.log.warn?.(`tsx load failed for ${absolutePath}: ${errMsg}`);
+      this.log.debug?.(`tsx load failed for ${absolutePath}: ${errMsg}`);
       throw new Error(`tsx load failed: ${errMsg}`, { cause: error });
     }
   }
