@@ -3,6 +3,8 @@ import { ChatMessage, TypingIndicator } from './chat/ChatMessage';
 import { ConversationList } from './chat/ConversationList';
 import { AgentConfigDialog } from './AgentConfigDialog';
 import { Lang, t, formatTemplate } from '../i18n';
+import { LLMStatus } from '../types';
+import * as api from '../services/api';
 import {
   listConversations,
   createConversation,
@@ -24,6 +26,26 @@ interface ChatPanelProps {
   onClose: () => void;
 }
 
+function renderLLMStatus(llmStatus: LLMStatus | null, lang: Lang) {
+  const isGreen = llmStatus?.status === 'green';
+  const isRed = llmStatus?.status === 'red';
+  const dotColor = isGreen ? 'bg-green-500' : isRed ? 'bg-red-500' : 'bg-yellow-500';
+  const textColor = isGreen ? 'text-green-600' : isRed ? 'text-red-500' : 'text-yellow-600';
+  const statusText = isGreen ? (t('llmConnected', lang)) : isRed ? (t('llmConnectionFailed', lang)) : (t('llmNotConfigured', lang));
+
+  return (
+    <span className={`flex items-center gap-1 text-xs ${textColor}`} title={statusText}>
+      <span className="relative flex h-2 w-2">
+        {isGreen && (
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+        )}
+        <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColor}`}></span>
+      </span>
+      LLM
+    </span>
+  );
+}
+
 function renderMCPStatus(mcpStatus: MCPConnectionStatus | null, lang: Lang) {
   if (!mcpStatus || mcpStatus.totalCount === 0) {
     return null;
@@ -35,37 +57,27 @@ function renderMCPStatus(mcpStatus: MCPConnectionStatus | null, lang: Lang) {
     .map((s) => `${s.name}: ${s.error || t('mcpConnectFailed', lang)}`)
     .join('\n');
 
-  if (connectedCount === totalCount && totalCount > 0) {
-    return (
-      <span className="flex items-center gap-1 text-green-600">
-        <i className="fas fa-circle text-[6px]"></i>
-        {formatTemplate(t('mcpStatusConnected', lang), {
-          connected: String(connectedCount),
-          total: String(totalCount),
-          tools: String(totalTools),
-        })}
-      </span>
-    );
-  }
+  const allConnected = connectedCount === totalCount && totalCount > 0;
+  const someConnected = connectedCount > 0;
 
-  if (connectedCount > 0) {
-    return (
-      <span className="flex items-center gap-1 text-yellow-600" title={errorTooltip}>
-        <i className="fas fa-circle text-[6px]"></i>
-        {formatTemplate(t('mcpStatusPartial', lang), {
-          connected: String(connectedCount),
-          total: String(totalCount),
-        })}
-      </span>
-    );
-  }
+  const dotColor = allConnected ? 'bg-green-500' : someConnected ? 'bg-yellow-500' : 'bg-gray-400';
+  const textColor = allConnected ? 'text-green-600' : someConnected ? 'text-yellow-600' : 'text-gray-400';
+
+  const statusText = allConnected
+    ? formatTemplate(t('mcpStatusConnected', lang), { connected: String(connectedCount), total: String(totalCount), tools: String(totalTools) })
+    : someConnected
+      ? formatTemplate(t('mcpStatusPartial', lang), { connected: String(connectedCount), total: String(totalCount) })
+      : formatTemplate(t('mcpStatusAllDown', lang), { total: String(totalCount) });
 
   return (
-    <span className="flex items-center gap-1 text-gray-400" title={errorTooltip}>
-      <i className="fas fa-circle text-[6px]"></i>
-      {formatTemplate(t('mcpStatusAllDown', lang), {
-        total: String(totalCount),
-      })}
+    <span className={`flex items-center gap-1 text-xs ${textColor}`} title={errorTooltip || statusText}>
+      <span className="relative flex h-2 w-2">
+        {allConnected && (
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+        )}
+        <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColor}`}></span>
+      </span>
+      {statusText}
     </span>
   );
 }
@@ -78,6 +90,7 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessages, setStreamingMessages] = useState<ChatMessageData[]>([]);
   const [mcpStatus, setMcpStatus] = useState<MCPConnectionStatus | null>(null);
+  const [llmStatus, setLlmStatus] = useState<LLMStatus | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showAgentConfig, setShowAgentConfig] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -95,12 +108,21 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
     if (status) setMcpStatus(status);
   }, []);
 
+  const loadLLMStatus = useCallback(async () => {
+    const status = await api.getLLMStatus();
+    if (status) setLlmStatus(status);
+  }, []);
+
   useEffect(() => {
     loadConversations();
     loadMCPStatus();
-    const interval = setInterval(loadMCPStatus, 10000);
+    loadLLMStatus();
+    const interval = setInterval(() => {
+      loadMCPStatus();
+      loadLLMStatus();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [loadConversations, loadMCPStatus]);
+  }, [loadConversations, loadMCPStatus, loadLLMStatus]);
 
   const handleSelectConversation = useCallback(async (id: string) => {
     setActiveConvId(id);
@@ -344,6 +366,7 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
                 {activeConv?.title || t('smartAssistant', lang)}
               </h2>
               <div className="flex items-center gap-2 text-xs">
+                {renderLLMStatus(llmStatus, lang)}
                 {isReconnecting ? (
                   <span className="flex items-center gap-1 text-blue-500">
                     <i className="fas fa-spinner fa-spin text-[8px]"></i>

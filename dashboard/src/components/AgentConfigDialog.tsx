@@ -125,7 +125,20 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.saveLLMConfig({ enabled, apiKey, baseUrl, model, remark, maxTokens, temperature });
+      // 保存前测试连接，若连接正常则自动启用 AI 诊断
+      let finalEnabled = enabled;
+      if (!enabled) {
+        try {
+          const testResult = await api.testLLMConnection({ enabled: true, apiKey, baseUrl, model, remark, maxTokens, temperature });
+          if (testResult?.success) {
+            finalEnabled = true;
+            setEnabled(true);
+          }
+        } catch {
+          // 测试失败，保持当前 enabled 状态
+        }
+      }
+      await api.saveLLMConfig({ enabled: finalEnabled, apiKey, baseUrl, model, remark, maxTokens, temperature });
       onSaved();
     } catch (e) {
       console.error('Failed to save LLM config:', e);
@@ -136,19 +149,18 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
 
   return (
     <div className="p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">{t('enableAiDiagnosis', lang) || 'Enable AI Diagnosis'}</label>
-          {llmStatus && (
-            <span className={`w-2.5 h-2.5 rounded-full ${llmStatus.status === 'green' ? 'bg-green-500' : llmStatus.status === 'red' ? 'bg-red-500' : 'bg-yellow-500'}`} title={llmStatus.status === 'green' ? (t('llmConnected', lang) || 'Connected') : llmStatus.status === 'red' ? (t('llmConnectionFailed', lang) || 'Failed') : (t('llmNotConfigured', lang) || 'Not configured')} />
-          )}
-        </div>
-        <button
-          onClick={() => setEnabled(!enabled)}
-          className={`relative w-11 h-6 rounded-full transition-colors ${enabled ? 'bg-purple-600' : 'bg-gray-300'}`}
-        >
-          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
-        </button>
+      <div className="flex items-center gap-2">
+        {llmStatus && (
+          <span className="relative flex h-2.5 w-2.5">
+            {llmStatus.status === 'green' && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+            )}
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${llmStatus.status === 'green' ? 'bg-green-500' : llmStatus.status === 'red' ? 'bg-red-500' : 'bg-yellow-500'}`} title={llmStatus.status === 'green' ? (t('llmConnected', lang) || 'Connected') : llmStatus.status === 'red' ? (t('llmConnectionFailed', lang) || 'Failed') : (t('llmNotConfigured', lang) || 'Not configured')} />
+          </span>
+        )}
+        {enabled && (
+          <span className="text-xs text-green-600">{t('llmConnected', lang) || 'Connected'}</span>
+        )}
       </div>
 
       {testResult && (

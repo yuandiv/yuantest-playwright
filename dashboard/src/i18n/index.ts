@@ -739,7 +739,6 @@ const en: Record<string, string> = {
   rootCause: 'Root Cause',
   model: 'Model',
   confidence: 'Confidence',
-  enableAiDiagnosis: 'Enable AI Diagnosis',
   apiAddress: 'API Address',
   apiKey: 'API Key',
   apiKeyOptional: 'Optional (not needed for local Ollama)',
