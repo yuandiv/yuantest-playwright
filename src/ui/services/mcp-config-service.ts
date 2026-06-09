@@ -79,20 +79,8 @@ export class MCPConfigService {
     ];
   }
 
-  private static DEPRECATED_PRESET_NAMES = ['playwright', 'playwright-headed', 'windows-mcp', 'markitdown-mcp', 'chrome-mcp', 'context7'];
-
   private initBuiltinPresets(): void {
     let changed = false;
-
-    for (const depName of MCPConfigService.DEPRECATED_PRESET_NAMES) {
-      for (const [id, config] of this.configs) {
-        if (config.name === depName && config.source === 'builtin') {
-          this.configs.delete(id);
-          changed = true;
-          this.log.info(`Removed deprecated preset: ${depName}`);
-        }
-      }
-    }
 
     const presets = MCPConfigService.getBuiltinPresets();
     const existingByName = new Map<string, MCPConfig>();
