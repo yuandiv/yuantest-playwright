@@ -54,6 +54,7 @@ export function buildRouterDeps(
     flakyManager: MutableRef.of(flakyManager),
     diagnosisService: container.resolve(TOKENS.DiagnosisService),
     agentService: container.resolve(TOKENS.AgentService),
+    chatService: container.resolve(TOKENS.ChatService),
     testDiscovery: container.resolve(TOKENS.TestDiscovery),
     cache: container.resolve(TOKENS.LRUCache),
     storage: container.resolve(TOKENS.StorageProvider),

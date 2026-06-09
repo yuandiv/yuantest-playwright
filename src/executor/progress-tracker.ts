@@ -342,7 +342,11 @@ const MARKER = '${PROGRESS_MARKER}';
 class ProgressReporter {
   onBegin(_config, suite) {
     const emit = (msg) => {
-      process.stderr.write(MARKER + JSON.stringify(msg) + '\\n');
+      try {
+        process.stderr.write(MARKER + JSON.stringify(msg) + '\\n');
+      } catch (e) {
+        // 静默忽略序列化或写入错误，不中断 Playwright reporter 调用链
+      }
     };
     this.emit = emit;
     this.consoleLogs = new Map();
@@ -406,7 +410,7 @@ class ProgressReporter {
         line: location.line,
         column: location.column,
         attachments: (lastResult.attachments || []).map(function(a) {
-          return { name: a.name, contentType: a.contentType, path: a.path, body: a.body ? a.body.toString('utf-8') : undefined };
+          return { name: a.name, contentType: a.contentType, path: a.path };
         })
       },
       consoleLogs: consoleLogs

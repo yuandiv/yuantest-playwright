@@ -1,10 +1,11 @@
+import type { AgentService } from '../../agents';
+import type { ChatService } from '../../chat/chat-service';
 import type { Router } from 'express';
 import type { Executor } from '../../executor';
 import type { Reporter } from '../../reporter';
 import type { RealtimeReporter } from '../../realtime';
 import type { FlakyTestManager } from '../../flaky';
 import type { DiagnosisService } from '../../diagnosis';
-import type { AgentService } from '../../agents';
 import type { TestDiscovery } from '../../discovery';
 import type { LRUCache } from '../../cache';
 import type { StorageProvider } from '../../storage';
@@ -24,6 +25,7 @@ export interface RouterDeps {
   flakyManager: { current: FlakyTestManager };
   diagnosisService: DiagnosisService;
   agentService: AgentService;
+  chatService: ChatService;
   testDiscovery: TestDiscovery;
 
   // Utility services

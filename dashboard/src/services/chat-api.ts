@@ -236,7 +236,7 @@ export async function getMCPConfigs(): Promise<MCPConfig[] | null> {
   }
 }
 
-export async function updateMCPConfig(id: string, config: Partial<MCPConfig>): Promise<MCPConfig | null> {
+export async function updateMCPConfig(id: string, config: Partial<MCPConfig>): Promise<{ config: MCPConfig; status?: MCPConnectionStatus } | null> {
   try {
     const res = await fetch(`${API_BASE}/chat/mcp-configs/${encodeURIComponent(id)}`, {
       method: 'PUT',

@@ -308,6 +308,10 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
     }
   }, [loadMCPStatus, reconnectMCP]);
 
+  const handleMCPToggled = useCallback(async () => {
+    await loadMCPStatus();
+  }, [loadMCPStatus]);
+
   const displayMessages: ChatMessageData[] = (() => {
     const source = streamingMessages.length > 0 ? streamingMessages : activeConv?.messages || [];
     // 合并连续的 tool_call + tool_result 为单条消息
@@ -447,6 +451,7 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
           onClose={() => setShowAgentConfig(false)}
           onLLMSaved={() => handleAgentConfigSaved('llm')}
           onMCPSaved={() => handleAgentConfigSaved('mcp')}
+          onMCPToggled={handleMCPToggled}
         />
       )}
     </>

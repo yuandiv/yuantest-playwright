@@ -129,8 +129,9 @@ export class MCPClientManager {
       );
       return true;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      this.log.warn(`Failed to connect to MCP server "${config.name}": ${errorMsg}`);
+      const rawMsg = error instanceof Error ? error.message : String(error);
+      this.log.warn(`Failed to connect to MCP server "${config.name}": ${rawMsg}`);
+      const errorMsg = this.friendlyErrorMessage(rawMsg, config.name);
       if (connection.transport) {
         try {
           await connection.transport.close();
@@ -300,6 +301,26 @@ export class MCPClientManager {
       }
     }
     return false;
+  }
+
+  private friendlyErrorMessage(rawMsg: string, serverName: string): string {
+    const msg = rawMsg.toLowerCase();
+    if (msg.includes('enotfound') || msg.includes('econnrefused') || msg.includes('econnreset')) {
+      return `无法连接到 "${serverName}"，请检查网络连接`;
+    }
+    if (msg.includes('npm err') && (msg.includes('network') || msg.includes('fetch'))) {
+      return `"${serverName}" 下载失败，当前可能处于离线环境，请检查网络或预先安装所需依赖`;
+    }
+    if (msg.includes('enoent') || msg.includes('command not found') || msg.includes('not found')) {
+      return `"${serverName}" 启动命令未找到，请确认已安装相关依赖`;
+    }
+    if (msg.includes('timeout') || msg.includes('timed out')) {
+      return `"${serverName}" 连接超时，请检查网络或增加超时时间`;
+    }
+    if (msg.includes('permission denied') || msg.includes('eacces')) {
+      return `"${serverName}" 权限不足，请检查执行权限`;
+    }
+    return rawMsg;
   }
 
   getStatus(): MCPConnectionStatus {

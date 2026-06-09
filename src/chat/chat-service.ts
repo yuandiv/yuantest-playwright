@@ -85,6 +85,17 @@ export class ChatService {
     await this.initMCP();
   }
 
+  async toggleMCPConnection(id: string, enabled: boolean): Promise<void> {
+    if (enabled) {
+      const config = this.mcpConfigService?.getConfig(id);
+      if (config) {
+        await this.mcpManager.connectFromConfig(config);
+      }
+    } else {
+      await this.mcpManager.disconnectServer(id);
+    }
+  }
+
   createConversation(title?: string): Conversation {
     return this.store.create(title);
   }

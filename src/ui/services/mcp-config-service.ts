@@ -59,38 +59,7 @@ export class MCPConfigService {
         description: '文件系统读写工具',
         source: 'builtin',
       },
-      {
-        name: 'windows-mcp',
-        enabled: false,
-        command: 'uvx',
-        args: ['windows-mcp', 'serve'],
-        description: 'Windows 操作系统自动化工具（文件导航、应用控制、UI 交互，需 Python 3.13+）',
-        source: 'builtin',
-      },
-      {
-        name: 'chrome-mcp',
-        enabled: false,
-        command: 'npx',
-        args: ['-y', 'mcp-chrome-bridge'],
-        description: 'Chrome 浏览器自动化工具（需安装 Chrome 扩展，复用现有登录状态）',
-        source: 'builtin',
-      },
-      {
-        name: 'context7',
-        enabled: false,
-        command: 'npx',
-        args: ['-y', '@upstash/context7-mcp'],
-        description: '获取最新库文档和代码示例，避免 LLM 生成过时代码',
-        source: 'builtin',
-      },
-      {
-        name: 'markitdown-mcp',
-        enabled: false,
-        command: 'npx',
-        args: ['-y', 'markitdown-mcp-npx'],
-        description: '文件格式转换工具（29+ 格式转 Markdown，需 Python 3.10+）',
-        source: 'builtin',
-      },
+
       {
         name: 'excel-mcp-server',
         enabled: false,
@@ -110,7 +79,7 @@ export class MCPConfigService {
     ];
   }
 
-  private static DEPRECATED_PRESET_NAMES = ['playwright', 'playwright-headed'];
+  private static DEPRECATED_PRESET_NAMES = ['playwright', 'playwright-headed', 'windows-mcp', 'markitdown-mcp', 'chrome-mcp', 'context7'];
 
   private initBuiltinPresets(): void {
     let changed = false;

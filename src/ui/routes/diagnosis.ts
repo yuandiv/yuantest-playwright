@@ -21,6 +21,9 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
     asyncHandler(async (req: Request, res: Response) => {
       const config = req.body;
       await deps.diagnosisService.saveConfig(config);
+      // 同步更新 ChatService 和 AgentService 的 LLM 配置
+      deps.chatService.updateLLMConfig(config);
+      deps.agentService.setLLMConfig(config);
       const maskedConfig = deps.diagnosisService.getMaskedConfig();
       res.json(maskedConfig);
     })

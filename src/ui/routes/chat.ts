@@ -120,7 +120,11 @@ export function createChatRouter(
         res.status(404).json({ error: 'MCP config not found' });
         return;
       }
-      res.json(config);
+      if (req.body.enabled !== undefined) {
+        await chatService.toggleMCPConnection(id, req.body.enabled);
+      }
+      const status = chatService.getMCPStatus();
+      res.json({ config, status });
     })
   );
 

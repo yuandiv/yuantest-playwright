@@ -8,6 +8,8 @@ import {
   updateMCPConfig,
   deleteMCPConfig,
   saveMCPConfigsFromJson,
+  getMCPStatus,
+  type MCPConnectionStatus,
 } from '../services/chat-api';
 
 interface AgentConfigDialogProps {
@@ -15,12 +17,13 @@ interface AgentConfigDialogProps {
   onClose: () => void;
   onLLMSaved: () => void;
   onMCPSaved: () => void;
+  onMCPToggled: () => void;
 }
 
 type TabKey = 'llm' | 'mcp';
 type MCPViewMode = 'list' | 'manual';
 
-export function AgentConfigDialog({ lang, onClose, onLLMSaved, onMCPSaved }: AgentConfigDialogProps) {
+export function AgentConfigDialog({ lang, onClose, onLLMSaved, onMCPSaved, onMCPToggled }: AgentConfigDialogProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('llm');
 
   return (
@@ -68,7 +71,7 @@ export function AgentConfigDialog({ lang, onClose, onLLMSaved, onMCPSaved }: Age
             {activeTab === 'llm' ? (
               <LLMConfigPanel lang={lang} onSaved={onLLMSaved} />
             ) : (
-              <MCPConfigPanel lang={lang} onSaved={onMCPSaved} />
+              <MCPConfigPanel lang={lang} onSaved={onMCPSaved} onToggled={onMCPToggled} />
             )}
           </div>
         </div>
@@ -273,11 +276,13 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
 }
 
 /** MCP 配置面板 */
-function MCPConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) {
+function MCPConfigPanel({ lang, onSaved, onToggled }: { lang: Lang; onSaved: () => void; onToggled: () => void }) {
   const [viewMode, setViewMode] = useState<MCPViewMode>('list');
   const [mcpServers, setMcpServers] = useState<MCPConfig[]>([]);
+  const [mcpStatus, setMcpStatus] = useState<MCPConnectionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
 
@@ -288,8 +293,9 @@ function MCPConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
   const loadMCPConfigs = async () => {
     setLoading(true);
     try {
-      const configs = await getMCPConfigs();
+      const [configs, status] = await Promise.all([getMCPConfigs(), getMCPStatus()]);
       if (configs) setMcpServers(configs);
+      if (status) setMcpStatus(status);
     } catch (err) {
       console.error('[MCPConfigPanel] loadMCPConfigs failed:', err);
     } finally {
@@ -297,13 +303,34 @@ function MCPConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
     }
   };
 
+  const loadMCPStatus = async () => {
+    try {
+      const status = await getMCPStatus();
+      if (status) setMcpStatus(status);
+    } catch (err) {
+      console.error('[MCPConfigPanel] loadMCPStatus failed:', err);
+    }
+  };
+
+  const getServerError = (id: string): string | undefined => {
+    return mcpStatus?.servers.find((s) => s.id === id)?.error;
+  };
+
+  const isServerConnected = (id: string): boolean => {
+    return mcpStatus?.servers.find((s) => s.id === id)?.connected ?? false;
+  };
+
   const handleToggleEnabled = async (id: string, enabled: boolean) => {
+    setTogglingId(id);
     try {
       await updateMCPConfig(id, { enabled });
       setMcpServers((prev) => prev.map((s) => (s.id === id ? { ...s, enabled } : s)));
-      onSaved();
+      await loadMCPStatus();
+      onToggled();
     } catch (err) {
       console.error('[MCPConfigPanel] toggleEnabled failed:', err);
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -383,18 +410,27 @@ function MCPConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
             </div>
           ) : (
             <div className="space-y-3">
-              {mcpServers.map((server) => (
-                <div key={server.id} className="bg-gray-50 rounded-xl p-4 flex items-center gap-4 border border-gray-100">
-                  <div className="flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                    <i className={`fas ${getPresetIcon(server.name)} text-indigo-500`}></i>
+              {mcpServers.map((server) => {
+                const serverError = server.enabled ? getServerError(server.id) : undefined;
+                const isConnected = server.enabled && isServerConnected(server.id);
+                const isToggling = togglingId === server.id;
+                return (
+                <div key={server.id} className={`rounded-xl p-4 flex items-center gap-4 border transition-colors duration-300 ${serverError ? 'bg-amber-50/50 border-amber-200/60' : 'bg-gray-50 border-gray-100'}`}>
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors duration-300 ${serverError ? 'bg-amber-100' : 'bg-indigo-50'}`}>
+                    <i className={`fas ${getPresetIcon(server.name)} ${serverError ? 'text-amber-500' : 'text-indigo-500'}`}></i>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-medium text-gray-700 truncate">{server.name}</h4>
-                      {server.enabled ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                          已启用
+                      {isToggling ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-indigo-500">
+                          <i className="fas fa-spinner fa-spin text-[10px]"></i>
+                          {server.enabled ? '禁用中...' : '启用中...'}
+                        </span>
+                      ) : server.enabled ? (
+                        <span className={`inline-flex items-center gap-1 text-xs transition-colors duration-300 ${isConnected ? 'text-green-600' : serverError ? 'text-amber-600' : 'text-green-600'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${isConnected ? 'bg-green-500' : serverError ? 'bg-amber-500' : 'bg-green-500'}`}></span>
+                          {isConnected ? '已连接' : serverError ? '连接异常' : '已启用'}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs text-gray-400">
@@ -414,13 +450,26 @@ function MCPConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
                         {server.command} {server.args?.join(' ')}
                       </code>
                     )}
+                    {serverError && (
+                      <p className="text-xs text-amber-600 mt-1.5 flex items-start gap-1">
+                        <i className="fas fa-exclamation-circle mt-0.5 flex-shrink-0"></i>
+                        <span>{serverError}</span>
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => handleToggleEnabled(server.id, !server.enabled)}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${server.enabled ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                      disabled={isToggling}
+                      className={`relative w-11 h-6 rounded-full transition-all duration-300 ${server.enabled ? 'bg-indigo-600' : 'bg-gray-300'} ${isToggling ? 'opacity-70 cursor-wait' : ''}`}
                     >
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${server.enabled ? 'translate-x-5' : ''}`} />
+                      {isToggling ? (
+                        <span className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow flex items-center justify-center">
+                          <i className="fas fa-spinner fa-spin text-gray-400 text-[8px]"></i>
+                        </span>
+                      ) : (
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${server.enabled ? 'translate-x-5' : ''}`} />
+                      )}
                     </button>
                     <button
                       onClick={() => handleDelete(server.id)}
@@ -430,7 +479,8 @@ function MCPConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

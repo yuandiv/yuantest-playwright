@@ -43,6 +43,9 @@ export class Executor extends EventEmitter {
   private resolvedOutputDir: string = '';
   private parentRunId: string | null = null;
   private progressTracker: ProgressTracker;
+  private settled: boolean = false;
+  private timeoutId: ReturnType<typeof setTimeout> | null = null;
+  private stallCheckId: ReturnType<typeof setInterval> | null = null;
 
   get currentRun(): RunResult | null {
     return this._currentRun;
@@ -260,8 +263,6 @@ export class Executor extends EventEmitter {
         const filteredOptions = await this.filterQuarantinedTests(options);
         await this.prepareRun(filteredOptions);
         await this.runPlaywrightTests(filteredOptions);
-        await this.postProcessRun(runId);
-        this._currentRun.status = 'success';
       } catch (error: unknown) {
         this._currentRun.status = 'failed';
         this.log.error(`Run failed: ${runId}`, error instanceof Error ? error : undefined);
@@ -269,15 +270,28 @@ export class Executor extends EventEmitter {
           error: error instanceof Error ? error.message : String(error),
           runId,
         });
-      } finally {
-        this._currentRun.endTime = Date.now();
-        this._currentRun.duration = this._currentRun.endTime - this._currentRun.startTime;
-        (this._currentRun.metadata as RunMetadata).skippedQuarantinedTests =
-          this.skippedQuarantinedTests;
-        this.log.info(
-          `Run completed: ${runId} (${this._currentRun.passed}/${this._currentRun.totalTests} passed, ${this.skippedQuarantinedTests.length} quarantined tests skipped)`
+      }
+
+      // 测试运行结束后立即发射完成信号，不等待后处理
+      this._currentRun.endTime = Date.now();
+      this._currentRun.duration = this._currentRun.endTime - this._currentRun.startTime;
+      (this._currentRun.metadata as RunMetadata).skippedQuarantinedTests =
+        this.skippedQuarantinedTests;
+      this.log.info(
+        `Run completed: ${runId} (${this._currentRun.passed}/${this._currentRun.totalTests} passed, ${this.skippedQuarantinedTests.length} quarantined tests skipped)`
+      );
+      this.emit('run_completed', this._currentRun);
+
+      // 后处理（移动报告、trace/artifact 发现等）在完成信号之后执行，不阻塞
+      try {
+        await this.postProcessRun(runId);
+        if (this._currentRun.status !== 'failed' && this._currentRun.status !== 'cancelled') {
+          this._currentRun.status = 'success';
+        }
+      } catch (error: unknown) {
+        this.log.warn(
+          `Post-processing failed for run ${runId}: ${error instanceof Error ? error.message : String(error)}`
         );
-        this.emit('run_completed', this._currentRun);
       }
 
       return this._currentRun;
@@ -410,6 +424,10 @@ module.exports = defineConfig({
     testFiles?: string[];
     testLocations?: string[];
   }): Promise<void> {
+    this.settled = false;
+    this.timeoutId = null;
+    this.stallCheckId = null;
+
     const testDir = this.config.testDir;
     const mergedConfig = await this.configMerger.mergeConfig(testDir, this.config.outputDir);
 
@@ -657,6 +675,12 @@ module.exports = defineConfig({
           }
           return;
         }
+        // 检查进程是否已退出但未触发 exit/close 事件
+        if (proc.exitCode !== null) {
+          this.log.warn('Process has exited but close event was not received, finalizing...');
+          finalize(proc.exitCode);
+          return;
+        }
         const elapsed = Date.now() - this.progressTracker.progressTimestamp;
         if (elapsed > 300000) {
           this.log.warn(
@@ -671,6 +695,7 @@ module.exports = defineConfig({
           return;
         }
         settled = true;
+        this.settled = true;
         cleanup();
         this.currentProcess = null;
         this.progressTracker.flushBuffer();
@@ -732,6 +757,11 @@ module.exports = defineConfig({
         );
       });
 
+      // exit 事件先于 close 触发，确保即使 close 不触发（Windows + shell:true 场景）Promise 也能 resolve
+      proc.on('exit', (code) => {
+        finalize(code ?? 1);
+      });
+
       proc.on('close', (code) => {
         finalize(code ?? 1);
       });
@@ -757,7 +787,11 @@ module.exports = defineConfig({
 
     if (exitCode !== 0) {
       this.log.warn(`Playwright tests finished with exit code: ${exitCode}`);
-      if (this._currentRun && this._currentRun.failed > 0) {
+      if (
+        this._currentRun &&
+        this._currentRun.failed > 0 &&
+        this._currentRun.status !== 'cancelled'
+      ) {
         this._currentRun.status = 'failed';
       }
     }
@@ -1191,10 +1225,26 @@ module.exports = defineConfig({
     return `run_${dayjs().format('YYYYMMDD_HHmmss')}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  private cleanupTimers(): void {
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+    if (this.stallCheckId) {
+      clearInterval(this.stallCheckId);
+      this.stallCheckId = null;
+    }
+  }
+
   async cancel(): Promise<void> {
     if (this.currentProcess) {
       this.log.info('Cancelling running tests...');
       const pid = this.currentProcess.pid;
+
+      // 设置 settled 标志，防止 close/exit 事件触发 finalize
+      this.settled = true;
+      this.cleanupTimers();
+      this.progressTracker.flushBuffer();
 
       if (pid) {
         if (process.platform === 'win32') {
