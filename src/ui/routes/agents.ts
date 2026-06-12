@@ -8,7 +8,7 @@ export function createAgentsRouter(deps: RouterDeps): Router {
   router.get(
     '/agents/config',
     asyncHandler(async (req: Request, res: Response) => {
-      const config = deps.agentService.getConfig();
+      const config = deps.aiService.getConfig();
       res.json(config);
     })
   );
@@ -16,8 +16,8 @@ export function createAgentsRouter(deps: RouterDeps): Router {
   router.get(
     '/agents/project-context',
     asyncHandler(async (req: Request, res: Response) => {
-      const projectRoot = deps.agentService.getProjectRoot();
-      const projectContext = deps.agentService.getProjectContext();
+      const projectRoot = deps.aiService.getProjectRoot();
+      const projectContext = deps.aiService.getProjectContext();
       res.json({ projectRoot, projectContext });
     })
   );
@@ -25,8 +25,8 @@ export function createAgentsRouter(deps: RouterDeps): Router {
   router.put(
     '/agents/config',
     asyncHandler(async (req: Request, res: Response) => {
-      deps.agentService.updateConfig(req.body);
-      const config = deps.agentService.getConfig();
+      deps.aiService.updateConfig(req.body);
+      const config = deps.aiService.getConfig();
       res.json(config);
     })
   );

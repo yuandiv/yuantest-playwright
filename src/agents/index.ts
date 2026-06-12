@@ -27,9 +27,8 @@ import { AgentPipelineOrchestrator } from './agent-pipeline-orchestrator';
 import { AgentFileOperations } from './agent-file-operations';
 
 /**
- * AgentService — 外观模式协调器。
- * 将配置管理、生命周期管理、会话管理、历史记录、流程编排和文件操作
- * 委托给各专职管理器，自身仅保留接口兼容层和 initAgents 初始化逻辑。
+ * AgentService — 向后兼容类。
+ * 新代码请使用 UnifiedAIService。
  */
 export class AgentService {
   private dataDir: string;
@@ -50,7 +49,6 @@ export class AgentService {
   ) {
     this.dataDir = dataDir;
 
-    // 初始化各管理器
     this.configManager = new AgentConfigManager(config);
     if (llmConfig) {
       this.configManager.setLLMConfig(llmConfig);
@@ -76,8 +74,6 @@ export class AgentService {
 
     this.configManager.loadProjectContext();
   }
-
-  // ─── 配置相关（委托给 AgentConfigManager）──────────────────
 
   setLLMConfig(config: LLMConfig): void {
     this.configManager.setLLMConfig(config);
@@ -113,8 +109,6 @@ export class AgentService {
   updateConfig(updates: Partial<AgentConfig>): void {
     this.configManager.updateConfig(updates);
   }
-
-  // ─── 初始化 Agent 环境 ──────────────────────────────────────
 
   async initAgents(loopTarget: AgentLoopTarget): Promise<AgentResult<AgentInitResult>> {
     const startTime = Date.now();
@@ -178,8 +172,6 @@ export class AgentService {
     });
   }
 
-  // ─── 业务操作（委托给 AgentPipelineOrchestrator）────────────
-
   async plan(
     description: string,
     options?: { seedTest?: string; prdPath?: string; outputDir?: string }
@@ -214,13 +206,9 @@ export class AgentService {
     return this.pipelineOrchestrator.applyPatches(patches);
   }
 
-  // ─── 历史记录（委托给 AgentHistoryManager）──────────────────
-
   async getHealHistory(): Promise<AgentHealResult[]> {
     return this.historyManager.getHealHistory();
   }
-
-  // ─── 计划查询 ──────────────────────────────────────────────
 
   parseMarkdownPlan(filePath: string): TestPlan | null {
     return PlannerAgent.parseMarkdownPlan(filePath);
@@ -247,13 +235,9 @@ export class AgentService {
     return plans.sort((a, b) => b.createdAt - a.createdAt);
   }
 
-  // ─── 会话上下文（委托给 AgentSessionManager）────────────────
-
   createSessionContext(): AgentSessionContext {
     return this.sessionManager.createSession();
   }
-
-  // ─── 完整管线（委托给 AgentPipelineOrchestrator）────────────
 
   async runPipeline(
     description: string,

@@ -9,7 +9,9 @@ export const TOKENS = {
   ToolRegistry: Symbol.for('ToolRegistry'),
   AgentService: Symbol.for('AgentService'),
   ChatService: Symbol.for('ChatService'),
+  UnifiedAIService: Symbol.for('UnifiedAIService'),
   MCPConfigService: Symbol.for('MCPConfigService'),
+  MCPClientManager: Symbol.for('MCPClientManager'),
 
   DiagnosisService: Symbol.for('DiagnosisService'),
   FlakyTestManager: Symbol.for('FlakyTestManager'),

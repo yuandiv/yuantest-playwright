@@ -30,8 +30,9 @@ import {
 | **Reporter** | Report generator, supports JSON/HTML reports and failure analysis | [Reporter API](reporter.md) |
 | **FlakyTestManager** | Flaky test manager, classification/root cause/correlation/trend/prediction/causal graph/quarantine | [FlakyTestManager API](flaky.md) |
 | **DashboardServer** | Dashboard server, REST API + WebSocket real-time push | [DashboardServer API](dashboard.md) |
-| **AgentService** | AI agent system, test planning/generation/healing | [AgentService API](agent.md) |
-| **ChatService** | AI chat service with MCP integration | [ChatService API](chat.md) |
+| **UnifiedAIService** | Unified AI service (chat + MCP + agent pipeline) | [UnifiedAIService API](ai-service.md) |
+| **AgentService** | AI agent system (merged into UnifiedAIService) | [AgentService API (deprecated)](agent.md) |
+| **ChatService** | AI chat service (merged into UnifiedAIService) | [ChatService API (deprecated)](chat.md) |
 | **RealtimeReporter** | Real-time event broadcasting via WebSocket | [RealtimeReporter API](realtime-reporter.md) |
 | **TraceManager** | Playwright trace file management | [TraceManager API](trace.md) |
 | **AnnotationManager** | Test annotation scanning and management | [AnnotationManager API](annotation.md) |
@@ -48,8 +49,9 @@ import {
 
 | Module | Class | Description |
 |--------|-------|-------------|
-| AgentService | `AgentService`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent` | AI agent system for test planning, generation, and healing |
-| ChatService | `ChatService`, `ConversationStore`, `MCPClientManager`, `MCPConfigService` | AI chat service with MCP integration |
+| UnifiedAIService | `UnifiedAIService`, `ConversationStore`, `MCPClientManager`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent` | Unified AI service combining chat + MCP + agent pipeline |
+| AgentService | `AgentService`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent` | (deprecated — see UnifiedAIService) |
+| ChatService | `ChatService`, `ConversationStore`, `MCPClientManager`, `MCPConfigService` | (deprecated — see UnifiedAIService) |
 | RealtimeReporter | `RealtimeReporter`, `RealtimeReporterClient` | Real-time event broadcasting via WebSocket |
 | TraceManager | `TraceManager` | Playwright trace file management |
 | AnnotationManager | `AnnotationManager` | Test annotation scanning and management |

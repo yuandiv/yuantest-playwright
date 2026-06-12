@@ -29,7 +29,8 @@ graph TB
 
 | Component | Source File | Responsibility |
 |-----------|-------------|----------------|
-| AgentService | `src/agents/index.ts` | Unified management, project context loading, plan/generate/heal orchestration |
+| UnifiedAIService | `src/ai/ai-service.ts` | Unified facade combining ChatService + AgentService |
+| AgentService (deprecated) | `src/agents/index.ts` | Backward compatible alias for UnifiedAIService |
 | PlannerAgent | `src/agents/planner.ts` | Generate structured test plans from feature descriptions |
 | GeneratorAgent | `src/agents/generator.ts` | Transform test plans into Playwright TypeScript code |
 | HealerAgent | `src/agents/healer.ts` | Analyze failing tests and generate fix patches |

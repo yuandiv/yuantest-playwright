@@ -1,5 +1,10 @@
 # ChatService API Reference
 
+> ⚠️ **Deprecated**: `ChatService` has been merged into `UnifiedAIService`.
+> New code should use `UnifiedAIService` from `yuantest-playwright` instead.
+> See [UnifiedAIService API Reference](ai-service.md) for the unified interface.
+> `ChatService` is kept for backward compatibility and will be removed in a future version.
+
 ChatService provides conversational AI capabilities, conversation management, and MCP (Model Context Protocol) tool integration for interactive chat-based workflows.
 
 All API paths use the `/api/v1/` prefix.

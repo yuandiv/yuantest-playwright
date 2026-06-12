@@ -44,8 +44,7 @@ import { TraceManager } from '../trace';
 import { ArtifactManager } from '../artifacts';
 import { VisualTestingManager } from '../visual';
 import { DiagnosisService } from '../diagnosis';
-import { AgentService } from '../agents';
-import { ChatService } from '../chat/chat-service';
+import { UnifiedAIService } from '../ai/ai-service';
 import { MCPConfigService } from './services/mcp-config-service';
 import { TestDiscovery } from '../discovery';
 import { LRUCache } from '../cache';
@@ -142,7 +141,7 @@ export class DashboardServer {
     v1Router.use(createAgentsRouter(this.deps));
     v1Router.use(
       createChatRouter(
-        this.container.resolve<ChatService>(TOKENS.ChatService),
+        this.container.resolve<UnifiedAIService>(TOKENS.UnifiedAIService),
         this.container.resolve<MCPConfigService>(TOKENS.MCPConfigService)
       )
     );
@@ -288,7 +287,7 @@ export class DashboardServer {
     this.deps.visualManager.current = newVisualManager;
 
     void logger.init(dataDirRef.current);
-    this.container.resolve<AgentService>(TOKENS.AgentService).setProjectRoot(absoluteDir);
+    this.container.resolve<UnifiedAIService>(TOKENS.UnifiedAIService).setProjectRoot(absoluteDir);
 
     this.invalidateAllCache();
 
@@ -455,8 +454,8 @@ export class DashboardServer {
     void logger.init(dataDirRef.current);
     realtimeReporter.initialize(this.server);
 
-    const chatService = this.container.resolve<ChatService>(TOKENS.ChatService);
-    chatService.initMCP().catch((err) => {
+    const aiService = this.container.resolve<UnifiedAIService>(TOKENS.UnifiedAIService);
+    aiService.initMCP().catch((err) => {
       this.log.warn(
         `Failed to initialize MCP: ${err instanceof Error ? err.message : String(err)}`
       );

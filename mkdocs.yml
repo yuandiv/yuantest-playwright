@@ -53,6 +53,7 @@ nav:
       - Reporter: api/reporter.md
       - FlakyTestManager: api/flaky.md
       - DashboardServer: api/dashboard.md
+      - UnifiedAIService: api/ai-service.md
       - AgentService: api/agent.md
       - ChatService: api/chat.md
       - RealtimeReporter: api/realtime.md

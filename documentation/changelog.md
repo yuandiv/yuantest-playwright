@@ -4,6 +4,20 @@ This file records all important changes to the project.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-xx
+
+### Changed
+
+#### UnifiedAIService — ChatService and AgentService Merged
+
+- **UnifiedAIService** — New unified facade class that combines `ChatService` (conversation + MCP) and `AgentService` (test planning/generation/healing) into a single `UnifiedAIService`.
+  - Single `updateLLMConfig()` replaces separate calls to `ChatService.updateLLMConfig()` and `AgentService.setLLMConfig()`
+  - Single `setProjectRoot()` replaces separate calls to both services
+  - `ChatService` and `AgentService` retained as backward-compatible aliases
+  - DI container: single registration for `UnifiedAIService`, old tokens point to same instance
+  - RouterDeps: `agentService` + `chatService` fields → single `aiService` field
+- **Source**: `src/ai/ai-service.ts` (693 lines, all sub-modules directly owned)
+
 ## 1.1.2 (2026-05-28)
 
 ### Bug Fixes

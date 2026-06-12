@@ -189,49 +189,21 @@ graph TB
   - 统一的读写接口，各模块通过 StorageProvider 访问数据
   - 支持未来扩展至数据库等其他存储后端
 
-### 3.9 AgentService — AI 代理系统
+### 3.9 UnifiedAIService — 统一 AI 服务（对话 + 代理）
 
-- **源码位置**：[src/agents/index.ts](file:///d:/Coding/yuantest-playwright/src/agents/index.ts)
-- **核心职责**：AI 驱动的测试创建和修复，提供智能测试规划、代码生成和失败修复能力
-- **子模块说明**：
+原先分为 `AgentService` 和 `ChatService + MCP`，现已完全合并为单个 `UnifiedAIService` 类，直接持有所有子模块，零委托。
 
-```mermaid
-graph TB
-    AGT[AgentService]
-
-    AGT --> PLA[planner.ts<br/>测试规划代理]
-    AGT --> GEN[generator.ts<br/>测试生成代理]
-    AGT --> HEA[healer.ts<br/>测试修复代理]
-
-    style AGT fill:#7e57c2
-    style PLA fill:#b39ddb
-    style GEN fill:#b39ddb
-    style HEA fill:#b39ddb
-```
-
-| 子模块 | 职责 |
-|--------|------|
-| planner.ts | 测试规划代理：根据功能描述生成结构化测试计划，感知项目上下文 |
-| generator.ts | 测试生成代理：将测试计划转换为可执行的 Playwright TypeScript 代码 |
-| healer.ts | 测试修复代理：分析失败测试并生成修复补丁，支持多轮修复 |
-
+- **源码位置**：[src/ai/ai-service.ts](file:///d:/Coding/yuantest-playwright/src/ai/ai-service.ts)
+- **核心职责**：统一的 AI 服务，合并对话式 AI（对话 + MCP）和 AI 驱动的测试创建/修复（Agent 管线）
 - **关键能力**：
-  - **项目上下文加载**：自动解析 playwright.config 获取 baseURL、timeout、testDir、viewport；从 package.json 检测技术栈；自动发现测试 Fixtures
-  - **Planner 代理**：从自然语言描述生成结构化测试计划（TestPlan），支持参考测试和 PRD 文档
-  - **Generator 代理**：将 Markdown 测试计划转换为 Playwright TypeScript 代码，使用现代定位器和最佳实践
-  - **Healer 代理**：多轮测试修复，生成补丁、统一 Diff 输出、置信度评分
-  - **自动修复**：可选自动应用补丁，含安全路径验证（仅允许项目根目录内的补丁）
+  - **对话管理**：创建、读取、列出、删除对话，支持持久化存储
+  - **MCP 集成**：连接/断开 MCP 服务器、列出工具、调用工具、管理 MCP 配置
+  - **Agent 管线**：Plan → Generate → Heal 测试创建工作流，完整配置支持
+  - **统一配置**：单一 `updateLLMConfig()` 和 `setProjectRoot()` 同步所有子系统
+  - **对话 + Agent 集成**：`executeTool()` 直接调用 `this.plan()`, `this.heal()` 等 — Agent 管线工具在聊天中原生可用
+  - **项目上下文**：自动加载 playwright.config 和 package.json，支持上下文感知的 Agent 操作
   - **修复历史**：持久化修复历史，自动清理（最多 100 条）
-  - **代理初始化**：为 VSCode/Claude/OpenCode 循环目标初始化代理定义
-
-### 3.10 ChatService + MCP — AI 聊天服务
-
-- **核心职责**：AI 聊天服务，集成模型上下文协议（MCP），提供对话式接口用于测试生成、修复和浏览器自动化
-- **关键能力**：
-  - 对话式接口用于测试生成和修复
-  - 集成模型上下文协议（MCP）用于工具和资源访问
-  - 通过聊天命令进行浏览器自动化
-  - 对话历史管理
+- **子模块**：`ConversationStore`、`MCPClientManager`、`PlannerAgent`、`GeneratorAgent`、`HealerAgent`、`AgentConfigManager`、`AgentLifecycleManager`、`AgentPipelineOrchestrator`、`AgentFileOperations`
 
 ### 3.11 ServiceContainer (DI) — 依赖注入容器
 

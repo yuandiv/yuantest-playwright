@@ -1,5 +1,10 @@
 # ChatService API 参考文档
 
+> ⚠️ **已废弃**：`ChatService` 已合并到 `UnifiedAIService`。
+> 新代码应使用 `yuantest-playwright` 中的 `UnifiedAIService`。
+> 参见 [UnifiedAIService API 参考](ai-service.zh.md) 了解统一接口。
+> `ChatService` 保留以保持向后兼容，将在未来版本中移除。
+
 ChatService 提供 AI 对话、MCP（Model Context Protocol）工具集成和会话管理功能，支持流式消息响应和工具调用。
 
 所有 API 路径均使用 `/api/v1/` 前缀。

@@ -29,7 +29,8 @@ import {
 | **Reporter** | 报告生成器，支持 JSON/HTML 报告和失败分析 | [Reporter API](reporter.md) |
 | **FlakyTestManager** | Flaky 测试管理器，分类/根因/关联/趋势/预测/因果图/隔离 | [FlakyTestManager API](flaky.md) |
 | **DashboardServer** | Dashboard 服务器，REST API + WebSocket 实时推送 | [DashboardServer API](dashboard.md) |
-| **ChatService** | AI 聊天服务，集成 MCP | [ChatService API](chat.md) |
+| **UnifiedAIService** | 统一 AI 服务（对话 + MCP + Agent 管线） | [UnifiedAIService API](ai-service.zh.md) |
+| **ChatService** | AI 聊天服务（已合并到 UnifiedAIService） | [ChatService API (已废弃)](chat.zh.md) |
 | **RealtimeReporter** | 通过 WebSocket 实时事件广播 | [RealtimeReporter API](realtime-reporter.md) |
 | **TraceManager** | Playwright Trace 文件管理 | [TraceManager API](trace.md) |
 | **AnnotationManager** | 测试注解扫描和管理 | [AnnotationManager API](annotation.md) |
@@ -46,8 +47,9 @@ import {
 
 | 模块 | 类 | 说明 |
 |--------|-------|-------------|
-| AgentService | `AgentService`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent` | AI 代理系统，用于测试计划、生成和修复 |
-| ChatService | `ChatService`, `ConversationStore`, `MCPClientManager`, `MCPConfigService` | AI 聊天服务，集成 MCP |
+| UnifiedAIService | `UnifiedAIService`, `ConversationStore`, `MCPClientManager`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent` | 统一 AI 服务，合并对话 + MCP + Agent 管线 |
+| AgentService | `AgentService`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent` | (已废弃 — 参见 UnifiedAIService) |
+| ChatService | `ChatService`, `ConversationStore`, `MCPClientManager`, `MCPConfigService` | (已废弃 — 参见 UnifiedAIService) |
 | RealtimeReporter | `RealtimeReporter`, `RealtimeReporterClient` | 通过 WebSocket 实时事件广播 |
 | TraceManager | `TraceManager` | Playwright Trace 文件管理 |
 | AnnotationManager | `AnnotationManager` | 测试注解扫描和管理 |

@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import type { ChatService, SSEEvent } from '../../chat/chat-service';
+import type { UnifiedAIService, SSEEvent } from '../../ai/ai-service';
 import { asyncHandler } from '../../middleware';
 import { MCPConfigService } from '../services/mcp-config-service';
 
 export function createChatRouter(
-  chatService: ChatService,
+  aiService: UnifiedAIService,
   mcpConfigService: MCPConfigService
 ): Router {
   const router = Router();
@@ -12,7 +12,7 @@ export function createChatRouter(
   router.get(
     '/chat/conversations',
     asyncHandler(async (_req: Request, res: Response) => {
-      const conversations = chatService.listConversations();
+      const conversations = aiService.listConversations();
       res.json(conversations);
     })
   );
@@ -21,7 +21,7 @@ export function createChatRouter(
     '/chat/conversations',
     asyncHandler(async (req: Request, res: Response) => {
       const { title } = req.body || {};
-      const conversation = chatService.createConversation(title);
+      const conversation = aiService.createConversation(title);
       res.json(conversation);
     })
   );
@@ -29,7 +29,7 @@ export function createChatRouter(
   router.get(
     '/chat/conversations/:id',
     asyncHandler(async (req: Request, res: Response) => {
-      const conversation = chatService.getConversation(req.params.id);
+      const conversation = aiService.getConversation(req.params.id);
       if (!conversation) {
         res.status(404).json({ error: 'Conversation not found' });
         return;
@@ -41,7 +41,7 @@ export function createChatRouter(
   router.delete(
     '/chat/conversations/:id',
     asyncHandler(async (req: Request, res: Response) => {
-      const success = chatService.deleteConversation(req.params.id);
+      const success = aiService.deleteConversation(req.params.id);
       res.json({ success });
     })
   );
@@ -57,7 +57,7 @@ export function createChatRouter(
 
       const conversationId = req.params.id;
 
-      const conversation = chatService.getConversation(conversationId);
+      const conversation = aiService.getConversation(conversationId);
       if (!conversation) {
         res.status(404).json({ error: 'Conversation not found' });
         return;
@@ -72,7 +72,7 @@ export function createChatRouter(
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       };
 
-      await chatService.sendMessage(conversationId, message, sendSSE);
+      await aiService.sendMessage(conversationId, message, sendSSE);
 
       res.end();
     })
@@ -81,7 +81,7 @@ export function createChatRouter(
   router.get(
     '/chat/mcp-status',
     asyncHandler(async (_req: Request, res: Response) => {
-      const status = chatService.getMCPStatus();
+      const status = aiService.getMCPStatus();
       res.json(status);
     })
   );
@@ -89,8 +89,8 @@ export function createChatRouter(
   router.post(
     '/chat/mcp-reconnect',
     asyncHandler(async (_req: Request, res: Response) => {
-      await chatService.reconnectMCP();
-      const status = chatService.getMCPStatus();
+      await aiService.reconnectMCP();
+      const status = aiService.getMCPStatus();
       res.json({ success: true, status });
     })
   );
@@ -98,7 +98,7 @@ export function createChatRouter(
   router.get(
     '/chat/tools',
     asyncHandler(async (_req: Request, res: Response) => {
-      const tools = chatService.getAllTools();
+      const tools = aiService.getAllTools();
       res.json(tools);
     })
   );
@@ -121,9 +121,9 @@ export function createChatRouter(
         return;
       }
       if (req.body.enabled !== undefined) {
-        await chatService.toggleMCPConnection(id, req.body.enabled);
+        await aiService.toggleMCPConnection(id, req.body.enabled);
       }
-      const status = chatService.getMCPStatus();
+      const status = aiService.getMCPStatus();
       res.json({ config, status });
     })
   );

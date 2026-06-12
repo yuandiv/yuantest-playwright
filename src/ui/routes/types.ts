@@ -1,5 +1,4 @@
-import type { AgentService } from '../../agents';
-import type { ChatService } from '../../chat/chat-service';
+import type { UnifiedAIService } from '../../ai/ai-service';
 import type { Router } from 'express';
 import type { Executor } from '../../executor';
 import type { Reporter } from '../../reporter';
@@ -24,8 +23,7 @@ export interface RouterDeps {
   realtimeReporter: RealtimeReporter;
   flakyManager: { current: FlakyTestManager };
   diagnosisService: DiagnosisService;
-  agentService: AgentService;
-  chatService: ChatService;
+  aiService: UnifiedAIService;
   testDiscovery: TestDiscovery;
 
   // Utility services

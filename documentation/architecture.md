@@ -189,49 +189,21 @@ graph TB
   - Unified read/write interface, all modules access data through StorageProvider
   - Support future extension to databases and other storage backends
 
-### 3.9 AgentService — AI Agent System
+### 3.9 UnifiedAIService — Unified AI Service (Chat + Agent)
 
-- **Source Location**: [src/agents/index.ts](file:///d:/Coding/yuantest-playwright/src/agents/index.ts)
-- **Core Responsibility**: AI-powered test creation and healing, providing intelligent test planning, code generation, and failure repair
-- **Submodule Description**:
+Previously split into `AgentService` and `ChatService + MCP`, these have been fully merged into a single `UnifiedAIService` class that directly owns all sub-modules with zero delegation.
 
-```mermaid
-graph TB
-    AGT[AgentService]
-
-    AGT --> PLA[planner.ts<br/>Planner Agent]
-    AGT --> GEN[generator.ts<br/>Generator Agent]
-    AGT --> HEA[healer.ts<br/>Healer Agent]
-
-    style AGT fill:#7e57c2
-    style PLA fill:#b39ddb
-    style GEN fill:#b39ddb
-    style HEA fill:#b39ddb
-```
-
-| Submodule | Responsibility |
-|-----------|----------------|
-| planner.ts | Planner agent: generate structured test plans from feature descriptions, with project context awareness |
-| generator.ts | Generator agent: transform test plans into executable Playwright TypeScript code |
-| healer.ts | Healer agent: analyze failing tests and generate fix patches, supporting multi-round healing |
-
+- **Source Location**: [src/ai/ai-service.ts](file:///d:/Coding/yuantest-playwright/src/ai/ai-service.ts)
+- **Core Responsibility**: Unified AI service combining conversational AI (chat + MCP) and AI-powered test creation/healing (agent pipeline)
 - **Key Capabilities**:
-  - **Project Context Loading**: Automatically parse playwright.config for baseURL, timeout, testDir, viewport; detect tech stack from package.json; discover test fixtures
-  - **Planner Agent**: Generate structured test plans (TestPlan) from natural language descriptions, supporting seed test and PRD references
-  - **Generator Agent**: Convert Markdown test plans into Playwright TypeScript code, using modern locators and best practices
-  - **Healer Agent**: Multi-round test healing with patch generation, unified diff output, confidence scoring
-  - **Auto Heal**: Optional automatic patch application with security path validation (patches only within project root)
+  - **Conversation Management**: Create, read, list, delete conversations with persistent storage
+  - **MCP Integration**: Connect/disconnect MCP servers, list tools, call tools, manage MCP configurations
+  - **Agent Pipeline**: Plan → Generate → Heal test creation workflow with full configuration support
+  - **Unified Configuration**: Single `updateLLMConfig()` and `setProjectRoot()` that synchronize across all subsystems
+  - **Chat + Agent Integration**: `executeTool()` directly calls `this.plan()`, `this.heal()`, etc. — agent pipeline tools are natively available in chat conversations
+  - **Project Context**: Auto-load playwright.config and package.json for context-aware agent operations
   - **Heal History**: Persistent healing history with auto-cleanup (max 100 entries)
-  - **Agent Init**: Initialize agent definitions for VSCode/Claude/OpenCode loop targets
-
-### 3.10 ChatService + MCP — AI Chat Service
-
-- **Core Responsibility**: AI-powered chat service with Model Context Protocol (MCP) integration, providing conversational interface for test generation, healing, and browser automation
-- **Key Capabilities**:
-  - Conversational interface for test generation and healing
-  - Model Context Protocol (MCP) integration for tool and resource access
-  - Browser automation through chat commands
-  - Conversation history management
+- **Sub-modules**: `ConversationStore`, `MCPClientManager`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent`, `AgentConfigManager`, `AgentLifecycleManager`, `AgentPipelineOrchestrator`, `AgentFileOperations`
 
 ### 3.11 ServiceContainer (DI) — Dependency Injection Container
 

@@ -9,9 +9,9 @@ import { PlaywrightConfigMerger } from '../config/merger';
 import { LRUCache } from '../cache';
 import { ToolRegistry } from '../agents/tool-registry';
 import { LLMService } from '../agents/llm-service';
-import { AgentService } from '../agents';
-import { ChatService } from '../chat/chat-service';
+import { UnifiedAIService } from '../ai/ai-service';
 import { MCPConfigService } from '../ui/services/mcp-config-service';
+import { MCPClientManager } from '../chat/mcp-client-manager';
 import { DiagnosisService } from '../diagnosis';
 import { FlakyTestManager } from '../flaky';
 import { Reporter } from '../reporter';
@@ -91,23 +91,7 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
     'singleton'
   );
 
-  container.register(
-    TOKENS.AgentService,
-    (c) => {
-      const dataDir = c.resolve<MutableRef<string>>(TOKENS.DataDir);
-      const llmConfig = c.resolve<LLMConfig | undefined>(TOKENS.LLMConfig);
-      const llmService = c.resolve<LLMService | null>(TOKENS.LLMService);
-      const toolRegistry = c.resolve<ToolRegistry>(TOKENS.ToolRegistry);
-      return new AgentService(
-        dataDir.current,
-        undefined,
-        llmConfig,
-        llmService ?? undefined,
-        toolRegistry
-      );
-    },
-    'singleton'
-  );
+  // ─── MCP 服务 ──────────────────────────────────────────────────────
 
   container.register(
     TOKENS.MCPConfigService,
@@ -119,23 +103,43 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
   );
 
   container.register(
-    TOKENS.ChatService,
+    TOKENS.MCPClientManager,
+    (c) => {
+      return new MCPClientManager(process.cwd());
+    },
+    'singleton'
+  );
+
+  // ─── UnifiedAIService（合并 ChatService + AgentService） ────────────
+
+  container.register(
+    TOKENS.UnifiedAIService,
     (c) => {
       const dataDir = c.resolve<MutableRef<string>>(TOKENS.DataDir);
       const llmConfig = c.resolve<LLMConfig | undefined>(TOKENS.LLMConfig);
       const llmService = c.resolve<LLMService | null>(TOKENS.LLMService);
       const toolRegistry = c.resolve<ToolRegistry>(TOKENS.ToolRegistry);
       const mcpConfigService = c.resolve<MCPConfigService>(TOKENS.MCPConfigService);
-      return new ChatService(
+      const mcpClientManager = c.resolve<MCPClientManager>(TOKENS.MCPClientManager);
+      return new UnifiedAIService(
         dataDir.current,
         process.cwd(),
         toolRegistry,
         llmConfig,
         llmService ?? undefined,
-        mcpConfigService
+        mcpConfigService,
+        mcpClientManager
       );
     },
     'singleton'
+  );
+
+  // 旧 token 作为 alias 指向同一 UnifiedAIService 实例（Phase 4 迁移完成前保留兼容）
+  container.register(TOKENS.AgentService, (c) =>
+    c.resolve<UnifiedAIService>(TOKENS.UnifiedAIService)
+  );
+  container.register(TOKENS.ChatService, (c) =>
+    c.resolve<UnifiedAIService>(TOKENS.UnifiedAIService)
   );
 
   container.register(

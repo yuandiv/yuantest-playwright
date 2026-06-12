@@ -1,5 +1,10 @@
 # AgentService API 参考
 
+> ⚠️ **已废弃**：`AgentService` 已合并到 `UnifiedAIService`。  
+> 新代码应使用 `yuantest-playwright` 中的 `UnifiedAIService`。  
+> 参见 [UnifiedAIService API 参考](ai-service.zh.md) 了解统一接口。  
+> `AgentService` 保留以保持向后兼容，将在未来版本中移除。
+
 AI 驱动的测试创建和修复代理系统。
 
 - **源码位置**：[src/agents/index.ts](file:///d:/Coding/yuantest-playwright/src/agents/index.ts)

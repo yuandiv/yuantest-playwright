@@ -1,5 +1,10 @@
 # AgentService API Reference
 
+> ⚠️ **Deprecated**: `AgentService` has been merged into `UnifiedAIService`.  
+> New code should use `UnifiedAIService` from `yuantest-playwright` instead.  
+> See [UnifiedAIService API Reference](ai-service.md) for the unified interface.  
+> `AgentService` is kept for backward compatibility and will be removed in a future version.
+
 AI-powered test creation and healing agent system.
 
 - **Source Location**: [src/agents/index.ts](file:///d:/Coding/yuantest-playwright/src/agents/index.ts)
