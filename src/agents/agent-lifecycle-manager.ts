@@ -73,7 +73,10 @@ export class AgentLifecycleManager {
       'generator',
       new GeneratorAgent(config, llmConfig, this.sharedLLMService ?? undefined)
     );
-    this.agents.set('healer', new HealerAgent(config, llmConfig, this.sharedLLMService ?? undefined));
+    this.agents.set(
+      'healer',
+      new HealerAgent(config, llmConfig, this.sharedLLMService ?? undefined)
+    );
 
     this.distributeToolRegistry();
   }

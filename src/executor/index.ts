@@ -158,6 +158,9 @@ export class Executor extends EventEmitter {
     this.progressTracker.on('output', (data) => this.emit('output', data));
     this.progressTracker.on('run_progress', (data) => this.emit('run_progress', data));
     this.progressTracker.on('test_result', (data) => this.emit('test_result', data));
+    this.progressTracker.on('all_tests_completed', (data) =>
+      this.emit('all_tests_completed', data)
+    );
     this.progressTracker.on('parse_error', (jsonStr: string) => {
       this.log.debug(`Failed to parse progress message: ${jsonStr}`);
     });
@@ -656,7 +659,7 @@ module.exports = defineConfig({
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
       let stallCheckId: ReturnType<typeof setInterval> | null = null;
 
-      const cleanup = () => {
+      let cleanup = () => {
         if (timeoutId) {
           clearTimeout(timeoutId);
           timeoutId = null;
@@ -667,7 +670,10 @@ module.exports = defineConfig({
         }
       };
 
-      stallCheckId = setInterval(() => {
+      let stallWarningCount = 0;
+      const MAX_STALL_WARNINGS = 3;
+
+      stallCheckId = setInterval(async () => {
         if (settled) {
           if (stallCheckId) {
             clearInterval(stallCheckId);
@@ -683,9 +689,53 @@ module.exports = defineConfig({
         }
         const elapsed = Date.now() - this.progressTracker.progressTimestamp;
         if (elapsed > 300000) {
+          stallWarningCount++;
+
+          // 检查是否所有测试用例均已收到结果，若进程未退出则强制结束
+          const stats = this.progressTracker.stats;
+          if (
+            stats.totalTests > 0 &&
+            stats.passed + stats.failed + stats.skipped >= stats.totalTests
+          ) {
+            this.log.warn(
+              `All ${stats.totalTests} tests completed but process still running after ${Math.round(elapsed / 1000)}s stall, force finalizing...`
+            );
+            if (proc.pid) {
+              if (process.platform === 'win32') {
+                await this.killProcessTreeWindows(proc.pid);
+              } else {
+                this.killProcessTreeUnix(proc.pid);
+              }
+            }
+            finalize(0);
+            return;
+          }
+
           this.log.warn(
-            `No progress received for ${Math.round(elapsed / 1000)}s, process may be stalled`
+            `No progress received for ${Math.round(elapsed / 1000)}s, process may be stalled (warning ${stallWarningCount}/${MAX_STALL_WARNINGS})`
           );
+
+          if (stallWarningCount >= MAX_STALL_WARNINGS) {
+            this.log.error(
+              `Process stalled after ${Math.round(elapsed / 1000)}s (${MAX_STALL_WARNINGS} consecutive warnings), killing process tree...`
+            );
+            this.emit('output', {
+              data: `⚠️ Process stalled after ${Math.round(elapsed / 1000)}s with no progress, terminating forcefully`,
+              timestamp: Date.now(),
+              runId: this._currentRun?.id || '',
+              type: 'stderr',
+            });
+            if (proc.pid) {
+              if (process.platform === 'win32') {
+                await this.killProcessTreeWindows(proc.pid);
+              } else {
+                this.killProcessTreeUnix(proc.pid);
+              }
+            }
+            finalize(1);
+          }
+        } else {
+          stallWarningCount = 0;
         }
       }, 60000);
       stallCheckId.unref();
@@ -700,6 +750,50 @@ module.exports = defineConfig({
         this.currentProcess = null;
         this.progressTracker.flushBuffer();
         resolve(code);
+      };
+
+      // 监听 all_tests_completed 事件：所有测试用例均已收到结果，
+      // 若进程还在运行则设置短等待期（30s）后强制结束
+      let allTestsCompletedGraceTimer: ReturnType<typeof setTimeout> | null = null;
+      const onAllTestsCompleted = () => {
+        if (settled) {
+          return;
+        }
+        if (allTestsCompletedGraceTimer) {
+          return;
+        } // 已有一个等待定时器，不重复设置
+        this.log.info(
+          'All tests completed via progress reporter, waiting 30s for process to exit gracefully...'
+        );
+        allTestsCompletedGraceTimer = setTimeout(async () => {
+          if (settled) {
+            return;
+          }
+          this.log.warn(
+            'Process did not exit within 30s after all tests completed, force finalizing...'
+          );
+          if (proc.pid) {
+            if (process.platform === 'win32') {
+              await this.killProcessTreeWindows(proc.pid);
+            } else {
+              this.killProcessTreeUnix(proc.pid);
+            }
+          }
+          finalize(0);
+        }, 30000);
+        allTestsCompletedGraceTimer.unref();
+      };
+      this.progressTracker.on('all_tests_completed', onAllTestsCompleted);
+
+      // 在 cleanup 中移除监听
+      const origCleanup = cleanup;
+      cleanup = () => {
+        origCleanup();
+        this.progressTracker.off('all_tests_completed', onAllTestsCompleted);
+        if (allTestsCompletedGraceTimer) {
+          clearTimeout(allTestsCompletedGraceTimer);
+          allTestsCompletedGraceTimer = null;
+        }
       };
 
       timeoutId =

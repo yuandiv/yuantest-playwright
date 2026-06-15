@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { TestResult, RunResult, SuiteResult, BrowserType } from '../types';
 import { PROGRESS_MARKER } from '../constants';
 import { stripAnsi } from '../utils/strings';
+import { logger } from '../logger';
 import { StorageProvider } from '../storage';
 import * as path from 'path';
 
@@ -49,6 +50,7 @@ export class ProgressTracker extends EventEmitter {
   private testSuiteIndex: Map<string, SuiteResult> = new Map();
   private _currentRun: RunResult | null = null;
   private storage: StorageProvider;
+  private log = logger.child('ProgressTracker');
 
   constructor(storage: StorageProvider) {
     super();
@@ -193,8 +195,49 @@ export class ProgressTracker extends EventEmitter {
       });
       this._currentRun.status = 'failed';
       this.emit('run_failed');
+    } else if (msg.type === 'end') {
+      // Playwright 进度报告器发送 end 消息表示所有测试执行完毕
+      this.log.debug('Received end progress message from Playwright reporter');
+      if (this.realtimeStats.totalTests > 0) {
+        const completed =
+          this.realtimeStats.passed + this.realtimeStats.failed + this.realtimeStats.skipped;
+        if (completed >= this.realtimeStats.totalTests) {
+          this.emit('all_tests_completed', {
+            runId: this._currentRun.id,
+            passed: this.realtimeStats.passed,
+            failed: this.realtimeStats.failed,
+            skipped: this.realtimeStats.skipped,
+            totalTests: this.realtimeStats.totalTests,
+          });
+        }
+      }
     } else if (msg.type === 'testEnd' && msg.test) {
       this.processTestEnd(msg);
+      // 每次 testEnd 后检查是否所有测试已完成
+      this.checkAllTestsCompleted();
+    }
+  }
+
+  /**
+   * 检查是否所有测试用例均已收到结果，若是则发出 all_tests_completed 事件。
+   * 这允许执行器在 Playwright 进程尚未退出时主动结束任务。
+   */
+  private checkAllTestsCompleted(): void {
+    if (!this._currentRun) {
+      return;
+    }
+    const { totalTests, passed, failed, skipped } = this.realtimeStats;
+    if (totalTests > 0 && passed + failed + skipped >= totalTests) {
+      this.log.debug(
+        `All ${totalTests} tests completed (passed=${passed}, failed=${failed}, skipped=${skipped})`
+      );
+      this.emit('all_tests_completed', {
+        runId: this._currentRun.id,
+        passed,
+        failed,
+        skipped,
+        totalTests,
+      });
     }
   }
 

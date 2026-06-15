@@ -1,12 +1,6 @@
 import * as path from 'path';
 import { logger } from '../logger';
-import {
-  AgentResult,
-  AgentSessionContext,
-  AgentHealResult,
-  HealerPatch,
-  TestPlan,
-} from '../types';
+import { AgentResult, AgentSessionContext, AgentHealResult, HealerPatch, TestPlan } from '../types';
 import { PlannerAgent } from './planner';
 import { HealerAgent } from './healer';
 import { PatchApplier } from './patch-applier';
@@ -330,8 +324,7 @@ export class AgentPipelineOrchestrator {
           const healResult = await this.executeHeal(testFile);
           if (healResult.success && healResult.data) {
             session.healHistory.push(healResult.data);
-            session.totalHealRounds =
-              (session.totalHealRounds || 0) + healResult.data.roundsUsed;
+            session.totalHealRounds = (session.totalHealRounds || 0) + healResult.data.roundsUsed;
             if (healResult.tokenUsage) {
               session.healTokenUsage = {
                 promptTokens:
