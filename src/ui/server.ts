@@ -48,6 +48,7 @@ import { UnifiedAIService } from '../ai/ai-service';
 import { MCPConfigService } from './services/mcp-config-service';
 import { TestDiscovery } from '../discovery';
 import { LRUCache } from '../cache';
+import { loadUserPreferences, saveUserPreferences } from '../config/loader';
 
 export class DashboardServer {
   private app: Express;
@@ -376,9 +377,7 @@ export class DashboardServer {
     const realtimeReporter = this.container.resolve<RealtimeReporter>(TOKENS.RealtimeReporter);
 
     try {
-      const prefs = await storage.readJSON<Record<string, unknown>>(
-        path.join(dataDirRef.current, 'user-preferences.json')
-      );
+      const prefs = loadUserPreferences();
       if (prefs?.testDir && typeof prefs.testDir === 'string') {
         await this.updatePathsForTestDir(prefs.testDir);
         this.log.info(`Restored testDir from preferences: ${prefs.testDir}`);
@@ -404,9 +403,7 @@ export class DashboardServer {
     }
 
     try {
-      const prefs = await storage.readJSON<Record<string, unknown>>(
-        path.join(dataDirRef.current, 'user-preferences.json')
-      );
+      const prefs = loadUserPreferences();
       if (prefs?.customErrorPatterns && Array.isArray(prefs.customErrorPatterns)) {
         loadPatternsFromConfig(
           prefs.customErrorPatterns as Array<{
@@ -483,15 +480,9 @@ export class DashboardServer {
         docLinks: p.docLinks,
       }));
 
-      const dataDirRef = this.container.resolve<MutableRef<string>>(TOKENS.DataDir);
-      const storage = this.container.resolve<StorageProvider>(TOKENS.StorageProvider);
-
-      const existing =
-        (await storage.readJSON<Record<string, unknown>>(
-          path.join(dataDirRef.current, 'user-preferences.json')
-        )) || {};
+      const existing = loadUserPreferences() || {};
       const merged = { ...existing, customErrorPatterns: serializedPatterns };
-      await storage.writeJSON(path.join(dataDirRef.current, 'user-preferences.json'), merged);
+      saveUserPreferences(merged);
       this.log.info(`Saved ${serializedPatterns.length} custom error patterns to user preferences`);
     } catch (e) {
       this.log.warn(

@@ -1,11 +1,11 @@
 import * as path from 'path';
-import * as fs from 'fs';
 import { ServiceContainer } from './service-container';
 import { MutableRef } from './mutable-ref';
 import { TOKENS } from './tokens';
 import { getStorage, type StorageProvider } from '../storage';
 import { TestDiscovery } from '../discovery';
 import { PlaywrightConfigMerger } from '../config/merger';
+import { loadLLMConfig } from '../config/loader';
 import { LRUCache } from '../cache';
 import { ToolRegistry } from '../agents/tool-registry';
 import { LLMService } from '../agents/llm-service';
@@ -27,22 +27,6 @@ export interface ContainerOptions {
   port: number;
   outputDir: string;
   dataDir: string;
-}
-
-function loadLLMConfig(dataDir: string): LLMConfig | undefined {
-  try {
-    const llmConfigPath = path.join(dataDir, 'llm-config.json');
-    if (fs.existsSync(llmConfigPath)) {
-      const llmContent = fs.readFileSync(llmConfigPath, 'utf-8');
-      const parsed = JSON.parse(llmContent);
-      if (parsed && parsed.enabled) {
-        return parsed;
-      }
-    }
-  } catch {
-    // LLM 配置文件不存在或解析失败
-  }
-  return undefined;
 }
 
 export function registerCoreServices(container: ServiceContainer, options: ContainerOptions): void {
@@ -69,8 +53,11 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
   );
 
   container.register(TOKENS.LLMConfig, (c) => {
-    const dataDir = c.resolve<MutableRef<string>>(TOKENS.DataDir);
-    return loadLLMConfig(dataDir.current);
+    const parsed = loadLLMConfig();
+    if (parsed?.enabled) {
+      return parsed as LLMConfig;
+    }
+    return undefined;
   });
 
   container.register(
@@ -95,10 +82,7 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
 
   container.register(
     TOKENS.MCPConfigService,
-    (c) => {
-      const dataDir = c.resolve<MutableRef<string>>(TOKENS.DataDir);
-      return new MCPConfigService({ dataDir: dataDir.current });
-    },
+    () => new MCPConfigService(),
     'singleton'
   );
 

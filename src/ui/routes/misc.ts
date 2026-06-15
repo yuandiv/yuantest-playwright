@@ -4,6 +4,7 @@ import { asyncHandler, validateBody } from '../../middleware';
 import { SavePreferencesRequestSchema, SetTestDirRequestSchema } from '../../validation';
 import * as path from 'path';
 import * as fs from 'fs';
+import { loadUserPreferences, saveUserPreferences } from '../../config/loader';
 
 export function createMiscRouter(deps: RouterDeps): Router {
   const router = Router();
@@ -233,9 +234,7 @@ export function createMiscRouter(deps: RouterDeps): Router {
   router.get(
     '/preferences',
     asyncHandler(async (req: Request, res: Response) => {
-      const prefs = await deps.storage.readJSON<Record<string, unknown>>(
-        path.join(deps.dataDir.current, 'user-preferences.json')
-      );
+      const prefs = loadUserPreferences();
       const effective = deps.flakyManager.current.getEffectiveConfig();
       res.json({
         ...(prefs || {}),
@@ -255,15 +254,9 @@ export function createMiscRouter(deps: RouterDeps): Router {
     '/preferences',
     validateBody(SavePreferencesRequestSchema),
     asyncHandler(async (req: Request, res: Response) => {
-      const existing =
-        (await deps.storage.readJSON<Record<string, unknown>>(
-          path.join(deps.dataDir.current, 'user-preferences.json')
-        )) || {};
+      const existing = loadUserPreferences() || {};
       const merged = { ...existing, ...req.body };
-      await deps.storage.writeJSON(
-        path.join(deps.dataDir.current, 'user-preferences.json'),
-        merged
-      );
+      saveUserPreferences(merged);
       if (req.body.flakyCriteria) {
         deps.flakyManager.current.setConfig({ flakyCriteria: req.body.flakyCriteria });
       }
@@ -308,15 +301,9 @@ export function createMiscRouter(deps: RouterDeps): Router {
       await deps.updatePathsForTestDir(testDir);
 
       try {
-        const existing =
-          (await deps.storage.readJSON<Record<string, string>>(
-            path.join(deps.dataDir.current, 'user-preferences.json')
-          )) || {};
+        const existing = loadUserPreferences() || {};
         const merged = { ...existing, testDir };
-        await deps.storage.writeJSON(
-          path.join(deps.dataDir.current, 'user-preferences.json'),
-          merged
-        );
+        saveUserPreferences(merged);
       } catch {
         // Ignore preference save errors for testdir
       }

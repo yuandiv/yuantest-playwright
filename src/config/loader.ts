@@ -5,8 +5,9 @@
  * 合并 CLI 参数与文件配置，提取 Dashboard 配置。
  * 不负责 Playwright 原生配置的处理（由 merger.ts 处理）。
  */
-import { TestConfig, BrowserType, TraceConfig, ArtifactConfig } from '../types';
+import { TestConfig, BrowserType, TraceConfig, ArtifactConfig, LLMConfig, type MCPConfig } from '../types';
 import * as path from 'path';
+import * as fs from 'fs';
 import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
 
@@ -332,4 +333,65 @@ export function getDashboardConfig(fileConfig: YuanTestConfigFile | null): {
     outputDir: './test-reports',
     dataDir: './test-data',
   };
+}
+/**
+ * 从 JSON 文件同步读取并解析，文件不存在或解析失败时返回 null。
+ */
+export function readJSONFile<T = Record<string, unknown>>(filePath: string): T | null {
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(content) as T;
+    }
+  } catch {
+    // 文件不存在或解析失败，静默忽略
+  }
+  return null;
+}
+
+/** 从 JSON 文件同步写入（自动创建目录） */
+function writeJSONFile(filePath: string, data: unknown): void {
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  } catch {
+    // 写入失败静默忽略
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 以下为三个配置文件的专用读写工具，直接操作 ./test-data/ 目录
+// ---------------------------------------------------------------------------
+
+export const CONFIG_DIR = process.env.YUANTEST_CONFIG_DIR || './test-data';
+
+// ── LLM 配置 ────────────────────────────────────────────────────────────────
+
+export function loadLLMConfig(): Partial<LLMConfig> | null {
+  return readJSONFile<Partial<LLMConfig>>(path.join(CONFIG_DIR, 'llm-config.json'));
+}
+
+export function saveLLMConfig(config: LLMConfig): void {
+  writeJSONFile(path.join(CONFIG_DIR, 'llm-config.json'), config);
+}
+
+// ── MCP 配置 ────────────────────────────────────────────────────────────────
+
+export function loadMCPConfigs(): MCPConfig[] | null {
+  const data = readJSONFile<unknown[]>(path.join(CONFIG_DIR, 'mcp-configs.json'));
+  return Array.isArray(data) ? (data as MCPConfig[]) : null;
+}
+
+export function saveMCPConfigs(configs: MCPConfig[]): void {
+  writeJSONFile(path.join(CONFIG_DIR, 'mcp-configs.json'), configs);
+}
+
+// ── 用户偏好 ────────────────────────────────────────────────────────────────
+
+export function loadUserPreferences(): Record<string, unknown> | null {
+  return readJSONFile<Record<string, unknown>>(path.join(CONFIG_DIR, 'user-preferences.json'));
+}
+
+export function saveUserPreferences(prefs: Record<string, unknown>): void {
+  writeJSONFile(path.join(CONFIG_DIR, 'user-preferences.json'), prefs);
 }

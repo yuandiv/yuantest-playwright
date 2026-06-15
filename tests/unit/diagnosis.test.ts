@@ -65,15 +65,32 @@ describe('DiagnosisService', () => {
   let tmpDir: string;
   let service: DiagnosisService;
   let originalFetch: typeof global.fetch;
+  const testConfigPath = path.join('test-data', 'llm-config.json');
+  let originalConfig: string | null = null;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'diagnosis-test-'));
     originalFetch = global.fetch;
+    // 保存并清除现有配置，保证测试环境干净
+    if (fs.existsSync(testConfigPath)) {
+      originalConfig = fs.readFileSync(testConfigPath, 'utf-8');
+      fs.rmSync(testConfigPath);
+    }
     service = new DiagnosisService(tmpDir);
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    // 恢复原始配置
+    try {
+      if (originalConfig !== null) {
+        fs.mkdirSync(path.dirname(testConfigPath), { recursive: true });
+        fs.writeFileSync(testConfigPath, originalConfig, 'utf-8');
+      }
+    } catch {
+      // ignore cleanup errors
+    }
+    // 清理临时目录
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     } catch {
@@ -91,7 +108,7 @@ describe('DiagnosisService', () => {
     });
 
     it('should handle corrupted config file gracefully', () => {
-      fs.writeFileSync(path.join(tmpDir, 'llm-config.json'), 'invalid json{{{');
+      fs.writeFileSync(path.join('test-data', 'llm-config.json'), 'invalid json{{{');
       const svc = new DiagnosisService(tmpDir);
       const config = svc.getMaskedConfig();
       expect(config.enabled).toBe(false);

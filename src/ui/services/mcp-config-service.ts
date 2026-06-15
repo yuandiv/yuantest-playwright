@@ -1,25 +1,9 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import * as crypto from 'crypto';
 import { logger } from '../../logger';
+import { loadMCPConfigs, saveMCPConfigs } from '../../config/loader';
+import type { MCPConfig } from '../../types';
 
-export interface MCPConfig {
-  id: string;
-  name: string;
-  enabled: boolean;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  description?: string;
-  source?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface MCPConfigServiceOptions {
-  dataDir: string;
-}
-
+/** MCP 内置预设（默认配置） */
 export interface MCPPreset {
   name: string;
   enabled: boolean;
@@ -28,61 +12,61 @@ export interface MCPPreset {
   env?: Record<string, string>;
   description: string;
   source: string;
+  timeout_ms?: number;
 }
+
+export const BUILTIN_MCP_PRESETS: MCPPreset[] = [
+  {
+    name: 'playwright-mcp',
+    enabled: true,
+    command: 'node',
+    args: ['node_modules/@playwright/mcp/cli.js'],
+    description: 'Playwright 浏览器自动化工具（本地加载，断网可用；加 --headless 即无头模式）',
+    source: 'builtin',
+    timeout_ms: 10000,
+  },
+  {
+    name: 'filesystem',
+    enabled: false,
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-filesystem', '.'],
+    description: '文件系统读写工具（首次运行需联网下载）',
+    source: 'builtin',
+    timeout_ms: 5000,
+  },
+  {
+    name: 'excel-mcp-server',
+    enabled: false,
+    command: 'npx',
+    args: ['-y', '@negokaz/excel-mcp-server'],
+    description: 'Excel 文件读写工具（支持 xlsx/xlsm/xltx/xltm 格式，首次运行需联网下载）',
+    source: 'builtin',
+    timeout_ms: 5000,
+  },
+  {
+    name: 'mcp-doc-forge',
+    enabled: false,
+    command: 'npx',
+    args: ['-y', '@cablate/mcp-doc-forge'],
+    description: '文档处理工具（DOCX/PDF/HTML 读取转换，首次运行需联网下载）',
+    source: 'builtin',
+    timeout_ms: 5000,
+  },
+];
 
 export class MCPConfigService {
   private configs: Map<string, MCPConfig> = new Map();
-  private filePath: string;
   private log = logger.child('MCPConfigService');
 
-  constructor(options: MCPConfigServiceOptions) {
-    this.filePath = path.join(options.dataDir, 'mcp-configs.json');
+  constructor() {
     this.loadConfigs();
     this.initBuiltinPresets();
-  }
-
-  static getBuiltinPresets(): MCPPreset[] {
-    return [
-      {
-        name: 'playwright-mcp',
-        enabled: true,
-        command: 'npx',
-        args: ['@playwright/mcp@latest'],
-        description: 'Playwright 浏览器自动化工具（默认有头模式，加 --headless 即无头模式）',
-        source: 'builtin',
-      },
-      {
-        name: 'filesystem',
-        enabled: false,
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-filesystem', '.'],
-        description: '文件系统读写工具',
-        source: 'builtin',
-      },
-
-      {
-        name: 'excel-mcp-server',
-        enabled: false,
-        command: 'npx',
-        args: ['-y', '@negokaz/excel-mcp-server'],
-        description: 'Excel 文件读写工具（支持 xlsx/xlsm/xltx/xltm 格式）',
-        source: 'builtin',
-      },
-      {
-        name: 'mcp-doc-forge',
-        enabled: false,
-        command: 'npx',
-        args: ['-y', '@cablate/mcp-doc-forge'],
-        description: '文档处理工具（DOCX/PDF/HTML 读取转换、PDF 合并拆分、文本清洗比较）',
-        source: 'builtin',
-      },
-    ];
   }
 
   private initBuiltinPresets(): void {
     let changed = false;
 
-    const presets = MCPConfigService.getBuiltinPresets();
+    const presets = BUILTIN_MCP_PRESETS;
     const existingByName = new Map<string, MCPConfig>();
     for (const config of this.configs.values()) {
       existingByName.set(config.name, config);
@@ -103,6 +87,7 @@ export class MCPConfigService {
           env: preset.env,
           description: preset.description,
           source: preset.source,
+          timeout_ms: preset.timeout_ms,
           createdAt: now,
           updatedAt: now,
         };
@@ -112,11 +97,13 @@ export class MCPConfigService {
         const needsUpdate =
           existing.command !== preset.command ||
           JSON.stringify(existing.args) !== JSON.stringify(preset.args) ||
-          existing.description !== preset.description;
+          existing.description !== preset.description ||
+          existing.timeout_ms !== preset.timeout_ms;
         if (needsUpdate) {
           existing.command = preset.command;
           existing.args = preset.args;
           existing.description = preset.description;
+          existing.timeout_ms = preset.timeout_ms;
           existing.updatedAt = Date.now();
           updated++;
         }
@@ -135,13 +122,10 @@ export class MCPConfigService {
 
   private loadConfigs(): void {
     try {
-      if (fs.existsSync(this.filePath)) {
-        const data = fs.readFileSync(this.filePath, 'utf-8');
-        const configs = JSON.parse(data);
-        if (Array.isArray(configs)) {
-          configs.forEach((config: MCPConfig) => {
-            this.configs.set(config.id, config);
-          });
+      const configs = loadMCPConfigs();
+      if (configs) {
+        for (const config of configs) {
+          this.configs.set(config.id, config);
         }
         this.log.info(`Loaded ${this.configs.size} MCP configs`);
       }
@@ -155,7 +139,7 @@ export class MCPConfigService {
   private saveConfigs(): void {
     try {
       const data = Array.from(this.configs.values());
-      fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf-8');
+      saveMCPConfigs(data);
     } catch (err) {
       this.log.warn(
         `Failed to save MCP configs: ${err instanceof Error ? err.message : String(err)}`

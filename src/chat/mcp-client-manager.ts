@@ -5,7 +5,7 @@ import * as path from 'path';
 import { logger } from '../logger';
 import { FILE_PATTERNS } from '../constants';
 import type { ToolSchema } from '../agents/tool-registry';
-import type { MCPConfig } from '../ui/services/mcp-config-service';
+import type { MCPConfig } from '../types';
 
 export interface MCPToolInfo {
   name: string;
@@ -118,7 +118,9 @@ export class MCPClientManager {
         });
       }
 
-      await connection.client.connect(connection.transport, { timeout: 120000 });
+      await connection.client.connect(connection.transport, {
+        timeout: config.timeout_ms ?? 30000,
+      });
       connection.connected = true;
 
       await this.refreshToolsForConnection(connection);

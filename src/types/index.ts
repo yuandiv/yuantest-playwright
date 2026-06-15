@@ -741,6 +741,20 @@ export interface LLMConfig {
   temperature: number;
 }
 
+export interface MCPConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  description?: string;
+  source?: string;
+  timeout_ms?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** 代码差异信息 */
 export interface CodeDiff {
   filePath: string;

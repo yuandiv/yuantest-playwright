@@ -15,6 +15,7 @@ import { enrichContext, EnrichedContext } from './context-enricher';
 import { LLMService } from '../agents/llm-service';
 import { ToolRegistry } from '../agents/tool-registry';
 import { TTLCache } from '../cache';
+import { loadLLMConfig, saveLLMConfig } from '../config/loader';
 
 const DEFAULT_CONFIG: LLMConfig = {
   enabled: false,
@@ -37,8 +38,8 @@ export class DiagnosisService {
   private llmService: LLMService | null = null;
   private toolRegistry: ToolRegistry | null = null;
 
-  constructor(dataDir: string, sharedLLMService?: LLMService, sharedToolRegistry?: ToolRegistry) {
-    this.dataDir = dataDir;
+  constructor(projectDataDir: string, sharedLLMService?: LLMService, sharedToolRegistry?: ToolRegistry) {
+    this.dataDir = projectDataDir;
     try {
       this.config = this.loadConfig();
     } catch {
@@ -61,19 +62,8 @@ export class DiagnosisService {
    * @returns 合并默认值后的 LLM 配置对象
    */
   private loadConfig(): LLMConfig {
-    const configPath = path.join(this.dataDir, 'llm-config.json');
-    try {
-      if (fs.existsSync(configPath)) {
-        const content = fs.readFileSync(configPath, 'utf-8');
-        const parsed = JSON.parse(content);
-        return { ...DEFAULT_CONFIG, ...parsed };
-      }
-    } catch (error) {
-      this.log.warn(
-        `Failed to load LLM config: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-    return { ...DEFAULT_CONFIG };
+    const parsed = loadLLMConfig();
+    return { ...DEFAULT_CONFIG, ...(parsed ?? {}) };
   }
 
   /**
@@ -85,10 +75,8 @@ export class DiagnosisService {
     this.clearCache();
     // 同步更新 LLMService
     this.updateLLMConfig(config);
-    const configPath = path.join(this.dataDir, 'llm-config.json');
     try {
-      await fs.promises.mkdir(this.dataDir, { recursive: true });
-      await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+      saveLLMConfig(config);
       this.log.info('LLM config saved');
     } catch (error) {
       this.log.error(

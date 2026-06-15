@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import type { UnifiedAIService, SSEEvent } from '../../ai/ai-service';
 import { asyncHandler } from '../../middleware';
-import { MCPConfigService } from '../services/mcp-config-service';
+import { MCPConfigService, BUILTIN_MCP_PRESETS } from '../services/mcp-config-service';
 
 export function createChatRouter(
   aiService: UnifiedAIService,
@@ -153,7 +153,7 @@ export function createChatRouter(
   router.get(
     '/chat/mcp-presets',
     asyncHandler(async (_req: Request, res: Response) => {
-      const presets = MCPConfigService.getBuiltinPresets();
+      const presets = BUILTIN_MCP_PRESETS;
       const existingConfigs = mcpConfigService.getConfigs();
       const existingNames = new Set(existingConfigs.map((c) => c.name));
       const presetsWithStatus = presets.map((p) => ({
@@ -172,7 +172,7 @@ export function createChatRouter(
         res.status(400).json({ error: 'name is required' });
         return;
       }
-      const presets = MCPConfigService.getBuiltinPresets();
+      const presets = BUILTIN_MCP_PRESETS;
       const preset = presets.find((p) => p.name === name);
       if (!preset) {
         res.status(404).json({ error: `Preset "${name}" not found` });

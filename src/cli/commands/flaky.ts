@@ -1,12 +1,11 @@
 import { Command } from 'commander';
-import * as path from 'path';
-import * as fs from 'fs';
 import chalk from 'chalk';
 import { FlakyTestManager } from '../../flaky';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { getStorage } from '../../storage';
 import { CliContext } from '../context';
+import { loadUserPreferences } from '../../config/loader';
 
 dayjs.extend(relativeTime);
 
@@ -22,18 +21,15 @@ export function registerFlakyCommands(program: Command, _ctx: CliContext): void 
     .action(async (options) => {
       const flakyManager = new FlakyTestManager('./test-data', {}, getStorage());
       try {
-        const prefsPath = path.join('./test-data', 'user-preferences.json');
-        if (fs.existsSync(prefsPath)) {
-          const prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf-8'));
-          if (prefs?.autoQuarantine !== undefined && typeof prefs.autoQuarantine === 'boolean') {
-            flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
-          }
-          if (prefs?.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
-            flakyManager.setConfig({ flakyCriteria: prefs.flakyCriteria });
-          }
-          if (prefs?.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
-            flakyManager.setConfig({ quarantineCriteria: prefs.quarantineCriteria });
-          }
+        const prefs = loadUserPreferences();
+        if (prefs?.autoQuarantine !== undefined && typeof prefs.autoQuarantine === 'boolean') {
+          flakyManager.setConfig({ autoQuarantine: prefs.autoQuarantine });
+        }
+        if (prefs?.flakyCriteria && typeof prefs.flakyCriteria === 'object') {
+          flakyManager.setConfig({ flakyCriteria: prefs.flakyCriteria });
+        }
+        if (prefs?.quarantineCriteria && typeof prefs.quarantineCriteria === 'object') {
+          flakyManager.setConfig({ quarantineCriteria: prefs.quarantineCriteria });
         }
       } catch {
         // ignore
