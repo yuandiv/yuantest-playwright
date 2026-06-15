@@ -655,6 +655,7 @@ export interface RunProgress {
   totalTests: number;
   currentSuite?: string;
   currentTest?: string;
+  currentTestId?: string;
   passed: number;
   failed: number;
   skipped: number;

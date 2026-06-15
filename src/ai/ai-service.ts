@@ -183,7 +183,9 @@ export class UnifiedAIService {
     }
     const configPath = this.mcpManager.findPlaywrightConfig();
     if (configPath) {
-      this.log.info('No MCP configs found, but playwright.config detected - using auto-detect fallback');
+      this.log.info(
+        'No MCP configs found, but playwright.config detected - using auto-detect fallback'
+      );
     }
   }
 
@@ -250,12 +252,16 @@ export class UnifiedAIService {
       return;
     }
 
+    // Build conversation history for LLM context (all messages except the current user message)
+    const historyMessages = conversation.messages.slice(0, -1);
+    const llmHistory = this.buildLLMHistory(historyMessages);
+
     const systemPrompt = this.buildSystemPrompt();
     const tools = this.getAllToolSchemas();
 
     try {
       const stream = this.llmService.chatWithAgentLoopStream(
-        { system: systemPrompt, user: userMessage },
+        { system: systemPrompt, user: userMessage, history: llmHistory },
         this.llmService.getConfig(),
         tools.length > 0 ? tools : undefined,
         undefined,
@@ -325,6 +331,20 @@ export class UnifiedAIService {
       this.log.warn(`Chat message failed: ${errorMsg}`);
       onEvent({ type: 'error', data: errorMsg });
     }
+  }
+
+  private buildLLMHistory(
+    messages: import('../chat/conversation-store').ChatMessage[]
+  ): import('../agents/llm-service').ChatMessage[] {
+    const history: import('../agents/llm-service').ChatMessage[] = [];
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        history.push({ role: 'user', content: msg.content });
+      } else if (msg.role === 'assistant') {
+        history.push({ role: 'assistant', content: msg.content });
+      }
+    }
+    return history;
   }
 
   private buildSystemPrompt(): string {
@@ -402,33 +422,26 @@ export class UnifiedAIService {
 
     // 2) Agent 管线工具 — 直接调用 this 上的方法，无需经过 ToolRegistry
     if (toolName === 'agent_plan') {
-      const result = await this.plan(
-        String(args.description),
-        {
-          seedTest: args.seedTest as string | undefined,
-          prdPath: args.prdPath as string | undefined,
-          outputDir: args.outputDir as string | undefined,
-        }
-      );
+      const result = await this.plan(String(args.description), {
+        seedTest: args.seedTest as string | undefined,
+        prdPath: args.prdPath as string | undefined,
+        outputDir: args.outputDir as string | undefined,
+      });
       return JSON.stringify(result, null, 2);
     }
 
     if (toolName === 'agent_generate') {
-      const result = await this.generate(
-        String(args.planPath),
-        { outputDir: args.outputDir as string | undefined }
-      );
+      const result = await this.generate(String(args.planPath), {
+        outputDir: args.outputDir as string | undefined,
+      });
       return JSON.stringify(result, null, 2);
     }
 
     if (toolName === 'agent_heal') {
-      const result = await this.heal(
-        String(args.testFilePath),
-        {
-          error: args.error as string | undefined,
-          stackTrace: args.stackTrace as string | undefined,
-        }
-      );
+      const result = await this.heal(String(args.testFilePath), {
+        error: args.error as string | undefined,
+        stackTrace: args.stackTrace as string | undefined,
+      });
       return JSON.stringify(result, null, 2);
     }
 
@@ -466,7 +479,10 @@ export class UnifiedAIService {
             properties: {
               description: { type: 'string', description: 'Feature description for test planning' },
               seedTest: { type: 'string', description: 'Reference seed test file path (optional)' },
-              prdPath: { type: 'string', description: 'Product requirement document path (optional)' },
+              prdPath: {
+                type: 'string',
+                description: 'Product requirement document path (optional)',
+              },
               outputDir: { type: 'string', description: 'Output directory for plans (optional)' },
             },
             required: ['description'],
@@ -482,7 +498,10 @@ export class UnifiedAIService {
             type: 'object',
             properties: {
               planPath: { type: 'string', description: 'Path to the test plan Markdown file' },
-              outputDir: { type: 'string', description: 'Output directory for generated test files (optional)' },
+              outputDir: {
+                type: 'string',
+                description: 'Output directory for generated test files (optional)',
+              },
             },
             required: ['planPath'],
           },
@@ -497,8 +516,14 @@ export class UnifiedAIService {
             type: 'object',
             properties: {
               testFilePath: { type: 'string', description: 'Path to the failing test file' },
-              error: { type: 'string', description: 'Error message from the test failure (optional)' },
-              stackTrace: { type: 'string', description: 'Stack trace from the test failure (optional)' },
+              error: {
+                type: 'string',
+                description: 'Error message from the test failure (optional)',
+              },
+              stackTrace: {
+                type: 'string',
+                description: 'Stack trace from the test failure (optional)',
+              },
             },
             required: ['testFilePath'],
           },

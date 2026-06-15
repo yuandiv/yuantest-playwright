@@ -157,6 +157,7 @@ export class ProgressTracker extends EventEmitter {
         failed: this.realtimeStats.failed,
         skipped: this.realtimeStats.skipped,
         currentTest: msg.test.fullTitle || msg.test.title,
+        currentTestId: msg.test.id,
       });
     } else if (msg.type === 'stdout' && msg.text) {
       this.emit('output', {
@@ -330,6 +331,7 @@ export class ProgressTracker extends EventEmitter {
       failed: this.realtimeStats.failed,
       skipped: this.realtimeStats.skipped,
       currentTest: testResult.fullTitle || testResult.title,
+      currentTestId: testResult.id,
     });
   }
 

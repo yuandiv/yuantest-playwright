@@ -3,12 +3,16 @@ dist/
 docs/
 coverage/
 site/
+logs/
 
 
 test-data/
 test-output/
 test-reports/
 test-sandbox/
+test-plans/
+test-results/
+
 
 *.log
 *.tsbuildinfo
@@ -35,4 +39,6 @@ Thumbs.db
 /html-report/
 
 # AtomCode local-scope configs (machine-specific)
+.atomcode*
 .atomcode
+AGENTS.md

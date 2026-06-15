@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { t, Lang } from './i18n';
 import { useWebSocket } from './hooks/useWebSocket';
 import * as api from './services/api';
@@ -54,6 +54,8 @@ function App() {
     messageRateLimiter, logBatchUpdater, addLog, clearLogs,
     formatStartError, restoreExecutionState,
   } = execution;
+
+  const lastRunningTestIdRef = useRef<string | null>(null);
 
   const flakyQuarantine = useFlakyQuarantine();
   const {
@@ -176,6 +178,15 @@ function App() {
       const progress = msg.payload;
       if (progress?.currentTest) {
         setCurrentTest(progress.currentTest);
+      }
+      if (progress?.currentTestId) {
+        // Reset previous running test back to 'pending'
+        if (lastRunningTestIdRef.current && lastRunningTestIdRef.current !== progress.currentTestId) {
+          scheduleStatusUpdate(lastRunningTestIdRef.current, { status: 'pending', lastDuration: null, lastError: null });
+        }
+        // Mark the new test as 'running'
+        scheduleStatusUpdate(progress.currentTestId, { status: 'running', lastDuration: null, lastError: null });
+        lastRunningTestIdRef.current = progress.currentTestId;
       }
     } else if (msg.type === 'log') {
       const logMsg = msg.payload?.message || '';

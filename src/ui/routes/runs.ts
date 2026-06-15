@@ -107,6 +107,7 @@ export function createRunsRouter(deps: RouterDeps): Router {
       executor.on('run_progress', (progress) => {
         deps.realtimeReporter.broadcastRunProgress(progress.runId, {
           currentTest: progress.currentTest,
+          currentTestId: progress.currentTestId,
           totalTests: progress.totalTests,
           passed: progress.passed,
           failed: progress.failed,

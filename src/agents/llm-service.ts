@@ -505,7 +505,7 @@ export class LLMService {
   }
 
   async *chatWithAgentLoopStream(
-    prompt: { system: string; user: string },
+    prompt: { system: string; user: string; history?: ChatMessage[] },
     config: LLMConfig,
     tools?: ToolSchema[],
     screenshotBase64?: string,
@@ -548,6 +548,7 @@ export class LLMService {
 
     const messages: ChatMessage[] = [
       { role: 'system', content: prompt.system },
+      ...(prompt.history || []),
       { role: 'user', content: userContent },
     ];
 
@@ -746,7 +747,7 @@ export class LLMService {
   }
 
   async chatWithAgentLoop(
-    prompt: { system: string; user: string },
+    prompt: { system: string; user: string; history?: ChatMessage[] },
     config: LLMConfig,
     tools?: ToolSchema[],
     screenshotBase64?: string,
@@ -798,6 +799,7 @@ export class LLMService {
 
     const messages: ChatMessage[] = [
       { role: 'system', content: prompt.system },
+      ...(prompt.history || []),
       { role: 'user', content: userContent },
     ];
 
