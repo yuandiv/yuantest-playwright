@@ -243,7 +243,7 @@ interface ErrorPattern {
 
 ### 工具定义
 
-Agent 循环提供 7 个默认工具（由 `ToolRegistry.createDefaultRegistry()` 注册，以 OpenAI function calling 格式定义）：
+Agent 循环提供 6 个默认工具（由 `ToolRegistry.createDefaultRegistry()` 注册，以 OpenAI function calling 格式定义）：
 
 | 工具名称 | 参数 | 说明 |
 |----------|------|------|
@@ -251,7 +251,6 @@ Agent 循环提供 7 个默认工具（由 `ToolRegistry.createDefaultRegistry()
 | `search_files` | `pattern` (必填), `filePattern?` | 按模式搜索文件 |
 | `run_test` | `testFilePath` (必填), `options?` | 运行指定测试 |
 | `apply_patch` | `filePath` (必填), `patch` (必填) | 对文件应用补丁 |
-| `explore_app` | `url` (必填), `action?` | 探索应用页面 |
 | `get_heal_history` | `testFilePath` (必填) | 获取测试修复历史 |
 | `list_plans` | `options?` | 列出测试计划 |
 
@@ -452,7 +451,7 @@ const DEFAULT_CONFIG: LLMConfig = {
 
 ### 连接测试
 
-- **测试端点**：`{baseUrl}/v1/models`
+- **测试端点**：`{baseUrl}/models`
 - **超时**：10 秒
 - **状态判定**：
   - `green`：已配置且连接正常
@@ -460,7 +459,8 @@ const DEFAULT_CONFIG: LLMConfig = {
   - `red`：已配置但连接失败
 
 ---
-<a id="diagnosis-result-types"></a>
+
+<a id="diagnosis-result-types"></a>
 
 ## 诊断结果类型
 
@@ -538,7 +538,8 @@ interface ReasoningStep {
 - **加载时机**：诊断前先检查持久化结果，存在则直接返回
 
 ---
-<a id="security-mechanisms"></a>
+
+<a id="security-mechanisms"></a>
 
 ## 安全机制
 

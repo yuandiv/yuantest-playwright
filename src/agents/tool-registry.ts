@@ -4,8 +4,7 @@ import { logger } from '../logger';
 import { readSourceCode, encodeScreenshot } from '../diagnosis/context-enricher';
 import { TestRunner } from './test-runner';
 import { PatchApplier } from './patch-applier';
-import { AppExplorer } from './explorer';
-import type { HealerPatch, ExploreOptions } from '../types';
+import type { HealerPatch } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -441,103 +440,6 @@ export class ToolRegistry {
       }
     );
 
-    // 7. explore_app
-    registry.registerTool(
-      'explore_app',
-      {
-        type: 'function',
-        function: {
-          name: 'explore_app',
-          description: "Explore a web application's page structure using a browser",
-          parameters: {
-            type: 'object',
-            properties: {
-              url: { type: 'string', description: 'URL of the application to explore' },
-              maxDepth: { type: 'number', description: 'Maximum crawl depth (default 2)' },
-              credentials: {
-                type: 'object',
-                description: '{ username, password } for login (optional)',
-                properties: {
-                  username: { type: 'string' },
-                  password: { type: 'string' },
-                },
-              },
-            },
-            required: ['url'],
-          },
-        },
-      },
-      async (args) => {
-        const url = args.url as string;
-        const maxDepth = args.maxDepth as number | undefined;
-        const credentials = args.credentials as { username: string; password: string } | undefined;
-
-        try {
-          const explorer = new AppExplorer();
-          const options: ExploreOptions = {};
-          if (maxDepth !== undefined) {
-            options.maxDepth = maxDepth;
-          }
-          if (credentials) {
-            options.credentials = credentials;
-          }
-
-          const result = await explorer.explore(url, options);
-
-          // 格式化探索结果摘要
-          let output = `App exploration result for ${url}:\n`;
-          output += `  Pages discovered: ${result.pages.length}\n`;
-          output += `  Routes found: ${result.routes.length}\n\n`;
-
-          // 各页面摘要
-          for (const page of result.pages) {
-            output += `Page: ${page.title || 'Untitled'} (${page.url})\n`;
-            output += `  Interactive elements: ${page.interactiveElements.length}\n`;
-            output += `  Forms: ${page.forms.length}\n`;
-            output += `  Links: ${page.links.length}\n`;
-
-            // 列出交互元素（最多10个）
-            if (page.interactiveElements.length > 0) {
-              const elements = page.interactiveElements.slice(0, 10);
-              output += '  Elements:\n';
-              for (const el of elements) {
-                output += `    - [${el.role}] ${el.name}\n`;
-              }
-              if (page.interactiveElements.length > 10) {
-                output += `    ... and ${page.interactiveElements.length - 10} more\n`;
-              }
-            }
-
-            // 列出表单
-            if (page.forms.length > 0) {
-              output += '  Forms:\n';
-              for (const form of page.forms) {
-                output += `    - ${form.name} (${form.fields.length} fields)\n`;
-              }
-            }
-
-            output += '\n';
-          }
-
-          // 路由列表
-          if (result.routes.length > 0) {
-            output += 'Routes:\n';
-            for (const route of result.routes) {
-              output += `  - ${route}\n`;
-            }
-          }
-
-          // 限制输出长度，避免超出约4000字符
-          if (output.length > 4000) {
-            output = output.slice(0, 3950) + '\n... (output truncated)';
-          }
-
-          return output;
-        } catch (error) {
-          return `Failed to explore app: ${error instanceof Error ? error.message : String(error)}`;
-        }
-      }
-    );
 
     return registry;
   }

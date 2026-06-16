@@ -60,7 +60,7 @@ describe('LLMService', () => {
       await client.chat({ systemPrompt: 'sys', userPrompt: 'usr' });
 
       const calledUrl = fetchSpy.mock.calls[0][0] as string;
-      expect(calledUrl).toBe('http://localhost:11434/v1/chat/completions');
+      expect(calledUrl).toBe('http://localhost:11434/chat/completions');
     });
 
     it('should construct URL correctly when baseUrl has a trailing slash', async () => {
@@ -74,7 +74,7 @@ describe('LLMService', () => {
       await client.chat({ systemPrompt: 'sys', userPrompt: 'usr' });
 
       const calledUrl = fetchSpy.mock.calls[0][0] as string;
-      expect(calledUrl).toBe('http://localhost:11434/v1/chat/completions');
+      expect(calledUrl).toBe('http://localhost:11434/chat/completions');
     });
 
     it('should construct URL correctly when baseUrl has multiple trailing slashes', async () => {
@@ -88,7 +88,7 @@ describe('LLMService', () => {
       await client.chat({ systemPrompt: 'sys', userPrompt: 'usr' });
 
       const calledUrl = fetchSpy.mock.calls[0][0] as string;
-      expect(calledUrl).toBe('http://localhost:11434/v1/chat/completions');
+      expect(calledUrl).toBe('http://localhost:11434/chat/completions');
     });
   });
 
@@ -112,7 +112,7 @@ describe('LLMService', () => {
 
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       const [url, init] = fetchSpy.mock.calls[0];
-      expect(url).toBe('http://localhost:11434/v1/chat/completions');
+      expect(url).toBe('http://localhost:11434/chat/completions');
 
       const body = JSON.parse((init as RequestInit).body as string);
       expect(body.model).toBe('gpt-test');
@@ -297,7 +297,7 @@ describe('LLMService', () => {
       await client.chat({ systemPrompt: 'sys', userPrompt: 'usr' });
 
       const [url, init] = fetchSpy.mock.calls[0];
-      expect(url).toBe('http://updated-host:9090/v1/chat/completions');
+      expect(url).toBe('http://updated-host:9090/chat/completions');
 
       const body = JSON.parse((init as RequestInit).body as string);
       expect(body.model).toBe('updated-model');

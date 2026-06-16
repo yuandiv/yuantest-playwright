@@ -23,6 +23,11 @@ test-results/
 .env.local
 .env.*.local
 
+# AtomCode local-scope configs (machine-specific)
+.atomcode*
+.atomcode
+AGENTS.md
+
 .DS_Store
 Thumbs.db
 
@@ -38,7 +43,8 @@ Thumbs.db
 /visual-testing/
 /html-report/
 
-# AtomCode local-scope configs (machine-specific)
-.atomcode*
-.atomcode
-AGENTS.md
+.playwright-mcp/
+specs
+
+
+

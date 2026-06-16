@@ -357,7 +357,7 @@ describe('LLM Config API Integration', () => {
 
       expect(result.success).toBe(true);
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:11434/v1/models',
+        'http://localhost:11434/models',
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
     });
@@ -368,7 +368,7 @@ describe('LLM Config API Integration', () => {
       const result = await service.testConnection({
         enabled: true,
         apiKey: 'sk-test-key',
-        baseUrl: 'https://api.openai.com',
+        baseUrl: 'https://api.openai.com/v1',
         model: 'gpt-4o',
         remark: '',
         maxTokens: 2048,

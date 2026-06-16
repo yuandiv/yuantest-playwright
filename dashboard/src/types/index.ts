@@ -434,6 +434,7 @@ export interface LLMConfig {
   remark: string;
   maxTokens: number;
   temperature: number;
+  chatTemplateKwargs?: boolean;
 }
 
 export interface LLMStatus {

@@ -1,7 +1,7 @@
 import type { Mock } from 'vitest';
 import { vi } from 'vitest';
 import { PlannerAgent, PLANNER_SYSTEM_PROMPT_ZH, PLANNER_SYSTEM_PROMPT_EN, PLANNER_FEW_SHOT_ZH, PLANNER_FEW_SHOT_EN } from '../../src/agents/planner';
-import { AgentConfig, LLMConfig, AppExplorationResult, PageSnapshot } from '../../src/types';
+import { AgentConfig, LLMConfig } from '../../src/types';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -80,40 +80,6 @@ const TRUNCATED_PLAN_REPAIRABLE =
 
 /** Completely invalid (non-JSON) response. */
 const INVALID_PLAN_RESPONSE = 'Sorry, I cannot generate a test plan for this.';
-
-/** Sample AppExplorationResult for buildExplorationPrompt tests. */
-function createSampleExplorationResult(): AppExplorationResult {
-  return {
-    baseURL: 'https://example.com',
-    pages: [
-      {
-        url: 'https://example.com/login',
-        title: 'Login Page',
-        interactiveElements: [
-          { role: 'textbox', name: 'Username', selector: '#username', type: 'text' },
-          { role: 'textbox', name: 'Password', selector: '#password', type: 'password', required: true },
-          { role: 'button', name: 'Login', selector: '#login-btn' },
-        ],
-        forms: [
-          {
-            name: 'loginForm',
-            fields: [
-              { role: 'textbox', name: 'Username', selector: '#username' },
-              { role: 'textbox', name: 'Password', selector: '#password' },
-            ],
-            submitButton: { role: 'button', name: 'Login', selector: '#login-btn' },
-          },
-        ],
-        links: [
-          { text: 'Forgot Password', href: '/forgot', selector: 'a.forgot' },
-          { text: 'Sign Up', href: '/register', selector: 'a.signup' },
-        ],
-      },
-    ],
-    routes: ['/login', '/dashboard', '/register'],
-    exploredAt: Date.now(),
-  };
-}
 
 // ── Tests ────────────────────────────────────────────────────────────
 
@@ -199,78 +165,6 @@ describe('PlannerAgent', () => {
     it('throws if LLM is not enabled', async () => {
       const agent = new PlannerAgent(createAgentConfig(), null);
       await expect(agent.generatePlan('test')).rejects.toThrow('LLM is not enabled');
-    });
-  });
-
-  // ── buildExplorationPrompt ───────────────────────────────────────
-
-  describe('buildExplorationPrompt', () => {
-    it('builds Chinese exploration prompt when lang is zh', () => {
-      const agent = new PlannerAgent(createAgentConfig({ language: 'zh' }), createLLMConfig());
-      const result = createSampleExplorationResult();
-      const prompt = agent.buildExplorationPrompt(result, 'zh');
-
-      expect(prompt).toContain('被测应用页面结构');
-      expect(prompt).toContain('应用 URL: https://example.com');
-      expect(prompt).toContain('发现页面数: 1');
-      expect(prompt).toContain('发现路由: /login, /dashboard, /register');
-      expect(prompt).toContain('页面: /login');
-      expect(prompt).toContain('标题: "Login Page"');
-      expect(prompt).toContain('交互元素');
-      expect(prompt).toContain('textbox "Username"');
-      expect(prompt).toContain('textbox "Password"');
-      expect(prompt).toContain('[必填]');
-      expect(prompt).toContain('type=password');
-      expect(prompt).toContain('表单');
-      expect(prompt).toContain('loginForm');
-      expect(prompt).toContain('提交按钮: Login');
-      expect(prompt).toContain('导航链接');
-      expect(prompt).toContain('"Forgot Password" -> /forgot');
-      expect(prompt).toContain('请根据以上实际页面结构生成精确的测试计划');
-    });
-
-    it('builds English exploration prompt when lang is en', () => {
-      const agent = new PlannerAgent(createAgentConfig({ language: 'en' }), createLLMConfig());
-      const result = createSampleExplorationResult();
-      const prompt = agent.buildExplorationPrompt(result, 'en');
-
-      expect(prompt).toContain('Application Page Structure');
-      expect(prompt).toContain('Application URL: https://example.com');
-      expect(prompt).toContain('Pages discovered: 1');
-      expect(prompt).toContain('Routes discovered: /login, /dashboard, /register');
-      expect(prompt).toContain('Page: /login');
-      expect(prompt).toContain('Title: "Login Page"');
-      expect(prompt).toContain('Interactive Elements');
-      expect(prompt).toContain('textbox "Username"');
-      expect(prompt).toContain('[required]');
-      expect(prompt).toContain('Forms');
-      expect(prompt).toContain('Submit button: Login');
-      expect(prompt).toContain('Navigation Links');
-      expect(prompt).toContain('"Forgot Password" -> /forgot');
-      expect(prompt).toContain('Generate precise test plans based on the actual page structure');
-    });
-
-    it('truncates pages beyond MAX_EXPLORATION_PAGES', () => {
-      const agent = new PlannerAgent(createAgentConfig(), createLLMConfig());
-      const manyPages: PageSnapshot[] = Array.from({ length: 8 }, (_, i) => ({
-        url: `https://example.com/page${i}`,
-        title: `Page ${i}`,
-        interactiveElements: [],
-        forms: [],
-        links: [],
-      }));
-      const result: AppExplorationResult = {
-        baseURL: 'https://example.com',
-        pages: manyPages,
-        routes: [],
-        exploredAt: Date.now(),
-      };
-
-      const promptZh = agent.buildExplorationPrompt(result, 'zh');
-      expect(promptZh).toContain('仅展示前 5 个');
-
-      const promptEn = agent.buildExplorationPrompt(result, 'en');
-      expect(promptEn).toContain('only the first 5 are shown');
     });
   });
 

@@ -10,8 +10,6 @@ import {
   TestPlanScenario,
   TestPlanStep,
   ProjectContext,
-  AppExplorationResult,
-  PageSnapshot,
 } from '../types';
 
 export const PLANNER_SYSTEM_PROMPT_ZH =
@@ -213,7 +211,7 @@ export class PlannerAgent extends BaseAgent {
     return 'PlannerAgent';
   }
 
-  /** Planner 需要 customPrompts 额外配置（browserSessionManager 已统一通过 explore_app 工具） */
+  /** Planner 需要 customPrompts 额外配置 */
   public getRequiredExtraConfigKeys(): string[] {
     return ['customPrompts'];
   }
@@ -246,7 +244,6 @@ export class PlannerAgent extends BaseAgent {
     options?: {
       seedTest?: string;
       prdPath?: string;
-      exploreResult?: AppExplorationResult;
     }
   ): Promise<TestPlan> {
     if (!this.llmService) {
@@ -278,10 +275,6 @@ export class PlannerAgent extends BaseAgent {
       userPrompt += this.buildContextPrompt(ctx, lang);
     }
 
-    if (options?.exploreResult) {
-      userPrompt += this.buildExplorationPrompt(options.exploreResult, lang);
-    }
-
     if (options?.seedTest && fs.existsSync(options.seedTest)) {
       const seedContent = fs.readFileSync(options.seedTest, 'utf-8');
       userPrompt +=
@@ -289,13 +282,6 @@ export class PlannerAgent extends BaseAgent {
           ? `\n参考 Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`
           : `\nReference Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
 
-      // 提示 LLM 使用 explore_app 工具获取页面信息，统一通过工具路径
-      if (this.config.projectContext?.baseURL) {
-        userPrompt +=
-          lang === 'zh'
-            ? `\n提示：你可以使用 explore_app 工具探索应用页面结构（URL: ${this.config.projectContext.baseURL}），获取更精确的页面元素信息。\n`
-            : `\nHint: You can use the explore_app tool to explore the application's page structure (URL: ${this.config.projectContext.baseURL}) for more precise element information.\n`;
-      }
     }
 
     if (options?.prdPath && fs.existsSync(options.prdPath)) {
@@ -308,7 +294,7 @@ export class PlannerAgent extends BaseAgent {
 
     // 获取 ToolRegistry 并筛选 Planner 所需的工具
     const fullRegistry = this.getOrCreateToolRegistry();
-    const plannerToolNames = ['search_codebase', 'read_source_file', 'explore_app'];
+    const plannerToolNames = ['search_codebase', 'read_source_file'];
     const tools = fullRegistry
       .getToolSchemas()
       .filter((schema) => plannerToolNames.includes(schema.function.name));
@@ -336,202 +322,7 @@ export class PlannerAgent extends BaseAgent {
     return plan;
   }
 
-  private static readonly MAX_EXPLORATION_PAGES = 5;
-  private static readonly MAX_ELEMENTS_PER_PAGE = 20;
-  private static readonly MAX_LINKS_PER_PAGE = 15;
-  private static readonly MAX_EXPLORATION_CHARS = 12000;
 
-  buildExplorationPrompt(result: AppExplorationResult, lang: string): string {
-    const lines: string[] = [];
-    const maxPages = PlannerAgent.MAX_EXPLORATION_PAGES;
-    const maxChars = PlannerAgent.MAX_EXPLORATION_CHARS;
-
-    // 构建头部信息
-    if (lang === 'zh') {
-      lines.push('\n--- 被测应用页面结构（通过实际浏览器探索获取） ---');
-      lines.push(`应用 URL: ${result.baseURL}`);
-      lines.push(`发现页面数: ${result.pages.length}`);
-      lines.push(`发现路由: ${result.routes.join(', ')}`);
-      lines.push('');
-    } else {
-      lines.push('\n--- Application Page Structure (obtained via actual browser exploration) ---');
-      lines.push(`Application URL: ${result.baseURL}`);
-      lines.push(`Pages discovered: ${result.pages.length}`);
-      lines.push(`Routes discovered: ${result.routes.join(', ')}`);
-      lines.push('');
-    }
-
-    const pagesToShow = result.pages.slice(0, maxPages);
-    const hasMorePages = result.pages.length > maxPages;
-
-    // 为头部和尾部预留字符数，剩余预算均匀分配给每个页面
-    const headerReserve = 200;
-    const perPageBudget = Math.floor((maxChars - headerReserve) / Math.max(pagesToShow.length, 1));
-
-    for (const page of pagesToShow) {
-      const pageLines = this.buildPageSection(page, lang, perPageBudget);
-      lines.push(...pageLines);
-    }
-
-    // 构建尾部信息
-    if (lang === 'zh') {
-      if (hasMorePages) {
-        lines.push(`注意：共发现 ${result.pages.length} 个页面，此处仅展示前 ${maxPages} 个。`);
-      }
-      lines.push('请根据以上实际页面结构生成精确的测试计划，使用具体的页面元素定位器。');
-    } else {
-      if (hasMorePages) {
-        lines.push(
-          `Note: ${result.pages.length} pages discovered, only the first ${maxPages} are shown.`
-        );
-      }
-      lines.push(
-        'Generate precise test plans based on the actual page structure above, using concrete page element locators.'
-      );
-    }
-
-    return lines.join('\n');
-  }
-
-  /**
-   * 构建单个页面的内容区域，按优先级分配字符预算
-   * 优先级：交互元素 > 表单 > 链接
-   */
-  private buildPageSection(page: PageSnapshot, lang: string, budget: number): string[] {
-    const maxElements = PlannerAgent.MAX_ELEMENTS_PER_PAGE;
-    const maxLinks = PlannerAgent.MAX_LINKS_PER_PAGE;
-    const lines: string[] = [];
-
-    // 页面头部
-    const pagePath = new URL(page.url).pathname || '/';
-    if (lang === 'zh') {
-      lines.push(`## 页面: ${pagePath}`);
-      lines.push(`标题: "${page.title}"`);
-    } else {
-      lines.push(`## Page: ${pagePath}`);
-      lines.push(`Title: "${page.title}"`);
-    }
-    let used = lines.join('\n').length;
-
-    // 交互元素（最高优先级）
-    if (page.interactiveElements.length > 0 && used < budget) {
-      const sectionBudget = budget - used;
-      const sectionLines: string[] = [];
-      sectionLines.push(lang === 'zh' ? '交互元素:' : 'Interactive Elements:');
-
-      const elementsToShow = page.interactiveElements.slice(0, maxElements);
-      for (const el of elementsToShow) {
-        let desc = `- ${el.role} "${el.name}" (selector=${el.selector})`;
-        if (el.url) {
-          desc += ` href="${el.url}"`;
-        }
-        if (el.required) {
-          desc += lang === 'zh' ? ' [必填]' : ' [required]';
-        }
-        if (el.type) {
-          desc += ` type=${el.type}`;
-        }
-        sectionLines.push(desc);
-        // 检查是否超出该页面预算
-        if (sectionLines.join('\n').length > sectionBudget) {
-          // 移除最后添加的行，添加省略提示
-          sectionLines.pop();
-          const omitted = page.interactiveElements.length - sectionLines.length + 1;
-          sectionLines.push(
-            lang === 'zh'
-              ? `  ... 还有 ${omitted} 个交互元素已省略`
-              : `  ... ${omitted} more interactive elements omitted`
-          );
-          break;
-        }
-      }
-
-      if (
-        page.interactiveElements.length > maxElements &&
-        sectionLines.length === elementsToShow.length + 1
-      ) {
-        // 未在循环中截断，但仍超出 maxElements 限制
-        sectionLines.push(
-          lang === 'zh'
-            ? `  ... 还有 ${page.interactiveElements.length - maxElements} 个交互元素已省略`
-            : `  ... ${page.interactiveElements.length - maxElements} more interactive elements omitted`
-        );
-      }
-
-      lines.push(...sectionLines);
-      used = lines.join('\n').length;
-    }
-
-    // 表单（中等优先级）
-    if (page.forms.length > 0 && used < budget) {
-      const sectionBudget = budget - used;
-      const sectionLines: string[] = [];
-      sectionLines.push(lang === 'zh' ? '表单:' : 'Forms:');
-
-      for (const form of page.forms) {
-        const fieldNames = form.fields.map((f) => f.name).join(', ');
-        let formLine =
-          lang === 'zh'
-            ? `- ${form.name}: 字段[${fieldNames}]`
-            : `- ${form.name}: fields[${fieldNames}]`;
-        if (form.submitButton) {
-          formLine +=
-            lang === 'zh'
-              ? `\n  提交按钮: ${form.submitButton.name}`
-              : `\n  Submit button: ${form.submitButton.name}`;
-        }
-        sectionLines.push(formLine);
-        // 检查是否超出该页面剩余预算
-        if (sectionLines.join('\n').length > sectionBudget) {
-          sectionLines.pop();
-          sectionLines.push(
-            lang === 'zh' ? '  ... 后续表单已省略' : '  ... remaining forms omitted'
-          );
-          break;
-        }
-      }
-
-      lines.push(...sectionLines);
-      used = lines.join('\n').length;
-    }
-
-    // 链接（最低优先级）
-    if (page.links.length > 0 && used < budget) {
-      const sectionBudget = budget - used;
-      const sectionLines: string[] = [];
-      sectionLines.push(lang === 'zh' ? '导航链接:' : 'Navigation Links:');
-
-      const linksToShow = page.links.slice(0, maxLinks);
-      for (const link of linksToShow) {
-        sectionLines.push(`- "${link.text}" -> ${link.href}`);
-        // 检查是否超出该页面剩余预算
-        if (sectionLines.join('\n').length > sectionBudget) {
-          sectionLines.pop();
-          const omitted = page.links.length - sectionLines.length + 1;
-          sectionLines.push(
-            lang === 'zh'
-              ? `  ... 还有 ${omitted} 个链接已省略`
-              : `  ... ${omitted} more links omitted`
-          );
-          break;
-        }
-      }
-
-      if (page.links.length > maxLinks && sectionLines.length === linksToShow.length + 1) {
-        // 未在循环中截断，但仍超出 maxLinks 限制
-        sectionLines.push(
-          lang === 'zh'
-            ? `  ... 还有 ${page.links.length - maxLinks} 个链接已省略`
-            : `  ... ${page.links.length - maxLinks} more links omitted`
-        );
-      }
-
-      lines.push(...sectionLines);
-    }
-
-    lines.push('');
-    return lines;
-  }
 
   private buildContextPrompt(ctx: ProjectContext, lang: string): string {
     const lines: string[] = [];
@@ -758,41 +549,6 @@ export class PlannerAgent extends BaseAgent {
     } catch {
       return null;
     }
-  }
-
-  // ─── 计划序列化/反序列化（从 AgentService 迁移） ──────────────────────────
-
-  /** 将 TestPlan 序列化为 Markdown 格式 */
-  static planToMarkdown(plan: TestPlan): string {
-    let md = `# ${plan.title}\n\n`;
-    md += `${plan.description}\n\n`;
-
-    if (plan.seedTest) {
-      md += `**Seed:** \`${plan.seedTest}\`\n\n`;
-    }
-
-    for (const scenario of plan.scenarios) {
-      md += `## ${scenario.name}\n\n`;
-      md += `**Steps:**\n\n`;
-      for (let i = 0; i < scenario.steps.length; i++) {
-        const step = scenario.steps[i];
-        md += `${i + 1}. ${step.action}`;
-        if (step.target) {
-          md += ` → \`${step.target}\``;
-        }
-        if (step.value) {
-          md += ` = "${step.value}"`;
-        }
-        md += '\n';
-      }
-      md += `\n**Expected Results:**\n\n`;
-      for (const result of scenario.expectedResults) {
-        md += `- ${result}\n`;
-      }
-      md += '\n';
-    }
-
-    return md;
   }
 
   /** 从 Markdown 文件解析 TestPlan */

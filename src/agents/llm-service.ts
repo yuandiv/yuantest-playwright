@@ -24,6 +24,7 @@ export interface LLMChatResult {
 
 export interface ToolCallInfo {
   id: string;
+  type?: string;
   function: {
     name: string;
     arguments: string;
@@ -49,12 +50,13 @@ export interface ToolSchema {
 }
 
 const DEFAULT_TIMEOUT = 120000;
+const MAX_AGENT_ROUNDS = 30;
 
 /** 流式 chatWithTools 事件类型 */
 export type ToolsStreamEvent =
   | { type: 'content_delta'; content: string }
   | { type: 'thinking_delta'; content: string }
-  | { type: 'tool_calls'; toolCalls: ToolCallInfo[] }
+  | { type: 'tool_calls'; toolCalls: ToolCallInfo[]; thinkingContent?: string | null }
   | { type: 'done'; content: string; thinkingContent: string | null; usage?: TokenUsage };
 
 /** 流式 Agent Loop 事件类型 */
@@ -131,7 +133,7 @@ export class LLMService {
   }
 
   private buildURL(config: LLMConfig): string {
-    return `${config.baseUrl.replace(/\/+$/, '')}/v1/chat/completions`;
+    return `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`;
   }
 
   private buildHeaders(config: LLMConfig): Record<string, string> {
@@ -190,6 +192,7 @@ export class LLMService {
       max_tokens: options.maxTokens ?? this.config.maxTokens,
       temperature: options.temperature ?? this.config.temperature ?? 0.2,
     };
+    if (this.config.chatTemplateKwargs) { body.chat_template_kwargs = { enable_thinking: true }; }
     if (options.responseFormat) {
       body.response_format = options.responseFormat;
     }
@@ -231,11 +234,13 @@ export class LLMService {
       temperature: config.temperature,
     };
 
+    if (config.chatTemplateKwargs) {
+      body.chat_template_kwargs = { enable_thinking: true };
+    }
+
     if (tools && tools.length > 0) {
       body.tools = tools;
       body.tool_choice = 'auto';
-    } else {
-      body.response_format = { type: 'json_object' };
     }
 
     const data = await this.callAPI(config, body);
@@ -282,7 +287,7 @@ export class LLMService {
           max_tokens: config.maxTokens,
           temperature: config.temperature,
           stream: true,
-          response_format: { type: 'json_object' },
+          chat_template_kwargs: config.chatTemplateKwargs ? { enable_thinking: true } : undefined,
         }),
         signal: controller.signal,
       });
@@ -348,6 +353,10 @@ export class LLMService {
       stream: true,
     };
 
+    if (config.chatTemplateKwargs) {
+      body.chat_template_kwargs = { enable_thinking: true };
+    }
+
     if (tools && tools.length > 0) {
       body.tools = tools;
       body.tool_choice = 'auto';
@@ -379,7 +388,7 @@ export class LLMService {
       // 累积状态
       let fullContent = '';
       let fullThinking: string | null = null;
-      const toolCallMap = new Map<number, { id: string; name: string; arguments: string }>();
+      const toolCallMap = new Map<number, { id: string; type: string; name: string; arguments: string }>();
       let lastUsage: TokenUsage | undefined;
 
       while (true) {
@@ -429,12 +438,14 @@ export class LLMService {
               for (const tc of delta.tool_calls as Array<{
                 index?: number;
                 id?: string;
+                type?: string;
                 function?: { name?: string; arguments?: string };
               }>) {
                 const idx = tc.index ?? 0;
                 if (!toolCallMap.has(idx)) {
                   toolCallMap.set(idx, {
                     id: tc.id || '',
+                    type: tc.type || 'function',
                     name: tc.function?.name || '',
                     arguments: tc.function?.arguments || '',
                   });
@@ -445,6 +456,9 @@ export class LLMService {
                   }
                   if (tc.id) {
                     existing.id = tc.id;
+                  }
+                  if (tc.type) {
+                    existing.type = tc.type;
                   }
                   if (tc.function?.name) {
                     existing.name += tc.function.name;
@@ -487,10 +501,11 @@ export class LLMService {
         for (const [_, tc] of toolCallMap) {
           toolCalls.push({
             id: tc.id,
+            type: tc.type || 'function',
             function: { name: tc.name, arguments: tc.arguments },
           });
         }
-        yield { type: 'tool_calls', toolCalls };
+        yield { type: 'tool_calls', toolCalls, thinkingContent: fullThinking };
       } else {
         yield {
           type: 'done',
@@ -568,6 +583,13 @@ export class LLMService {
           yield { type: 'thinking', data: event.content };
         } else if (event.type === 'tool_calls') {
           firstToolCalls = event.toolCalls;
+          // 将 chatWithToolsStream 中从 `` 解析出的思考内容转发给前端
+          if (event.thinkingContent) {
+            firstThinking = firstThinking
+              ? firstThinking + '\n' + event.thinkingContent
+              : event.thinkingContent;
+            yield { type: 'thinking', data: event.thinkingContent };
+          }
         } else if (event.type === 'done') {
           firstContent = event.content || firstContent;
           firstThinking = event.thinkingContent ?? firstThinking;
@@ -614,18 +636,38 @@ export class LLMService {
         return;
       }
 
-      // 有工具调用 -> Agent Loop
+      // ── Plan-Execute Agent Loop ──────────────────────────────────────
       let currentToolCalls = firstToolCalls;
       let currentContent = firstContent ?? null;
       let round = 0;
+      // Plan progress tracking: maps step index → status
+      const planProgress: string[] = [];
 
       while (currentToolCalls && currentToolCalls.length > 0) {
         round++;
 
+        if (round > MAX_AGENT_ROUNDS) {
+          this.log.warn(`Agent loop reached max rounds (${MAX_AGENT_ROUNDS}), force terminating`);
+          yield {
+            type: 'done',
+            data: {
+              content: currentContent || 'Task has reached the maximum number of execution rounds. Please review the partial results above.',
+              thinkingContent: collectedThinking,
+              analysisMode: 'agent',
+              reasoningSteps,
+              totalUsage: getTotalUsage(),
+            },
+          };
+          return;
+        }
+
         const assistantMessage: ChatMessage = {
           role: 'assistant',
           content: currentContent,
-          tool_calls: currentToolCalls,
+          tool_calls: currentToolCalls?.map((tc) => ({
+            ...tc,
+            type: tc.type || 'function',
+          })),
         };
         messages.push(assistantMessage);
 
@@ -663,7 +705,18 @@ export class LLMService {
             content: toolResult,
             tool_call_id: toolCall.id,
           });
+
+          planProgress.push(
+            `[Round ${round}] ${toolCall.function.name}: completed`
+          );
         }
+
+        // ── Inject plan progress context for the next LLM call ──
+        const progressContext: ChatMessage = {
+          role: 'user',
+          content: `[System: Progress (Round ${round}/${MAX_AGENT_ROUNDS})]\n\n已完成:\n${planProgress.join('\n')}\n\n请根据当前进展决定下一步：\n- 如果任务目标已达成，给出完整的最终答案\n- 如果还需要更多信息或操作，继续调用合适的工具\n- 如果遇到错误，分析原因并尝试其他方法`,
+        };
+        messages.push(progressContext);
 
         // 再次流式调用 LLM
         const nextStream = this.chatWithToolsStream(messages, config, tools);
@@ -681,6 +734,13 @@ export class LLMService {
             yield { type: 'thinking', data: event.content };
           } else if (event.type === 'tool_calls') {
             nextToolCalls = event.toolCalls;
+            // 将 chatWithToolsStream 中从 `` 解析出的思考内容转发给前端
+            if (event.thinkingContent) {
+              nextThinking = nextThinking
+                ? nextThinking + '\n' + event.thinkingContent
+                : event.thinkingContent;
+              yield { type: 'thinking', data: event.thinkingContent };
+            }
           } else if (event.type === 'done') {
             nextContent = event.content || nextContent;
             nextThinking = event.thinkingContent ?? nextThinking;
@@ -690,6 +750,9 @@ export class LLMService {
 
         accumulateUsage(nextUsage);
         collectThinking(nextThinking);
+
+        // Remove the injected progress context for the next round (will add fresh one)
+        messages.pop();
 
         if (!nextToolCalls || nextToolCalls.length === 0) {
           yield {
@@ -834,17 +897,33 @@ export class LLMService {
         };
       }
 
+      // ── Plan-Execute Agent Loop ──────────────────────────────────────
       let currentToolCalls = firstResponse.toolCalls;
       let currentContent = firstResponse.content ?? null;
       let round = 0;
+      const planProgress: string[] = [];
 
       while (currentToolCalls && currentToolCalls.length > 0) {
         round++;
 
+        if (round > MAX_AGENT_ROUNDS) {
+          this.log.warn(`Agent loop reached max rounds (${MAX_AGENT_ROUNDS}), force terminating`);
+          return {
+            responseText: currentContent || 'Task has reached the maximum number of execution rounds.',
+            thinkingContent: collectedThinking,
+            reasoningSteps,
+            analysisMode: 'agent',
+            totalUsage: getTotalUsage(),
+          };
+        }
+
         const assistantMessage: ChatMessage = {
           role: 'assistant',
           content: currentContent,
-          tool_calls: currentToolCalls,
+          tool_calls: currentToolCalls?.map((tc) => ({
+            ...tc,
+            type: tc.type || 'function',
+          })),
         };
         messages.push(assistantMessage);
 
@@ -875,11 +954,24 @@ export class LLMService {
             content: toolResult,
             tool_call_id: toolCall.id,
           });
+
+          planProgress.push(
+            `[Round ${round}] ${toolCall.function.name}: completed`
+          );
         }
+
+        // ── Inject plan progress context ──
+        const progressContext: ChatMessage = {
+          role: 'user',
+          content: `[System: Progress (Round ${round}/${MAX_AGENT_ROUNDS})]\n\n已完成:\n${planProgress.join('\n')}\n\n请根据当前进展决定下一步：\n- 如果任务目标已达成，给出完整的最终答案\n- 如果还需要更多信息或操作，继续调用合适的工具\n- 如果遇到错误，分析原因并尝试其他方法`,
+        };
+        messages.push(progressContext);
 
         const nextResponse = await this.chatWithTools(messages, config, tools);
         accumulateUsage(nextResponse.usage);
         collectThinking(nextResponse.thinkingContent);
+
+        messages.pop(); // Remove injected progress context
 
         if (!nextResponse.toolCalls || nextResponse.toolCalls.length === 0) {
           return {

@@ -18,7 +18,6 @@ import {
   AgentLoopTarget,
   AgentResult,
   TestPlan,
-  HealerPatch,
   AgentHealResult,
   AgentPrompts,
   AgentSessionContext,
@@ -30,7 +29,8 @@ import { AgentConfigManager } from '../agents/agent-config-manager';
 import { AgentLifecycleManager } from '../agents/agent-lifecycle-manager';
 import { AgentSessionManager } from '../agents/agent-session-manager';
 import { AgentHistoryManager } from '../agents/agent-history-manager';
-import { AgentPipelineOrchestrator } from '../agents/agent-pipeline-orchestrator';
+import { GeneratorAgent } from '../agents/generator';
+import { HealerAgent } from '../agents/healer';
 import { AgentFileOperations } from '../agents/agent-file-operations';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -62,7 +62,6 @@ export class UnifiedAIService {
   private lifecycleManager: AgentLifecycleManager;
   private sessionManager: AgentSessionManager;
   private historyManager: AgentHistoryManager;
-  private pipelineOrchestrator: AgentPipelineOrchestrator;
   private fileOperations: AgentFileOperations;
 
   // ── 共享 ──────────────────────────────────────────────────────────────────
@@ -114,13 +113,6 @@ export class UnifiedAIService {
     );
     this.sessionManager = new AgentSessionManager();
     this.historyManager = new AgentHistoryManager(dataDir);
-    this.pipelineOrchestrator = new AgentPipelineOrchestrator(
-      this.configManager,
-      this.lifecycleManager,
-      this.sessionManager,
-      this.historyManager,
-      this.fileOperations
-    );
     this.configManager.loadProjectContext();
   }
 
@@ -342,6 +334,18 @@ export class UnifiedAIService {
         history.push({ role: 'user', content: msg.content });
       } else if (msg.role === 'assistant') {
         history.push({ role: 'assistant', content: msg.content });
+      } else if (msg.role === 'tool_call' && msg.toolCall) {
+        history.push({
+          role: 'assistant',
+          content: `[调用工具: ${msg.toolCall.name}] 参数: ${msg.toolCall.arguments}`,
+        });
+      } else if (msg.role === 'tool_result' && msg.toolResult) {
+        const truncatedResult =
+          msg.content.length > 2000 ? msg.content.slice(0, 2000) + '...(截断)' : msg.content;
+        history.push({
+          role: 'user',
+          content: `[工具 ${msg.toolResult.name} 返回]: ${truncatedResult}`,
+        });
       }
     }
     return history;
@@ -349,23 +353,25 @@ export class UnifiedAIService {
 
   private buildSystemPrompt(): string {
     const parts: string[] = [
-      '你是 yuantest-playwright 的智能助手，专门帮助用户进行 Playwright 测试相关的工作。',
+      '你是一个 Playwright 测试助手。你的任务是帮助用户分析页面、生成测试计划和测试代码。',
       '',
-      '你可以帮助用户：',
-      '- 生成测试计划（描述测试场景，你会自动调用 planner 生成结构化计划）',
-      '- 生成测试代码（根据测试计划生成 Playwright 测试文件）',
-      '- 修复失败的测试（分析错误原因并生成修复补丁）',
-      '- 浏览器自动化操作（通过 Playwright MCP 工具操作浏览器）',
-      '- 读取和搜索代码库',
-      '- 运行测试并分析结果',
-      '- 查看修复历史',
-      '- 列出已有的测试计划',
+      '## 工作方式',
+      '1. 当用户要求分析页面时，逐步使用 browser_navigate 和 browser_snapshot 探索页面',
+      '2. 每步操作的结果会实时流式反馈给用户',
+      '3. 探索足够后，调用 agent_plan 生成完整的结构化测试计划',
+      '4. 将 agent_plan 返回的测试计划呈现给用户',
+      '',
+      '## 浏览器操作指引',
+      '- browser_navigate → 导航到目标页面',
+      '- browser_snapshot → 获取页面结构和可见内容',
+      '- 根据 snapshot 内容决定是否需要进一步探索（点击、滚动等）',
+      '- 完成探索后调用 agent_plan 生成测试计划',
       '',
     ];
 
     const builtinTools = this.toolRegistry.getToolNames();
     if (builtinTools.length > 0) {
-      parts.push('内置工具:');
+      parts.push('可用工具:');
       for (const name of builtinTools) {
         const schemas = this.toolRegistry.getToolSchemas();
         const schema = schemas.find((s) => s.function.name === name);
@@ -375,37 +381,6 @@ export class UnifiedAIService {
       }
       parts.push('');
     }
-
-    const mcpSchemas = this.mcpManager.getToolSchemas();
-    if (mcpSchemas.length > 0) {
-      const serverGroups = new Map<string, { name: string; tools: string[] }>();
-      for (const schema of mcpSchemas) {
-        const match = schema.function.name.match(/^mcp__(.+?)__(.+)$/);
-        if (match) {
-          const serverName = match[1];
-          const _toolName = match[2];
-          if (!serverGroups.has(serverName)) {
-            serverGroups.set(serverName, { name: serverName, tools: [] });
-          }
-          (serverGroups.get(serverName) as { name: string; tools: string[] }).tools.push(
-            `- ${schema.function.name}: ${schema.function.description}`
-          );
-        }
-      }
-      for (const [, group] of serverGroups) {
-        parts.push(`MCP 工具 (${group.name}):`);
-        parts.push(...group.tools);
-        parts.push('');
-      }
-    }
-
-    parts.push('请根据用户的描述，自动选择合适的工具来完成任务。如果需要多个步骤，请逐步执行。');
-    parts.push('');
-    parts.push('## 任务拆分');
-    parts.push('对于复杂问题，请先分析任务，将复杂任务拆分为多个子任务，并使用任务列表格式展示：');
-    parts.push('- [ ] 待完成的子任务');
-    parts.push('- [x] 已完成的子任务');
-    parts.push('在执行过程中，逐步将已完成的子任务标记为 [x]，让用户可以清晰追踪进度。');
 
     return parts.join('\n');
   }
@@ -427,14 +402,50 @@ export class UnifiedAIService {
         prdPath: args.prdPath as string | undefined,
         outputDir: args.outputDir as string | undefined,
       });
-      return JSON.stringify(result, null, 2);
+      if (result.success && result.data) {
+        const plan = result.data;
+        const lines: string[] = [
+          `# 测试计划: ${plan.title}`,
+          '',
+          `共 ${plan.scenarios.length} 个测试场景，${plan.scenarios.reduce((s, c) => s + c.steps.length, 0)} 个测试步骤`,
+          '',
+        ];
+        for (const scenario of plan.scenarios) {
+          lines.push(`## 场景: ${scenario.name}`);
+          lines.push('');
+          for (let i = 0; i < scenario.steps.length; i++) {
+            const step = scenario.steps[i];
+            lines.push(`${i + 1}. ${step.action}`);
+            if (step.target) {
+              lines.push(`   目标: ${step.target}`);
+            }
+            if (step.value) {
+              lines.push(`   输入值: ${step.value}`);
+            }
+          }
+          if (scenario.expectedResults.length > 0) {
+            lines.push('');
+            lines.push('预期结果:');
+            for (const result of scenario.expectedResults) {
+              lines.push(`- ${result}`);
+            }
+          }
+          lines.push('');
+        }
+        return lines.join('\n');
+      }
+      return `错误: ${result.error || '未知错误'}`;
     }
 
     if (toolName === 'agent_generate') {
       const result = await this.generate(String(args.planPath), {
         outputDir: args.outputDir as string | undefined,
       });
-      return JSON.stringify(result, null, 2);
+      if (result.success && result.data) {
+        const files = result.data.map((f) => `- ${f}`).join('\n');
+        return `已生成 ${result.data.length} 个测试文件:\n${files}`;
+      }
+      return `错误: ${result.error || '未知错误'}`;
     }
 
     if (toolName === 'agent_heal') {
@@ -442,17 +453,24 @@ export class UnifiedAIService {
         error: args.error as string | undefined,
         stackTrace: args.stackTrace as string | undefined,
       });
-      return JSON.stringify(result, null, 2);
+      if (result.success && result.data) {
+        if (result.data.healed) {
+          const patches = result.data.patches.map((p) => `- ${p.reason}`).join('\n');
+          return `测试已修复，共 ${result.data.patches.length} 处修改:\n${patches}`;
+        }
+        return `测试未能自动修复（已尝试 ${result.data.roundsUsed} 轮）。`;
+      }
+      return `错误: ${result.error || '未知错误'}`;
     }
 
     if (toolName === 'agent_get_heal_history') {
       const result = await this.getHealHistory();
-      return JSON.stringify(result, null, 2);
+      return `共 ${result.length} 条修复记录。`;
     }
 
     if (toolName === 'agent_list_plans') {
       const result = await this.listPlans();
-      return JSON.stringify(result, null, 2);
+      return `共 ${result.length} 个测试计划。`;
     }
 
     // 3) ToolRegistry 内置工具
@@ -466,14 +484,14 @@ export class UnifiedAIService {
   private getAllToolSchemas(): ToolSchema[] {
     const builtinSchemas = this.toolRegistry.getToolSchemas();
     const mcpSchemas = this.mcpManager.getToolSchemas();
-
     // 追加 Agent 管线工具的 schema，使 LLM function calling 可见
     const agentSchemas: ToolSchema[] = [
       {
         type: 'function',
         function: {
           name: 'agent_plan',
-          description: 'Generate a structured test plan from a feature description',
+          description:
+            'Generate a structured test plan from a feature description. Use this AFTER exploring the page with MCP browser tools — pass your observations as the description parameter.',
           parameters: {
             type: 'object',
             properties: {
@@ -616,36 +634,57 @@ export class UnifiedAIService {
     description: string,
     options?: { seedTest?: string; prdPath?: string; outputDir?: string }
   ): Promise<AgentResult<TestPlan>> {
-    return this.pipelineOrchestrator.executePlan(description, options);
+    const llmConfig = this.llmService?.getConfig();
+    if (!llmConfig?.enabled) {
+      return { success: false, error: 'LLM is not enabled', duration: 0, agentType: 'planner' };
+    }
+    const startTime = Date.now();
+    try {
+      const plan = await this.lifecycleManager.getPlanner().generatePlan(description, options);
+      return { success: true, data: plan, duration: Date.now() - startTime, agentType: 'planner' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'planner' };
+    }
   }
 
   async generate(
     planPath: string,
     options?: { outputDir?: string; seedTest?: string }
   ): Promise<AgentResult<string[]>> {
-    return this.pipelineOrchestrator.executeGenerate(planPath, options);
+    const llmConfig = this.llmService?.getConfig();
+    if (!llmConfig?.enabled) {
+      return { success: false, error: 'LLM is not enabled', duration: 0, agentType: 'generator' };
+    }
+    const startTime = Date.now();
+    try {
+      const planContent = require('fs').readFileSync(planPath, 'utf-8');
+      const files = await this.lifecycleManager.getGenerator().generateTests(planContent, options);
+      return { success: true, data: files, duration: Date.now() - startTime, agentType: 'generator' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'generator' };
+    }
   }
 
   async heal(
     testFilePath: string,
     options?: { runId?: string; testId?: string; error?: string; stackTrace?: string }
   ): Promise<AgentResult<AgentHealResult>> {
-    return this.pipelineOrchestrator.executeHeal(testFilePath, options);
-  }
-
-  async applyPatch(patch: HealerPatch): Promise<boolean> {
-    return this.pipelineOrchestrator.applyPatch(patch);
-  }
-
-  async applyPatches(patches: HealerPatch[]): Promise<boolean[]> {
-    return this.pipelineOrchestrator.applyPatches(patches);
-  }
-
-  async runPipeline(
-    description: string,
-    options?: { seedTest?: string; prdPath?: string; outputDir?: string; autoHeal?: boolean }
-  ): Promise<AgentResult<AgentSessionContext>> {
-    return this.pipelineOrchestrator.executePipeline(description, options);
+    const llmConfig = this.llmService?.getConfig();
+    if (!llmConfig?.enabled) {
+      return { success: false, error: 'LLM is not enabled', duration: 0, agentType: 'healer' };
+    }
+    const startTime = Date.now();
+    try {
+      const config = this.configManager.getConfig();
+      const result = await this.lifecycleManager.getHealer().healTest(testFilePath, {
+        maxRounds: config.maxHealRounds,
+        error: options?.error,
+        stackTrace: options?.stackTrace,
+      });
+      return { success: true, data: result, duration: Date.now() - startTime, agentType: 'healer' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'healer' };
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

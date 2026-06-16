@@ -8,7 +8,6 @@ import {
   AgentLoopTarget,
   AgentResult,
   TestPlan,
-  HealerPatch,
   AgentHealResult,
   AgentPrompts,
   LLMConfig,
@@ -23,7 +22,7 @@ import { AgentConfigManager } from './agent-config-manager';
 import { AgentLifecycleManager } from './agent-lifecycle-manager';
 import { AgentSessionManager } from './agent-session-manager';
 import { AgentHistoryManager } from './agent-history-manager';
-import { AgentPipelineOrchestrator } from './agent-pipeline-orchestrator';
+import { PatchApplier } from './patch-applier';
 import { AgentFileOperations } from './agent-file-operations';
 
 /**
@@ -36,7 +35,6 @@ export class AgentService {
   private lifecycleManager: AgentLifecycleManager;
   private sessionManager: AgentSessionManager;
   private historyManager: AgentHistoryManager;
-  private pipelineOrchestrator: AgentPipelineOrchestrator;
   private fileOperations: AgentFileOperations;
   private log = logger.child('AgentService');
 
@@ -64,13 +62,6 @@ export class AgentService {
     );
     this.sessionManager = new AgentSessionManager();
     this.historyManager = new AgentHistoryManager(dataDir);
-    this.pipelineOrchestrator = new AgentPipelineOrchestrator(
-      this.configManager,
-      this.lifecycleManager,
-      this.sessionManager,
-      this.historyManager,
-      this.fileOperations
-    );
 
     this.configManager.loadProjectContext();
   }
@@ -176,14 +167,35 @@ export class AgentService {
     description: string,
     options?: { seedTest?: string; prdPath?: string; outputDir?: string }
   ): Promise<AgentResult<TestPlan>> {
-    return this.pipelineOrchestrator.executePlan(description, options);
+    const llmConfig = this.configManager.getLLMConfig();
+    if (!llmConfig?.enabled) {
+      return { success: false, error: 'LLM is not enabled', duration: 0, agentType: 'planner' };
+    }
+    const startTime = Date.now();
+    try {
+      const plan = await this.lifecycleManager.getPlanner().generatePlan(description, options);
+      return { success: true, data: plan, duration: Date.now() - startTime, agentType: 'planner' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'planner' };
+    }
   }
 
   async generate(
     planPath: string,
     options?: { outputDir?: string; seedTest?: string }
   ): Promise<AgentResult<string[]>> {
-    return this.pipelineOrchestrator.executeGenerate(planPath, options);
+    const llmConfig = this.configManager.getLLMConfig();
+    if (!llmConfig?.enabled) {
+      return { success: false, error: 'LLM is not enabled', duration: 0, agentType: 'generator' };
+    }
+    const startTime = Date.now();
+    try {
+      const planContent = fs.readFileSync(planPath, 'utf-8');
+      const files = await this.lifecycleManager.getGenerator().generateTests(planContent, options);
+      return { success: true, data: files, duration: Date.now() - startTime, agentType: 'generator' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'generator' };
+    }
   }
 
   async heal(
@@ -195,15 +207,22 @@ export class AgentService {
       stackTrace?: string;
     }
   ): Promise<AgentResult<AgentHealResult>> {
-    return this.pipelineOrchestrator.executeHeal(testFilePath, options);
-  }
-
-  async applyPatch(patch: HealerPatch): Promise<boolean> {
-    return this.pipelineOrchestrator.applyPatch(patch);
-  }
-
-  async applyPatches(patches: HealerPatch[]): Promise<boolean[]> {
-    return this.pipelineOrchestrator.applyPatches(patches);
+    const llmConfig = this.configManager.getLLMConfig();
+    if (!llmConfig?.enabled) {
+      return { success: false, error: 'LLM is not enabled', duration: 0, agentType: 'healer' };
+    }
+    const startTime = Date.now();
+    try {
+      const config = this.configManager.getConfig();
+      const result = await this.lifecycleManager.getHealer().healTest(testFilePath, {
+        maxRounds: config.maxHealRounds,
+        error: options?.error,
+        stackTrace: options?.stackTrace,
+      });
+      return { success: true, data: result, duration: Date.now() - startTime, agentType: 'healer' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'healer' };
+    }
   }
 
   async getHealHistory(): Promise<AgentHealResult[]> {
@@ -237,17 +256,5 @@ export class AgentService {
 
   createSessionContext(): AgentSessionContext {
     return this.sessionManager.createSession();
-  }
-
-  async runPipeline(
-    description: string,
-    options?: {
-      seedTest?: string;
-      prdPath?: string;
-      outputDir?: string;
-      autoHeal?: boolean;
-    }
-  ): Promise<AgentResult<AgentSessionContext>> {
-    return this.pipelineOrchestrator.executePipeline(description, options);
   }
 }

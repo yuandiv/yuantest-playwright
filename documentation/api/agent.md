@@ -289,10 +289,6 @@ LLM service class providing `chat()`, `chatWithTools()`, `chatStream()`, `chatWi
 
 Browser session management providing `getSession()`, `getPage()`, `getActivePage()`, `closeSession()`, `closeAll()`, `getActiveSessionIds()` methods.
 
-### AppExplorer
-
-Application explorer that crawls page structure using BFS.
-
 ### PatchApplier
 
 Patch application providing `applyPatchToContent()`, `applyPatch()`, `isWithinProjectRoot()` (static) methods.

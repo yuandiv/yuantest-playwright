@@ -289,10 +289,6 @@ LLM 服务类，提供 `chat()`、`chatWithTools()`、`chatStream()`、`chatWith
 
 浏览器会话管理，提供 `getSession()`、`getPage()`、`getActivePage()`、`closeSession()`、`closeAll()`、`getActiveSessionIds()` 方法。
 
-### AppExplorer
-
-应用探索器，使用 BFS 爬取页面结构。
-
 ### PatchApplier
 
 补丁应用，提供 `applyPatchToContent()`、`applyPatch()`、`isWithinProjectRoot()`（静态）方法。

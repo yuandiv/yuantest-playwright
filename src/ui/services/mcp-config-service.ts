@@ -20,7 +20,7 @@ export const BUILTIN_MCP_PRESETS: MCPPreset[] = [
     name: 'playwright-mcp',
     enabled: true,
     command: 'node',
-    args: ['node_modules/@playwright/mcp/cli.js'],
+    args: ['node_modules/@playwright/mcp/cli.js', '--isolated'],
     description: 'Playwright 浏览器自动化工具（本地加载，断网可用；加 --headless 即无头模式）',
     source: 'builtin',
     timeout_ms: 10000,

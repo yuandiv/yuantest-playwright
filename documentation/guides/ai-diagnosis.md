@@ -246,7 +246,6 @@ The Agent loop provides 7 default tools (registered by `ToolRegistry.createDefau
 | `search_files` | `pattern` (required), `filePattern?` | Search files by pattern |
 | `run_test` | `testFilePath` (required), `options?` | Run a specific test |
 | `apply_patch` | `filePath` (required), `patch` (required) | Apply a patch to a file |
-| `explore_app` | `url` (required), `action?` | Explore application pages |
 | `get_heal_history` | `testFilePath` (required) | Get heal history for a test |
 | `list_plans` | `options?` | List test plans |
 
@@ -444,7 +443,7 @@ The system is compatible with all **OpenAI API compatible interfaces**, includin
 
 ### Connection Test
 
-- **Test endpoint**: `{baseUrl}/v1/models`
+- **Test endpoint**: `{baseUrl}/models`
 - **Timeout**: 10 seconds
 - **Status determination**:
   - `green`: Configured and connection normal

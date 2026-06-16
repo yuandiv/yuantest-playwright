@@ -709,7 +709,7 @@ export class DiagnosisService {
       return { success: false, error: 'No base URL configured' };
     }
     try {
-      const url = `${cfg.baseUrl.replace(/\/+$/, '')}/v1/models`;
+      const url = `${cfg.baseUrl.replace(/\/+$/, '')}/models`;
       const headers: Record<string, string> = {};
       if (cfg.apiKey) {
         headers['Authorization'] = `Bearer ${cfg.apiKey}`;

@@ -89,6 +89,7 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
   const [remark, setRemark] = useState('');
   const [maxTokens, setMaxTokens] = useState(2048);
   const [temperature, setTemperature] = useState(0.3);
+  const [chatTemplateKwargs, setChatTemplateKwargs] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
@@ -105,6 +106,7 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
         setRemark(config.remark || '');
         setMaxTokens(config.maxTokens || 2048);
         setTemperature(config.temperature ?? 0.3);
+        setChatTemplateKwargs(config.chatTemplateKwargs ?? false);
       }
     }).catch((err) => console.error('[LLMConfigPanel] getLLMConfig failed:', err));
     api.getLLMStatus().then(status => {
@@ -116,7 +118,7 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await api.testLLMConnection({ enabled, apiKey, baseUrl, model, remark, maxTokens, temperature });
+      const result = await api.testLLMConnection({ enabled, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
       setTestResult(result);
     } catch (e) {
       setTestResult({ success: false, error: e instanceof Error ? e.message : 'Unknown error' });
@@ -132,7 +134,7 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
       let finalEnabled = enabled;
       if (!enabled) {
         try {
-          const testResult = await api.testLLMConnection({ enabled: true, apiKey, baseUrl, model, remark, maxTokens, temperature });
+          const testResult = await api.testLLMConnection({ enabled: true, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
           if (testResult?.success) {
             finalEnabled = true;
             setEnabled(true);
@@ -141,7 +143,7 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
           // 测试失败，保持当前 enabled 状态
         }
       }
-      await api.saveLLMConfig({ enabled: finalEnabled, apiKey, baseUrl, model, remark, maxTokens, temperature });
+      await api.saveLLMConfig({ enabled: finalEnabled, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
       onSaved();
     } catch (e) {
       console.error('Failed to save LLM config:', e);
@@ -183,7 +185,7 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
         />
         <div className="mt-1 text-xs text-gray-500">
-          Models API: <code className="bg-gray-100 px-1 rounded">{baseUrl}/v1/models</code>
+          Models API: <code className="bg-gray-100 px-1 rounded">{baseUrl}/models</code>
         </div>
       </div>
 
@@ -253,6 +255,25 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           />
         </div>
+      </div>
+
+      <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+        <label className="text-sm font-medium text-gray-700 cursor-pointer">{t('chatTemplateKwargs', lang) || '推理'}</label>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={chatTemplateKwargs}
+          onClick={() => setChatTemplateKwargs(!chatTemplateKwargs)}
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+            chatTemplateKwargs ? 'bg-purple-600' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              chatTemplateKwargs ? 'translate-x-[18px]' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
       </div>
 
       <div className="flex justify-between items-center pt-2 border-t border-gray-100">

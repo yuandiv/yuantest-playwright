@@ -739,6 +739,7 @@ export interface LLMConfig {
   remark: string;
   maxTokens: number;
   temperature: number;
+  chatTemplateKwargs?: boolean;
 }
 
 export interface MCPConfig {
@@ -999,74 +1000,6 @@ export interface AgentPrompts {
   generatorSystemEn?: string;
   healerSystemZh?: string;
   healerSystemEn?: string;
-}
-
-/** 可交互元素 */
-export interface InteractiveElement {
-  role: string;
-  name: string;
-  selector: string;
-  url?: string;
-  required?: boolean;
-  type?: string;
-}
-
-/** 链接信息 */
-export interface LinkInfo {
-  text: string;
-  href: string;
-  selector?: string;
-}
-
-/** 表单信息 */
-export interface FormInfo {
-  name: string;
-  action?: string;
-  method?: string;
-  fields: InteractiveElement[];
-  submitButton?: InteractiveElement;
-}
-
-/** 页面快照 */
-export interface PageSnapshot {
-  url: string;
-  title: string;
-  interactiveElements: InteractiveElement[];
-  forms: FormInfo[];
-  links: LinkInfo[];
-  globalElements?: InteractiveElement[];
-}
-
-/** 应用探索结果 */
-export interface AppExplorationResult {
-  pages: PageSnapshot[];
-  routes: string[];
-  exploredAt: number;
-  baseURL: string;
-}
-
-/** 应用探索选项 */
-export interface ExploreOptions {
-  maxDepth?: number;
-  maxPages?: number;
-  timeout?: number;
-  credentials?: {
-    username: string;
-    password: string;
-  };
-  authToken?: string;
-  storageState?: string;
-  extraHeaders?: Record<string, string>;
-  excludeSelectors?: string[];
-  excludeUrlPatterns?: string[];
-}
-
-/** 快照引用条目 */
-export interface SnapshotRefEntry {
-  ref: string;
-  role: string;
-  name: string;
-  locator: string;
 }
 
 /**
