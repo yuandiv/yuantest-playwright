@@ -78,7 +78,7 @@ describe('LLM Config API Integration', () => {
       expect(config.baseUrl).toBe('http://localhost:11434');
       expect(config.model).toBe('');
       expect(config.apiKey).toBe('');
-      expect(config.maxTokens).toBe(2048);
+      expect(config.maxTokens).toBe(4096);
       expect(config.temperature).toBe(0.3);
     });
 

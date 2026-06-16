@@ -87,7 +87,7 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
   const [baseUrl, setBaseUrl] = useState('http://localhost:11434');
   const [model, setModel] = useState('');
   const [remark, setRemark] = useState('');
-  const [maxTokens, setMaxTokens] = useState(2048);
+  const [maxTokens, setMaxTokens] = useState(4096);
   const [temperature, setTemperature] = useState(0.3);
   const [chatTemplateKwargs, setChatTemplateKwargs] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -104,7 +104,7 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
         setBaseUrl(config.baseUrl || 'http://localhost:11434');
         setModel(config.model || '');
         setRemark(config.remark || '');
-        setMaxTokens(config.maxTokens || 2048);
+        setMaxTokens(config.maxTokens || 4096);
         setTemperature(config.temperature ?? 0.3);
         setChatTemplateKwargs(config.chatTemplateKwargs ?? false);
       }

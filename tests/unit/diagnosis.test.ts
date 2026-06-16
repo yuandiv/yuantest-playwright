@@ -13,7 +13,7 @@ function createEnabledConfig(overrides: Partial<LLMConfig> = {}): LLMConfig {
     baseUrl: 'http://localhost:11434',
     model: 'qwen3:32b',
     remark: '',
-    maxTokens: 2048,
+    maxTokens: 4096,
     temperature: 0.3,
     ...overrides,
   };

@@ -32,6 +32,12 @@ import { AgentHistoryManager } from '../agents/agent-history-manager';
 import { HealerAgent } from '../agents/healer';
 import { AgentFileOperations } from '../agents/agent-file-operations';
 
+/** Agent 管线工具定义：schema + handler 成对注册 */
+interface AgentToolDef {
+  schema: ToolSchema;
+  handler: (args: Record<string, unknown>) => Promise<string>;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface SSEEvent {
@@ -69,6 +75,8 @@ export class UnifiedAIService {
   private dataDir: string;
   private projectRoot: string;
   private log = logger.child('UnifiedAIService');
+  private _agentGenerateTriggered = false;
+  private agentTools!: Map<string, AgentToolDef>;
 
   constructor(
     dataDir: string,
@@ -113,6 +121,9 @@ export class UnifiedAIService {
     this.sessionManager = new AgentSessionManager();
     this.historyManager = new AgentHistoryManager(dataDir);
     this.configManager.loadProjectContext();
+
+    // 初始化 Agent 管线工具（schema + handler 统一注册至此 Map）
+    this.initAgentTools();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -275,15 +286,29 @@ export class UnifiedAIService {
         }
       );
 
-      let fullContent = '';
+      let roundContent = '';
+      let roundThinking = '';
 
       for await (const event of stream) {
         if (event.type === 'token') {
-          fullContent += event.data;
+          roundContent += event.data;
           onEvent({ type: 'token', data: event.data });
         } else if (event.type === 'thinking') {
+          roundThinking += event.data;
           onEvent({ type: 'thinking', data: { content: event.data } });
         } else if (event.type === 'tool_call') {
+          // 在工具调用前，存储本轮的中间 assistant 消息（思考过程+内容）
+          // 使存储结构与流式展示结构一致
+          if (roundContent || roundThinking) {
+            this.store.addMessage(conversationId, {
+              role: 'assistant',
+              content: roundContent || '',
+              thinkingContent: roundThinking || undefined,
+            });
+          }
+          roundContent = '';
+          roundThinking = '';
+
           onEvent({
             type: 'tool_call',
             data: { name: event.data.name, arguments: event.data.arguments },
@@ -294,10 +319,12 @@ export class UnifiedAIService {
             data: { name: event.data.name, result: event.data.result },
           });
         } else if (event.type === 'done') {
+          const finalContent = event.data.content || roundContent;
+
           this.store.addMessage(conversationId, {
             role: 'assistant',
-            content: event.data.content || fullContent,
-            thinkingContent: event.data.thinkingContent || undefined,
+            content: finalContent,
+            thinkingContent: roundThinking || undefined,
           });
 
           if (conversation.messages.length <= 1) {
@@ -305,10 +332,28 @@ export class UnifiedAIService {
             this.store.updateTitle(conversationId, title);
           }
 
+          // 如果本轮触发了 agent_generate，从 LLM 最终回复中提取代码保存到文件
+          if (this._agentGenerateTriggered && finalContent) {
+            try {
+              const savedFiles = this.saveGeneratedCodeFromResponse(finalContent);
+              if (savedFiles.length > 0) {
+                onEvent({
+                  type: 'token',
+                  data: `\n\n✅ 测试代码已保存到以下文件：\n${savedFiles.map((f) => `  - ${f}`).join('\n')}`,
+                });
+              }
+            } catch (err) {
+              this.log.warn(
+                `Failed to save generated code: ${err instanceof Error ? err.message : String(err)}`
+              );
+            }
+            this._agentGenerateTriggered = false;
+          }
+
           onEvent({
             type: 'done',
             data: {
-              content: event.data.content || fullContent,
+              content: finalContent,
               thinkingContent: event.data.thinkingContent,
               analysisMode: event.data.analysisMode,
               reasoningSteps: event.data.reasoningSteps,
@@ -329,16 +374,33 @@ export class UnifiedAIService {
     messages: import('../chat/conversation-store').ChatMessage[]
   ): import('../agents/llm-service').ChatMessage[] {
     const history: import('../agents/llm-service').ChatMessage[] = [];
-    for (const msg of messages) {
+    let i = 0;
+    while (i < messages.length) {
+      const msg = messages[i];
       if (msg.role === 'user') {
         history.push({ role: 'user', content: msg.content });
+        i++;
       } else if (msg.role === 'assistant') {
-        history.push({ role: 'assistant', content: msg.content });
+        // 检查下一条是否是 tool_call（中间 assistant + tool_call 模式）
+        // 合并为一条 assistant 消息，避免连续 assistant 消息
+        const nextMsg = i + 1 < messages.length ? messages[i + 1] : null;
+        if (nextMsg && nextMsg.role === 'tool_call' && nextMsg.toolCall) {
+          const combinedContent = msg.content
+            ? `${msg.content}\n\n[调用工具: ${nextMsg.toolCall.name}] 参数: ${nextMsg.toolCall.arguments}`
+            : `[调用工具: ${nextMsg.toolCall.name}] 参数: ${nextMsg.toolCall.arguments}`;
+          history.push({ role: 'assistant', content: combinedContent });
+          i += 2;
+        } else {
+          history.push({ role: 'assistant', content: msg.content });
+          i++;
+        }
       } else if (msg.role === 'tool_call' && msg.toolCall) {
+        // 独立的 tool_call（无前置 assistant 消息，兼容旧数据）
         history.push({
           role: 'assistant',
           content: `[调用工具: ${msg.toolCall.name}] 参数: ${msg.toolCall.arguments}`,
         });
+        i++;
       } else if (msg.role === 'tool_result' && msg.toolResult) {
         const truncatedResult =
           msg.content.length > 2000 ? msg.content.slice(0, 2000) + '...(截断)' : msg.content;
@@ -346,6 +408,9 @@ export class UnifiedAIService {
           role: 'user',
           content: `[工具 ${msg.toolResult.name} 返回]: ${truncatedResult}`,
         });
+        i++;
+      } else {
+        i++;
       }
     }
     return history;
@@ -414,57 +479,33 @@ export class UnifiedAIService {
       return this.mcpManager.callTool(toolName, args);
     }
 
-    // 2) Agent 管线工具 — 直接调用 this 上的方法，无需经过 ToolRegistry
-    if (toolName === 'agent_generate') {
-      const result = await this.generate(String(args.planContent), {
-        outputDir: args.outputDir as string | undefined,
-      });
-      if (result.success && result.data) {
-        const files = result.data.map((f) => `- ${f}`).join('\n');
-        return `已生成 ${result.data.length} 个测试文件:\n${files}`;
-      }
-      return `错误: ${result.error || '未知错误'}`;
-    }
-
-    if (toolName === 'agent_heal') {
-      const result = await this.heal(String(args.testFilePath), {
-        error: args.error as string | undefined,
-        stackTrace: args.stackTrace as string | undefined,
-      });
-      if (result.success && result.data) {
-        if (result.data.healed) {
-          const patches = result.data.patches.map((p) => `- ${p.reason}`).join('\n');
-          return `测试已修复，共 ${result.data.patches.length} 处修改:\n${patches}`;
-        }
-        return `测试未能自动修复（已尝试 ${result.data.roundsUsed} 轮）。`;
-      }
-      return `错误: ${result.error || '未知错误'}`;
-    }
-
-    if (toolName === 'agent_get_heal_history') {
-      const result = await this.getHealHistory();
-      return `共 ${result.length} 条修复记录。`;
-    }
-
-    if (toolName === 'agent_list_plans') {
-      const result = await this.listPlans();
-      return `共 ${result.length} 个测试计划。`;
+    // 2) Agent 管线工具 — 从 Map 中按名称查找
+    const agentTool = this.agentTools.get(toolName);
+    if (agentTool) {
+      return agentTool.handler(args);
     }
 
     // 3) ToolRegistry 内置工具
-    if (this.toolRegistry.hasTool(toolName)) {
-      return this.toolRegistry.executeTool(toolName, args);
-    }
-
-    return `Unknown tool: ${toolName}`;
+    return this.toolRegistry.executeTool(toolName, args);
   }
 
   private getAllToolSchemas(): ToolSchema[] {
     const builtinSchemas = this.toolRegistry.getToolSchemas();
     const mcpSchemas = this.mcpManager.getToolSchemas();
-    // 追加 Agent 管线工具的 schema，使 LLM function calling 可见
-    const agentSchemas: ToolSchema[] = [
-      {
+    const agentSchemas = Array.from(this.agentTools.values()).map((t) => t.schema);
+
+    return [...builtinSchemas, ...mcpSchemas, ...agentSchemas];
+  }
+
+  /**
+   * 初始化 Agent 管线工具：将 schema 和 handler 成对注册到 agentTools Map 中。
+   * 不再使用 if-else 链，新增工具只需在此追加一条 set 调用。
+   */
+  private initAgentTools(): void {
+    this.agentTools = new Map<string, AgentToolDef>();
+
+    this.agentTools.set('agent_generate', {
+      schema: {
         type: 'function',
         function: {
           name: 'agent_generate',
@@ -482,7 +523,15 @@ export class UnifiedAIService {
           },
         },
       },
-      {
+      handler: async (args) => {
+        const planContent = String(args.planContent);
+        this._agentGenerateTriggered = true;
+        return `测试计划已确认。请根据以下测试计划直接生成 Playwright TypeScript 测试代码。\n\n要求：\n- 使用 page.locator 或 page.getByRole 等现代定位器\n- 每个场景使用 test() 或 test.describe() 包裹\n- 包含适当的断言（expect）\n- 遵循 Playwright Test 最佳实践\n- 直接输出可运行的 TypeScript 代码，不要额外解释\n\n测试计划如下：\n\n${planContent}`;
+      },
+    });
+
+    this.agentTools.set('agent_heal', {
+      schema: {
         type: 'function',
         function: {
           name: 'agent_heal',
@@ -504,7 +553,24 @@ export class UnifiedAIService {
           },
         },
       },
-      {
+      handler: async (args) => {
+        const result = await this.heal(String(args.testFilePath), {
+          error: args.error as string | undefined,
+          stackTrace: args.stackTrace as string | undefined,
+        });
+        if (result.success && result.data) {
+          if (result.data.healed) {
+            const patches = result.data.patches.map((p) => `- ${p.reason}`).join('\n');
+            return `测试已修复，共 ${result.data.patches.length} 处修改:\n${patches}`;
+          }
+          return `测试未能自动修复（已尝试 ${result.data.roundsUsed} 轮）。`;
+        }
+        return `错误: ${result.error || '未知错误'}`;
+      },
+    });
+
+    this.agentTools.set('agent_get_heal_history', {
+      schema: {
         type: 'function',
         function: {
           name: 'agent_get_heal_history',
@@ -512,7 +578,14 @@ export class UnifiedAIService {
           parameters: { type: 'object', properties: {}, required: [] },
         },
       },
-      {
+      handler: async () => {
+        const result = await this.getHealHistory();
+        return `共 ${result.length} 条修复记录。`;
+      },
+    });
+
+    this.agentTools.set('agent_list_plans', {
+      schema: {
         type: 'function',
         function: {
           name: 'agent_list_plans',
@@ -520,9 +593,11 @@ export class UnifiedAIService {
           parameters: { type: 'object', properties: {}, required: [] },
         },
       },
-    ];
-
-    return [...builtinSchemas, ...mcpSchemas, ...agentSchemas];
+      handler: async () => {
+        const result = await this.listPlans();
+        return `共 ${result.length} 个测试计划。`;
+      },
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -687,5 +762,76 @@ export class UnifiedAIService {
 
   createSessionContext(): AgentSessionContext {
     return this.sessionManager.createSession();
+  }
+
+  // ─── 代码提取与保存（agent_generate 后处理） ─────────────────────────────
+
+  private saveGeneratedCodeFromResponse(responseText: string): string[] {
+    const projectRoot = this.configManager.getConfig().projectRoot || process.cwd();
+    const testDir = path.resolve(projectRoot, 'tests');
+    if (!fs.existsSync(testDir)) {
+      fs.mkdirSync(testDir, { recursive: true });
+    }
+
+    const savedFiles: string[] = [];
+    const codeBlocks = AgentOutputParser.extractCodeBlocks(responseText);
+
+    if (codeBlocks.length === 0) {
+      // 没有代码块，将整个响应作为单一文件保存
+      const fileName = `generated-${Date.now()}.spec.ts`;
+      const filePath = path.join(testDir, fileName);
+      const cleanedCode = AgentOutputParser.cleanCode(responseText);
+      if (cleanedCode) {
+        fs.writeFileSync(filePath, cleanedCode, 'utf-8');
+        savedFiles.push(filePath);
+      }
+      return savedFiles;
+    }
+
+    const usedFileNames = new Set<string>();
+    for (let i = 0; i < codeBlocks.length; i++) {
+      const code = codeBlocks[i];
+      const testName = this.extractTestNameFromCode(code);
+      let fileName = testName
+        ? `${testName}.spec.ts`
+        : `generated-${Date.now()}-${i + 1}.spec.ts`;
+
+      if (usedFileNames.has(fileName)) {
+        const baseName = testName || `generated-${Date.now()}`;
+        let suffix = 2;
+        while (usedFileNames.has(`${baseName}-${suffix}.spec.ts`)) {
+          suffix++;
+        }
+        fileName = `${baseName}-${suffix}.spec.ts`;
+      }
+      usedFileNames.add(fileName);
+
+      const filePath = path.join(testDir, fileName);
+      fs.writeFileSync(filePath, code, 'utf-8');
+      savedFiles.push(filePath);
+    }
+
+    return savedFiles;
+  }
+
+  private extractTestNameFromCode(code: string): string | null {
+    const describeMatch = code.match(/test\.describe\(['"](.+?)['"]/);
+    if (describeMatch) {
+      const slug = this.generateSlug(describeMatch[1]);
+      return slug || null;
+    }
+    const testMatch = code.match(/test\(['"](.+?)['"]/);
+    if (testMatch) {
+      const slug = this.generateSlug(testMatch[1]);
+      return slug || null;
+    }
+    return null;
+  }
+
+  private generateSlug(text: string): string {
+    let slug = text.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
+    slug = slug.replace(/-+/g, '-');
+    slug = slug.replace(/^-+|-+$/g, '');
+    return slug.slice(0, 50);
   }
 }

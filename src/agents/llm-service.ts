@@ -57,7 +57,7 @@ export type ToolsStreamEvent =
   | { type: 'content_delta'; content: string }
   | { type: 'thinking_delta'; content: string }
   | { type: 'tool_calls'; toolCalls: ToolCallInfo[]; thinkingContent?: string | null }
-  | { type: 'done'; content: string; thinkingContent: string | null; usage?: TokenUsage };
+  | { type: 'done'; content: string; thinkingContent: string | null; usage?: TokenUsage; truncated?: boolean };
 
 /** 流式 Agent Loop 事件类型 */
 export type AgentLoopStreamEvent =
@@ -157,30 +157,106 @@ export class LLMService {
       : undefined;
   }
 
+  /** 休眠辅助方法 */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 带重试机制的 fetch 调用
+   * - 仅对 5xx 服务端错误和网络异常重试，最多 3 次
+   * - 4xx 客户端错误、AbortError（超时）不重试
+   * - 指数退避：1s → 2s → 4s
+   * - 每次重试都打印错误详情
+   */
+  private async fetchWithRetry(
+    config: LLMConfig,
+    body: Record<string, unknown>,
+    timeoutMs?: number,
+    retries: number = 5
+  ): Promise<Response> {
+    const timeout = timeoutMs ?? DEFAULT_TIMEOUT;
+    const url = this.buildURL(config);
+    const headers = this.buildHeaders(config);
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errorBody = typeof response.text === 'function' ? await response.text().catch(() => '') : '';
+          const errorMsg = `LLM API returned ${response.status}: ${response.statusText}${
+            errorBody ? `\nDetail: ${errorBody.slice(0, 500)}` : ''
+          }`;
+
+          // 4xx 客户端错误不重试，直接抛出
+          if (response.status < 500) {
+            this.log.error(`[LLM] 请求失败 (4xx, 不重试): ${errorMsg}`);
+            throw new Error(errorMsg);
+          }
+
+          // 5xx 服务端错误，尝试重试
+          if (attempt < retries) {
+            this.log.warn(
+              `[LLM] 服务端错误 ${response.status}, 正在重试 (${attempt}/${retries})...\n${errorMsg}`
+            );
+            await this.sleep(1000 * Math.pow(2, attempt - 1));
+            continue;
+          }
+
+          this.log.error(`[LLM] 服务端错误，重试已达上限 (${retries}/${retries}): ${errorMsg}`);
+          throw new Error('模型服务异常，请稍后重试');
+        }
+
+        return response;
+      } catch (error) {
+        // 超时不重试
+        if (error instanceof Error && error.name === 'AbortError') {
+          const msg = `LLM API 请求超时 (${timeout}ms, model: ${config.model})`;
+          this.log.error(`[LLM] ${msg}`);
+          throw new Error(msg);
+        }
+
+        // 网络异常可重试
+        if (attempt < retries) {
+          this.log.warn(
+            `[LLM] 请求异常, 正在重试 (${attempt}/${retries}): ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+          await this.sleep(1000 * Math.pow(2, attempt - 1));
+          continue;
+        }
+
+        this.log.error(
+          `[LLM] 请求异常，重试已达上限 (${retries}/${retries}): ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    throw new Error('Unexpected: fetchWithRetry completed without returning or throwing');
+  }
+
   private async callAPI(
     config: LLMConfig,
     body: Record<string, unknown>,
     timeoutMs?: number
   ): Promise<RawAPIResponse> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULT_TIMEOUT);
-
-    try {
-      const response = await fetch(this.buildURL(config), {
-        method: 'POST',
-        headers: this.buildHeaders(config),
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`LLM API returned ${response.status}: ${response.statusText}`);
-      }
-
-      return (await response.json()) as RawAPIResponse;
-    } finally {
-      clearTimeout(timeout);
-    }
+    const response = await this.fetchWithRetry(config, body, timeoutMs);
+    return (await response.json()) as RawAPIResponse;
   }
 
   async chat(options: LLMChatOptions): Promise<LLMChatResult> {
@@ -227,6 +303,7 @@ export class LLMService {
     thinkingContent: string | null;
     toolCalls?: ToolCallInfo[];
     usage?: TokenUsage;
+    truncated?: boolean;
   }> {
     const body: Record<string, unknown> = {
       model: config.model,
@@ -245,6 +322,7 @@ export class LLMService {
     }
 
     const data = await this.callAPI(config, body);
+    const finishReason = data.choices?.[0]?.finish_reason;
     const message = data.choices?.[0]?.message;
 
     // 优先从 reasoning_content 字段提取思考内容
@@ -265,6 +343,7 @@ export class LLMService {
       thinkingContent,
       toolCalls: message?.tool_calls,
       usage: this.extractUsage(data),
+      truncated: finishReason === 'length',
     };
   }
 
@@ -272,72 +351,60 @@ export class LLMService {
     prompt: { system: string; user: string },
     config: LLMConfig
   ): AsyncGenerator<string, void, unknown> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+    const body: Record<string, unknown> = {
+      model: config.model,
+      messages: [
+        { role: 'system', content: prompt.system },
+        { role: 'user', content: prompt.user },
+      ],
+      max_tokens: config.maxTokens,
+      temperature: config.temperature,
+      stream: true,
+    };
+    if (config.chatTemplateKwargs) {
+      body.chat_template_kwargs = { enable_thinking: true };
+    }
 
-    try {
-      const response = await fetch(this.buildURL(config), {
-        method: 'POST',
-        headers: this.buildHeaders(config),
-        body: JSON.stringify({
-          model: config.model,
-          messages: [
-            { role: 'system', content: prompt.system },
-            { role: 'user', content: prompt.user },
-          ],
-          max_tokens: config.maxTokens,
-          temperature: config.temperature,
-          stream: true,
-          chat_template_kwargs: config.chatTemplateKwargs ? { enable_thinking: true } : undefined,
-        }),
-        signal: controller.signal,
-      });
+    const response = await this.fetchWithRetry(config, body);
 
-      if (!response.ok) {
-        throw new Error(`LLM API returned ${response.status}: ${response.statusText}`);
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
       }
 
-      if (!response.body) {
-        throw new Error('Response body is null');
-      }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine === '' || trimmedLine === 'data: [DONE]') {
+          continue;
+        }
+        if (!trimmedLine.startsWith('data: ')) {
+          continue;
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine === '' || trimmedLine === 'data: [DONE]') {
-            continue;
+        const jsonStr = trimmedLine.slice(6);
+        try {
+          const data = JSON.parse(jsonStr);
+          const content = data.choices?.[0]?.delta?.content;
+          if (content) {
+            yield content;
           }
-          if (!trimmedLine.startsWith('data: ')) {
-            continue;
-          }
-
-          const jsonStr = trimmedLine.slice(6);
-          try {
-            const data = JSON.parse(jsonStr);
-            const content = data.choices?.[0]?.delta?.content;
-            if (content) {
-              yield content;
-            }
-          } catch {
-            // skip invalid JSON
-          }
+        } catch {
+          // skip invalid JSON
         }
       }
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
@@ -363,160 +430,150 @@ export class LLMService {
       body.tool_choice = 'auto';
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+    const response = await this.fetchWithRetry(config, body);
 
-    try {
-      const response = await fetch(this.buildURL(config), {
-        method: 'POST',
-        headers: this.buildHeaders(config),
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
 
-      if (!response.ok) {
-        throw new Error(`LLM API returned ${response.status}: ${response.statusText}`);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    // 累积状态
+    let fullContent = '';
+    let fullThinking: string | null = null;
+    let lastFinishReason: string | undefined;
+    const toolCallMap = new Map<number, { id: string; type: string; name: string; arguments: string }>();
+    let lastUsage: TokenUsage | undefined;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
       }
 
-      if (!response.body) {
-        throw new Error('Response body is null');
-      }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      // 累积状态
-      let fullContent = '';
-      let fullThinking: string | null = null;
-      const toolCallMap = new Map<number, { id: string; type: string; name: string; arguments: string }>();
-      let lastUsage: TokenUsage | undefined;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine === '' || trimmedLine === 'data: [DONE]') {
+          continue;
+        }
+        if (!trimmedLine.startsWith('data: ')) {
+          continue;
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const jsonStr = trimmedLine.slice(6);
+        try {
+          const data = JSON.parse(jsonStr);
+          const delta = data.choices?.[0]?.delta;
 
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine === '' || trimmedLine === 'data: [DONE]') {
-            continue;
-          }
-          if (!trimmedLine.startsWith('data: ')) {
-            continue;
+          if (data.choices?.[0]?.finish_reason) {
+            lastFinishReason = data.choices[0].finish_reason;
           }
 
-          const jsonStr = trimmedLine.slice(6);
-          try {
-            const data = JSON.parse(jsonStr);
-            const delta = data.choices?.[0]?.delta;
+          if (!delta) {
+            continue;
+          }
 
-            if (!delta) {
-              continue;
-            }
+          // 内容增量
+          if (delta.content) {
+            fullContent += delta.content;
+            yield { type: 'content_delta', content: delta.content };
+          }
 
-            // 内容增量
-            if (delta.content) {
-              fullContent += delta.content;
-              yield { type: 'content_delta', content: delta.content };
-            }
+          // 思考内容增量
+          if (delta.reasoning_content) {
+            fullThinking = fullThinking
+              ? fullThinking + delta.reasoning_content
+              : delta.reasoning_content;
+            yield { type: 'thinking_delta', content: delta.reasoning_content };
+          }
 
-            // 思考内容增量
-            if (delta.reasoning_content) {
-              fullThinking = fullThinking
-                ? fullThinking + delta.reasoning_content
-                : delta.reasoning_content;
-              yield { type: 'thinking_delta', content: delta.reasoning_content };
-            }
-
-            // 工具调用增量（按 index 累积）
-            if (delta.tool_calls) {
-              for (const tc of delta.tool_calls as Array<{
-                index?: number;
-                id?: string;
-                type?: string;
-                function?: { name?: string; arguments?: string };
-              }>) {
-                const idx = tc.index ?? 0;
-                if (!toolCallMap.has(idx)) {
-                  toolCallMap.set(idx, {
-                    id: tc.id || '',
-                    type: tc.type || 'function',
-                    name: tc.function?.name || '',
-                    arguments: tc.function?.arguments || '',
-                  });
-                } else {
-                  const existing = toolCallMap.get(idx);
-                  if (!existing) {
-                    continue;
-                  }
-                  if (tc.id) {
-                    existing.id = tc.id;
-                  }
-                  if (tc.type) {
-                    existing.type = tc.type;
-                  }
-                  if (tc.function?.name) {
-                    existing.name += tc.function.name;
-                  }
-                  if (tc.function?.arguments) {
-                    existing.arguments += tc.function.arguments;
-                  }
+          // 工具调用增量（按 index 累积）
+          if (delta.tool_calls) {
+            for (const tc of delta.tool_calls as Array<{
+              index?: number;
+              id?: string;
+              type?: string;
+              function?: { name?: string; arguments?: string };
+            }>) {
+              const idx = tc.index ?? 0;
+              if (!toolCallMap.has(idx)) {
+                toolCallMap.set(idx, {
+                  id: tc.id || '',
+                  type: tc.type || 'function',
+                  name: tc.function?.name || '',
+                  arguments: tc.function?.arguments || '',
+                });
+              } else {
+                const existing = toolCallMap.get(idx);
+                if (!existing) {
+                  continue;
+                }
+                if (tc.id) {
+                  existing.id = tc.id;
+                }
+                if (tc.type) {
+                  existing.type = tc.type;
+                }
+                if (tc.function?.name) {
+                  existing.name += tc.function.name;
+                }
+                if (tc.function?.arguments) {
+                  existing.arguments += tc.function.arguments;
                 }
               }
             }
-
-            // 提取 usage（某些 API 在最后一个 chunk 中返回）
-            if (data.usage) {
-              lastUsage = {
-                promptTokens: data.usage.prompt_tokens ?? 0,
-                completionTokens: data.usage.completion_tokens ?? 0,
-                totalTokens: data.usage.total_tokens ?? 0,
-              };
-            }
-          } catch {
-            // skip invalid JSON
           }
-        }
-      }
 
-      // 解析 <think...</think 标签
-      if (fullContent) {
-        const parsed = parseThinkingTags(fullContent);
-        if (parsed.thinkingContent) {
-          fullThinking = fullThinking
-            ? fullThinking + '\n' + parsed.thinkingContent
-            : parsed.thinkingContent;
-          fullContent = parsed.cleanContent;
+          // 提取 usage（某些 API 在最后一个 chunk 中返回）
+          if (data.usage) {
+            lastUsage = {
+              promptTokens: data.usage.prompt_tokens ?? 0,
+              completionTokens: data.usage.completion_tokens ?? 0,
+              totalTokens: data.usage.total_tokens ?? 0,
+            };
+          }
+        } catch {
+          // skip invalid JSON
         }
       }
+    }
 
-      // 流结束，判断是否有工具调用
-      if (toolCallMap.size > 0) {
-        const toolCalls: ToolCallInfo[] = [];
-        for (const [_, tc] of toolCallMap) {
-          toolCalls.push({
-            id: tc.id,
-            type: tc.type || 'function',
-            function: { name: tc.name, arguments: tc.arguments },
-          });
-        }
-        yield { type: 'tool_calls', toolCalls, thinkingContent: fullThinking };
-      } else {
-        yield {
-          type: 'done',
-          content: fullContent,
-          thinkingContent: fullThinking,
-          usage: lastUsage,
-        };
+    // 解析 <think...</think 标签
+    if (fullContent) {
+      const parsed = parseThinkingTags(fullContent);
+      if (parsed.thinkingContent) {
+        fullThinking = fullThinking
+          ? fullThinking + '\n' + parsed.thinkingContent
+          : parsed.thinkingContent;
+        fullContent = parsed.cleanContent;
       }
-    } finally {
-      clearTimeout(timeout);
+    }
+
+    // 流结束，判断是否有工具调用
+    if (toolCallMap.size > 0) {
+      const toolCalls: ToolCallInfo[] = [];
+      for (const [_, tc] of toolCallMap) {
+        toolCalls.push({
+          id: tc.id,
+          type: tc.type || 'function',
+          function: { name: tc.name, arguments: tc.arguments },
+        });
+      }
+      yield { type: 'tool_calls', toolCalls, thinkingContent: fullThinking };
+    } else {
+      yield {
+        type: 'done',
+        content: fullContent,
+        thinkingContent: fullThinking,
+        usage: lastUsage,
+        truncated: lastFinishReason === 'length',
+      };
     }
   }
 
@@ -823,12 +880,14 @@ export class LLMService {
     reasoningSteps: ReasoningStep[];
     analysisMode: 'agent' | 'single' | 'fallback';
     totalUsage?: TokenUsage;
+    truncated?: boolean;
   }> {
     const reasoningSteps: ReasoningStep[] = [];
     let accPrompt = 0;
     let accCompletion = 0;
     let accTotal = 0;
     let collectedThinking: string | null = null;
+    let hasTruncation = false;
 
     const accumulateUsage = (usage?: TokenUsage) => {
       if (!usage) {
@@ -872,6 +931,7 @@ export class LLMService {
       const firstResponse = await this.chatWithTools(messages, config, tools);
       accumulateUsage(firstResponse.usage);
       collectThinking(firstResponse.thinkingContent);
+      hasTruncation = hasTruncation || !!firstResponse.truncated;
 
       if (!firstResponse.toolCalls || firstResponse.toolCalls.length === 0) {
         const content = firstResponse.content || '';
@@ -888,6 +948,7 @@ export class LLMService {
             reasoningSteps: [],
             analysisMode: 'single',
             totalUsage: getTotalUsage(),
+            truncated: hasTruncation,
           };
         }
         return {
@@ -896,6 +957,7 @@ export class LLMService {
           reasoningSteps: [],
           analysisMode: 'single',
           totalUsage: getTotalUsage(),
+          truncated: hasTruncation,
         };
       }
 
@@ -916,6 +978,7 @@ export class LLMService {
             reasoningSteps,
             analysisMode: 'agent',
             totalUsage: getTotalUsage(),
+            truncated: true,
           };
         }
 
@@ -972,6 +1035,7 @@ export class LLMService {
         const nextResponse = await this.chatWithTools(messages, config, tools);
         accumulateUsage(nextResponse.usage);
         collectThinking(nextResponse.thinkingContent);
+        hasTruncation = hasTruncation || !!nextResponse.truncated;
 
         messages.pop(); // Remove injected progress context
 
@@ -982,6 +1046,7 @@ export class LLMService {
             reasoningSteps,
             analysisMode: 'agent',
             totalUsage: getTotalUsage(),
+            truncated: hasTruncation,
           };
         }
 
@@ -992,12 +1057,14 @@ export class LLMService {
       const finalResponse = await this.chatWithTools(messages, config);
       accumulateUsage(finalResponse.usage);
       collectThinking(finalResponse.thinkingContent);
+      hasTruncation = hasTruncation || !!finalResponse.truncated;
       return {
         responseText: finalResponse.content || '',
         thinkingContent: collectedThinking,
         reasoningSteps,
         analysisMode: 'agent',
         totalUsage: getTotalUsage(),
+        truncated: hasTruncation,
       };
     } catch (error) {
       this.log.warn(
@@ -1014,6 +1081,7 @@ export class LLMService {
         reasoningSteps: [],
         analysisMode: 'single',
         totalUsage: getTotalUsage(),
+        truncated: hasTruncation || fallbackText.finishReason === 'length',
       };
     }
   }

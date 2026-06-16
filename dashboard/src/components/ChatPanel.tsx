@@ -319,7 +319,13 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
           if (lastMsg && lastMsg.role === 'assistant') {
             const updated = prev.map((m, i) =>
               i === prev.length - 1
-                ? { ...m, content: data.content || m.content, thinkingContent: data.thinkingContent || m.thinkingContent, truncated: data.truncated }
+                ? {
+                    ...m,
+                    content: data.content || m.content,
+                    // 保留流式过程中已正确设置的思考内容，不用累积的 thinkingContent 覆盖
+                    thinkingContent: m.thinkingContent || data.thinkingContent,
+                    truncated: data.truncated,
+                  }
                 : m
             );
             return updated;

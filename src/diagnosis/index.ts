@@ -23,7 +23,7 @@ const DEFAULT_CONFIG: LLMConfig = {
   baseUrl: 'http://localhost:11434',
   model: '',
   remark: '',
-  maxTokens: 2048,
+  maxTokens: 4096,
   temperature: 0.3,
 };
 
