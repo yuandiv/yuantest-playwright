@@ -73,6 +73,7 @@ export type AgentLoopStreamEvent =
         analysisMode: 'agent' | 'single' | 'fallback';
         reasoningSteps: ReasoningStep[];
         totalUsage?: TokenUsage;
+        truncated?: boolean;
       };
     };
 
@@ -651,11 +652,12 @@ export class LLMService {
           yield {
             type: 'done',
             data: {
-              content: currentContent || 'Task has reached the maximum number of execution rounds. Please review the partial results above.',
+              content: currentContent || 'Agent 执行已达到最大轮数，部分结果可能不完整。请检查上述输出。',
               thinkingContent: collectedThinking,
               analysisMode: 'agent',
               reasoningSteps,
               totalUsage: getTotalUsage(),
+              truncated: true,
             },
           };
           return;

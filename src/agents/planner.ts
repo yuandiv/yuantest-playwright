@@ -244,6 +244,7 @@ export class PlannerAgent extends BaseAgent {
     options?: {
       seedTest?: string;
       prdPath?: string;
+      pageSnapshot?: string;
     }
   ): Promise<TestPlan> {
     if (!this.llmService) {
@@ -292,32 +293,15 @@ export class PlannerAgent extends BaseAgent {
           : `\nProduct Requirement Document:\n${prdContent.slice(0, 3000)}\n`;
     }
 
-    // 获取 ToolRegistry 并筛选 Planner 所需的工具
-    const fullRegistry = this.getOrCreateToolRegistry();
-    const plannerToolNames = ['search_codebase', 'read_source_file'];
-    const tools = fullRegistry
-      .getToolSchemas()
-      .filter((schema) => plannerToolNames.includes(schema.function.name));
+    if (options?.pageSnapshot) {
+      userPrompt +=
+        lang === 'zh'
+          ? `\n页面观察结果:\n${options.pageSnapshot.slice(0, 3000)}\n`
+          : `\nPage Observations:\n${options.pageSnapshot.slice(0, 3000)}\n`;
+    }
 
-    // 工具执行器：委托给 registry.executeTool()
-    const toolExecutor = async (
-      toolName: string,
-      args: Record<string, unknown>
-    ): Promise<string> => {
-      try {
-        return await fullRegistry.executeTool(toolName, args);
-      } catch (error) {
-        return `工具执行失败: ${error instanceof Error ? error.message : String(error)}`;
-      }
-    };
-
-    const result = await super.callLLMWithAgentLoop(
-      { system: systemPrompt, user: userPrompt },
-      tools,
-      toolExecutor
-    );
-
-    const plan = this.parsePlanResponse(result.responseText, description);
+    const responseText = await super.callLLM(systemPrompt, userPrompt);
+    const plan = this.parsePlanResponse(responseText, description);
 
     return plan;
   }

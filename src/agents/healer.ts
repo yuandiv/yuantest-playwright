@@ -3,6 +3,7 @@ import * as path from 'path';
 import { BaseAgent } from './base-agent';
 import { PatchApplier } from './patch-applier';
 import { LLMService } from './llm-service';
+import { AgentOutputParser } from './output-parser';
 import { AgentConfig, HealerPatch, LLMConfig, AgentHealResult } from '../types';
 
 const HEALER_SYSTEM_PROMPT_ZH =
@@ -268,81 +269,8 @@ export class HealerAgent extends BaseAgent {
           : `\nNote: This is round ${round} of healing attempts, previous fixes may not have fully resolved the issue.\n`;
     }
 
-    // 获取 ToolRegistry 并筛选 Healer 所需的工具
-    const fullRegistry = this.getOrCreateToolRegistry();
-    const healerToolNames = ['read_source_file', 'search_codebase', 'run_test', 'read_screenshot'];
-    const tools = fullRegistry
-      .getToolSchemas()
-      .filter((schema) => healerToolNames.includes(schema.function.name));
-
-    // 工具执行器：委托给 registry.executeTool()
-    const toolExecutor = async (
-      toolName: string,
-      args: Record<string, unknown>
-    ): Promise<string> => {
-      try {
-        return await fullRegistry.executeTool(toolName, args);
-      } catch (error) {
-        return `工具执行失败: ${error instanceof Error ? error.message : String(error)}`;
-      }
-    };
-
-    const result = await super.callLLMWithAgentLoop(
-      { system: systemPrompt, user: userPrompt },
-      tools,
-      toolExecutor
-    );
-
-    return this.parseHealerResponse(result.responseText, testFilePath);
-  }
-
-  private parseHealerResponse(
-    responseText: string,
-    testFilePath: string
-  ): { patches: HealerPatch[]; summary: string; healed: boolean } {
-    let text = responseText.trim();
-
-    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      text = codeBlockMatch[1].trim();
-    }
-
-    try {
-      const parsed = JSON.parse(text);
-
-      const patches: HealerPatch[] = Array.isArray(parsed.patches)
-        ? parsed.patches
-            .filter((p: Record<string, unknown>) => p.originalCode && p.patchedCode)
-            .map((p: Record<string, unknown>) => ({
-              testId: '',
-              testTitle: path.basename(testFilePath),
-              filePath: p.filePath || testFilePath,
-              originalCode: String(p.originalCode),
-              patchedCode: String(p.patchedCode),
-              unifiedDiff: '',
-              confidence:
-                typeof p.confidence === 'number' ? Math.min(1, Math.max(0, p.confidence)) : 0.5,
-              reason: String(p.reason || ''),
-            }))
-        : [];
-
-      for (const patch of patches) {
-        patch.unifiedDiff = this.generateUnifiedDiff(patch.originalCode, patch.patchedCode);
-      }
-
-      return {
-        patches,
-        summary: String(parsed.summary || ''),
-        healed: Boolean(parsed.healed),
-      };
-    } catch {
-      this.log.warn('Failed to parse healer response as JSON');
-      return {
-        patches: [],
-        summary: responseText.slice(0, 500),
-        healed: false,
-      };
-    }
+    const responseText = await super.callLLM(systemPrompt, userPrompt);
+    return AgentOutputParser.parseHealerPatches(responseText, testFilePath);
   }
 
   private extractTestId(testContent: string, filePath: string): string {

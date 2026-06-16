@@ -87,16 +87,43 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [activeConv, setActiveConv] = useState<ConversationData | null>(null);
   const [inputText, setInputText] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingConvIds, setLoadingConvIds] = useState<Set<string>>(new Set());
   const [streamingMessages, setStreamingMessages] = useState<ChatMessageData[]>([]);
   const [mcpStatus, setMcpStatus] = useState<MCPConnectionStatus | null>(null);
   const [llmStatus, setLlmStatus] = useState<LLMStatus | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showAgentConfig, setShowAgentConfig] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [hintMessage, setHintMessage] = useState<string | null>(null);
+  const hintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const streamConvIdRef = useRef<string | null>(null);
+  const activeConvIdRef = useRef<string | null>(null);
+
+  // 按会话存储流式消息，以便切换回时恢复
+  const streamingDataByConvRef = useRef<Map<string, ChatMessageData[]>>(new Map());
+
+  const isLoading = activeConvId ? loadingConvIds.has(activeConvId) : false;
+  // 是否有其他会话正在执行
+  const otherSessionLoading = loadingConvIds.size > 0 && (activeConvId ? !loadingConvIds.has(activeConvId) : true);
+
+  // ─── 提示信息 ──────────────────────────────────────────────────
+  const showHint = useCallback((msg: string) => {
+    if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
+    setHintMessage(msg);
+    hintTimeoutRef.current = setTimeout(() => setHintMessage(null), 4000);
+  }, []);
+
+  const hintDismiss = useCallback(() => {
+    setHintMessage(null);
+    if (hintTimeoutRef.current) {
+      clearTimeout(hintTimeoutRef.current);
+      hintTimeoutRef.current = null;
+    }
+  }, []);
 
   const loadConversations = useCallback(async () => {
     const list = await listConversations();
@@ -125,33 +152,62 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
   }, [loadConversations, loadMCPStatus, loadLLMStatus]);
 
   const handleSelectConversation = useCallback(async (id: string) => {
+    // 保存当前会话的流式消息
+    if (activeConvId && streamingMessages.length > 0) {
+      streamingDataByConvRef.current.set(activeConvId, streamingMessages);
+    }
+    // 恢复目标会话的流式消息（如有）
+    const saved = streamingDataByConvRef.current.get(id);
+    if (saved) {
+      setStreamingMessages(saved);
+    } else {
+      setStreamingMessages([]);
+    }
+    activeConvIdRef.current = id;
     setActiveConvId(id);
-    setStreamingMessages([]);
     const conv = await getConversation(id);
     if (conv) setActiveConv(conv);
-  }, []);
+  }, [activeConvId, streamingMessages]);
 
   const handleCreateConversation = useCallback(async () => {
     const conv = await createConversation();
     if (conv) {
+      activeConvIdRef.current = conv.id;
       setActiveConvId(conv.id);
       setActiveConv(conv);
+      setStreamingMessages([]);
       loadConversations();
     }
   }, [loadConversations]);
 
   const handleDeleteConversation = useCallback(async (id: string) => {
     await deleteConversation(id);
+    setLoadingConvIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    streamingDataByConvRef.current.delete(id);
     if (activeConvId === id) {
       setActiveConvId(null);
       setActiveConv(null);
+      setStreamingMessages([]);
     }
     loadConversations();
   }, [activeConvId, loadConversations]);
 
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
-    if (!text || isLoading) return;
+    if (!text) return;
+
+    // 当前会话正在执行中
+    if (isLoading) return;
+
+    // 有其他会话正在执行，友好提示
+    if (otherSessionLoading) {
+      showHint('当前有其他会话正在执行，请等待完成后重试');
+      return;
+    }
 
     let convId = activeConvId;
     if (!convId) {
@@ -164,8 +220,18 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
     }
 
     setInputText('');
-    setIsLoading(true);
+    setLoadingConvIds((prev) => new Set(prev).add(convId));
     setStreamingMessages([]);
+    // 清除之前保存的该会话流式消息
+    streamingDataByConvRef.current.delete(convId);
+
+    // 取消之前的请求（如有）— 同一时间只允许一个请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    streamConvIdRef.current = convId;
 
     const userMsg: ChatMessageData = {
       id: 'streaming-user',
@@ -176,6 +242,9 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
     setStreamingMessages([userMsg]);
 
     await sendMessage(convId, text, (event: SSEEventData) => {
+      // 切换会话后的残留事件忽略
+      if (streamConvIdRef.current !== convId) return;
+      if (abortController.signal.aborted) return;
       if (event.type === 'token') {
         const token = event.data as string;
         setStreamingMessages((prev) => {
@@ -248,11 +317,12 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
         setStreamingMessages((prev) => {
           const lastMsg = prev[prev.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
-            return prev.map((m, i) =>
+            const updated = prev.map((m, i) =>
               i === prev.length - 1
-                ? { ...m, content: data.content || m.content, thinkingContent: data.thinkingContent || m.thinkingContent }
+                ? { ...m, content: data.content || m.content, thinkingContent: data.thinkingContent || m.thinkingContent, truncated: data.truncated }
                 : m
             );
+            return updated;
           }
           return [
             ...prev,
@@ -261,14 +331,35 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
               role: 'assistant',
               content: data.content,
               thinkingContent: data.thinkingContent,
+              truncated: data.truncated,
               timestamp: Date.now(),
             },
           ];
         });
-        setIsLoading(false);
-        getConversation(convId!).then((conv) => {
-          if (conv) setActiveConv(conv);
+        setLoadingConvIds((prev) => {
+          const next = new Set(prev);
+          next.delete(convId!);
+          return next;
         });
+        // 检查此会话是否仍是用户当前查看的会话
+        const stillActive = activeConvIdRef.current === convId;
+        abortControllerRef.current = null;
+        streamConvIdRef.current = null;
+        // 保存完成后的消息数据，以便切换回时恢复
+        setStreamingMessages((prev) => {
+          streamingDataByConvRef.current.set(convId!, prev);
+          return prev;
+        });
+        // 如果当前仍在查看此会话，加载完整数据替换流式数据
+        if (stillActive) {
+          getConversation(convId!).then((conv) => {
+            if (conv) {
+              setActiveConv(conv);
+              setStreamingMessages([]);
+              streamingDataByConvRef.current.delete(convId!);
+            }
+          });
+        }
         loadConversations();
       } else if (event.type === 'error') {
         setStreamingMessages((prev) => [
@@ -280,10 +371,16 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
             timestamp: Date.now(),
           },
         ]);
-        setIsLoading(false);
+        setLoadingConvIds((prev) => {
+          const next = new Set(prev);
+          next.delete(convId!);
+          return next;
+        });
+        abortControllerRef.current = null;
+        streamConvIdRef.current = null;
       }
-    });
-  }, [inputText, isLoading, activeConvId, loadConversations]);
+    }, abortController.signal);
+  }, [inputText, isLoading, otherSessionLoading, showHint, activeConvId, loadConversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -418,6 +515,16 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
             </div>
 
             <div className="px-4 py-3 border-t border-gray-200">
+              {/* 提示信息横幅 */}
+              {hintMessage && (
+                <div className="mb-2 flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-lg px-3 py-2">
+                  <i className="fas fa-info-circle text-amber-500"></i>
+                  <span className="flex-1">{hintMessage}</span>
+                  <button onClick={hintDismiss} className="text-amber-400 hover:text-amber-600">
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+              )}
               <div className="flex items-end gap-2">
                 <textarea
                   ref={inputRef}
@@ -427,11 +534,11 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
                   placeholder={t('chatInputPlaceholder', lang)}
                   className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none min-h-[40px] max-h-[120px]"
                   rows={1}
-                  disabled={isLoading}
+                  disabled={isLoading || otherSessionLoading}
                 />
                 <button
                   onClick={handleSend}
-                  disabled={isLoading || !inputText.trim()}
+                  disabled={isLoading || otherSessionLoading || !inputText.trim()}
                   className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                 >
                   {isLoading ? (

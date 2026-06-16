@@ -18,12 +18,10 @@ function getPrivateMethods(agent: GeneratorAgent): PrivateMethods {
   return agent as unknown as PrivateMethods;
 }
 
-/** Mock LLMService.chatWithAgentLoop to return a given response text */
+/** Mock LLMService.chat to return a given response text */
 function mockAgentLoop(responseText: string) {
-  return vi.spyOn(LLMService.prototype, 'chatWithAgentLoop').mockResolvedValue({
-    responseText,
-    reasoningSteps: [],
-    analysisMode: 'single' as const,
+  return vi.spyOn(LLMService.prototype, 'chat').mockResolvedValue({
+    content: responseText,
   });
 }
 
@@ -397,9 +395,9 @@ describe('GeneratorAgent', () => {
       await enAgent.generateTests('Test plan', { outputDir });
 
       expect(spy).toHaveBeenCalledTimes(1);
-      const callArgs = spy.mock.calls[0][0] as { system: string; user: string };
-      expect(callArgs.system).toContain('Playwright test engineer');
-      expect(callArgs.user).toContain('Generate Playwright test code');
+      const callArgs = spy.mock.calls[0][0] as { systemPrompt: string; userPrompt: string };
+      expect(callArgs.systemPrompt).toContain('Playwright test engineer');
+      expect(callArgs.userPrompt).toContain('Generate Playwright test code');
 
       spy.mockRestore();
     });
@@ -422,9 +420,9 @@ describe('GeneratorAgent', () => {
       await zhAgent.generateTests('测试计划', { outputDir });
 
       expect(spy).toHaveBeenCalledTimes(1);
-      const callArgs = spy.mock.calls[0][0] as { system: string; user: string };
-      expect(callArgs.system).toContain('Playwright 测试工程师');
-      expect(callArgs.user).toContain('请根据以下测试计划生成');
+      const callArgs = spy.mock.calls[0][0] as { systemPrompt: string; userPrompt: string };
+      expect(callArgs.systemPrompt).toContain('Playwright 测试工程师');
+      expect(callArgs.userPrompt).toContain('请根据以下测试计划生成');
 
       spy.mockRestore();
     });

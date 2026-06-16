@@ -23,13 +23,12 @@ import {
   AgentSessionContext,
   ProjectContext,
 } from '../types';
-import { PlannerAgent } from '../agents/planner';
+import { AgentOutputParser } from '../agents/output-parser';
 import { BrowserSessionManager } from '../agents/browser-session';
 import { AgentConfigManager } from '../agents/agent-config-manager';
 import { AgentLifecycleManager } from '../agents/agent-lifecycle-manager';
 import { AgentSessionManager } from '../agents/agent-session-manager';
 import { AgentHistoryManager } from '../agents/agent-history-manager';
-import { GeneratorAgent } from '../agents/generator';
 import { HealerAgent } from '../agents/healer';
 import { AgentFileOperations } from '../agents/agent-file-operations';
 
@@ -314,6 +313,7 @@ export class UnifiedAIService {
               analysisMode: event.data.analysisMode,
               reasoningSteps: event.data.reasoningSteps,
               totalUsage: event.data.totalUsage,
+              truncated: event.data.truncated,
             },
           });
         }
@@ -356,16 +356,36 @@ export class UnifiedAIService {
       '你是一个 Playwright 测试助手。你的任务是帮助用户分析页面、生成测试计划和测试代码。',
       '',
       '## 工作方式',
-      '1. 当用户要求分析页面时，逐步使用 browser_navigate 和 browser_snapshot 探索页面',
-      '2. 每步操作的结果会实时流式反馈给用户',
-      '3. 探索足够后，调用 agent_plan 生成完整的结构化测试计划',
-      '4. 将 agent_plan 返回的测试计划呈现给用户',
+      '1. 当用户要求分析页面时，使用 browser_navigate 导航到目标页面',
+      '2. 调用 browser_snapshot 获取页面结构和可见内容',
+      '3. 分析 snapshot 内容，判断是否需要进一步探索：',
+      '   - 如果有折叠区域（tab、手风琴、下拉菜单等），点击展开后再 snapshot',
+      '   - 如果有模态框、弹窗、动态面板，触发后 snapshot',
+      '   - 如果页面有明显未加载的区域（"加载中"占位符），等待后重试',
+      '   - 如果用户指定了功能点但 snapshot 中看不到对应元素，需要进一步点击导航',
+      '4. 当满足以下条件时，停止探索，直接输出结构化的测试计划：',
+      '   - 已获取页面的主结构（导航、内容区、表单等主要区域）',
+      '   - 已展开所有可见的折叠区域，看到完整 UI 结构',
+      '   - 能清晰描述页面的核心功能和用户操作路径',
+      '',
+      '## 测试计划格式要求',
+      '输出测试计划时，请遵循以下格式：',
+      '- 以 "# 测试计划: <标题>" 开头',
+      '- 覆盖以下场景类型（每种至少1个）：正向流程、异常流程、边界值测试、数据验证、状态转换',
+      '- 每个场景以 "## 场景: <名称>" 开头',
+      '- 每个场景包含多个步骤，步骤格式：序号. 操作描述（可附带输入值）',
+      '- 每个场景最后列出预期结果，以 "- 结果描述" 格式',
+      '- 测试步骤应描述具体的操作，例如"点击登录按钮"、"输入用户名"等',
       '',
       '## 浏览器操作指引',
       '- browser_navigate → 导航到目标页面',
       '- browser_snapshot → 获取页面结构和可见内容',
-      '- 根据 snapshot 内容决定是否需要进一步探索（点击、滚动等）',
-      '- 完成探索后调用 agent_plan 生成测试计划',
+      '- browser_click → 点击元素，selector 必须使用 Playwright 支持的语法：',
+      '    text=按钮文字  （按文本匹配）',
+      '    css=.class-name  （CSS 选择器）',
+      '    xpath=//button  （XPath）',
+      '    注意：snapshot 中显示的 e1, e12 等编号是内部引用 ID，不能用作 selector！',
+      '- 根据 snapshot 内容判断是否需要进一步探索（展开折叠、打开弹窗等）',
       '',
     ];
 
@@ -387,7 +407,6 @@ export class UnifiedAIService {
 
   /**
    * 统一工具执行器 — 同时处理 MCP 工具、ToolRegistry 工具和 Agent 管线工具。
-   * 这是真正的合并点：chat 和 agent 的所有能力都在同一个方法中路由。
    */
   private async executeTool(toolName: string, args: Record<string, unknown>): Promise<string> {
     // 1) MCP 工具
@@ -396,49 +415,8 @@ export class UnifiedAIService {
     }
 
     // 2) Agent 管线工具 — 直接调用 this 上的方法，无需经过 ToolRegistry
-    if (toolName === 'agent_plan') {
-      const result = await this.plan(String(args.description), {
-        seedTest: args.seedTest as string | undefined,
-        prdPath: args.prdPath as string | undefined,
-        outputDir: args.outputDir as string | undefined,
-      });
-      if (result.success && result.data) {
-        const plan = result.data;
-        const lines: string[] = [
-          `# 测试计划: ${plan.title}`,
-          '',
-          `共 ${plan.scenarios.length} 个测试场景，${plan.scenarios.reduce((s, c) => s + c.steps.length, 0)} 个测试步骤`,
-          '',
-        ];
-        for (const scenario of plan.scenarios) {
-          lines.push(`## 场景: ${scenario.name}`);
-          lines.push('');
-          for (let i = 0; i < scenario.steps.length; i++) {
-            const step = scenario.steps[i];
-            lines.push(`${i + 1}. ${step.action}`);
-            if (step.target) {
-              lines.push(`   目标: ${step.target}`);
-            }
-            if (step.value) {
-              lines.push(`   输入值: ${step.value}`);
-            }
-          }
-          if (scenario.expectedResults.length > 0) {
-            lines.push('');
-            lines.push('预期结果:');
-            for (const result of scenario.expectedResults) {
-              lines.push(`- ${result}`);
-            }
-          }
-          lines.push('');
-        }
-        return lines.join('\n');
-      }
-      return `错误: ${result.error || '未知错误'}`;
-    }
-
     if (toolName === 'agent_generate') {
-      const result = await this.generate(String(args.planPath), {
+      const result = await this.generate(String(args.planContent), {
         outputDir: args.outputDir as string | undefined,
       });
       if (result.success && result.data) {
@@ -489,39 +467,18 @@ export class UnifiedAIService {
       {
         type: 'function',
         function: {
-          name: 'agent_plan',
-          description:
-            'Generate a structured test plan from a feature description. Use this AFTER exploring the page with MCP browser tools — pass your observations as the description parameter.',
-          parameters: {
-            type: 'object',
-            properties: {
-              description: { type: 'string', description: 'Feature description for test planning' },
-              seedTest: { type: 'string', description: 'Reference seed test file path (optional)' },
-              prdPath: {
-                type: 'string',
-                description: 'Product requirement document path (optional)',
-              },
-              outputDir: { type: 'string', description: 'Output directory for plans (optional)' },
-            },
-            required: ['description'],
-          },
-        },
-      },
-      {
-        type: 'function',
-        function: {
           name: 'agent_generate',
-          description: 'Generate Playwright TypeScript test code from a test plan file',
+          description: 'Generate Playwright TypeScript test code from a test plan content',
           parameters: {
             type: 'object',
             properties: {
-              planPath: { type: 'string', description: 'Path to the test plan Markdown file' },
+              planContent: { type: 'string', description: 'The test plan content in markdown format' },
               outputDir: {
                 type: 'string',
                 description: 'Output directory for generated test files (optional)',
               },
             },
-            required: ['planPath'],
+            required: ['planContent'],
           },
         },
       },
@@ -630,25 +587,8 @@ export class UnifiedAIService {
     });
   }
 
-  async plan(
-    description: string,
-    options?: { seedTest?: string; prdPath?: string; outputDir?: string }
-  ): Promise<AgentResult<TestPlan>> {
-    const llmConfig = this.llmService?.getConfig();
-    if (!llmConfig?.enabled) {
-      return { success: false, error: 'LLM is not enabled', duration: 0, agentType: 'planner' };
-    }
-    const startTime = Date.now();
-    try {
-      const plan = await this.lifecycleManager.getPlanner().generatePlan(description, options);
-      return { success: true, data: plan, duration: Date.now() - startTime, agentType: 'planner' };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'planner' };
-    }
-  }
-
   async generate(
-    planPath: string,
+    planContent: string,
     options?: { outputDir?: string; seedTest?: string }
   ): Promise<AgentResult<string[]>> {
     const llmConfig = this.llmService?.getConfig();
@@ -657,7 +597,6 @@ export class UnifiedAIService {
     }
     const startTime = Date.now();
     try {
-      const planContent = require('fs').readFileSync(planPath, 'utf-8');
       const files = await this.lifecycleManager.getGenerator().generateTests(planContent, options);
       return { success: true, data: files, duration: Date.now() - startTime, agentType: 'generator' };
     } catch (error) {
@@ -724,7 +663,7 @@ export class UnifiedAIService {
   }
 
   parseMarkdownPlan(filePath: string): TestPlan | null {
-    return PlannerAgent.parseMarkdownPlan(filePath);
+    return AgentOutputParser.parseMarkdownPlan(filePath);
   }
 
   async listPlans(): Promise<TestPlan[]> {
@@ -737,7 +676,7 @@ export class UnifiedAIService {
     const entries = this.fileOperations.listFiles(specsDir);
     for (const entry of entries) {
       if (entry.endsWith('.md')) {
-        const plan = PlannerAgent.parseMarkdownPlan(path.join(specsDir, entry));
+        const plan = AgentOutputParser.parseMarkdownPlan(path.join(specsDir, entry));
         if (plan) {
           plans.push(plan);
         }

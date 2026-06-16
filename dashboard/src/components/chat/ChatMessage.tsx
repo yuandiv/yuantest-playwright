@@ -144,6 +144,12 @@ export function ChatMessage({ message, stepIndex }: ChatMessageProps) {
           <div className="prose prose-sm max-w-none">
             <MessageContent content={message.content} />
           </div>
+          {message.truncated && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+              <i className="fas fa-exclamation-triangle text-yellow-500"></i>
+              <span>对话已达到最大执行轮数，部分结果可能不完整。</span>
+            </div>
+          )}
         </div>
       </div>
     );

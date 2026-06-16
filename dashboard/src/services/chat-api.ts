@@ -15,6 +15,7 @@ export interface ChatMessageData {
   };
   resultContent?: string;
   thinkingContent?: string;
+  truncated?: boolean;
   timestamp: number;
 }
 
@@ -89,6 +90,7 @@ export interface ChatDoneData {
     completionTokens: number;
     totalTokens: number;
   };
+  truncated?: boolean;
 }
 
 export async function listConversations(): Promise<ConversationSummary[] | null> {
@@ -143,13 +145,15 @@ export async function deleteConversation(id: string): Promise<boolean> {
 export async function sendMessage(
   conversationId: string,
   message: string,
-  onEvent: (event: SSEEventData) => void
+  onEvent: (event: SSEEventData) => void,
+  signal?: AbortSignal
 ): Promise<void> {
   try {
     const res = await fetch(`${API_BASE}/chat/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message }),
+      signal,
     });
 
     if (!res.ok) {

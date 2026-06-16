@@ -1,6 +1,5 @@
 import { BaseAgent } from './base-agent';
-import { PlannerAgent } from './planner';
-import { GeneratorAgent } from './generator';
+import { GeneratorService } from './generator-service';
 import { HealerAgent } from './healer';
 import { ToolRegistry } from './tool-registry';
 import { LLMService } from './llm-service';
@@ -8,13 +7,14 @@ import { AgentConfigManager } from './agent-config-manager';
 
 /**
  * Agent 实例生命周期管理器。
- * 负责 Agent 的创建、ToolRegistry 分发和配置同步，
- * 将 Agent 实例管理从 AgentService 中解耦。
+ * 负责 HealerAgent 的生命周期管理、ToolRegistry 分发和配置同步。
+ * GeneratorService 是轻量服务，不需要生命周期管理。
  */
 export class AgentLifecycleManager {
   private agents: Map<string, BaseAgent> = new Map();
   private sharedLLMService: LLMService | null = null;
   private sharedToolRegistry: ToolRegistry | null = null;
+  private _generator: GeneratorService | null = null;
 
   constructor(
     private dataDir: string,
@@ -28,14 +28,11 @@ export class AgentLifecycleManager {
     this.setupConfigChangeListeners();
   }
 
-  // ─── Agent 访问 ────────────────────────────────────────────
+  // ─── Service 访问 ─────────────────────────────────────────
 
-  getPlanner(): PlannerAgent {
-    return this.getAgent<PlannerAgent>('planner')!;
-  }
-
-  getGenerator(): GeneratorAgent {
-    return this.getAgent<GeneratorAgent>('generator')!;
+  getGenerator(): GeneratorService {
+    if (!this._generator) throw new Error('GeneratorService not initialized');
+    return this._generator;
   }
 
   getHealer(): HealerAgent {
@@ -52,7 +49,6 @@ export class AgentLifecycleManager {
 
   // ─── ToolRegistry 管理 ─────────────────────────────────────
 
-  /** 重新初始化 ToolRegistry（如 projectRoot 变更时调用） */
   reinitializeToolRegistry(): void {
     const projectRoot = this.configManager.getConfig().projectRoot || process.cwd();
     this.sharedToolRegistry = ToolRegistry.createDefaultRegistry(this.dataDir, projectRoot);
@@ -64,18 +60,17 @@ export class AgentLifecycleManager {
   private initializeAgents(): void {
     const config = this.configManager.getConfig();
     const llmConfig = this.configManager.getLLMConfig();
+    const llmService = this.sharedLLMService ?? (llmConfig ? new LLMService(llmConfig) : null);
 
-    this.agents.set(
-      'planner',
-      new PlannerAgent(config, llmConfig, undefined, this.sharedLLMService ?? undefined)
-    );
-    this.agents.set(
-      'generator',
-      new GeneratorAgent(config, llmConfig, this.sharedLLMService ?? undefined)
-    );
+    // Generator: 轻量服务，直接持有 LLMService
+    if (llmService) {
+      this._generator = new GeneratorService(llmService, config.projectRoot);
+    }
+
+    // Healer: 真正的 Agent，需要生命周期管理
     this.agents.set(
       'healer',
-      new HealerAgent(config, llmConfig, this.sharedLLMService ?? undefined)
+      new HealerAgent(config, llmConfig, llmService ?? undefined)
     );
 
     this.distributeToolRegistry();
@@ -88,6 +83,7 @@ export class AgentLifecycleManager {
         this.dataDir,
         this.configManager.getConfig().projectRoot || process.cwd()
       );
+    // Healer 需要 ToolRegistry（run_test 等工具）
     for (const agent of this.agents.values()) {
       agent.setToolRegistry(registry);
     }
@@ -95,6 +91,7 @@ export class AgentLifecycleManager {
 
   private setupConfigChangeListeners(): void {
     this.configManager.onConfigChange((config, llmConfig, extraParams) => {
+      // 更新 Healer（真正的 Agent）
       for (const agent of this.agents.values()) {
         const requiredKeys = agent.getRequiredExtraConfigKeys();
         const agentExtraParams: Record<string, unknown> = {};

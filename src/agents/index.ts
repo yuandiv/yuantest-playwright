@@ -14,7 +14,7 @@ import {
   ProjectContext,
   AgentSessionContext,
 } from '../types';
-import { PlannerAgent } from './planner';
+import { AgentOutputParser } from './output-parser';
 import { BrowserSessionManager } from './browser-session';
 import { LLMService } from './llm-service';
 import { ToolRegistry } from './tool-registry';
@@ -173,7 +173,32 @@ export class AgentService {
     }
     const startTime = Date.now();
     try {
-      const plan = await this.lifecycleManager.getPlanner().generatePlan(description, options);
+      const llmService = new LLMService(llmConfig);
+      const lang = (this.configManager.getConfig().language || 'zh') as 'zh' | 'en';
+      const projectContext = this.configManager.getProjectContext();
+
+      const systemPrompt = lang === 'zh'
+        ? '你是一位专业的测试规划专家。你的任务是根据用户描述的功能场景，生成全面、深入的结构化测试计划。\n\n## 场景类型要求\n你必须覆盖以下场景类型：\n1. 正向流程\n2. 反向/异常流程\n3. 边界值测试\n4. 数据验证\n\n请使用中文回复。'
+        : 'You are a professional test planning expert. Generate comprehensive structured test plans.\n\n## Scenario Types\n1. Happy Path\n2. Negative/Error Flow\n3. Boundary Value Testing\n4. Data Validation';
+
+      let userPrompt = lang === 'zh'
+        ? `请为以下功能生成测试计划：\n\n${description}\n`
+        : `Generate a test plan for the following feature:\n\n${description}\n`;
+
+      if (options?.seedTest) {
+        try {
+          const seedContent = require('fs').readFileSync(options.seedTest, 'utf-8');
+          userPrompt += `\n参考 Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
+        } catch { /* ignore */ }
+      }
+
+      const result = await llmService.chat({
+        systemPrompt,
+        userPrompt,
+        responseFormat: { type: 'json_object' },
+      });
+
+      const plan = AgentOutputParser.parseTestPlan(result.content, description);
       return { success: true, data: plan, duration: Date.now() - startTime, agentType: 'planner' };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'planner' };
@@ -230,7 +255,7 @@ export class AgentService {
   }
 
   parseMarkdownPlan(filePath: string): TestPlan | null {
-    return PlannerAgent.parseMarkdownPlan(filePath);
+    return AgentOutputParser.parseMarkdownPlan(filePath);
   }
 
   async listPlans(): Promise<TestPlan[]> {
@@ -244,7 +269,7 @@ export class AgentService {
     const entries = this.fileOperations.listFiles(specsDir);
     for (const entry of entries) {
       if (entry.endsWith('.md')) {
-        const plan = PlannerAgent.parseMarkdownPlan(path.join(specsDir, entry));
+        const plan = AgentOutputParser.parseMarkdownPlan(path.join(specsDir, entry));
         if (plan) {
           plans.push(plan);
         }

@@ -1,8 +1,8 @@
 import * as path from 'path';
 import { logger } from '../logger';
-import { LLMService, ToolSchema, TokenUsage } from './llm-service';
+import { LLMService, TokenUsage } from './llm-service';
 import { ToolRegistry } from './tool-registry';
-import { AgentConfig, LLMConfig, ReasoningStep } from '../types';
+import { AgentConfig, LLMConfig } from '../types';
 
 /** callLLM 方法的可选参数 */
 export interface CallLLMOptions {
@@ -10,19 +10,6 @@ export interface CallLLMOptions {
   temperature?: number;
   responseFormat?: { type: string };
   timeout?: number;
-}
-
-/** callLLMWithAgentLoop 方法的返回结果 */
-export interface AgentLoopResult {
-  responseText: string;
-  reasoningSteps: ReasoningStep[];
-  analysisMode: 'agent' | 'single' | 'fallback';
-}
-
-/** callLLMWithAgentLoop 方法的可选参数 */
-export interface AgentLoopOptions {
-  /** 是否强制 JSON 输出格式（最终轮次无 tools 时自动启用） */
-  jsonResponse?: boolean;
 }
 
 /**
@@ -149,34 +136,5 @@ export abstract class BaseAgent {
     this.lastTokenUsage = result.usage;
 
     return result.content;
-  }
-
-  /**
-   * Agent 循环调用方法（支持工具调用的多轮推理）
-   * 子类可使用此方法实现更复杂的 Agent 交互逻辑
-   */
-  protected async callLLMWithAgentLoop(
-    prompt: { system: string; user: string },
-    tools: ToolSchema[],
-    toolExecutor?: (toolName: string, args: Record<string, unknown>) => Promise<string>
-  ): Promise<AgentLoopResult> {
-    if (!this.llmService) {
-      throw new Error('LLM config is not set');
-    }
-
-    const llmConfig = this.llmService.getConfig();
-
-    const result = await this.llmService.chatWithAgentLoop(
-      prompt,
-      llmConfig,
-      tools,
-      undefined,
-      toolExecutor
-    );
-
-    // 记录多轮调用的累计 token 用量
-    this.lastTokenUsage = result.totalUsage;
-
-    return result;
   }
 }

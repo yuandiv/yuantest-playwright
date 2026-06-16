@@ -1,8 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { BaseAgent } from './base-agent';
 import { LLMService } from './llm-service';
-import { AgentConfig, LLMConfig } from '../types';
+import { AgentOutputParser } from './output-parser';
 
 const GENERATOR_SYSTEM_PROMPT_ZH =
   '你是一位专业的 Playwright 测试工程师。你的任务是将测试计划转换为可执行的 Playwright 测试代码。' +
@@ -26,14 +25,15 @@ const GENERATOR_SYSTEM_PROMPT_EN =
   'You must return valid TypeScript code only, no markdown code blocks, no extra explanations. ' +
   'The code should start with import statements.';
 
-export class GeneratorAgent extends BaseAgent {
-  protected getAgentName(): string {
-    return 'GeneratorAgent';
-  }
-
-  constructor(config: AgentConfig, llmConfig: LLMConfig | null, llmService?: LLMService) {
-    super(config, llmConfig, llmService);
-  }
+/**
+ * GeneratorService — 将测试计划转换为可执行的 Playwright 测试代码。
+ * 单次 LLM 调用，纯 input→output 转换。
+ */
+export class GeneratorService {
+  constructor(
+    private llmService: LLMService,
+    private projectRoot: string = process.cwd()
+  ) {}
 
   async generateTests(
     planContent: string,
@@ -43,7 +43,8 @@ export class GeneratorAgent extends BaseAgent {
       throw new Error('LLM is not enabled');
     }
 
-    const lang = this.config.language || 'zh';
+    const llmConfig = this.llmService.getConfig();
+    const lang = (llmConfig as { language?: string })?.language === 'en' ? 'en' : 'zh';
     const systemPrompt = lang === 'zh' ? GENERATOR_SYSTEM_PROMPT_ZH : GENERATOR_SYSTEM_PROMPT_EN;
 
     let userPrompt =
@@ -59,29 +60,32 @@ export class GeneratorAgent extends BaseAgent {
           : `\nReference Seed Test (use the same fixtures and import paths):\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
     }
 
-    const responseText = await super.callLLM(systemPrompt, userPrompt);
-    const generatedFiles = this.extractAndSaveTests(responseText, options?.outputDir);
+    const result = await this.llmService.chat({
+      systemPrompt,
+      userPrompt,
+      temperature: 0.2,
+    });
 
-    return generatedFiles;
+    return this.extractAndSaveTests(result.content, options?.outputDir);
   }
 
+  // ─── 文件处理 ──────────────────────────────────────────────────────────
+
   private extractAndSaveTests(responseText: string, outputDir?: string): string[] {
-    const projectRoot = this.config.projectRoot || process.cwd();
-    const testDir = outputDir || path.resolve(projectRoot, 'tests');
+    const testDir = outputDir || path.resolve(this.projectRoot, 'tests');
     if (!fs.existsSync(testDir)) {
       fs.mkdirSync(testDir, { recursive: true });
     }
 
     const savedFiles: string[] = [];
-    const codeBlocks = this.extractCodeBlocks(responseText);
+    const codeBlocks = AgentOutputParser.extractCodeBlocks(responseText);
 
     if (codeBlocks.length === 0) {
       const fileName = `generated-${Date.now()}.spec.ts`;
       const filePath = path.join(testDir, fileName);
-      const cleanedCode = this.cleanCode(responseText);
+      const cleanedCode = AgentOutputParser.cleanCode(responseText);
       fs.writeFileSync(filePath, cleanedCode, 'utf-8');
       savedFiles.push(filePath);
-      this.log.info(`Generated test file: ${filePath}`);
       return savedFiles;
     }
 
@@ -92,7 +96,6 @@ export class GeneratorAgent extends BaseAgent {
       const testName = this.extractTestName(code);
       let fileName = testName ? `${testName}.spec.ts` : `generated-${Date.now()}-${i + 1}.spec.ts`;
 
-      // Deduplicate file names with index suffix
       if (usedFileNames.has(fileName)) {
         const baseName = testName || `generated-${Date.now()}`;
         let suffix = 2;
@@ -106,34 +109,9 @@ export class GeneratorAgent extends BaseAgent {
       const filePath = path.join(testDir, fileName);
       fs.writeFileSync(filePath, code, 'utf-8');
       savedFiles.push(filePath);
-      this.log.info(`Generated test file: ${filePath}`);
     }
 
     return savedFiles;
-  }
-
-  private extractCodeBlocks(text: string): string[] {
-    const blocks: string[] = [];
-    const regex = /```(?:typescript|ts|javascript|js)?\s*\n([\s\S]*?)```/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(text)) !== null) {
-      const code = match[1].trim();
-      if (code.includes('test(') || code.includes('test.describe') || code.includes('import')) {
-        blocks.push(code);
-      }
-    }
-    return blocks;
-  }
-
-  private generateSlug(text: string): string {
-    // Replace filesystem-unsafe characters and spaces with hyphens
-    let slug = text.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
-    // Collapse multiple hyphens
-    slug = slug.replace(/-+/g, '-');
-    // Trim leading/trailing hyphens
-    slug = slug.replace(/^-+|-+$/g, '');
-    // Truncate to 50 characters
-    return slug.slice(0, 50);
   }
 
   private extractTestName(code: string): string | null {
@@ -152,12 +130,10 @@ export class GeneratorAgent extends BaseAgent {
     return null;
   }
 
-  private cleanCode(text: string): string {
-    let code = text;
-    const codeBlockMatch = code.match(/```(?:typescript|ts)?\s*\n([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      code = codeBlockMatch[1];
-    }
-    return code.trim();
+  private generateSlug(text: string): string {
+    let slug = text.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '-');
+    slug = slug.replace(/-+/g, '-');
+    slug = slug.replace(/^-+|-+$/g, '');
+    return slug.slice(0, 50);
   }
 }
