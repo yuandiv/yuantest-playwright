@@ -19,11 +19,11 @@ export const BUILTIN_MCP_PRESETS: MCPPreset[] = [
   {
     name: 'playwright-mcp',
     enabled: true,
-    command: 'node',
-    args: ['node_modules/@playwright/mcp/cli.js', '--isolated'],
+    command: 'npx',
+    args: ['@playwright/mcp', '--isolated'],
     description: 'Playwright 浏览器自动化工具（本地加载，断网可用；加 --headless 即无头模式）',
     source: 'builtin',
-    timeout_ms: 10000,
+    timeout_ms: 30000,
   },
   {
     name: 'filesystem',
@@ -32,7 +32,7 @@ export const BUILTIN_MCP_PRESETS: MCPPreset[] = [
     args: ['-y', '@modelcontextprotocol/server-filesystem', '.'],
     description: '文件系统读写工具（首次运行需联网下载）',
     source: 'builtin',
-    timeout_ms: 5000,
+    timeout_ms: 30000,
   },
   {
     name: 'excel-mcp-server',
@@ -41,7 +41,7 @@ export const BUILTIN_MCP_PRESETS: MCPPreset[] = [
     args: ['-y', '@negokaz/excel-mcp-server'],
     description: 'Excel 文件读写工具（支持 xlsx/xlsm/xltx/xltm 格式，首次运行需联网下载）',
     source: 'builtin',
-    timeout_ms: 5000,
+    timeout_ms: 30000,
   },
   {
     name: 'mcp-doc-forge',
@@ -50,7 +50,7 @@ export const BUILTIN_MCP_PRESETS: MCPPreset[] = [
     args: ['-y', '@cablate/mcp-doc-forge'],
     description: '文档处理工具（DOCX/PDF/HTML 读取转换，首次运行需联网下载）',
     source: 'builtin',
-    timeout_ms: 5000,
+    timeout_ms: 30000,
   },
 ];
 

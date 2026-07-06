@@ -105,7 +105,7 @@ export class MCPClientManager {
         args: config.args || [],
         cwd: this.projectRoot,
         stderr: 'pipe',
-        env: config.env ? ({ ...process.env, ...config.env } as Record<string, string>) : undefined,
+        env: { ...process.env, ...config.env } as Record<string, string>,
       });
 
       const stderrStream = connection.transport.stderr;
