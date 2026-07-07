@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/yuandiv/yuantest-playwright/compare/v1.1.6...v1.2.0) (2026-07-07)
+
+
+### ✨ 新增功能
+
+* AI conversation history and real-time test progress tracking ([61cb3de](https://github.com/yuandiv/yuantest-playwright/commit/61cb3dedfc65e704fb81e26da65035b825bcb6ea))
+* **executor:** improve stall detection and add all_tests_completed handling ([ff67ac0](https://github.com/yuandiv/yuantest-playwright/commit/ff67ac038476856509b7ea23a8590d9c6a896be5))
+* merge ChatService and AgentService into UnifiedAIService ([16ef1c0](https://github.com/yuandiv/yuantest-playwright/commit/16ef1c0c602201b0c08a699887c0595bfb18fed7))
+
+
+### 🐛 Bug 修复
+
+* 修复 agent 循环中 tool_calls 缺失 type 字段导致 Plan-Execute 中断 ([3666c84](https://github.com/yuandiv/yuantest-playwright/commit/3666c84d0d00c947206e24b52a939ec653bdf224))
+* 优化会话切换与流式状态管理 ([ccf4037](https://github.com/yuandiv/yuantest-playwright/commit/ccf4037b16ae7de214588c35229328256565b942))
+
+
+### ♻️ 重构
+
+* 统一配置文件读写架构 ([510bf3f](https://github.com/yuandiv/yuantest-playwright/commit/510bf3fdec28e4f4a53c94092f27197134ba0445))
+* 用 Map 策略模式重构 Agent 管线工具路由 ([87bd1ef](https://github.com/yuandiv/yuantest-playwright/commit/87bd1ef6d37f68b64ed01fa54d898365cbe26a78))
+
 ### [1.1.6](https://github.com/yuandiv/yuantest-playwright/compare/v1.1.5...v1.1.6) (2026-06-09)
 
 ### [1.1.5](https://github.com/yuandiv/yuantest-playwright/compare/v1.1.4...v1.1.5) (2026-06-05)
