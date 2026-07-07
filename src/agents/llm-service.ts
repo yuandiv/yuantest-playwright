@@ -269,7 +269,7 @@ export class LLMService {
       max_tokens: options.maxTokens ?? this.config.maxTokens,
       temperature: options.temperature ?? this.config.temperature ?? 0.2,
     };
-    if (this.config.chatTemplateKwargs) { body.chat_template_kwargs = { enable_thinking: true }; }
+    if (this.config.chatTemplateKwargs && !options.responseFormat) { body.chat_template_kwargs = { enable_thinking: true }; }
     if (options.responseFormat) {
       body.response_format = options.responseFormat;
     }
@@ -297,7 +297,8 @@ export class LLMService {
   async chatWithTools(
     messages: ChatMessage[],
     config: LLMConfig,
-    tools?: ToolSchema[]
+    tools?: ToolSchema[],
+    responseFormat?: { type: string }
   ): Promise<{
     content: string | null;
     thinkingContent: string | null;
@@ -312,8 +313,12 @@ export class LLMService {
       temperature: config.temperature,
     };
 
-    if (config.chatTemplateKwargs) {
+    if (config.chatTemplateKwargs && !responseFormat) {
       body.chat_template_kwargs = { enable_thinking: true };
+    }
+
+    if (responseFormat) {
+      body.response_format = responseFormat;
     }
 
     if (tools && tools.length > 0) {
@@ -349,7 +354,8 @@ export class LLMService {
 
   async *chatStream(
     prompt: { system: string; user: string },
-    config: LLMConfig
+    config: LLMConfig,
+    responseFormat?: { type: string }
   ): AsyncGenerator<string, void, unknown> {
     const body: Record<string, unknown> = {
       model: config.model,
@@ -361,8 +367,11 @@ export class LLMService {
       temperature: config.temperature,
       stream: true,
     };
-    if (config.chatTemplateKwargs) {
+    if (config.chatTemplateKwargs && !responseFormat) {
       body.chat_template_kwargs = { enable_thinking: true };
+    }
+    if (responseFormat) {
+      body.response_format = responseFormat;
     }
 
     const response = await this.fetchWithRetry(config, body);
@@ -411,7 +420,8 @@ export class LLMService {
   async *chatWithToolsStream(
     messages: ChatMessage[],
     config: LLMConfig,
-    tools?: ToolSchema[]
+    tools?: ToolSchema[],
+    responseFormat?: { type: string }
   ): AsyncGenerator<ToolsStreamEvent, void, unknown> {
     const body: Record<string, unknown> = {
       model: config.model,
@@ -421,8 +431,12 @@ export class LLMService {
       stream: true,
     };
 
-    if (config.chatTemplateKwargs) {
+    if (config.chatTemplateKwargs && !responseFormat) {
       body.chat_template_kwargs = { enable_thinking: true };
+    }
+
+    if (responseFormat) {
+      body.response_format = responseFormat;
     }
 
     if (tools && tools.length > 0) {
@@ -582,7 +596,8 @@ export class LLMService {
     config: LLMConfig,
     tools?: ToolSchema[],
     screenshotBase64?: string,
-    toolExecutor?: (toolName: string, args: Record<string, unknown>) => Promise<string>
+    toolExecutor?: (toolName: string, args: Record<string, unknown>) => Promise<string>,
+    responseFormat?: { type: string }
   ): AsyncGenerator<AgentLoopStreamEvent, void, unknown> {
     const reasoningSteps: ReasoningStep[] = [];
     let accPrompt = 0;
@@ -626,8 +641,7 @@ export class LLMService {
     ];
 
     try {
-      const firstStream = this.chatWithToolsStream(messages, config, tools);
-      let firstToolCalls: ToolCallInfo[] | null = null;
+      const firstStream = this.chatWithToolsStream(messages, config, tools, responseFormat);      let firstToolCalls: ToolCallInfo[] | null = null;
       let firstContent = '';
       let firstThinking: string | null = null;
       let firstUsage: TokenUsage | undefined;
@@ -641,15 +655,14 @@ export class LLMService {
           yield { type: 'thinking', data: event.content };
         } else if (event.type === 'tool_calls') {
           firstToolCalls = event.toolCalls;
-          // 将 chatWithToolsStream 中从 `` 解析出的思考内容转发给前端
+          // 思考内容已在流中通过 thinking_delta 逐块发出，此处仅累积不再重复 yield
           if (event.thinkingContent) {
             firstThinking = firstThinking
               ? firstThinking + '\n' + event.thinkingContent
               : event.thinkingContent;
-            yield { type: 'thinking', data: event.thinkingContent };
           }
         } else if (event.type === 'done') {
-          firstContent = event.content || firstContent;
+          firstContent = event.content ?? firstContent;
           firstThinking = event.thinkingContent ?? firstThinking;
           firstUsage = event.usage;
         }
@@ -666,6 +679,7 @@ export class LLMService {
           const fallbackText = await this.chat({
             systemPrompt: prompt.system,
             userPrompt: prompt.user,
+            responseFormat,
           });
           accumulateUsage(fallbackText.usage);
           yield { type: 'token', data: fallbackText.content };
@@ -778,8 +792,7 @@ export class LLMService {
         messages.push(progressContext);
 
         // 再次流式调用 LLM
-        const nextStream = this.chatWithToolsStream(messages, config, tools);
-        let nextToolCalls: ToolCallInfo[] | null = null;
+        const nextStream = this.chatWithToolsStream(messages, config, tools, responseFormat);        let nextToolCalls: ToolCallInfo[] | null = null;
         let nextContent = '';
         let nextThinking: string | null = null;
         let nextUsage: TokenUsage | undefined;
@@ -793,15 +806,14 @@ export class LLMService {
             yield { type: 'thinking', data: event.content };
           } else if (event.type === 'tool_calls') {
             nextToolCalls = event.toolCalls;
-            // 将 chatWithToolsStream 中从 `` 解析出的思考内容转发给前端
+            // 思考内容已在流中通过 thinking_delta 逐块发出，此处仅累积不再重复 yield
             if (event.thinkingContent) {
               nextThinking = nextThinking
                 ? nextThinking + '\n' + event.thinkingContent
                 : event.thinkingContent;
-              yield { type: 'thinking', data: event.thinkingContent };
             }
           } else if (event.type === 'done') {
-            nextContent = event.content || nextContent;
+            nextContent = event.content ?? nextContent;
             nextThinking = event.thinkingContent ?? nextThinking;
             nextUsage = event.usage;
           }
@@ -832,7 +844,7 @@ export class LLMService {
       }
 
       // 兜底：不应到达这里，但以防万一
-      const finalResponse = await this.chatWithTools(messages, config);
+      const finalResponse = await this.chatWithTools(messages, config, undefined, responseFormat);
       accumulateUsage(finalResponse.usage);
       collectThinking(finalResponse.thinkingContent);
       yield {
@@ -873,7 +885,8 @@ export class LLMService {
     config: LLMConfig,
     tools?: ToolSchema[],
     screenshotBase64?: string,
-    toolExecutor?: (toolName: string, args: Record<string, unknown>) => Promise<string>
+    toolExecutor?: (toolName: string, args: Record<string, unknown>) => Promise<string>,
+    responseFormat?: { type: string }
   ): Promise<{
     responseText: string;
     thinkingContent: string | null;
@@ -928,7 +941,7 @@ export class LLMService {
     ];
 
     try {
-      const firstResponse = await this.chatWithTools(messages, config, tools);
+      const firstResponse = await this.chatWithTools(messages, config, tools, responseFormat);
       accumulateUsage(firstResponse.usage);
       collectThinking(firstResponse.thinkingContent);
       hasTruncation = hasTruncation || !!firstResponse.truncated;
@@ -940,6 +953,7 @@ export class LLMService {
           const fallbackText = await this.chat({
             systemPrompt: prompt.system,
             userPrompt: prompt.user,
+            responseFormat,
           });
           accumulateUsage(fallbackText.usage);
           return {
@@ -1032,8 +1046,7 @@ export class LLMService {
         };
         messages.push(progressContext);
 
-        const nextResponse = await this.chatWithTools(messages, config, tools);
-        accumulateUsage(nextResponse.usage);
+        const nextResponse = await this.chatWithTools(messages, config, tools, responseFormat);        accumulateUsage(nextResponse.usage);
         collectThinking(nextResponse.thinkingContent);
         hasTruncation = hasTruncation || !!nextResponse.truncated;
 
@@ -1054,7 +1067,7 @@ export class LLMService {
         currentToolCalls = nextResponse.toolCalls || [];
       }
 
-      const finalResponse = await this.chatWithTools(messages, config);
+      const finalResponse = await this.chatWithTools(messages, config, undefined, responseFormat);
       accumulateUsage(finalResponse.usage);
       collectThinking(finalResponse.thinkingContent);
       hasTruncation = hasTruncation || !!finalResponse.truncated;

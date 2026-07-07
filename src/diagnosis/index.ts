@@ -522,7 +522,14 @@ export class DiagnosisService {
 
       const { responseText, reasoningSteps, analysisMode } = await (
         this.llmService as LLMService
-      ).chatWithAgentLoop(prompt, this.config, tools, prompt.screenshotBase64, toolExecutor);
+      ).chatWithAgentLoop(
+        prompt,
+        this.config,
+        tools,
+        prompt.screenshotBase64,
+        toolExecutor,
+        { type: 'json_object' }
+      );
 
       const diagnosis = this.parseResponse(responseText, patterns);
 
@@ -637,15 +644,50 @@ export class DiagnosisService {
 
       const prompt = this.buildEnrichedPrompt(context, patterns, testInfo, lang);
 
-      // 确保 LLMService 已初始化
+      // 确保 LLMService 和 ToolRegistry 已初始化
       this.ensureServices();
 
-      let fullResponse = '';
+      // 获取工具 schema 列表，使 Agent 能调用工具（读源码、查日志等）
+      const tools = (this.toolRegistry as ToolRegistry).getToolSchemas();
 
-      // 使用 LLMService.chatStream 替代本地 callLLMStream
-      for await (const chunk of (this.llmService as LLMService).chatStream(prompt, this.config)) {
-        fullResponse += chunk;
-        yield JSON.stringify({ type: 'chunk', content: chunk }) + '\n';
+      const toolExecutor = async (
+        toolName: string,
+        args: Record<string, unknown>
+      ): Promise<string> => {
+        try {
+          return await (this.toolRegistry as ToolRegistry).executeTool(toolName, args);
+        } catch (error) {
+          return `Tool execution error (${toolName}): ${error instanceof Error ? error.message : String(error)}`;
+        }
+      };
+
+      let fullResponse = '';
+      let analysisMode: 'agent' | 'single' | 'fallback' = 'single';
+
+      // 使用 chatWithAgentLoopStream（流式 Agent 循环），替代纯文本 chatStream
+      // 支持工具调用 + 实时打字机效果
+      for await (const event of (this.llmService as LLMService).chatWithAgentLoopStream(
+        prompt,
+        this.config,
+        tools,
+        prompt.screenshotBase64,
+        toolExecutor,
+        { type: 'json_object' }
+      )) {
+        if (event.type === 'token') {
+          fullResponse += event.data;
+          yield JSON.stringify({ type: 'chunk', content: event.data }) + '\n';
+        } else if (event.type === 'thinking') {
+          // 思考过程：前端可选择性展示
+          yield JSON.stringify({ type: 'thinking', content: event.data }) + '\n';
+        } else if (event.type === 'tool_call') {
+          yield JSON.stringify({ type: 'tool_call', name: event.data.name, args: event.data.arguments }) + '\n';
+        } else if (event.type === 'tool_result') {
+          yield JSON.stringify({ type: 'tool_result', name: event.data.name }) + '\n';
+        } else if (event.type === 'done') {
+          fullResponse = event.data.content || fullResponse;
+          analysisMode = event.data.analysisMode;
+        }
       }
 
       const diagnosis = this.parseResponse(fullResponse, patterns);
@@ -661,7 +703,7 @@ export class DiagnosisService {
 
       diagnosis.contextUsed = context.contextUsed;
       diagnosis.calibratedConfidence = calibratedConfidence;
-      diagnosis.analysisMode = 'single';
+      diagnosis.analysisMode = analysisMode;
 
       if (!diagnosis.category || diagnosis.category === 'unknown') {
         if (patterns.length > 0) {

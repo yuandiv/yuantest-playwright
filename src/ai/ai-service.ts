@@ -299,10 +299,15 @@ export class UnifiedAIService {
         } else if (event.type === 'tool_call') {
           // 在工具调用前，存储本轮的中间 assistant 消息（思考过程+内容）
           // 使存储结构与流式展示结构一致
+          // 注意：roundContent 中可能含有 <think> 标签（某些 LLM 将思考过程混在 content 中发送），
+          // 此处需要清理，避免前端渲染时与 thinkingContent 双重显示
           if (roundContent || roundThinking) {
+            const cleanContent = roundContent
+              ? roundContent.replace(/<think[\s\S]*?<\/think>/g, '').trim()
+              : '';
             this.store.addMessage(conversationId, {
               role: 'assistant',
-              content: roundContent || '',
+              content: cleanContent || '',
               thinkingContent: roundThinking || undefined,
             });
           }
@@ -319,7 +324,7 @@ export class UnifiedAIService {
             data: { name: event.data.name, result: event.data.result },
           });
         } else if (event.type === 'done') {
-          const finalContent = event.data.content || roundContent;
+          const finalContent = event.data.content || roundContent.replace(/<think[\s\S]*?<\/think>/g, '').trim();
 
           this.store.addMessage(conversationId, {
             role: 'assistant',
