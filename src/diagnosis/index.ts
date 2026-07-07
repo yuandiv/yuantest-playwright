@@ -626,15 +626,6 @@ export class DiagnosisService {
       return;
     }
 
-    if (runId && testId) {
-      const persisted = await this.loadDiagnosis(runId, testId);
-      if (persisted) {
-        this.log.debug('Returning persisted diagnosis result via stream');
-        yield JSON.stringify({ type: 'complete', diagnosis: persisted }) + '\n';
-        return;
-      }
-    }
-
     try {
       yield JSON.stringify({ type: 'start', testTitle: testInfo.title }) + '\n';
 
