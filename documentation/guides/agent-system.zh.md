@@ -264,11 +264,7 @@ interface LLMConfig {
 
 ### 7.2 访问历史
 
-```typescript
-// 通过 API
-const history = await agentService.getHealHistory();
-
-// 通过 REST API
+```
 GET /api/v1/agents/heal-history
 ```
 

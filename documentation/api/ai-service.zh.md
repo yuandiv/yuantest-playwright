@@ -178,19 +178,9 @@ const result = await aiService.plan('用户登录流程', {
 
 ---
 
-## 历史和计划
-
-### `getHealHistory(): Promise<AgentHealResult[]>`
-
-获取修复历史（最多 100 条）。
-
 ### `parseMarkdownPlan(filePath): TestPlan | null`
 
 从 Markdown 文件解析测试计划。
-
-### `listPlans(): Promise<TestPlan[]>`
-
-列出所有测试计划。
 
 ### `createSessionContext(): AgentSessionContext`
 

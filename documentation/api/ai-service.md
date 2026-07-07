@@ -179,19 +179,9 @@ Set a browser session manager for agent operations.
 
 ---
 
-## History & Plans
-
-### `getHealHistory(): Promise<AgentHealResult[]>`
-
-Get the history of all heal operations (max 100 entries).
-
 ### `parseMarkdownPlan(filePath: string): TestPlan | null`
 
 Parse a test plan from a Markdown file.
-
-### `listPlans(): Promise<TestPlan[]>`
-
-List all generated test plans, sorted by creation time (newest first).
 
 ### `createSessionContext(): AgentSessionContext`
 

@@ -162,26 +162,6 @@ async initAgents(loopTarget: AgentLoopTarget): Promise<AgentResult<AgentInitResu
 
 **返回值**：`AgentResult<AgentInitResult>` — 包含创建的文件和说明路径的初始化结果。
 
-### listPlans()
-
-列出所有已生成的测试计划。
-
-```typescript
-async listPlans(): Promise<TestPlan[]>
-```
-
-**返回值**：按创建时间排序的测试计划数组（最新在前）。
-
-### getHealHistory()
-
-获取所有修复操作的历史记录。
-
-```typescript
-async getHealHistory(): Promise<AgentHealResult[]>
-```
-
-**返回值**：修复结果数组（最多 100 条）。
-
 ### getConfig()
 
 获取当前代理配置。
@@ -639,13 +619,4 @@ const agentService = new AgentService('./test-data', {
 const healResult = await agentService.heal('tests/login.spec.ts', {
   error: '选择器未找到',
 });
-```
-
-### 查看修复历史
-
-```typescript
-const history = await agentService.getHealHistory();
-for (const entry of history) {
-  console.log(`${entry.testTitle}: 已修复=${entry.healed}, 补丁数=${entry.patches.length}`);
-}
 ```

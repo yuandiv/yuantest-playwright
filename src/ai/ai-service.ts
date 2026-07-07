@@ -11,7 +11,7 @@ import {
   type Conversation,
   type ConversationSummary,
 } from '../chat/conversation-store';
-import type { LLMConfig } from '../types';
+import type { LLMConfig, TestConfig, AIDiagnosis } from '../types';
 import {
   AgentConfig,
   AgentInitResult,
@@ -28,9 +28,10 @@ import { BrowserSessionManager } from '../agents/browser-session';
 import { AgentConfigManager } from '../agents/agent-config-manager';
 import { AgentLifecycleManager } from '../agents/agent-lifecycle-manager';
 import { AgentSessionManager } from '../agents/agent-session-manager';
-import { AgentHistoryManager } from '../agents/agent-history-manager';
 import { HealerAgent } from '../agents/healer';
 import { AgentFileOperations } from '../agents/agent-file-operations';
+import { Executor } from '../executor';
+import { DiagnosisService } from '../diagnosis';
 
 /** Agent 管线工具定义：schema + handler 成对注册 */
 interface AgentToolDef {
@@ -66,7 +67,6 @@ export class UnifiedAIService {
   private configManager: AgentConfigManager;
   private lifecycleManager: AgentLifecycleManager;
   private sessionManager: AgentSessionManager;
-  private historyManager: AgentHistoryManager;
   private fileOperations: AgentFileOperations;
 
   // ── 共享 ──────────────────────────────────────────────────────────────────
@@ -119,7 +119,6 @@ export class UnifiedAIService {
       this.toolRegistry
     );
     this.sessionManager = new AgentSessionManager();
-    this.historyManager = new AgentHistoryManager(dataDir);
     this.configManager.loadProjectContext();
 
     // 初始化 Agent 管线工具（schema + handler 统一注册至此 Map）
@@ -457,6 +456,19 @@ export class UnifiedAIService {
       '    注意：snapshot 中显示的 e1, e12 等编号是内部引用 ID，不能用作 selector！',
       '- 根据 snapshot 内容判断是否需要进一步探索（展开折叠、打开弹窗等）',
       '',
+      '## Agent 操作能力',
+      '除了浏览器操作，你还可以使用以下 Agent 工具管理测试生命周期：',
+      '- agent_execute: 执行测试并返回通过/失败统计。当用户要求"运行测试"、"跑一下"时使用。',
+      '  - 可指定 testDir（测试目录）、grep（用例名过滤）、timeout（超时）',
+      '  - 返回结果包含通过数、失败数、测试耗时',
+      '  - 如果有失败用例，建议主动调用 agent_diagnose 分析原因',
+      '- agent_diagnose: AI 诊断测试失败原因。当用户问"为什么失败"时，或 agent_execute 返回失败后主动使用。',
+      '  - 需要 title（测试名称）和 error（错误信息）',
+      '  - 返回根因分析、修复建议、置信度',
+      '  - 置信度低于 50% 时，应提示用户人工复核',
+      '- agent_generate: 根据测试计划生成 Playwright TypeScript 测试代码',
+      '- agent_heal: 分析失败的测试并生成修复补丁',
+      '',
     ];
 
     const builtinTools = this.toolRegistry.getToolNames();
@@ -574,33 +586,175 @@ export class UnifiedAIService {
       },
     });
 
-    this.agentTools.set('agent_get_heal_history', {
+    // ── agent_execute: 执行测试 ──────────────────────────────────────────
+    this.agentTools.set('agent_execute', {
       schema: {
         type: 'function',
         function: {
-          name: 'agent_get_heal_history',
-          description: 'Get the history of all heal operations',
-          parameters: { type: 'object', properties: {}, required: [] },
+          name: 'agent_execute',
+          description: 'Run Playwright tests and return pass/fail results. Use this when the user asks you to run or execute tests.',
+          parameters: {
+            type: 'object',
+            properties: {
+              testDir: {
+                type: 'string',
+                description: 'Test file directory (optional, defaults to the project test dir)',
+              },
+              grep: {
+                type: 'string',
+                description: 'Run only tests matching this name pattern (optional)',
+              },
+              timeout: {
+                type: 'number',
+                description: 'Test timeout in milliseconds (optional, default 30000)',
+              },
+              retries: {
+                type: 'number',
+                description: 'Number of retries on failure (optional, default 0)',
+              },
+            },
+            required: [],
+          },
         },
       },
-      handler: async () => {
-        const result = await this.getHealHistory();
-        return `共 ${result.length} 条修复记录。`;
+      handler: async (args) => {
+        const testDir = String(args.testDir || this.projectRoot || process.cwd());
+        const config: TestConfig = {
+          version: 'agent-run',
+          testDir,
+          outputDir: path.join(this.dataDir, 'runs', `agent-${Date.now()}`),
+          timeout: Number(args.timeout || 30000),
+          retries: Number(args.retries || 0),
+          browsers: ['chromium'],
+        };
+
+        const executor = new Executor(config);
+        const progressMessages: string[] = [];
+
+        executor.on('run_progress', (progress: { passed: number; totalTests: number }) => {
+          const msg = `⏳ 进度: ${progress.passed}/${progress.totalTests} 通过`;
+          progressMessages.push(msg);
+        });
+
+        executor.on('test_result', (result: { status: string; title: string; duration: number }) => {
+          const icon = result.status === 'passed' ? '✅' : result.status === 'failed' ? '❌' : '⏭️';
+          progressMessages.push(`${icon} [${result.status}] ${result.title} (${result.duration}ms)`);
+        });
+
+        try {
+          const runResult = await executor.execute();
+
+          // 取最后 5 条进度消息，避免信息过长
+          const recentProgress = progressMessages.slice(-5);
+
+          const summary = [
+            `## 测试执行结果`,
+            ``,
+            `- **运行 ID**: ${runResult.id}`,
+            `- **状态**: ${runResult.status === 'success' ? '✅ 成功' : '❌ 失败'}`,
+            `- **总计**: ${runResult.totalTests} 个用例`,
+            `- **通过**: ${runResult.passed} 个`,
+            `- **失败**: ${runResult.failed} 个`,
+            `- **跳过**: ${runResult.skipped} 个`,
+            runResult.duration ? `- **耗时**: ${(runResult.duration / 1000).toFixed(1)}s` : '',
+            recentProgress.length > 0 ? `\n**执行详情**:\n${recentProgress.join('\n')}` : '',
+            ``,
+            runResult.failed > 0
+              ? '⚠️ 存在失败用例，需要进一步分析。你可以让我用 agent_diagnose 诊断失败原因。'
+              : '🎉 全部通过！',
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          return summary;
+        } catch (error) {
+          return `❌ 测试执行失败: ${error instanceof Error ? error.message : String(error)}`;
+        }
       },
     });
 
-    this.agentTools.set('agent_list_plans', {
+    // ── agent_diagnose: AI 诊断失败 ──────────────────────────────────────
+    this.agentTools.set('agent_diagnose', {
       schema: {
         type: 'function',
         function: {
-          name: 'agent_list_plans',
-          description: 'List all generated test plans',
-          parameters: { type: 'object', properties: {}, required: [] },
+          name: 'agent_diagnose',
+          description: 'Analyze a test failure using AI and return structured diagnosis with root cause and fix suggestions. Use this when the user asks why a test failed.',
+          parameters: {
+            type: 'object',
+            properties: {
+              title: {
+                type: 'string',
+                description: 'The test case title or identifier',
+              },
+              error: {
+                type: 'string',
+                description: 'The error message from the test failure',
+              },
+              stackTrace: {
+                type: 'string',
+                description: 'Optional stack trace from the failure',
+              },
+              filePath: {
+                type: 'string',
+                description: 'Optional path to the test file',
+              },
+            },
+            required: ['title', 'error'],
+          },
         },
       },
-      handler: async () => {
-        const result = await this.listPlans();
-        return `共 ${result.length} 个测试计划。`;
+      handler: async (args) => {
+        if (!this.llmService) {
+          return '❌ LLM 未配置，无法进行 AI 诊断。请先在设置中配置 LLM 连接。';
+        }
+
+        const diagnosisService = new DiagnosisService(
+          this.dataDir,
+          this.llmService,
+          this.toolRegistry
+        );
+
+        try {
+          const diagnosis: AIDiagnosis = await diagnosisService.diagnose({
+            title: String(args.title),
+            error: String(args.error),
+            stackTrace: args.stackTrace as string | undefined,
+            filePath: args.filePath as string | undefined,
+          });
+
+          const confidencePercent = Math.round((diagnosis.calibratedConfidence ?? diagnosis.confidence) * 100);
+          const lowConfidenceWarning =
+            confidencePercent < 50
+              ? '\n\n> ⚠️ **置信度较低**（' + confidencePercent + '%），此分析仅供参考，建议人工复核。'
+              : '';
+
+          const suggestionList =
+            diagnosis.suggestions.length > 0
+              ? '\n' + diagnosis.suggestions.map((s: string) => `- ${s}`).join('\n')
+              : '';
+
+          const codeDiffInfo =
+            diagnosis.codeDiffs && diagnosis.codeDiffs.length > 0
+              ? '\n\n**代码修改建议**: ' + diagnosis.codeDiffs.length + ' 处'
+              : '';
+
+          return [
+            `## AI 诊断结果`,
+            ``,
+            `**测试**: ${diagnosis.summary || args.title}`,
+            `**根因**: ${diagnosis.rootCause}`,
+            `**分类**: ${diagnosis.category}`,
+            `**置信度**: ${confidencePercent}%`,
+            suggestionList ? `**修复建议**:${suggestionList}` : '',
+            codeDiffInfo,
+            lowConfidenceWarning,
+          ]
+            .filter(Boolean)
+            .join('\n');
+        } catch (error) {
+          return `❌ 诊断失败: ${error instanceof Error ? error.message : String(error)}`;
+        }
       },
     });
   }
@@ -734,35 +888,8 @@ export class UnifiedAIService {
     this.configManager.updateConfig(updates);
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 历史 & 计划查询
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  async getHealHistory(): Promise<AgentHealResult[]> {
-    return this.historyManager.getHealHistory();
-  }
-
   parseMarkdownPlan(filePath: string): TestPlan | null {
     return AgentOutputParser.parseMarkdownPlan(filePath);
-  }
-
-  async listPlans(): Promise<TestPlan[]> {
-    const config = this.configManager.getConfig();
-    const specsDir = this.fileOperations.resolveProjectPath(config.specsDir);
-    if (!this.fileOperations.exists(specsDir)) {
-      return [];
-    }
-    const plans: TestPlan[] = [];
-    const entries = this.fileOperations.listFiles(specsDir);
-    for (const entry of entries) {
-      if (entry.endsWith('.md')) {
-        const plan = AgentOutputParser.parseMarkdownPlan(path.join(specsDir, entry));
-        if (plan) {
-          plans.push(plan);
-        }
-      }
-    }
-    return plans.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   createSessionContext(): AgentSessionContext {

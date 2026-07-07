@@ -162,26 +162,6 @@ async initAgents(loopTarget: AgentLoopTarget): Promise<AgentResult<AgentInitResu
 
 **Returns**: `AgentResult<AgentInitResult>` — Initialization result with created files and instructions path.
 
-### listPlans()
-
-List all generated test plans.
-
-```typescript
-async listPlans(): Promise<TestPlan[]>
-```
-
-**Returns**: Array of test plans sorted by creation time (newest first).
-
-### getHealHistory()
-
-Get the history of all heal operations.
-
-```typescript
-async getHealHistory(): Promise<AgentHealResult[]>
-```
-
-**Returns**: Array of heal results (max 100 entries).
-
 ### getConfig()
 
 Get the current agent configuration.
@@ -639,13 +619,4 @@ const agentService = new AgentService('./test-data', {
 const healResult = await agentService.heal('tests/login.spec.ts', {
   error: 'Selector not found',
 });
-```
-
-### View Heal History
-
-```typescript
-const history = await agentService.getHealHistory();
-for (const entry of history) {
-  console.log(`${entry.testTitle}: healed=${entry.healed}, patches=${entry.patches.length}`);
-}
 ```

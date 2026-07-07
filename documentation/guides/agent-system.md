@@ -264,11 +264,7 @@ Heal history is persisted to `{dataDir}/agent-heal-history.json`:
 
 ### 7.2 Accessing History
 
-```typescript
-// Via API
-const history = await agentService.getHealHistory();
-
-// Via REST API
+```
 GET /api/v1/agents/heal-history
 ```
 

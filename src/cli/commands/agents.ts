@@ -249,46 +249,6 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
         spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
         process.exit(1);
       }
-    });
+      });
 
-  program
-    .command('agents-list')
-    .description('List generated test plans')
-    .option('--specs-dir <path>', 'Specs directory', 'specs/')
-    .option(
-      '--project-root <path>',
-      'Project root directory (auto-detected from playwright.config)'
-    )
-    .action(async (options) => {
-      try {
-        const { AgentService } = await import('../../agents');
-        const projectRoot = ctx.findProjectRoot(options.projectRoot);
-        const agentService = new AgentService('./test-data', {
-          specsDir: options.specsDir,
-          projectRoot,
-        });
-        const plans = await agentService.listPlans();
-
-        console.log(chalk.bold('\n📋 Test Plans:'));
-        if (plans.length === 0) {
-          console.log(chalk.yellow('  No test plans found'));
-          console.log(chalk.gray('  Use "yuantest agents-plan <description>" to create one'));
-          return;
-        }
-
-        plans.forEach((plan, i) => {
-          console.log(chalk.bold(`\n  ${i + 1}. ${plan.title}`));
-          console.log(`    Scenarios: ${plan.scenarios.length}`);
-          console.log(`    Created: ${dayjs(plan.createdAt).format('YYYY-MM-DD HH:mm')}`);
-          if (plan.filePath) {
-            console.log(chalk.blue(`    File: ${plan.filePath}`));
-          }
-        });
-      } catch (error) {
-        console.error(
-          chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`)
-        );
-        process.exit(1);
-      }
-    });
 }

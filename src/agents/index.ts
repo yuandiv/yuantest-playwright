@@ -21,7 +21,6 @@ import { ToolRegistry } from './tool-registry';
 import { AgentConfigManager } from './agent-config-manager';
 import { AgentLifecycleManager } from './agent-lifecycle-manager';
 import { AgentSessionManager } from './agent-session-manager';
-import { AgentHistoryManager } from './agent-history-manager';
 import { PatchApplier } from './patch-applier';
 import { AgentFileOperations } from './agent-file-operations';
 
@@ -34,7 +33,6 @@ export class AgentService {
   private configManager: AgentConfigManager;
   private lifecycleManager: AgentLifecycleManager;
   private sessionManager: AgentSessionManager;
-  private historyManager: AgentHistoryManager;
   private fileOperations: AgentFileOperations;
   private log = logger.child('AgentService');
 
@@ -61,7 +59,6 @@ export class AgentService {
       sharedToolRegistry
     );
     this.sessionManager = new AgentSessionManager();
-    this.historyManager = new AgentHistoryManager(dataDir);
 
     this.configManager.loadProjectContext();
   }
@@ -250,33 +247,8 @@ export class AgentService {
     }
   }
 
-  async getHealHistory(): Promise<AgentHealResult[]> {
-    return this.historyManager.getHealHistory();
-  }
-
   parseMarkdownPlan(filePath: string): TestPlan | null {
     return AgentOutputParser.parseMarkdownPlan(filePath);
-  }
-
-  async listPlans(): Promise<TestPlan[]> {
-    const config = this.configManager.getConfig();
-    const specsDir = this.fileOperations.resolveProjectPath(config.specsDir);
-    if (!this.fileOperations.exists(specsDir)) {
-      return [];
-    }
-
-    const plans: TestPlan[] = [];
-    const entries = this.fileOperations.listFiles(specsDir);
-    for (const entry of entries) {
-      if (entry.endsWith('.md')) {
-        const plan = AgentOutputParser.parseMarkdownPlan(path.join(specsDir, entry));
-        if (plan) {
-          plans.push(plan);
-        }
-      }
-    }
-
-    return plans.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   createSessionContext(): AgentSessionContext {

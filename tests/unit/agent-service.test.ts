@@ -243,48 +243,6 @@ export default defineConfig({
     });
   });
 
-  // ─── listPlans ────────────────────────────────────────────────────────
-
-  describe('listPlans', () => {
-    it('should return empty array when specs dir does not exist', async () => {
-      const service = new AgentService(tmpDir, { projectRoot: tmpDir, specsDir: 'nonexistent-specs' });
-      const plans = await service.listPlans();
-      expect(plans).toEqual([]);
-    });
-
-    it('should list markdown plans from specs directory', async () => {
-      const specsDir = path.join(tmpDir, 'specs');
-      fs.mkdirSync(specsDir, { recursive: true });
-      fs.writeFileSync(path.join(specsDir, 'login-test.md'), `# Login Test\n\nTest login functionality\n\n## Scenario 1\n\n**Steps:**\n\n1. Navigate → \`/login\`\n\n**Expected Results:**\n\n- User sees login form\n`);
-
-      const service = new AgentService(tmpDir, { projectRoot: tmpDir, specsDir: 'specs' });
-      const plans = await service.listPlans();
-      expect(plans.length).toBeGreaterThanOrEqual(1);
-      expect(plans[0].title).toBe('Login Test');
-    });
-  });
-
-  // ─── getHealHistory ──────────────────────────────────────────────────
-
-  describe('getHealHistory', () => {
-    it('should return empty array when no history file exists', async () => {
-      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
-      const history = await service.getHealHistory();
-      expect(history).toEqual([]);
-    });
-
-    it('should return saved heal history', async () => {
-      const service = new AgentService(tmpDir, { projectRoot: tmpDir });
-      const historyPath = path.join(tmpDir, 'agent-heal-history.json');
-      const mockHistory = [{ testId: 'test-1', testTitle: 'sample', patches: [], healed: true, roundsUsed: 1 }];
-      fs.writeFileSync(historyPath, JSON.stringify(mockHistory));
-
-      const history = await service.getHealHistory();
-      expect(history).toHaveLength(1);
-      expect(history[0].healed).toBe(true);
-    });
-  });
-
   // ─── configuration updates ───────────────────────────────────────────
 
   describe('configuration updates', () => {
