@@ -180,10 +180,6 @@ function App() {
         setCurrentTest(progress.currentTest);
       }
       if (progress?.currentTestId) {
-        // Reset previous running test back to 'pending'
-        if (lastRunningTestIdRef.current && lastRunningTestIdRef.current !== progress.currentTestId) {
-          scheduleStatusUpdate(lastRunningTestIdRef.current, { status: 'pending', lastDuration: null, lastError: null });
-        }
         // Mark the new test as 'running'
         scheduleStatusUpdate(progress.currentTestId, { status: 'running', lastDuration: null, lastError: null });
         lastRunningTestIdRef.current = progress.currentTestId;
@@ -225,7 +221,7 @@ function App() {
 
       startTransition(() => {
         setTestCases(prev => prev.map(tc =>
-          (tc.status === 'running' || tc.status === 'pending') ? { ...tc, status: 'idle' as const } : tc
+          tc.status === 'running' ? { ...tc, status: 'pending' as const } : tc
         ));
       });
 
@@ -318,7 +314,7 @@ function App() {
             setCurrentTest(null);
             startTransition(() => {
               setTestCases(prev => prev.map(tc =>
-                (tc.status === 'running' || tc.status === 'pending') ? { ...tc, status: 'idle' as const } : tc
+                tc.status === 'running' ? { ...tc, status: 'pending' as const } : tc
               ));
             });
           }
