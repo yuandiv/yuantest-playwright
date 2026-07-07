@@ -56,6 +56,7 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
   const [runAnalysis, setRunAnalysis] = useState<FailureItem[]>([]);
   const [clusters, setClusters] = useState<ClusterData[]>([]);
   const [analyzingCluster, setAnalyzingCluster] = useState(false);
+  const [clusterAnalysisDone, setClusterAnalysisDone] = useState(false);
   const [llmEnabled, setLlmEnabled] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -305,6 +306,7 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
     if (selectedRunId !== null) {
       loadRunAnalysis(selectedRunId);
       setClusters([]);
+      setClusterAnalysisDone(false);
       // 尝试恢复持久化的聚类结果
       const loadPersistedClusters = async () => {
         try {
@@ -359,6 +361,7 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
     if (!llmEnabled) return;
 
     setAnalyzingCluster(true);
+    setClusterAnalysisDone(false);
     try {
       const testResults = failedDetails.map(d => ({
         id: d.id,
@@ -384,9 +387,15 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
             representativeError: representativeTest?.error || c.errorMessage,
           };
         }));
+        if (result.clusters.length === 0) {
+          setClusterAnalysisDone(true);
+        }
+      } else {
+        setClusterAnalysisDone(true);
       }
     } catch {
       setClusters([]);
+      setClusterAnalysisDone(true);
     } finally {
       setAnalyzingCluster(false);
     }
@@ -856,13 +865,25 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
           </div>
         )}
 
-        {selectedRunId !== null && clusters.length === 0 && !analyzingCluster && (
+        {selectedRunId !== null && clusters.length === 0 && !analyzingCluster && !clusterAnalysisDone && (
           <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 text-center mb-5">
             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
               <i className="fas fa-project-diagram text-xl text-gray-400"></i>
             </div>
             <p className="text-gray-500 text-sm mb-1">{t('clusterAnalysis', lang)}</p>
             <p className="text-gray-400 text-xs">{failedCountInSelectedRun < 2 ? t('minTestsForCluster', lang) : t('clusterAnalysis', lang)}</p>
+          </div>
+        )}
+
+        {clusterAnalysisDone && clusters.length === 0 && !analyzingCluster && (
+          <div className="mb-5">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-2">
+              <i className="fas fa-info-circle text-amber-500 mt-0.5"></i>
+              <div>
+                <p className="text-amber-700 text-xs font-medium mb-1">{t('clusterAnalysis', lang)}</p>
+                <p className="text-amber-600 text-xs">{t('clusterNoResults', lang)}</p>
+              </div>
+            </div>
           </div>
         )}
 

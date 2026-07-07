@@ -300,10 +300,12 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
     representativeError?: string;
   }>>([]);
   const [analyzingCluster, setAnalyzingCluster] = useState(false);
+  const [clusterAnalysisDone, setClusterAnalysisDone] = useState(false);
 
   // 切换报告时清空聚类结果并尝试恢复持久化数据
   useEffect(() => {
     setClusters([]);
+    setClusterAnalysisDone(false);
     const loadPersistedClusters = async () => {
       try {
         const result = await api.getPersistedClusterResult(report.id);
@@ -361,6 +363,7 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
     if (failedDetails.length < 2) return;
 
     setAnalyzingCluster(true);
+    setClusterAnalysisDone(false);
     try {
       const testResults = failedDetails.map(d => ({
         id: d.id,
@@ -386,9 +389,15 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
             representativeError: representativeTest?.error || c.errorMessage,
           };
         }));
+        if (result.clusters.length === 0) {
+          setClusterAnalysisDone(true);
+        }
+      } else {
+        setClusterAnalysisDone(true);
       }
     } catch {
       setClusters([]);
+      setClusterAnalysisDone(true);
     } finally {
       setAnalyzingCluster(false);
     }
@@ -539,6 +548,18 @@ function ReportDetail({ lang, report, onTestClick, onRerunMessage }: {
           <div className="bg-gradient-to-br from-violet-50 to-indigo-50 rounded-xl p-4 text-center">
             <div className="w-10 h-10 border-4 border-violet-200 border-t-violet-500 rounded-full animate-spin mx-auto mb-2"></div>
             <p className="text-violet-600 text-sm">{t('analyzingCluster', lang)}</p>
+          </div>
+        </div>
+      )}
+
+      {clusterAnalysisDone && clusters.length === 0 && !analyzingCluster && (
+        <div className="mb-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+            <i className="fas fa-info-circle text-amber-500 mt-0.5"></i>
+            <div>
+              <p className="text-amber-700 text-xs font-medium mb-1">{t('clusterAnalysis', lang)}</p>
+              <p className="text-amber-600 text-xs">{t('clusterNoResults', lang)}</p>
+            </div>
           </div>
         </div>
       )}
