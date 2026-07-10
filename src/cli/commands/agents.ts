@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import dayjs from 'dayjs';
 import { CliContext } from '../context';
+import type { LLMConfig } from '../../types';
 
 export function registerAgentsCommands(program: Command, ctx: CliContext): void {
   program
@@ -17,8 +18,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
       console.log(`    ${chalk.cyan('agents plan')}      Generate a test plan`);
       console.log(`    ${chalk.cyan('agents generate')}  Generate test code from a plan`);
       console.log(`    ${chalk.cyan('agents heal')}      Heal a failing test`);
-      console.log(`    ${chalk.cyan('agents list')}      List generated test plans`);
-      console.log('');
+      console.log(``);
     });
 
   program
@@ -32,7 +32,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
     .action(async (options) => {
       const spinner = ora('Initializing agent definitions...').start();
       try {
-        const { AgentService } = await import('../../agents');
+        const { AgentService } = await import('../../ai/agents');
         const projectRoot = ctx.findProjectRoot(options.projectRoot);
         const agentService = new AgentService('./test-data', { projectRoot });
         const result = await agentService.initAgents(options.loop);
@@ -68,10 +68,12 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
     .action(async (description, options) => {
       const spinner = ora('Generating test plan...').start();
       try {
-        const { DiagnosisService } = await import('../../diagnosis');
-        const { AgentService } = await import('../../agents');
-        const diagnosisService = new DiagnosisService('./test-data');
-        const llmConfig = diagnosisService.getMaskedConfig();
+        const { AgentService } = await import('../../ai/agents');
+        const { loadLLMConfig } = await import('../../config/loader');
+        const llmConfig = (loadLLMConfig() || {
+          enabled: false, apiKey: '', baseUrl: 'http://localhost:11434',
+          model: '', remark: '', maxTokens: 4096, temperature: 0.3,
+        }) as LLMConfig;
 
         if (!llmConfig.enabled) {
           spinner.fail(
@@ -135,10 +137,12 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
     .action(async (planPath, options) => {
       const spinner = ora('Generating test code...').start();
       try {
-        const { DiagnosisService } = await import('../../diagnosis');
-        const { AgentService } = await import('../../agents');
-        const diagnosisService = new DiagnosisService('./test-data');
-        const llmConfig = diagnosisService.getMaskedConfig();
+        const { AgentService } = await import('../../ai/agents');
+        const { loadLLMConfig } = await import('../../config/loader');
+        const llmConfig = (loadLLMConfig() || {
+          enabled: false, apiKey: '', baseUrl: 'http://localhost:11434',
+          model: '', remark: '', maxTokens: 4096, temperature: 0.3,
+        }) as LLMConfig;
 
         if (!llmConfig.enabled) {
           spinner.fail(
@@ -184,10 +188,12 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
     .action(async (testFilePath, options) => {
       const spinner = ora('Healing test...').start();
       try {
-        const { DiagnosisService } = await import('../../diagnosis');
-        const { AgentService } = await import('../../agents');
-        const diagnosisService = new DiagnosisService('./test-data');
-        const llmConfig = diagnosisService.getMaskedConfig();
+        const { AgentService } = await import('../../ai/agents');
+        const { loadLLMConfig } = await import('../../config/loader');
+        const llmConfig = (loadLLMConfig() || {
+          enabled: false, apiKey: '', baseUrl: 'http://localhost:11434',
+          model: '', remark: '', maxTokens: 4096, temperature: 0.3,
+        }) as LLMConfig;
 
         if (!llmConfig.enabled) {
           spinner.fail(

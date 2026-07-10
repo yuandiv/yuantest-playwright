@@ -419,7 +419,7 @@ const DEFAULT_CONFIG: LLMConfig = {
   baseUrl: 'http://localhost:11434',
   model: '',
   remark: '',
-  maxTokens: 2048,
+  maxTokens: 4096,
   temperature: 0.3,
   maxAgentRounds: 5,
 };
@@ -445,9 +445,8 @@ const DEFAULT_CONFIG: LLMConfig = {
 ### 配置管理
 
 - **存储位置**：`{dataDir}/llm-config.json`
-- **加载**：`DiagnosisService` 构造时自动加载，合并默认值
-- **保存**：`saveConfig(config)` 保存配置并自动清除缓存
-- **读取**：`getMaskedConfig()` 返回配置的浅拷贝
+- **加载**：`loadLLMConfig()` 从文件读取配置
+- **保存**：`saveLLMConfig(config)` 持久化配置到文件
 
 ### 连接测试
 

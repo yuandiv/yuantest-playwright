@@ -36,12 +36,12 @@ graph TB
     RPT -->|Report Data| DSB
     EXE -->|Execution Events| RTS
     RTS -->|WebSocket Push| DSB
+    UAI[UnifiedAIService<br/>Chat + Agent Pipeline] --> STO
     ORC --> STO
     EXE --> STO
     RPT --> STO
     FTM --> STO
     DIA --> STO
-    AGT --> STO
 ```
 
 ## 2. Data Flow Description
@@ -200,10 +200,11 @@ Previously split into `AgentService` and `ChatService + MCP`, these have been fu
   - **MCP Integration**: Connect/disconnect MCP servers, list tools, call tools, manage MCP configurations
   - **Agent Pipeline**: Plan → Generate → Heal test creation workflow with full configuration support
   - **Unified Configuration**: Single `updateLLMConfig()` and `setProjectRoot()` that synchronize across all subsystems
-  - **Chat + Agent Integration**: `executeTool()` directly calls `this.plan()`, `this.heal()`, etc. — agent pipeline tools are natively available in chat conversations
+  - **Chat + Agent Integration**: `executeTool()` uses `Map<string, AgentToolDef>` strategy to route agent tools — `agent_execute`, `agent_diagnose`, `agent_generate`, `agent_heal` are natively available in chat conversations
   - **Project Context**: Auto-load playwright.config and package.json for context-aware agent operations
-  - **Heal History**: Persistent healing history with auto-cleanup (max 100 entries)
+  - **Code Extraction**: Agent-generated code blocks are automatically extracted and saved to `tests/` directory with smart naming
 - **Sub-modules**: `ConversationStore`, `MCPClientManager`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent`, `AgentConfigManager`, `AgentLifecycleManager`, `AgentPipelineOrchestrator`, `AgentFileOperations`
+- **Module Layout**: AI-related modules live under `src/ai/` including agent modules at `src/ai/agents/` (base-agent, browser-session, healer, planner, generator, diagnosis, etc.)
 
 ### 3.11 ServiceContainer (DI) — Dependency Injection Container
 

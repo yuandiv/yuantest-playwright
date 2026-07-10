@@ -22,10 +22,13 @@ describe('LLM Config API Integration', () => {
       fs.rmSync(testConfigPath);
     }
     service = new DiagnosisService(tmpDir);
+    // 确保 tmpDir 下的 llm-config.json 也写入，方便 loadLLMConfig 读取
+    process.env.YUANTEST_CONFIG_DIR = tmpDir;
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    delete process.env.YUANTEST_CONFIG_DIR;
     // 恢复原始配置
     try {
       if (originalConfig !== null) {
@@ -45,6 +48,7 @@ describe('LLM Config API Integration', () => {
 
   describe('config persistence', () => {
     it('should persist config to llm-config.json and reload on new instance', async () => {
+      const { saveLLMConfig, loadLLMConfig } = await import('../../src/config/loader');
       const config: LLMConfig = {
         enabled: true,
         apiKey: 'sk-test-key-1234',
@@ -55,9 +59,9 @@ describe('LLM Config API Integration', () => {
         temperature: 0.3,
       };
 
-      await service.saveConfig(config);
+      saveLLMConfig(config);
 
-      const configPath = 'test-data/llm-config.json';
+      const configPath = path.join(tmpDir, 'llm-config.json');
       expect(fs.existsSync(configPath)).toBe(true);
 
       const rawConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
@@ -65,25 +69,22 @@ describe('LLM Config API Integration', () => {
       expect(rawConfig.model).toBe('qwen3:32b');
       expect(rawConfig.apiKey).toBe('sk-test-key-1234');
 
-      const newService = new DiagnosisService(tmpDir);
-      const loaded = newService.getMaskedConfig();
-      expect(loaded.enabled).toBe(true);
-      expect(loaded.model).toBe('qwen3:32b');
-      expect(loaded.apiKey).toBe('sk-test-key-1234');
+      // 重新加载验证
+      const loaded = loadLLMConfig();
+      expect(loaded?.enabled).toBe(true);
+      expect(loaded?.model).toBe('qwen3:32b');
+      expect(loaded?.apiKey).toBe('sk-test-key-1234');
     });
 
     it('should return default config when no config file exists', () => {
-      const config = service.getMaskedConfig();
-      expect(config.enabled).toBe(false);
-      expect(config.baseUrl).toBe('http://localhost:11434');
-      expect(config.model).toBe('');
-      expect(config.apiKey).toBe('');
-      expect(config.maxTokens).toBe(4096);
-      expect(config.temperature).toBe(0.3);
+      const { loadLLMConfig } = require('../../src/config/loader');
+      const config = loadLLMConfig();
+      expect(config).toBeNull();
     });
 
     it('should update config fields independently', async () => {
-      await service.saveConfig({
+      const { saveLLMConfig, loadLLMConfig } = await import('../../src/config/loader');
+      saveLLMConfig({
         enabled: true,
         apiKey: 'sk-original',
         baseUrl: 'http://localhost:11434',
@@ -91,19 +92,19 @@ describe('LLM Config API Integration', () => {
         remark: '',
         maxTokens: 2048,
         temperature: 0.3,
-      });
+      } as LLMConfig);
 
-      const masked = service.getMaskedConfig();
-      await service.saveConfig({
-        ...masked,
+      const masked = loadLLMConfig();
+      saveLLMConfig({
+        ...(masked as LLMConfig),
         model: 'gemma4:27b',
         temperature: 0.5,
       });
 
-      const updated = service.getMaskedConfig();
-      expect(updated.model).toBe('gemma4:27b');
-      expect(updated.temperature).toBe(0.5);
-      expect(updated.apiKey).toBe('sk-original');
+      const updated = loadLLMConfig();
+      expect(updated?.model).toBe('gemma4:27b');
+      expect(updated?.temperature).toBe(0.5);
+      expect(updated?.apiKey).toBe('sk-original');
     });
   });
 

@@ -28,23 +28,62 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
   const [showFlakyCriteria, setShowFlakyCriteria] = useState(false);
   const [showQuarantineCriteria, setShowQuarantineCriteria] = useState(false);
   const trend = useMemo(() => {
-    const sortedReports = [...reports]
+    // 按版本号去重聚合：取最近 12 次运行，按 version 分组
+    const recentReports = [...reports]
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 12)
-      .reverse();
-    
-    return sortedReports.map((r, index) => {
-      const passRate = r.totalTests > 0 ? (r.passed / r.totalTests) * 100 : 0;
-      const dateStr = new Date(r.timestamp).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' });
-      return {
-        version: `${r.version}-${dateStr}`,
-        passRate: passRate.toFixed(1),
-        total: r.totalTests,
-        runs: 1,
-        failed: r.failed,
-        duration: r.duration,
-      };
-    });
+      .slice(0, 12);
+
+    const versionMap = new Map<string, {
+      totalTests: number;
+      passed: number;
+      failed: number;
+      duration: number;
+      runs: number;
+      timestamp: string;
+    }>();
+
+    for (const r of recentReports) {
+      const existing = versionMap.get(r.version);
+      if (existing) {
+        existing.totalTests += r.totalTests;
+        existing.passed += r.passed;
+        existing.failed += r.failed;
+        existing.duration += r.duration;
+        existing.runs += 1;
+        // 保留最新的时间戳用于排序
+        if (new Date(r.timestamp).getTime() > new Date(existing.timestamp).getTime()) {
+          existing.timestamp = r.timestamp;
+        }
+      } else {
+        versionMap.set(r.version, {
+          totalTests: r.totalTests,
+          passed: r.passed,
+          failed: r.failed,
+          duration: r.duration,
+          runs: 1,
+          timestamp: r.timestamp,
+        });
+      }
+    }
+
+    // 按时间升序排列
+    return [...versionMap.entries()]
+      .sort((a, b) => new Date(a[1].timestamp).getTime() - new Date(b[1].timestamp).getTime())
+      .map(([version, data]) => {
+        const passRate = data.totalTests > 0 ? (data.passed / data.totalTests) * 100 : 0;
+        const dateStr = new Date(data.timestamp).toLocaleDateString(
+          lang === 'zh' ? 'zh-CN' : 'en-US',
+          { month: 'short', day: 'numeric' }
+        );
+        return {
+          version: `${version}-${dateStr}`,
+          passRate: passRate.toFixed(1),
+          total: data.totalTests,
+          runs: data.runs,
+          failed: data.failed,
+          duration: data.duration,
+        };
+      });
   }, [reports, lang]);
 
   const getStabilityInfo = (failureRate: number) => {

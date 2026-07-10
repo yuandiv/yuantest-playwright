@@ -411,7 +411,7 @@ const DEFAULT_CONFIG: LLMConfig = {
   baseUrl: 'http://localhost:11434',
   model: '',
   remark: '',
-  maxTokens: 2048,
+  maxTokens: 4096,
   temperature: 0.3,
   maxAgentRounds: 5,
 };
@@ -437,9 +437,8 @@ The system is compatible with all **OpenAI API compatible interfaces**, includin
 ### Configuration Management
 
 - **Storage location**: `{dataDir}/llm-config.json`
-- **Loading**: Automatically loaded when `DiagnosisService` is constructed, merged with defaults
-- **Saving**: `saveConfig(config)` saves configuration and automatically clears cache
-- **Reading**: `getMaskedConfig()` returns a shallow copy of the configuration
+- **Loading**: `loadLLMConfig()` reads configuration from file
+- **Saving**: `saveLLMConfig(config)` persists configuration to file
 
 ### Connection Test
 

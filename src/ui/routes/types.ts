@@ -4,7 +4,7 @@ import type { Executor } from '../../executor';
 import type { Reporter } from '../../reporter';
 import type { RealtimeReporter } from '../../realtime';
 import type { FlakyTestManager } from '../../flaky';
-import type { DiagnosisService } from '../../diagnosis';
+import type { DiagnosisAgent } from '../../ai/agents/diagnosis';
 import type { TestDiscovery } from '../../discovery';
 import type { LRUCache } from '../../cache';
 import type { StorageProvider } from '../../storage';
@@ -22,7 +22,7 @@ export interface RouterDeps {
   reporter: { current: Reporter };
   realtimeReporter: RealtimeReporter;
   flakyManager: { current: FlakyTestManager };
-  diagnosisService: DiagnosisService;
+  diagnosisService: DiagnosisAgent;
   aiService: UnifiedAIService;
   testDiscovery: TestDiscovery;
 

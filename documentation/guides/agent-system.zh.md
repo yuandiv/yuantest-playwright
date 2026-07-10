@@ -8,7 +8,7 @@ Agent 代理系统由以下核心组件构成：
 
 ```mermaid
 graph TB
-    AGT[AgentService<br/>统一管理]
+    AGT[UnifiedAIService<br/>统一管理]
 
     AGT --> PLA[PlannerAgent<br/>测试规划]
     AGT --> GEN[GeneratorAgent<br/>代码生成]
@@ -19,11 +19,15 @@ graph TB
     HEA --> |补丁| APP[应用补丁]
 
     AGT --> CTX[ProjectContext<br/>自动加载]
+    AGT --> EXE[agent_execute<br/>测试执行]
+    AGT --> DIA[agent_diagnose<br/>AI 诊断]
 
     style AGT fill:#7e57c2
     style PLA fill:#b39ddb
     style GEN fill:#b39ddb
     style HEA fill:#b39ddb
+    style EXE fill:#b39ddb
+    style DIA fill:#b39ddb
     style CTX fill:#d1c4e9
 ```
 
@@ -268,6 +272,8 @@ interface LLMConfig {
 GET /api/v1/agents/heal-history
 ```
 
+> **注意**：`getHealHistory()` API 方法已在 v1.2.0 中移除。修复历史现在仅通过 REST API 端点访问。`listPlans()` 方法和 `agents list` CLI 命令也已移除。
+
 ## 8. CLI 使用
 
 ### 8.1 初始化代理
@@ -313,11 +319,22 @@ yuantest agents heal tests/login.spec.ts
 yuantest agents heal tests/login.spec.ts --error "超时" --apply
 ```
 
-### 8.5 列出计划
+### 8.5 列出计划（已移除）
 
-```bash
-yuantest agents list
-```
+> **已在 v1.2.0 中移除**：`agents list` 子命令和 `agents-list` CLI 命令已移除。请改用 REST API `GET /api/v1/agents/plans` 端点。
+
+### 8.6 使用 Agent 工具聊天
+
+在 v1.2.0 中，`UnifiedAIService` 的聊天界面直接集成了 Agent 工具。对话过程中，LLM 可调用以下内置 Agent 工具：
+
+| 工具 | 说明 |
+|------|------|
+| `agent_execute` | 执行 Playwright 测试并返回通过/失败统计 |
+| `agent_diagnose` | AI 诊断测试失败原因，返回根因和修复建议 |
+| `agent_generate` | 根据测试计划生成 Playwright TypeScript 测试代码 |
+| `agent_heal` | 分析失败测试并生成修复补丁 |
+
+这些工具通过 `Map<string, AgentToolDef>` 策略模式注册——不再硬编码在 `executeTool()` 的 if-else 链中。这意味着用户只需在对话中说"运行测试"或"这个测试为什么失败"，AI 将自动使用相应的工具。
 
 ## 9. REST API
 
@@ -333,8 +350,8 @@ yuantest agents list
 | `POST` | `/api/v1/agents/generate` | 生成测试代码 |
 | `POST` | `/api/v1/agents/heal` | 修复失败测试 |
 | `POST` | `/api/v1/agents/apply-patch` | 应用指定补丁 |
-| `GET` | `/api/v1/agents/plans` | 列出测试计划 |
-| `GET` | `/api/v1/agents/heal-history` | 查看修复历史 |
+
+> **注意**：`GET /api/v1/agents/plans` 和 `GET /api/v1/agents/heal-history` 端点已在 v1.2.0 中移除，对应的 API 方法（`listPlans()`、`getHealHistory()`）也已一并移除。
 
 ## 10. 最佳实践
 

@@ -510,7 +510,7 @@ interface LLMConfig {
 | `baseUrl` | `string` | `'http://localhost:11434'` | LLM API base URL (defaults to local Ollama) |
 | `model` | `string` | `''` | Model name to use |
 | `remark` | `string` | `''` | Configuration remark information |
-| `maxTokens` | `number` | `2048` | Maximum number of tokens to generate |
+| `maxTokens` | `number` | `4096` | Maximum number of tokens to generate |
 | `temperature` | `number` | `0.3` | Generation temperature parameter (0~1), lower is more deterministic |
 | `maxAgentRounds` | `number` | `5` | Maximum agent loop rounds |
 

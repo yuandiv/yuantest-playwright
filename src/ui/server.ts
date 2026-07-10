@@ -43,9 +43,10 @@ import { FlakyTestManager } from '../flaky';
 import { TraceManager } from '../trace';
 import { ArtifactManager } from '../artifacts';
 import { VisualTestingManager } from '../visual';
-import { DiagnosisService } from '../diagnosis';
+import { DiagnosisAgent } from '../ai/agents/diagnosis';
 import { UnifiedAIService } from '../ai/ai-service';
-import { MCPConfigService } from './services/mcp-config-service';
+import { MCPConfigService } from '../ai/mcp/config-service';
+import { createLLMConfigRouter } from './routes/llm';
 import { TestDiscovery } from '../discovery';
 import { LRUCache } from '../cache';
 import { loadUserPreferences, saveUserPreferences } from '../config/loader';
@@ -140,6 +141,10 @@ export class DashboardServer {
     v1Router.use(createErrorPatternsRouter(this.deps));
     v1Router.use(createDiagnosisRouter(this.deps));
     v1Router.use(createAgentsRouter(this.deps));
+    v1Router.use(
+      '/llm',
+      createLLMConfigRouter(this.container.resolve<UnifiedAIService>(TOKENS.UnifiedAIService))
+    );
     v1Router.use(
       createChatRouter(
         this.container.resolve<UnifiedAIService>(TOKENS.UnifiedAIService),
@@ -240,7 +245,7 @@ export class DashboardServer {
     }
 
     const newFlakyManager = new FlakyTestManager(dataDirRef.current, {}, storage);
-    const diagnosisService = this.container.resolve<DiagnosisService>(TOKENS.DiagnosisService);
+    const diagnosisService = this.container.resolve<DiagnosisAgent>(TOKENS.DiagnosisService);
     const newReporter = new Reporter(
       outputDirRef.current,
       storage,

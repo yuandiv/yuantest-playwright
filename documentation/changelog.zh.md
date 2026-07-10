@@ -5,12 +5,68 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
 本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
-## 1.1.2 (2026-05-28)
+## [1.2.0] - 2026-07-09
 
-### Bug 修复
+### 新增
 
-- 修复 WebSocket 连接稳定性问题
-- 修复测试发现缓存失效问题
+#### Agent 管线新增 agent_execute 和 agent_diagnose 工具
+
+- **agent_execute** — 新增 Agent 工具，允许 AI 在对话中直接执行 Playwright 测试并返回通过/失败统计。支持指定 `testDir`、`grep`（用例名过滤）、`timeout`（超时）、`retries`（重试次数）。失败时主动建议调用 agent_diagnose 进行分析。
+- **agent_diagnose** — 新增 Agent 工具，允许 AI 在对话中分析测试失败原因。接收 `title`（测试名称）和 `error`（错误信息），返回根因分析、修复建议、置信度。置信度低于 50% 时提示用户人工复核。
+- Agent 管线工具架构重构：从 if-else 链改为 `Map<string, AgentToolDef>` 策略模式，新增工具仅需追加一条 `set()` 调用。
+- **agent_generate** 增强：LLM 响应中的代码块自动提取并保存到 `tests/` 目录，自动从 `test.describe()` / `test()` 提取文件名并避免重名冲突。
+
+#### LLMService 增强
+
+- **重试机制**：`fetchWithRetry()` 替代裸 `fetch()` — 对 5xx 服务端错误和网络异常自动重试（最多 5 次），指数退避（1s → 2s → 4s…）。4xx 客户端错误和超时不重试。
+- **`truncated` 标志**：`chatWithTools()` / `chatWithToolsStream()` / `chatWithAgentLoop()` / `chatWithAgentLoopStream()` 均新增 `truncated?: boolean` 字段，指示 LLM 响应因 `max_tokens` 限制被截断。
+- **`responseFormat` 支持**：`chat()` / `chatWithTools()` / `chatStream()` / `chatWithToolsStream()` / `chatWithAgentLoop()` / `chatWithAgentLoopStream()` 均新增可选 `responseFormat` 参数，支持 `{ type: 'json_object' }` 等格式强制。
+- 启用 `chat_template_kwargs`（thinking）时，若同时指定了 `responseFormat` 则自动禁用，避免冲突。
+
+#### DiagnosisService 增强
+
+- **Agent 循环流式诊断**：`diagnoseStream()` 从 `chatStream()` 升级为 `chatWithAgentLoopStream()`，支持工具调用（读源码、查日志等）+ 实时打字机效果。诊断过程中可接收 `tool_call` / `tool_result` 事件。
+- **强制 JSON 输出**：`diagnose()` 和 `diagnoseStream()` 调用 LLM 时强制 `responseFormat: { type: 'json_object' }`，提高 JSON 解析成功率。
+- **分析模式追踪**：诊断结果新增 `analysisMode` 字段追踪实际使用的分析模式（'agent' | 'single' | 'fallback'）。
+- 移除了 `diagnoseStream()` 中的持久化诊断结果快路径（persisted diagnosis shortcut），确保每次诊断都是实时分析。
+- 默认 `maxTokens` 从 2048 提升至 4096。
+
+#### 对话管理增强
+
+- **Assistant + Tool Call 合并**：`convertMessages()` 将连续的 assistant 消息与 tool_call 消息合并为单条 assistant 消息，避免 LLM 协议报错。
+- **每轮思考内容**：`sendMessage()` 在工具调用前存储本轮中间 assistant 消息（含思考过程），使存储结构更完整；清洗 `<think>` 标签避免前端双重显示。
+- **agent_generate 后处理**：`sendMessage()` 在 LLM 回复完成后自动提取代码块并保存文件，通过 SSE event 通知前端已保存的文件路径。
+
+#### Dashboard 增强
+
+- **聚类无结果提示**：`FailureAnalysisPanel` 和 `ReporterPanel` 新增 `clusterAnalysisDone` 状态。当 AI 聚类分析完成但无结果时，显示友好提示信息（"各测试错误关键词无重叠，无法达到聚类阈值"），而不是一直显示"开始聚类分析"的空白提示。
+- **测试状态优化**：`App.tsx` 中运行结束时 running 状态的用例恢复为 `pending` 而非 `idle`，保留可重试语义；修复 test end 事件重置运行时状态。
+- **Thinking 内容显示修正**：`ChatPanel` 中流式 done 事件保留流式过程中已正确设置的思考内容，不再用累积的 thinkingContent 覆盖。
+- **默认 maxTokens**：`AgentConfigDialog` 从 2048 改为 4096。
+
+#### MCP 配置变更
+
+- 内置 MCP Presets 超时时长统一从 5-10s 提升至 **30s**，适配大文件/复杂响应场景。
+- `playwright-mcp` 启动方式从 `node node_modules/...` 改为 `npx @playwright/mcp`，简化路径依赖。
+
+### 变更
+
+#### UnifiedAIService — 合并 ChatService 和 AgentService
+
+- **UnifiedAIService** — 统一门面类，将 ChatService（对话管理 + MCP）和 AgentService（测试规划/生成/修复）合并为单个 UnifiedAIService。
+  - 单一 `updateLLMConfig()` 替代分别调用 `ChatService.updateLLMConfig()` 和 `AgentService.setLLMConfig()`
+  - 单一 `setProjectRoot()` 替代分别调用两个服务
+  - `ChatService` 和 `AgentService` 保留为向后兼容的别名
+  - DI 容器：单一注册 `UnifiedAIService`，旧令牌指向同一实例
+  - RouterDeps：`agentService` + `chatService` 字段 → 单一 `aiService` 字段
+- **源码**：`src/ai/ai-service.ts`（693 行，直接持有所有子模块）
+
+### 移除
+
+- **`AgentHistoryManager`** 模块完全移除，相关方法 `getHealHistory()` / `listPlans()` 从 `AgentService`、`UnifiedAIService` 中删除。
+- **`agents-list` CLI 命令** 移除（`agents list` 子命令及独立的 `agents-list` 命令均不再可用）。
+- **`agent_get_heal_history` / `agent_list_plans`** Agent 工具从工具注册表中移除。
+- **持久化诊断快路径**：`diagnoseStream()` 中从 runId/testId 加载持久化诊断结果并直接返回的短路逻辑移除。
 
 ## 1.1.1 (2026-05-24)
 

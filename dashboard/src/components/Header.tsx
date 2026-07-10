@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Lang } from '../i18n';
 import { t } from '../i18n';
 import * as api from '../services/api';
-import { LLMStatus } from '../types';
+import { useLLMStatus } from '../contexts/LLMStatusContext';
 
 interface HeaderProps {
   lang: Lang;
@@ -17,20 +17,8 @@ interface HeaderProps {
 }
 
 export function Header({ lang, hasTestCases, isExecuting, currentTest, onSwitchLang, onOpenExecutor, showHealthDashboard, onToggleHealthDashboard, onOpenChatPanel }: HeaderProps) {
-  const [llmStatus, setLlmStatus] = useState<'green' | 'yellow' | 'red'>('yellow');
-
-  useEffect(() => {
-    const fetchStatus = () => {
-      api.getLLMStatus().then(status => {
-        if (status) setLlmStatus(status.status);
-      }).catch(() => {
-        setLlmStatus('yellow');
-      });
-    };
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 60000);
-    return () => clearInterval(interval);
-  }, []);
+  const { status: llmStatusData } = useLLMStatus();
+  const llmStatus = llmStatusData?.status ?? 'yellow';
 
   return (
     <div className="flex justify-between items-center mb-5">

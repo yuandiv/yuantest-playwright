@@ -515,7 +515,7 @@ interface LLMConfig {
 | `baseUrl` | `string` | `'http://localhost:11434'` | LLM API 基础 URL（默认指向本地 Ollama） |
 | `model` | `string` | `''` | 使用的模型名称 |
 | `remark` | `string` | `''` | 配置备注信息 |
-| `maxTokens` | `number` | `2048` | 最大生成 Token 数 |
+| `maxTokens` | `number` | `4096` | 最大生成 Token 数 |
 | `temperature` | `number` | `0.3` | 生成温度参数（0~1），越低越确定 |
 | `maxAgentRounds` | `number` | `5` | Agent 最大循环轮数 |
 

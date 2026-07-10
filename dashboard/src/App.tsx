@@ -4,6 +4,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import * as api from './services/api';
 import { TestCase, RunReport, RunDetail } from './types';
 import { Header } from './components/Header';
+import { LLMStatusProvider } from './contexts/LLMStatusContext';
 import { KPICards } from './components/KPICards';
 import { ExecutorDialog } from './components/ExecutorDialog';
 import { SidebarCards } from './components/SidebarCards';
@@ -572,6 +573,7 @@ function App() {
   const pending = useMemo(() => testCases.filter(tc => tc.status === 'pending').length, [testCases]);
 
   return (
+    <LLMStatusProvider>
     <div className="max-w-[1680px] mx-auto">
       <Header
         lang={lang}
@@ -679,6 +681,7 @@ function App() {
         />
       )}
     </div>
+    </LLMStatusProvider>
   );
 }
 

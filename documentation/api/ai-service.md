@@ -189,6 +189,95 @@ Create a new agent session context for sharing state between agents.
 
 ---
 
+## Agent Tools (Built-in Tools)
+
+Agent pipeline tools are registered via `initAgentTools()` in the constructor using a `Map<string, AgentToolDef>` strategy pattern. LLM can invoke these tools via function calling during chat:
+
+### `agent_execute`
+
+Run Playwright tests and return pass/fail statistics. Used when the user asks to "run tests" during a conversation.
+
+```typescript
+// Schema
+{
+  name: 'agent_execute',
+  description: 'Run Playwright tests and return pass/fail results',
+  parameters: {
+    testDir?: string,    // Test file directory (optional, defaults to project root)
+    grep?: string,       // Run only tests matching this name pattern (optional)
+    timeout?: number,    // Test timeout in milliseconds (optional, default 30000)
+    retries?: number,    // Number of retries on failure (optional, default 0)
+  }
+}
+```
+
+**Behavior**:
+- Uses `Executor` to run tests, collecting real-time progress
+- Returns run ID, status, total/passed/failed/skipped counts, duration
+- If failures exist, suggests using `agent_diagnose` to analyze root causes
+
+### `agent_diagnose`
+
+AI-powered diagnosis of test failures. Used when the user asks "why did it fail", or automatically suggested after `agent_execute` returns failures.
+
+```typescript
+// Schema
+{
+  name: 'agent_diagnose',
+  description: 'Analyze a test failure using AI and return structured diagnosis',
+  parameters: {
+    title: string,       // Test case title or identifier (required)
+    error: string,       // Error message from the test failure (required)
+    stackTrace?: string, // Optional stack trace
+    filePath?: string,   // Optional test file path
+  }
+}
+```
+
+**Behavior**:
+- Uses `DiagnosisService` for AI analysis
+- Returns root cause, category, confidence, fix suggestions
+- Low confidence (<50%) prompts human review suggestion
+
+### `agent_generate`
+
+Generate Playwright TypeScript test code from a test plan.
+
+```typescript
+// Schema
+{
+  name: 'agent_generate',
+  description: 'Generate Playwright TypeScript test code from a test plan',
+  parameters: {
+    planContent: string,  // Test plan content (required)
+  }
+}
+```
+
+**Behavior**:
+- Triggers LLM to generate test code in its response
+- `sendMessage()` post-processing automatically extracts code blocks and saves to `tests/` directory
+- Automatically derives filenames from `test.describe()` / `test()` titles, avoids name conflicts
+
+### `agent_heal`
+
+Analyze a failing test and generate fix patches.
+
+```typescript
+// Schema
+{
+  name: 'agent_heal',
+  description: 'Analyze a failing test and generate fix patches',
+  parameters: {
+    testFilePath: string,    // Failing test file path (required)
+    error?: string,          // Optional error message
+    stackTrace?: string,     // Optional stack trace
+  }
+}
+```
+
+---
+
 ## Backward Compatibility
 
 The old class names still work for imports, but note their constructors differ:

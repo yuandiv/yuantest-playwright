@@ -2,47 +2,25 @@ import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
 import { asyncHandler } from '../../middleware';
 import { logger } from '../../logger';
-import type { RootCauseAnalysis } from '../../types';
+import { loadLLMConfig } from '../../config/loader';
+import type { LLMConfig, RootCauseAnalysis } from '../../types';
 
 export function createDiagnosisRouter(deps: RouterDeps): Router {
   const router = Router();
   const _log = logger.child('DiagnosisRouter');
 
-  router.get(
-    '/llm/config',
-    asyncHandler(async (req: Request, res: Response) => {
-      const config = deps.diagnosisService.getMaskedConfig();
-      res.json(config);
-    })
-  );
-
-  router.put(
-    '/llm/config',
-    asyncHandler(async (req: Request, res: Response) => {
-      const config = req.body;
-      await deps.diagnosisService.saveConfig(config);
-      deps.aiService.updateLLMConfig(config);
-      const maskedConfig = deps.diagnosisService.getMaskedConfig();
-      res.json(maskedConfig);
-    })
-  );
-
-  router.get(
-    '/llm/status',
-    asyncHandler(async (req: Request, res: Response) => {
-      const status = await deps.diagnosisService.getStatus();
-      res.json(status);
-    })
-  );
-
-  router.post(
-    '/llm/test-connection',
-    asyncHandler(async (req: Request, res: Response) => {
-      const config = req.body;
-      const result = await deps.diagnosisService.testConnection(config);
-      res.json(result);
-    })
-  );
+  function getLLMConfigOrDefault(): LLMConfig {
+    const raw = loadLLMConfig();
+    return {
+      enabled: raw?.enabled ?? false,
+      apiKey: raw?.apiKey ?? '',
+      baseUrl: raw?.baseUrl || 'http://localhost:11434',
+      model: raw?.model ?? '',
+      remark: raw?.remark ?? '',
+      maxTokens: raw?.maxTokens ?? 4096,
+      temperature: raw?.temperature ?? 0.3,
+    };
+  }
 
   router.post(
     '/diagnosis',
@@ -61,7 +39,7 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
         testId,
       } = req.body;
 
-      const config = deps.diagnosisService.getMaskedConfig();
+      const config = getLLMConfigOrDefault();
       if (!config.enabled || !config.baseUrl || !config.model) {
         res.json({ enabled: false, diagnosis: null });
         return;
@@ -135,7 +113,7 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
         testId,
       } = req.body;
 
-      const config = deps.diagnosisService.getMaskedConfig();
+      const config = getLLMConfigOrDefault();
       if (!config.enabled || !config.baseUrl || !config.model) {
         res.json({ enabled: false, diagnosis: null });
         return;
@@ -162,6 +140,9 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
       res.setHeader('X-Accel-Buffering', 'no');
 
       try {
+        // Send start event
+        res.write(`data: ${JSON.stringify({ type: 'start', testTitle })}\n\n`);
+
         const stream = deps.diagnosisService.diagnoseStream(
           {
             title: testTitle,
@@ -178,8 +159,21 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
           testId
         );
 
-        for await (const chunk of stream) {
-          res.write(`data: ${chunk}\n\n`);
+        // Manually consume generator to get both yielded tokens and return value
+        let diagnosisResult;
+        while (true) {
+          const { done, value } = await stream.next();
+          if (done) {
+            diagnosisResult = value;
+            break;
+          }
+          // Send chunk event for each yielded token
+          res.write(`data: ${JSON.stringify({ type: 'chunk', content: value })}\n\n`);
+        }
+
+        // Send complete event with final diagnosis
+        if (diagnosisResult) {
+          res.write(`data: ${JSON.stringify({ type: 'complete', diagnosis: diagnosisResult })}\n\n`);
         }
 
         res.end();
@@ -245,7 +239,7 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
         const { clusterFailures } = await import('../../diagnosis/cluster');
         const clusters = clusterFailures(testResults);
 
-        const config = deps.diagnosisService.getMaskedConfig();
+        const config = getLLMConfigOrDefault();
         const llmEnabled = config.enabled && !!config.baseUrl && !!config.model;
 
         if (!llmEnabled) {

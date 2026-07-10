@@ -3,7 +3,7 @@ import { ChatMessage, TypingIndicator } from './chat/ChatMessage';
 import { ConversationList } from './chat/ConversationList';
 import { AgentConfigDialog } from './AgentConfigDialog';
 import { Lang, t, formatTemplate } from '../i18n';
-import { LLMStatus } from '../types';
+import { useLLMStatus } from '../contexts/LLMStatusContext';
 import * as api from '../services/api';
 import {
   listConversations,
@@ -26,7 +26,7 @@ interface ChatPanelProps {
   onClose: () => void;
 }
 
-function renderLLMStatus(llmStatus: LLMStatus | null, lang: Lang) {
+function renderLLMStatus(llmStatus: import('../types').LLMStatus | null, lang: Lang) {
   const isGreen = llmStatus?.status === 'green';
   const isRed = llmStatus?.status === 'red';
   const dotColor = isGreen ? 'bg-green-500' : isRed ? 'bg-red-500' : 'bg-yellow-500';
@@ -90,7 +90,7 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
   const [loadingConvIds, setLoadingConvIds] = useState<Set<string>>(new Set());
   const [streamingMessages, setStreamingMessages] = useState<ChatMessageData[]>([]);
   const [mcpStatus, setMcpStatus] = useState<MCPConnectionStatus | null>(null);
-  const [llmStatus, setLlmStatus] = useState<LLMStatus | null>(null);
+  const llmStatus = useLLMStatus();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showAgentConfig, setShowAgentConfig] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -135,21 +135,24 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
     if (status) setMcpStatus(status);
   }, []);
 
-  const loadLLMStatus = useCallback(async () => {
-    const status = await api.getLLMStatus();
-    if (status) setLlmStatus(status);
-  }, []);
+  // LLM 状态由 LLMStatusContext 统一管理（每 60s 轮询），不再单独请求
 
   useEffect(() => {
     loadConversations();
     loadMCPStatus();
-    loadLLMStatus();
+
+    // 监听 LLM 配置变更事件（AgentConfigDialog 保存后触发），立即刷新状态
+    const handleLLMConfigChanged = () => { llmStatus.refresh(); };
+    window.addEventListener('llm-config-changed', handleLLMConfigChanged);
+
     const interval = setInterval(() => {
       loadMCPStatus();
-      loadLLMStatus();
     }, 10000);
-    return () => clearInterval(interval);
-  }, [loadConversations, loadMCPStatus, loadLLMStatus]);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('llm-config-changed', handleLLMConfigChanged);
+    };
+  }, [loadConversations, loadMCPStatus, llmStatus]);
 
   const handleSelectConversation = useCallback(async (id: string) => {
     // 保存当前会话的流式消息
@@ -407,9 +410,9 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
       setIsReconnecting(false);
     }
     if (type === 'llm') {
-      window.dispatchEvent(new CustomEvent('llm-config-changed'));
+      llmStatus.refresh();
     }
-  }, [loadMCPStatus, reconnectMCP]);
+  }, [loadMCPStatus, reconnectMCP, llmStatus]);
 
   const handleMCPToggled = useCallback(async () => {
     await loadMCPStatus();
@@ -473,7 +476,7 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
                 {activeConv?.title || t('smartAssistant', lang)}
               </h2>
               <div className="flex items-center gap-2 text-xs">
-                {renderLLMStatus(llmStatus, lang)}
+                {renderLLMStatus(llmStatus.status, lang)}
                 {isReconnecting ? (
                   <span className="flex items-center gap-1 text-blue-500">
                     <i className="fas fa-spinner fa-spin text-[8px]"></i>

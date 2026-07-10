@@ -13,7 +13,8 @@ import { logger } from '../logger';
 import { StorageProvider, getStorage } from '../storage';
 import { CACHE_CONFIG, DEFAULTS } from '../constants';
 import { categorizeError, generateSuggestions } from '../diagnosis/categorizer';
-import type { DiagnosisService } from '../diagnosis';
+import { loadLLMConfig } from '../config/loader';
+import type { DiagnosisAgent } from '../ai/agents/diagnosis';
 import type { FlakyTestManager } from '../flaky';
 
 function resolveTemplatesDir(): string {
@@ -53,7 +54,7 @@ export class Reporter {
   private storage: StorageProvider;
   private initialized: Promise<void>;
   private pendingReports: Map<string, RunResult> = new Map();
-  private diagnosisService: DiagnosisService | null = null;
+  private diagnosisService: DiagnosisAgent | null = null;
   private flakyManager?: FlakyTestManager;
   private pendingSuiteIndex: Map<string, { suite: SuiteResult; report: RunResult }> = new Map();
   private pendingTestIndex: Map<string, SuiteResult> = new Map();
@@ -64,7 +65,7 @@ export class Reporter {
   constructor(
     outputDir: string = DEFAULTS.REPORTS_DIR,
     storage?: StorageProvider,
-    diagnosisService?: DiagnosisService,
+    diagnosisService?: DiagnosisAgent,
     flakyManager?: FlakyTestManager
   ) {
     this.outputDir = outputDir;
@@ -241,7 +242,7 @@ export class Reporter {
     }
 
     if (this.diagnosisService) {
-      const config = this.diagnosisService.getMaskedConfig();
+      const config = loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 };
       if (config.enabled) {
         for (const analysis of analyses) {
           try {

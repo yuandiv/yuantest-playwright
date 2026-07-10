@@ -802,7 +802,8 @@ yuantest agents [subcommand]
 | `plan` | Generate a test plan using Planner agent |
 | `generate` | Generate Playwright test code from a test plan |
 | `heal` | Heal a failing test using Healer agent |
-| `list` | List generated test plans |
+
+> **Note**: The `list` subcommand has been removed in v1.2.0.
 
 ### Examples
 
@@ -833,10 +834,9 @@ yuantest agents heal tests/login.spec.ts
 
 # Heal with error context
 yuantest agents heal tests/login.spec.ts --error "Timeout waiting for selector" --apply
-
-# List all test plans
-yuantest agents list
 ```
+
+> **Note**: The `agents list` subcommand has been removed in v1.2.0. Use the REST API `GET /api/v1/agents/plans` instead.
 
 ---
 
@@ -985,22 +985,9 @@ yuantest agents-heal tests/login.spec.ts --max-rounds 5
 
 ---
 
-## 25. agents-list - List Test Plans
+## 25. agents-list - List Test Plans (Removed)
 
-List all generated test plans.
-
-### Usage
-
-```bash
-yuantest agents-list
-```
-
-### Examples
-
-```bash
-# List all test plans
-yuantest agents-list
-```
+> **Removed in v1.2.0**: This command has been removed. Use the REST API `GET /api/v1/agents/plans` endpoint or the `agents plan` subcommand to manage test plans.
 
 ---
 

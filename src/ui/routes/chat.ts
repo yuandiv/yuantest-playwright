@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import type { UnifiedAIService, SSEEvent } from '../../ai/ai-service';
 import { asyncHandler } from '../../middleware';
-import { MCPConfigService, BUILTIN_MCP_PRESETS } from '../services/mcp-config-service';
+import { MCPConfigService, BUILTIN_MCP_PRESETS } from '../../ai/mcp/config-service';
 
 export function createChatRouter(
   aiService: UnifiedAIService,

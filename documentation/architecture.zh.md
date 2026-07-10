@@ -36,12 +36,12 @@ graph TB
     RPT -->|报告数据| DSB
     EXE -->|执行事件| RTS
     RTS -->|WebSocket推送| DSB
+    UAI[UnifiedAIService<br/>对话 + Agent 管线] --> STO
     ORC --> STO
     EXE --> STO
     RPT --> STO
     FTM --> STO
     DIA --> STO
-    AGT --> STO
 ```
 
 ## 2. 数据流说明
@@ -200,10 +200,11 @@ graph TB
   - **MCP 集成**：连接/断开 MCP 服务器、列出工具、调用工具、管理 MCP 配置
   - **Agent 管线**：Plan → Generate → Heal 测试创建工作流，完整配置支持
   - **统一配置**：单一 `updateLLMConfig()` 和 `setProjectRoot()` 同步所有子系统
-  - **对话 + Agent 集成**：`executeTool()` 直接调用 `this.plan()`, `this.heal()` 等 — Agent 管线工具在聊天中原生可用
+  - **对话 + Agent 集成**：`executeTool()` 使用 `Map<string, AgentToolDef>` 策略路由 Agent 工具 — `agent_execute`、`agent_diagnose`、`agent_generate`、`agent_heal` 在聊天中原生可用
   - **项目上下文**：自动加载 playwright.config 和 package.json，支持上下文感知的 Agent 操作
-  - **修复历史**：持久化修复历史，自动清理（最多 100 条）
+  - **代码提取**：Agent 生成的代码块自动提取并保存到 `tests/` 目录，支持智能命名
 - **子模块**：`ConversationStore`、`MCPClientManager`、`PlannerAgent`、`GeneratorAgent`、`HealerAgent`、`AgentConfigManager`、`AgentLifecycleManager`、`AgentPipelineOrchestrator`、`AgentFileOperations`
+- **模块布局**：AI 相关模块位于 `src/ai/` 下，包括 `src/ai/agents/` 中的 Agent 模块（base-agent、browser-session、healer、planner、generator、diagnosis 等）
 
 ### 3.11 ServiceContainer (DI) — 依赖注入容器
 

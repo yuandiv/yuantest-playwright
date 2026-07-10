@@ -7,12 +7,12 @@ import { TestDiscovery } from '../discovery';
 import { PlaywrightConfigMerger } from '../config/merger';
 import { loadLLMConfig } from '../config/loader';
 import { LRUCache } from '../cache';
-import { ToolRegistry } from '../agents/tool-registry';
-import { LLMService } from '../agents/llm-service';
+import { ToolRegistry } from '../ai/agents/tool-registry';
+import { LLMService } from '../ai/agents/llm-service';
 import { UnifiedAIService } from '../ai/ai-service';
-import { MCPConfigService } from '../ui/services/mcp-config-service';
-import { MCPClientManager } from '../chat/mcp-client-manager';
-import { DiagnosisService } from '../diagnosis';
+import { MCPConfigService } from '../ai/mcp/config-service';
+import { MCPClientManager } from '../ai/mcp/client-manager';
+import { DiagnosisAgent } from '../ai/agents/diagnosis';
 import { FlakyTestManager } from '../flaky';
 import { Reporter } from '../reporter';
 import { RealtimeReporter } from '../realtime';
@@ -52,12 +52,8 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
     'singleton'
   );
 
-  container.register(TOKENS.LLMConfig, (c) => {
-    const parsed = loadLLMConfig();
-    if (parsed?.enabled) {
-      return parsed as LLMConfig;
-    }
-    return undefined;
+  container.register(TOKENS.LLMConfig, () => {
+    return loadLLMConfig() as LLMConfig | undefined;
   });
 
   container.register(
@@ -132,7 +128,15 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
       const dataDir = c.resolve<MutableRef<string>>(TOKENS.DataDir);
       const llmService = c.resolve<LLMService | null>(TOKENS.LLMService);
       const toolRegistry = c.resolve<ToolRegistry>(TOKENS.ToolRegistry);
-      return new DiagnosisService(dataDir.current, llmService ?? undefined, toolRegistry);
+      // 创建 DiagnosisAgent 实例
+      const { DiagnosisAgent } = require('../ai/agents/diagnosis');
+      const diagnosisAgent = new DiagnosisAgent(
+        { enabled: true, loopTarget: 'vscode', specsDir: 'specs', autoHeal: false, maxHealRounds: 3, projectRoot: process.cwd() },
+        llmService?.getConfig() ?? null,
+        llmService ?? undefined,
+        dataDir.current
+      );
+      return diagnosisAgent;
     },
     'singleton'
   );
@@ -152,7 +156,7 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
     (c) => {
       const outputDir = c.resolve<MutableRef<string>>(TOKENS.OutputDir);
       const storage = c.resolve<StorageProvider>(TOKENS.StorageProvider);
-      const diagnosisService = c.resolve<DiagnosisService>(TOKENS.DiagnosisService);
+      const diagnosisService = c.resolve<DiagnosisAgent>(TOKENS.DiagnosisService);
       const flakyManager = c.resolve<FlakyTestManager>(TOKENS.FlakyTestManager);
       return new Reporter(outputDir.current, storage, diagnosisService, flakyManager);
     },

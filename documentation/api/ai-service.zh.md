@@ -188,6 +188,95 @@ const result = await aiService.plan('用户登录流程', {
 
 ---
 
+## Agent 工具（内置工具）
+
+Agent 管线工具由 `initAgentTools()` 在构造函数中使用 `Map<string, AgentToolDef>` 策略模式统一注册。LLM 在对话中可通过 function calling 调用以下工具：
+
+### `agent_execute`
+
+执行 Playwright 测试并返回通过/失败统计。当用户在对话中要求"运行测试"或"跑一下"时触发。
+
+```typescript
+// Schema
+{
+  name: 'agent_execute',
+  description: 'Run Playwright tests and return pass/fail results',
+  parameters: {
+    testDir?: string,    // 测试文件目录（可选，默认项目根目录）
+    grep?: string,       // 仅运行匹配此名称模式的测试（可选）
+    timeout?: number,    // 测试超时毫秒数（可选，默认 30000）
+    retries?: number,    // 失败重试次数（可选，默认 0）
+  }
+}
+```
+
+**行为**：
+- 使用 `Executor` 执行测试，实时收集进度消息
+- 返回运行 ID、状态、总计/通过/失败/跳过统计、耗时
+- 存在失败用例时，建议用户使用 `agent_diagnose` 诊断失败原因
+
+### `agent_diagnose`
+
+AI 诊断测试失败原因。当用户问"为什么失败"时，或 `agent_execute` 返回失败后自动建议使用。
+
+```typescript
+// Schema
+{
+  name: 'agent_diagnose',
+  description: 'Analyze a test failure using AI and return structured diagnosis',
+  parameters: {
+    title: string,       // 测试用例标题或标识符（必填）
+    error: string,       // 测试失败的错误信息（必填）
+    stackTrace?: string, // 可选的堆栈跟踪
+    filePath?: string,   // 可选的测试文件路径
+  }
+}
+```
+
+**行为**：
+- 使用 `DiagnosisService` 进行 AI 分析
+- 返回根因分析、分类、置信度、修复建议
+- 置信度低于 50% 时提示用户人工复核
+
+### `agent_generate`
+
+根据测试计划生成 Playwright TypeScript 测试代码。
+
+```typescript
+// Schema
+{
+  name: 'agent_generate',
+  description: 'Generate Playwright TypeScript test code from a test plan',
+  parameters: {
+    planContent: string,  // 测试计划内容（必填）
+  }
+}
+```
+
+**行为**：
+- 触发 LLM 生成包含测试代码的回复
+- `sendMessage()` 的后处理逻辑自动从 LLM 响应中提取代码块，保存到 `tests/` 目录
+- 自动从 `test.describe()` / `test()` 提取文件名，避免重名冲突
+
+### `agent_heal`
+
+分析失败测试并生成修复补丁。
+
+```typescript
+// Schema
+{
+  name: 'agent_heal',
+  description: 'Analyze a failing test and generate fix patches',
+  parameters: {
+    testFilePath: string,    // 失败测试文件路径（必填）
+    error?: string,          // 可选的错误信息
+    stackTrace?: string,     // 可选的堆栈跟踪
+  }
+}
+```
+
+---
+
 ## 向后兼容
 
 旧类名导入仍然有效，但构造函数有所不同：

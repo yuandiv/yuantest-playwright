@@ -802,7 +802,8 @@ yuantest agents [子命令]
 | `plan` | 使用 Planner 代理生成测试计划 |
 | `generate` | 从测试计划生成 Playwright 测试代码 |
 | `heal` | 使用 Healer 代理修复失败测试 |
-| `list` | 列出生成的测试计划 |
+
+> **注意**：`list` 子命令已在 v1.2.0 中移除。
 
 ### 示例
 
@@ -833,10 +834,9 @@ yuantest agents heal tests/login.spec.ts
 
 # 提供错误上下文修复测试
 yuantest agents heal tests/login.spec.ts --error "等待选择器超时" --apply
-
-# 列出所有测试计划
-yuantest agents list
 ```
+
+> **注意**：`agents list` 子命令已在 v1.2.0 中移除。请改用 REST API `GET /api/v1/agents/plans`。
 
 ---
 
@@ -985,23 +985,9 @@ yuantest agents-heal tests/login.spec.ts --max-rounds 5
 
 ---
 
-## 25. agents-list - 列出测试计划
+## 25. agents-list - 列出测试计划（已移除）
 
-列出所有已生成的测试计划。
-
-### 用法
-
-```bash
-yuantest agents-list
-```
-
-### 示例
-
-```bash
-# 列出所有测试计划
-yuantest agents-list
-```
-```
+> **已在 v1.2.0 中移除**：该命令已移除。请改用 REST API `GET /api/v1/agents/plans` 端点或 `agents plan` 子命令管理测试计划。
 
 ---
 

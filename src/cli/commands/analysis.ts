@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { Reporter } from '../../reporter';
 import { FlakyTestManager } from '../../flaky';
-import { RootCauseAnalysis } from '../../types';
+import { RootCauseAnalysis, LLMConfig } from '../../types';
 import { getStorage } from '../../storage';
 import { CliContext } from '../context';
 
@@ -58,10 +58,16 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
 
         if (options.ai) {
           try {
-            const { DiagnosisService } = await import('../../diagnosis');
-            const diagnosisService = new DiagnosisService('./test-data');
+            const { DiagnosisAgent } = await import('../../ai/agents/diagnosis');
+            const { loadLLMConfig } = await import('../../config/loader');
+            const config = loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 };
             const flakyManager = new FlakyTestManager('./test-data', {}, getStorage());
-            const config = diagnosisService.getMaskedConfig();
+            const agent = new DiagnosisAgent(
+              { enabled: false, loopTarget: 'vscode' as const, specsDir: 'specs', autoHeal: false, maxHealRounds: 3, projectRoot: process.cwd() },
+              config as LLMConfig,
+              undefined,
+              './test-data'
+            );
             if (config.enabled) {
               console.log(chalk.cyan('\n🤖 Running AI diagnosis...'));
               for (const item of analysis) {
@@ -81,7 +87,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
                     .flatMap((s) => s.tests)
                     .find((t) => t.id === item.testId);
 
-                  const diagnosis = await diagnosisService.diagnose(
+                  const diagnosis = await agent.diagnose(
                     {
                       title: item.title,
                       error: item.failureReason,
@@ -304,22 +310,24 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
     .option('--status', 'Check LLM status')
     .action(async (options) => {
       try {
-        const { DiagnosisService } = await import('../../diagnosis');
-        const diagnosisService = new DiagnosisService('./test-data');
-
         if (options.set) {
           const config = JSON.parse(options.set);
-          await diagnosisService.saveConfig(config);
+          const { saveLLMConfig } = await import('../../config/loader');
+          saveLLMConfig(config);
           console.log(chalk.green('✅ LLM configuration updated'));
-          const masked = diagnosisService.getMaskedConfig();
+          const { loadLLMConfig } = await import('../../config/loader');
+          const masked = loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 };
           console.log(JSON.stringify(masked, null, 2));
           return;
         }
 
         if (options.test) {
           const spinner = ora('Testing LLM connection...').start();
-          const config = diagnosisService.getMaskedConfig();
-          const result = await diagnosisService.testConnection(config);
+          const { loadLLMConfig } = await import('../../config/loader');
+          const { LLMService } = await import('../../ai/agents/llm-service');
+          const config = (loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 }) as LLMConfig;
+          const tempService = new LLMService(config);
+          const result = await tempService.validateConnection();
           if (result.success) {
             spinner.succeed('LLM connection successful');
           } else {
@@ -329,17 +337,27 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
         }
 
         if (options.status) {
-          const status = await diagnosisService.getStatus();
+          const { loadLLMConfig } = await import('../../config/loader');
+          const { LLMService } = await import('../../ai/agents/llm-service');
+          const config = (loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 }) as LLMConfig;
+          let success = false;
+          if (config.enabled && config.baseUrl && config.model) {
+            const tempService = new LLMService(config);
+            const result = await tempService.validateConnection();
+            success = result.success;
+          }
+          const configured = config.enabled && !!config.baseUrl && !!config.model;
           console.log(chalk.bold('\n🤖 LLM Status:'));
-          console.log(`  Configured: ${status.configured ? chalk.green('Yes') : chalk.red('No')}`);
-          console.log(`  Connected: ${status.connected ? chalk.green('Yes') : chalk.red('No')}`);
-          console.log(
-            `  Status: ${status.status === 'green' ? chalk.green('🟢 Green') : status.status === 'yellow' ? chalk.yellow('🟡 Yellow') : chalk.red('🔴 Red')}`
-          );
+          console.log(`  Configured: ${configured ? chalk.green('Yes') : chalk.red('No')}`);
+          console.log(`  Connected: ${success ? chalk.green('Yes') : chalk.red('No')}`);
+          const statusColor = !configured ? 'yellow' : success ? 'green' : 'red';
+          const statusLabel = statusColor === 'green' ? '🟢 Green' : statusColor === 'yellow' ? '🟡 Yellow' : '🔴 Red';
+          console.log(`  Status: ${statusColor === 'green' ? chalk.green(statusLabel) : statusColor === 'yellow' ? chalk.yellow(statusLabel) : chalk.red(statusLabel)}`);
           return;
         }
 
-        const config = diagnosisService.getMaskedConfig();
+        const { loadLLMConfig } = await import('../../config/loader');
+        const config = loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 };
         console.log(chalk.bold('\n🤖 LLM Configuration:'));
         console.log(`  Enabled: ${config.enabled ? chalk.green('Yes') : chalk.red('No')}`);
         console.log(`  Base URL: ${config.baseUrl || 'Not set'}`);

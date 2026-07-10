@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Lang, t } from '../i18n';
-import { LLMConfig, LLMStatus } from '../types';
+import { LLMConfig } from '../types';
 import type { MCPConfig } from '../services/chat-api';
 import * as api from '../services/api';
+import { useLLMStatus } from '../contexts/LLMStatusContext';
 import {
   getMCPConfigs,
   updateMCPConfig,
@@ -89,12 +90,13 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
   const [remark, setRemark] = useState('');
   const [maxTokens, setMaxTokens] = useState(4096);
   const [temperature, setTemperature] = useState(0.3);
-  const [chatTemplateKwargs, setChatTemplateKwargs] = useState(false);
+  const [chatTemplateKwargs, setChatTemplateKwargs] = useState(true);
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; error?: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [llmStatus, setLlmStatus] = useState<LLMStatus | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{ success: boolean; text: string } | null>(null);
+  const llmCtx = useLLMStatus();
 
   useEffect(() => {
     api.getLLMConfig().then(config => {
@@ -106,12 +108,9 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
         setRemark(config.remark || '');
         setMaxTokens(config.maxTokens || 4096);
         setTemperature(config.temperature ?? 0.3);
-        setChatTemplateKwargs(config.chatTemplateKwargs ?? false);
+        setChatTemplateKwargs(config.chatTemplateKwargs ?? true);
       }
     }).catch((err) => console.error('[LLMConfigPanel] getLLMConfig failed:', err));
-    api.getLLMStatus().then(status => {
-      setLlmStatus(status);
-    }).catch((err) => console.error('[LLMConfigPanel] getLLMStatus failed:', err));
   }, []);
 
   const handleTestConnection = async () => {
@@ -120,6 +119,11 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
     try {
       const result = await api.testLLMConnection({ enabled, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
       setTestResult(result);
+      // 测试成功后通知全局刷新状态
+      if (result?.success) {
+        llmCtx.refresh();
+        window.dispatchEvent(new CustomEvent('llm-config-changed'));
+      }
     } catch (e) {
       setTestResult({ success: false, error: e instanceof Error ? e.message : 'Unknown error' });
     } finally {
@@ -129,49 +133,39 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveMessage(null);
     try {
-      // 保存前测试连接，若连接正常则自动启用 AI 诊断
-      let finalEnabled = enabled;
-      if (!enabled) {
-        try {
-          const testResult = await api.testLLMConnection({ enabled: true, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
-          if (testResult?.success) {
-            finalEnabled = true;
-            setEnabled(true);
-          }
-        } catch {
-          // 测试失败，保持当前 enabled 状态
-        }
+      const saved = await api.saveLLMConfig({ enabled, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
+      if (saved) {
+        setSaveMessage({ success: true, text: '保存成功' });
+        window.dispatchEvent(new CustomEvent('llm-config-changed'));
+      } else {
+        setSaveMessage({ success: false, text: '保存失败' });
       }
-      await api.saveLLMConfig({ enabled: finalEnabled, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
       onSaved();
     } catch (e) {
       console.error('Failed to save LLM config:', e);
+      setSaveMessage({ success: false, text: '保存失败' });
     } finally {
       setSaving(false);
+      setTimeout(() => setSaveMessage(null), 3000);
     }
   };
 
   return (
-    <div className="p-5 space-y-4">
-      <div className="flex items-center gap-2">
-        {llmStatus && (
-          <span className="relative flex h-2.5 w-2.5">
-            {llmStatus.status === 'green' && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-            )}
-            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${llmStatus.status === 'green' ? 'bg-green-500' : llmStatus.status === 'red' ? 'bg-red-500' : 'bg-yellow-500'}`} title={llmStatus.status === 'green' ? (t('llmConnected', lang) || 'Connected') : llmStatus.status === 'red' ? (t('llmConnectionFailed', lang) || 'Failed') : (t('llmNotConfigured', lang) || 'Not configured')} />
-          </span>
-        )}
-        {enabled && (
-          <span className="text-xs text-green-600">{t('llmConnected', lang) || 'Connected'}</span>
-        )}
-      </div>
+    <div className="p-5 space-y-4 relative">
 
       {testResult && (
         <div className={`p-3 rounded-lg text-sm ${testResult.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           <i className={`fas ${testResult.success ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-1.5`}></i>
           {testResult.success ? (t('connectionSuccess', lang) || 'Connection successful') : `${t('connectionFailed', lang) || 'Connection failed'}: ${testResult.error}`}
+        </div>
+      )}
+
+      {saveMessage && (
+        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium transition-all duration-300 ${saveMessage.success ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          <i className={`fas ${saveMessage.success ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2`}></i>
+          {saveMessage.text}
         </div>
       )}
 

@@ -8,7 +8,7 @@ The Agent system consists of the following core components:
 
 ```mermaid
 graph TB
-    AGT[AgentService<br/>Unified Management]
+    AGT[UnifiedAIService<br/>Unified Management]
 
     AGT --> PLA[PlannerAgent<br/>Test Planning]
     AGT --> GEN[GeneratorAgent<br/>Code Generation]
@@ -19,11 +19,15 @@ graph TB
     HEA --> |Patches| APP[Apply Patches]
 
     AGT --> CTX[ProjectContext<br/>Auto-loaded]
+    AGT --> EXE[agent_execute<br/>Test Execution]
+    AGT --> DIA[agent_diagnose<br/>AI Diagnosis]
 
     style AGT fill:#7e57c2
     style PLA fill:#b39ddb
     style GEN fill:#b39ddb
     style HEA fill:#b39ddb
+    style EXE fill:#b39ddb
+    style DIA fill:#b39ddb
     style CTX fill:#d1c4e9
 ```
 
@@ -268,6 +272,8 @@ Heal history is persisted to `{dataDir}/agent-heal-history.json`:
 GET /api/v1/agents/heal-history
 ```
 
+> **Note**: The `getHealHistory()` API method has been removed in v1.2.0. Heal history is now only accessible via the REST API endpoint. The `listPlans()` method and `agents list` CLI command have also been removed.
+
 ## 8. CLI Usage
 
 ### 8.1 Initialize Agents
@@ -313,11 +319,22 @@ yuantest agents heal tests/login.spec.ts
 yuantest agents heal tests/login.spec.ts --error "Timeout" --apply
 ```
 
-### 8.5 List Plans
+### 8.5 List Plans (Removed)
 
-```bash
-yuantest agents list
-```
+> **Removed in v1.2.0**: The `agents list` subcommand and `agents-list` CLI command have been removed. Use the REST API `GET /api/v1/agents/plans` endpoint instead.
+
+### 8.6 Chat with Agent Tools
+
+In v1.2.0, the `UnifiedAIService` chat interface integrates Agent tools directly. During a conversation, the LLM can invoke the following built-in Agent tools:
+
+| Tool | Description |
+|------|-------------|
+| `agent_execute` | Run Playwright tests and return pass/fail statistics |
+| `agent_diagnose` | AI diagnosis of test failures with root cause and fix suggestions |
+| `agent_generate` | Generate Playwright TypeScript test code from a test plan |
+| `agent_heal` | Analyze a failing test and generate fix patches |
+
+These tools are registered via a `Map<string, AgentToolDef>` strategy pattern — no longer hardcoded in `executeTool()` if-else chains. This means users can simply ask "run the tests" or "why did this test fail?" during a chat session, and the AI will automatically use the appropriate tool.
 
 ## 9. REST API
 
@@ -333,8 +350,8 @@ All Agent functionality is accessible via REST API:
 | `POST` | `/api/v1/agents/generate` | Generate test code |
 | `POST` | `/api/v1/agents/heal` | Heal failing test |
 | `POST` | `/api/v1/agents/apply-patch` | Apply a specific patch |
-| `GET` | `/api/v1/agents/plans` | List test plans |
-| `GET` | `/api/v1/agents/heal-history` | View heal history |
+
+> **Note**: `GET /api/v1/agents/plans` and `GET /api/v1/agents/heal-history` endpoints have been removed in v1.2.0 along with the corresponding API methods (`listPlans()`, `getHealHistory()`).
 
 ## 10. Best Practices
 
