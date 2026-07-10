@@ -139,10 +139,11 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
       if (saved) {
         setSaveMessage({ success: true, text: '保存成功' });
         window.dispatchEvent(new CustomEvent('llm-config-changed'));
+        onSaved();
       } else {
         setSaveMessage({ success: false, text: '保存失败' });
+        return;
       }
-      onSaved();
     } catch (e) {
       console.error('Failed to save LLM config:', e);
       setSaveMessage({ success: false, text: '保存失败' });
