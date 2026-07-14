@@ -76,11 +76,7 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
 
   // ─── MCP 服务 ──────────────────────────────────────────────────────
 
-  container.register(
-    TOKENS.MCPConfigService,
-    () => new MCPConfigService(),
-    'singleton'
-  );
+  container.register(TOKENS.MCPConfigService, () => new MCPConfigService(), 'singleton');
 
   container.register(
     TOKENS.MCPClientManager,
@@ -131,7 +127,14 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
       // 创建 DiagnosisAgent 实例
       const { DiagnosisAgent } = require('../ai/agents/diagnosis');
       const diagnosisAgent = new DiagnosisAgent(
-        { enabled: true, loopTarget: 'vscode', specsDir: 'specs', autoHeal: false, maxHealRounds: 3, projectRoot: process.cwd() },
+        {
+          enabled: true,
+          loopTarget: 'vscode',
+          specsDir: 'specs',
+          autoHeal: false,
+          maxHealRounds: 3,
+          projectRoot: process.cwd(),
+        },
         llmService?.getConfig() ?? null,
         llmService ?? undefined,
         dataDir.current

@@ -10,7 +10,7 @@ export class AgentOutputParser {
 
   /** 从 LLM 响应文本中提取 TestPlan */
   static parseTestPlan(responseText: string, originalDescription: string): TestPlan {
-    let text = responseText.trim();
+    const text = responseText.trim();
 
     // 1. 尝试直接 JSON 解析
     let parsed: Record<string, unknown> | null = null;
@@ -48,7 +48,7 @@ export class AgentOutputParser {
       const rawKeys = parsed ? Object.keys(parsed).join(', ') : 'N/A';
       throw new Error(
         `测试计划 JSON 中未包含有效的 scenarios（共 ${scenarios.length} 个场景，均缺少步骤或名称为空）。` +
-        `原始 JSON 顶层字段: ${rawKeys}。请检查功能描述是否足够具体，或重试。`
+          `原始 JSON 顶层字段: ${rawKeys}。请检查功能描述是否足够具体，或重试。`
       );
     }
 
@@ -252,7 +252,9 @@ export class AgentOutputParser {
   }
 
   private static normalizeScenarios(scenarios: unknown): TestPlanScenario[] {
-    if (!Array.isArray(scenarios)) return [];
+    if (!Array.isArray(scenarios)) {
+      return [];
+    }
 
     return scenarios.map((s: Record<string, unknown>) => ({
       name: String(s.name || ''),
@@ -262,7 +264,9 @@ export class AgentOutputParser {
   }
 
   private static normalizeSteps(steps: unknown): TestPlanStep[] {
-    if (!Array.isArray(steps)) return [];
+    if (!Array.isArray(steps)) {
+      return [];
+    }
 
     return steps.map((s: Record<string, unknown>) => ({
       action: String(s.action || ''),
@@ -272,7 +276,9 @@ export class AgentOutputParser {
   }
 
   private static normalizeExpectedResults(results: unknown): string[] {
-    if (!Array.isArray(results)) return [];
+    if (!Array.isArray(results)) {
+      return [];
+    }
     return results.map((r) => String(r));
   }
 
@@ -357,9 +363,7 @@ export class AgentOutputParser {
     for (let i = 0; i < codeBlocks.length; i++) {
       const code = codeBlocks[i];
       const testName = this.extractTestNameFromCode(code);
-      let fileName = testName
-        ? `${testName}.spec.ts`
-        : `generated-${Date.now()}-${i + 1}.spec.ts`;
+      let fileName = testName ? `${testName}.spec.ts` : `generated-${Date.now()}-${i + 1}.spec.ts`;
 
       if (usedFileNames.has(fileName)) {
         const baseName = testName || `generated-${Date.now()}`;

@@ -282,7 +282,6 @@ export class PlannerAgent extends BaseAgent {
         lang === 'zh'
           ? `\n参考 Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`
           : `\nReference Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
-
     }
 
     if (options?.prdPath && fs.existsSync(options.prdPath)) {
@@ -305,8 +304,6 @@ export class PlannerAgent extends BaseAgent {
 
     return plan;
   }
-
-
 
   private buildContextPrompt(ctx: ProjectContext, lang: string): string {
     const lines: string[] = [];

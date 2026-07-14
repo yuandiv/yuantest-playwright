@@ -9,7 +9,13 @@ export const NETWORK_PATTERNS: ErrorPattern[] = [
     category: 'network',
     name: '网络请求失败',
     description: 'API 请求返回非 2xx 状态码或请求被拒绝',
-    regex: [/net::ERR/, /Failed to load resource/i, /NetworkError/i, /fetch.*failed/i, /Request failed/i],
+    regex: [
+      /net::ERR/,
+      /Failed to load resource/i,
+      /NetworkError/i,
+      /fetch.*failed/i,
+      /Request failed/i,
+    ],
     rootCauseTemplate: {
       zh: '发送的网络请求未能成功完成，可能因为后端服务不可用、CORS 限制或请求参数错误',
       en: 'The network request failed to complete, possibly due to backend unavailability, CORS restrictions, or incorrect request parameters',

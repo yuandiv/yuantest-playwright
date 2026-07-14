@@ -7,7 +7,13 @@ import * as path from 'path';
 import { BaseAgent } from './base-agent';
 import type { LLMService } from './llm-service';
 import type { ToolRegistry } from './tool-registry';
-import type { AgentConfig, LLMConfig, AIDiagnosis, ContextUsed, RootCauseAnalysis } from '../../types';
+import type {
+  AgentConfig,
+  LLMConfig,
+  AIDiagnosis,
+  ContextUsed,
+  RootCauseAnalysis,
+} from '../../types';
 import { matchPatterns, buildFewShotExamples, ErrorPattern } from '../../diagnosis/knowledge-base';
 import { enrichContext, EnrichedContext } from '../../diagnosis/context-enricher';
 import { DiagnosisCache } from '../../diagnosis/diagnosis-cache';
@@ -47,11 +53,21 @@ export class DiagnosisAgent extends BaseAgent {
     historyConsistent: boolean
   ): number {
     let calibrated = rawConfidence * 0.6;
-    if (patternMatched) calibrated += 0.2;
-    if (contextUsed.screenshot) calibrated += 0.1;
-    if (contextUsed.sourceCode) calibrated += 0.1;
-    if (contextUsed.consoleLogs) calibrated += 0.05;
-    if (historyConsistent) calibrated += 0.1;
+    if (patternMatched) {
+      calibrated += 0.2;
+    }
+    if (contextUsed.screenshot) {
+      calibrated += 0.1;
+    }
+    if (contextUsed.sourceCode) {
+      calibrated += 0.1;
+    }
+    if (contextUsed.consoleLogs) {
+      calibrated += 0.05;
+    }
+    if (historyConsistent) {
+      calibrated += 0.1;
+    }
     return Math.min(1, Math.max(0, calibrated));
   }
 
@@ -101,7 +117,9 @@ export class DiagnosisAgent extends BaseAgent {
       user += isChinese ? `错误: ${testInfo.error}\n` : `Error: ${testInfo.error}\n`;
     }
     if (context.sourceCode) {
-      user += isChinese ? `\n源代码:\n${context.sourceCode}\n` : `\nSource code:\n${context.sourceCode}\n`;
+      user += isChinese
+        ? `\n源代码:\n${context.sourceCode}\n`
+        : `\nSource code:\n${context.sourceCode}\n`;
     }
 
     return { system, user };
@@ -209,10 +227,14 @@ export class DiagnosisAgent extends BaseAgent {
     // 缓存命中
     const cacheKey = this.cache.getCacheKey(testInfo);
     const cached = this.cache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      return cached;
+    }
 
     const { prompt, context, patterns, llmConfig, contextUsed } = await this.prepareDiagnosis(
-      testInfo, lang, rootCauseData
+      testInfo,
+      lang,
+      rootCauseData
     );
 
     // 使用 BaseAgent.callLLM，统一 token 记录与异常处理
@@ -247,7 +269,9 @@ export class DiagnosisAgent extends BaseAgent {
     rootCauseData?: RootCauseAnalysis
   ): AsyncGenerator<string, AIDiagnosis, unknown> {
     const { prompt, context, patterns, llmConfig, contextUsed } = await this.prepareDiagnosis(
-      testInfo, lang, rootCauseData
+      testInfo,
+      lang,
+      rootCauseData
     );
 
     if (!this.llmService) {
@@ -256,7 +280,15 @@ export class DiagnosisAgent extends BaseAgent {
 
     const stream = this.llmService.chatStream(
       { system: prompt.system, user: prompt.user },
-      llmConfig || { enabled: false, apiKey: '', baseUrl: '', model: '', remark: '', maxTokens: 4096, temperature: 0.3 },
+      llmConfig || {
+        enabled: false,
+        apiKey: '',
+        baseUrl: '',
+        model: '',
+        remark: '',
+        maxTokens: 4096,
+        temperature: 0.3,
+      },
       { type: 'json_object' }
     );
 

@@ -44,25 +44,39 @@ export function createSearchCodebaseTool(projectRoot: string) {
       }
 
       const searchDir = async (dir: string, depth: number = 0): Promise<void> => {
-        if (depth > 8 || results.length >= MAX_RESULTS) return;
+        if (depth > 8 || results.length >= MAX_RESULTS) {
+          return;
+        }
         try {
           const entries = await fs.promises.readdir(dir, { withFileTypes: true });
           for (const entry of entries) {
-            if (results.length >= MAX_RESULTS) break;
-            if (entry.name.startsWith('.') || BLOCKED_DIRS.includes(entry.name)) continue;
+            if (results.length >= MAX_RESULTS) {
+              break;
+            }
+            if (entry.name.startsWith('.') || BLOCKED_DIRS.includes(entry.name)) {
+              continue;
+            }
             const fullPath = path.join(dir, entry.name);
             if (entry.isDirectory()) {
               await searchDir(fullPath, depth + 1);
             } else if (entry.isFile()) {
-              if (fileRegex && !fileRegex.test(entry.name)) continue;
-              if (!isPathAllowed(fullPath, projectRoot)) continue;
+              if (fileRegex && !fileRegex.test(entry.name)) {
+                continue;
+              }
+              if (!isPathAllowed(fullPath, projectRoot)) {
+                continue;
+              }
               try {
                 const stat = await fs.promises.stat(fullPath);
-                if (stat.size > MAX_FILE_SIZE) continue; // skip large files
+                if (stat.size > MAX_FILE_SIZE) {
+                  continue;
+                } // skip large files
                 const content = await fs.promises.readFile(fullPath, 'utf-8');
                 const lines = content.split('\n');
                 for (let i = 0; i < lines.length; i++) {
-                  if (results.length >= MAX_RESULTS) break;
+                  if (results.length >= MAX_RESULTS) {
+                    break;
+                  }
                   const matched = searchRegex
                     ? searchRegex.test(lines[i])
                     : lines[i].toLowerCase().includes(pattern.toLowerCase());
@@ -81,9 +95,7 @@ export function createSearchCodebaseTool(projectRoot: string) {
       };
 
       await searchDir(projectRoot);
-      return results.length > 0
-        ? results.join('\n')
-        : `No matches found for pattern: ${pattern}`;
+      return results.length > 0 ? results.join('\n') : `No matches found for pattern: ${pattern}`;
     }
   );
 }

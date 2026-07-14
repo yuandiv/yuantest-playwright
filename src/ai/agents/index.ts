@@ -174,19 +174,23 @@ export class AgentService {
       const lang = (this.configManager.getConfig().language || 'zh') as 'zh' | 'en';
       const projectContext = this.configManager.getProjectContext();
 
-      const systemPrompt = lang === 'zh'
-        ? '你是一位专业的测试规划专家。你的任务是根据用户描述的功能场景，生成全面、深入的结构化测试计划。\n\n## 场景类型要求\n你必须覆盖以下场景类型：\n1. 正向流程\n2. 反向/异常流程\n3. 边界值测试\n4. 数据验证\n\n请使用中文回复。'
-        : 'You are a professional test planning expert. Generate comprehensive structured test plans.\n\n## Scenario Types\n1. Happy Path\n2. Negative/Error Flow\n3. Boundary Value Testing\n4. Data Validation';
+      const systemPrompt =
+        lang === 'zh'
+          ? '你是一位专业的测试规划专家。你的任务是根据用户描述的功能场景，生成全面、深入的结构化测试计划。\n\n## 场景类型要求\n你必须覆盖以下场景类型：\n1. 正向流程\n2. 反向/异常流程\n3. 边界值测试\n4. 数据验证\n\n请使用中文回复。'
+          : 'You are a professional test planning expert. Generate comprehensive structured test plans.\n\n## Scenario Types\n1. Happy Path\n2. Negative/Error Flow\n3. Boundary Value Testing\n4. Data Validation';
 
-      let userPrompt = lang === 'zh'
-        ? `请为以下功能生成测试计划：\n\n${description}\n`
-        : `Generate a test plan for the following feature:\n\n${description}\n`;
+      let userPrompt =
+        lang === 'zh'
+          ? `请为以下功能生成测试计划：\n\n${description}\n`
+          : `Generate a test plan for the following feature:\n\n${description}\n`;
 
       if (options?.seedTest) {
         try {
           const seedContent = require('fs').readFileSync(options.seedTest, 'utf-8');
           userPrompt += `\n参考 Seed Test:\n\`\`\`typescript\n${seedContent}\n\`\`\`\n`;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       const result = await llmService.chat({
@@ -198,7 +202,12 @@ export class AgentService {
       const plan = AgentOutputParser.parseTestPlan(result.content, description);
       return { success: true, data: plan, duration: Date.now() - startTime, agentType: 'planner' };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'planner' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+        agentType: 'planner',
+      };
     }
   }
 
@@ -214,9 +223,19 @@ export class AgentService {
     try {
       const planContent = fs.readFileSync(planPath, 'utf-8');
       const files = await this.lifecycleManager.getGenerator().generateTests(planContent, options);
-      return { success: true, data: files, duration: Date.now() - startTime, agentType: 'generator' };
+      return {
+        success: true,
+        data: files,
+        duration: Date.now() - startTime,
+        agentType: 'generator',
+      };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'generator' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+        agentType: 'generator',
+      };
     }
   }
 
@@ -243,7 +262,12 @@ export class AgentService {
       });
       return { success: true, data: result, duration: Date.now() - startTime, agentType: 'healer' };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'healer' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+        agentType: 'healer',
+      };
     }
   }
 

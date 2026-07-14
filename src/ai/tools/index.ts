@@ -3,14 +3,7 @@
  *
  * 职责：将 Builtin 工具工厂集中导出，供 ToolRegistry.createDefaultRegistry() 调用。
  */
-export {
-  ToolSchema,
-  ToolDefinition,
-  ToolInfo,
-  ToolSource,
-  makeSchema,
-  defineTool,
-} from './types';
+export { ToolSchema, ToolDefinition, ToolInfo, ToolSource, makeSchema, defineTool } from './types';
 
 // ── Builtin 工具工厂 ────────────────────────────────────────────────
 export { createReadSourceFileTool } from './builtin/read-source-file';

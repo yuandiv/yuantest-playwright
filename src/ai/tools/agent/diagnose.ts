@@ -43,10 +43,14 @@ export function createAgentDiagnoseTool(ctx: AgentToolContext) {
           filePath: args.filePath as string | undefined,
         });
 
-        const confidencePercent = Math.round((diagnosis.calibratedConfidence ?? diagnosis.confidence) * 100);
+        const confidencePercent = Math.round(
+          (diagnosis.calibratedConfidence ?? diagnosis.confidence) * 100
+        );
         const lowConfidenceWarning =
           confidencePercent < 50
-            ? '\n\n> ⚠️ **置信度较低**（' + confidencePercent + '%），此分析仅供参考，建议人工复核。'
+            ? '\n\n> ⚠️ **置信度较低**（' +
+              confidencePercent +
+              '%），此分析仅供参考，建议人工复核。'
             : '';
 
         const suggestionList =

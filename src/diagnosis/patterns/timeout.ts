@@ -113,6 +113,8 @@ export const TIMEOUT_PATTERNS: ErrorPattern[] = [
         'Use waitForLoadState or waitForSelector with specific options instead of global timeout',
       ],
     },
-    docLinks: [{ title: 'Playwright Test Timeouts', url: 'https://playwright.dev/docs/test-timeouts' }],
+    docLinks: [
+      { title: 'Playwright Test Timeouts', url: 'https://playwright.dev/docs/test-timeouts' },
+    ],
   },
 ];

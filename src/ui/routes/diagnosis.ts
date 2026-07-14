@@ -173,7 +173,9 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
 
         // Send complete event with final diagnosis
         if (diagnosisResult) {
-          res.write(`data: ${JSON.stringify({ type: 'complete', diagnosis: diagnosisResult })}\n\n`);
+          res.write(
+            `data: ${JSON.stringify({ type: 'complete', diagnosis: diagnosisResult })}\n\n`
+          );
         }
 
         res.end();

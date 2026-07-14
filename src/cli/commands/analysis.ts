@@ -60,10 +60,25 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
           try {
             const { DiagnosisAgent } = await import('../../ai/agents/diagnosis');
             const { loadLLMConfig } = await import('../../config/loader');
-            const config = loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 };
+            const config = loadLLMConfig() || {
+              enabled: false,
+              apiKey: '',
+              baseUrl: 'http://localhost:11434',
+              model: '',
+              remark: '',
+              maxTokens: 4096,
+              temperature: 0.3,
+            };
             const flakyManager = new FlakyTestManager('./test-data', {}, getStorage());
             const agent = new DiagnosisAgent(
-              { enabled: false, loopTarget: 'vscode' as const, specsDir: 'specs', autoHeal: false, maxHealRounds: 3, projectRoot: process.cwd() },
+              {
+                enabled: false,
+                loopTarget: 'vscode' as const,
+                specsDir: 'specs',
+                autoHeal: false,
+                maxHealRounds: 3,
+                projectRoot: process.cwd(),
+              },
               config as LLMConfig,
               undefined,
               './test-data'
@@ -316,7 +331,15 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
           saveLLMConfig(config);
           console.log(chalk.green('✅ LLM configuration updated'));
           const { loadLLMConfig } = await import('../../config/loader');
-          const masked = loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 };
+          const masked = loadLLMConfig() || {
+            enabled: false,
+            apiKey: '',
+            baseUrl: 'http://localhost:11434',
+            model: '',
+            remark: '',
+            maxTokens: 4096,
+            temperature: 0.3,
+          };
           console.log(JSON.stringify(masked, null, 2));
           return;
         }
@@ -325,7 +348,15 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
           const spinner = ora('Testing LLM connection...').start();
           const { loadLLMConfig } = await import('../../config/loader');
           const { LLMService } = await import('../../ai/agents/llm-service');
-          const config = (loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 }) as LLMConfig;
+          const config = (loadLLMConfig() || {
+            enabled: false,
+            apiKey: '',
+            baseUrl: 'http://localhost:11434',
+            model: '',
+            remark: '',
+            maxTokens: 4096,
+            temperature: 0.3,
+          }) as LLMConfig;
           const tempService = new LLMService(config);
           const result = await tempService.validateConnection();
           if (result.success) {
@@ -339,7 +370,15 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
         if (options.status) {
           const { loadLLMConfig } = await import('../../config/loader');
           const { LLMService } = await import('../../ai/agents/llm-service');
-          const config = (loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 }) as LLMConfig;
+          const config = (loadLLMConfig() || {
+            enabled: false,
+            apiKey: '',
+            baseUrl: 'http://localhost:11434',
+            model: '',
+            remark: '',
+            maxTokens: 4096,
+            temperature: 0.3,
+          }) as LLMConfig;
           let success = false;
           if (config.enabled && config.baseUrl && config.model) {
             const tempService = new LLMService(config);
@@ -351,13 +390,28 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
           console.log(`  Configured: ${configured ? chalk.green('Yes') : chalk.red('No')}`);
           console.log(`  Connected: ${success ? chalk.green('Yes') : chalk.red('No')}`);
           const statusColor = !configured ? 'yellow' : success ? 'green' : 'red';
-          const statusLabel = statusColor === 'green' ? '🟢 Green' : statusColor === 'yellow' ? '🟡 Yellow' : '🔴 Red';
-          console.log(`  Status: ${statusColor === 'green' ? chalk.green(statusLabel) : statusColor === 'yellow' ? chalk.yellow(statusLabel) : chalk.red(statusLabel)}`);
+          const statusLabel =
+            statusColor === 'green'
+              ? '🟢 Green'
+              : statusColor === 'yellow'
+                ? '🟡 Yellow'
+                : '🔴 Red';
+          console.log(
+            `  Status: ${statusColor === 'green' ? chalk.green(statusLabel) : statusColor === 'yellow' ? chalk.yellow(statusLabel) : chalk.red(statusLabel)}`
+          );
           return;
         }
 
         const { loadLLMConfig } = await import('../../config/loader');
-        const config = loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 };
+        const config = loadLLMConfig() || {
+          enabled: false,
+          apiKey: '',
+          baseUrl: 'http://localhost:11434',
+          model: '',
+          remark: '',
+          maxTokens: 4096,
+          temperature: 0.3,
+        };
         console.log(chalk.bold('\n🤖 LLM Configuration:'));
         console.log(`  Enabled: ${config.enabled ? chalk.green('Yes') : chalk.red('No')}`);
         console.log(`  Base URL: ${config.baseUrl || 'Not set'}`);

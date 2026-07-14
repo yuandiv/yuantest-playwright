@@ -130,7 +130,9 @@ export class UnifiedAIService {
       llmService: this.llmService,
       toolRegistry: this.toolRegistry,
       diagnosisAgent,
-      setGenerateTriggered: (v) => { this._agentGenerateTriggered = v; },
+      setGenerateTriggered: (v) => {
+        this._agentGenerateTriggered = v;
+      },
       heal: (filePath, opts) => this.heal(filePath, opts),
     };
 
@@ -371,7 +373,8 @@ export class UnifiedAIService {
             data: { name: event.data.name, result: event.data.result },
           });
         } else if (event.type === 'done') {
-          const finalContent = event.data.content || roundContent.replace(/<think[\s\S]*?<\/think>/g, '').trim();
+          const finalContent =
+            event.data.content || roundContent.replace(/<think[\s\S]*?<\/think>/g, '').trim();
 
           this.store.addMessage(conversationId, {
             role: 'assistant',
@@ -605,9 +608,19 @@ export class UnifiedAIService {
     const startTime = Date.now();
     try {
       const files = await this.lifecycleManager.getGenerator().generateTests(planContent, options);
-      return { success: true, data: files, duration: Date.now() - startTime, agentType: 'generator' };
+      return {
+        success: true,
+        data: files,
+        duration: Date.now() - startTime,
+        agentType: 'generator',
+      };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'generator' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+        agentType: 'generator',
+      };
     }
   }
 
@@ -629,7 +642,12 @@ export class UnifiedAIService {
       });
       return { success: true, data: result, duration: Date.now() - startTime, agentType: 'healer' };
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error), duration: Date.now() - startTime, agentType: 'healer' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+        agentType: 'healer',
+      };
     }
   }
 

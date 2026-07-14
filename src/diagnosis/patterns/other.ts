@@ -144,10 +144,7 @@ export const HEADLESS_PATTERN: ErrorPattern = {
   category: 'unknown',
   name: 'Headless 模式差异',
   description: 'Headed 与 headless 模式下的行为差异',
-  regex: [
-    /headless.*difference/i,
-    /render.*differ.*headless/i,
-  ],
+  regex: [/headless.*difference/i, /render.*differ.*headless/i],
   rootCauseTemplate: {
     zh: 'Headless 环境差异：测试在 headed 模式下通过但在 headless 模式下失败，可能因为字体渲染、动画速度或视口大小不同',
     en: 'Headless environment difference: test passes in headed mode but fails in headless, possibly due to different font rendering, animation speed, or viewport size',

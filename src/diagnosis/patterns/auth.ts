@@ -30,7 +30,10 @@ export const AUTH_PATTERNS: ErrorPattern[] = [
     },
     docLinks: [
       { title: 'Authentication', url: 'https://playwright.dev/docs/auth' },
-      { title: 'Storage State', url: 'https://playwright.dev/docs/api/class-browsercontext#browser-context-storage-state' },
+      {
+        title: 'Storage State',
+        url: 'https://playwright.dev/docs/api/class-browsercontext#browser-context-storage-state',
+      },
     ],
   },
   {
@@ -57,16 +60,20 @@ export const AUTH_PATTERNS: ErrorPattern[] = [
         'Set authentication tokens or cookies directly via API, bypassing UI login',
       ],
     },
-    docLinks: [
-      { title: 'Authentication', url: 'https://playwright.dev/docs/auth' },
-    ],
+    docLinks: [{ title: 'Authentication', url: 'https://playwright.dev/docs/auth' }],
   },
   {
     id: 'auth-permission-denied',
     category: 'auth',
     name: '权限不足',
     description: '当前用户权限不足以执行操作',
-    regex: [/forbidden/i, /403.*forbidden/i, /permission.*denied/i, /access.*denied/i, /insufficient.*permission/i],
+    regex: [
+      /forbidden/i,
+      /403.*forbidden/i,
+      /permission.*denied/i,
+      /access.*denied/i,
+      /insufficient.*permission/i,
+    ],
     rootCauseTemplate: {
       zh: '当前登录用户没有执行该操作的权限，可能因为角色不对、功能未授权或资源受限',
       en: 'The currently logged-in user does not have permission to perform this action, possibly due to wrong role, unauthorized feature, or restricted resources',
@@ -85,8 +92,6 @@ export const AUTH_PATTERNS: ErrorPattern[] = [
         'Set user roles or permission levels directly via API',
       ],
     },
-    docLinks: [
-      { title: 'Authentication', url: 'https://playwright.dev/docs/auth' },
-    ],
+    docLinks: [{ title: 'Authentication', url: 'https://playwright.dev/docs/auth' }],
   },
 ];

@@ -18,7 +18,8 @@ function parseDiagnosisJSON(
   patterns: ErrorPattern[],
   model: string
 ): AIDiagnosis {
-  const category = (parsed.category as AIDiagnosis['category']) || patterns[0]?.category || 'unknown';
+  const category =
+    (parsed.category as AIDiagnosis['category']) || patterns[0]?.category || 'unknown';
 
   const codeDiffs: CodeDiff[] = Array.isArray(parsed.codeDiffs)
     ? parsed.codeDiffs.filter(
@@ -63,7 +64,11 @@ function parseDiagnosisJSON(
 /**
  * 将 LLM 返回的文本解析为结构化 AIDiagnosis
  */
-export function parseResponse(responseText: string, patterns: ErrorPattern[] = [], model: string): AIDiagnosis {
+export function parseResponse(
+  responseText: string,
+  patterns: ErrorPattern[] = [],
+  model: string
+): AIDiagnosis {
   let text = responseText.trim();
 
   // 移除 markdown 代码块

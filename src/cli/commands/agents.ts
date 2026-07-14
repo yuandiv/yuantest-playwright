@@ -71,8 +71,13 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
         const { AgentService } = await import('../../ai/agents');
         const { loadLLMConfig } = await import('../../config/loader');
         const llmConfig = (loadLLMConfig() || {
-          enabled: false, apiKey: '', baseUrl: 'http://localhost:11434',
-          model: '', remark: '', maxTokens: 4096, temperature: 0.3,
+          enabled: false,
+          apiKey: '',
+          baseUrl: 'http://localhost:11434',
+          model: '',
+          remark: '',
+          maxTokens: 4096,
+          temperature: 0.3,
         }) as LLMConfig;
 
         if (!llmConfig.enabled) {
@@ -140,8 +145,13 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
         const { AgentService } = await import('../../ai/agents');
         const { loadLLMConfig } = await import('../../config/loader');
         const llmConfig = (loadLLMConfig() || {
-          enabled: false, apiKey: '', baseUrl: 'http://localhost:11434',
-          model: '', remark: '', maxTokens: 4096, temperature: 0.3,
+          enabled: false,
+          apiKey: '',
+          baseUrl: 'http://localhost:11434',
+          model: '',
+          remark: '',
+          maxTokens: 4096,
+          temperature: 0.3,
         }) as LLMConfig;
 
         if (!llmConfig.enabled) {
@@ -191,8 +201,13 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
         const { AgentService } = await import('../../ai/agents');
         const { loadLLMConfig } = await import('../../config/loader');
         const llmConfig = (loadLLMConfig() || {
-          enabled: false, apiKey: '', baseUrl: 'http://localhost:11434',
-          model: '', remark: '', maxTokens: 4096, temperature: 0.3,
+          enabled: false,
+          apiKey: '',
+          baseUrl: 'http://localhost:11434',
+          model: '',
+          remark: '',
+          maxTokens: 4096,
+          temperature: 0.3,
         }) as LLMConfig;
 
         if (!llmConfig.enabled) {
@@ -255,6 +270,5 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
         spinner.fail(`Error: ${error instanceof Error ? error.message : String(error)}`);
         process.exit(1);
       }
-      });
-
+    });
 }

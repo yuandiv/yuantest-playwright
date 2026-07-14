@@ -38,7 +38,11 @@ export const SELECTOR_PATTERNS: ErrorPattern[] = [
     category: 'selector',
     name: '匹配到多个元素',
     description: '选择器匹配到多个元素导致操作歧义',
-    regex: [/strict mode violation/i, /resolved to multiple elements/i, /multiple.*elements.*found/i],
+    regex: [
+      /strict mode violation/i,
+      /resolved to multiple elements/i,
+      /multiple.*elements.*found/i,
+    ],
     rootCauseTemplate: {
       zh: '选择器匹配到多个元素，Playwright 在严格模式下无法确定目标元素',
       en: 'The selector matched multiple elements, and Playwright cannot determine the intended target in strict mode',

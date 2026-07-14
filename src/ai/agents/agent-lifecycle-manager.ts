@@ -31,7 +31,9 @@ export class AgentLifecycleManager {
   // ─── Service 访问 ─────────────────────────────────────────
 
   getGenerator(): GeneratorAgent {
-    if (!this._generator) throw new Error('GeneratorAgent not initialized');
+    if (!this._generator) {
+      throw new Error('GeneratorAgent not initialized');
+    }
     return this._generator;
   }
 
@@ -72,10 +74,7 @@ export class AgentLifecycleManager {
     }
 
     // Healer: 真正的 Agent，需要生命周期管理
-    this.agents.set(
-      'healer',
-      new HealerAgent(config, llmConfig, llmService ?? undefined)
-    );
+    this.agents.set('healer', new HealerAgent(config, llmConfig, llmService ?? undefined));
 
     // Diagnosis: Agent，诊断测试失败原因
     this.agents.set(

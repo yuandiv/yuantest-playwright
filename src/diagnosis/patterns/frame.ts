@@ -28,9 +28,7 @@ export const FRAME_PATTERNS: ErrorPattern[] = [
         'If the iframe is created dynamically, wait for its creation before interacting',
       ],
     },
-    docLinks: [
-      { title: 'Frames', url: 'https://playwright.dev/docs/frames' },
-    ],
+    docLinks: [{ title: 'Frames', url: 'https://playwright.dev/docs/frames' }],
   },
   {
     id: 'frame-cross-origin',
@@ -58,7 +56,10 @@ export const FRAME_PATTERNS: ErrorPattern[] = [
     },
     docLinks: [
       { title: 'Frames', url: 'https://playwright.dev/docs/frames' },
-      { title: 'Same-Origin Policy', url: 'https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy' },
+      {
+        title: 'Same-Origin Policy',
+        url: 'https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy',
+      },
     ],
   },
   {
@@ -85,8 +86,6 @@ export const FRAME_PATTERNS: ErrorPattern[] = [
         'Use page.frame({ url: "..." }) to locate an iframe by its URL',
       ],
     },
-    docLinks: [
-      { title: 'Frames', url: 'https://playwright.dev/docs/frames' },
-    ],
+    docLinks: [{ title: 'Frames', url: 'https://playwright.dev/docs/frames' }],
   },
 ];

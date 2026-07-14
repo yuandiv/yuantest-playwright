@@ -44,7 +44,9 @@ export class DiagnosisPersister {
   async loadDiagnosis(runId: string, testId: string): Promise<AIDiagnosis | null> {
     try {
       const filePath = path.join(this.getDiagnosisDir(), `${runId}.json`);
-      if (!fs.existsSync(filePath)) return null;
+      if (!fs.existsSync(filePath)) {
+        return null;
+      }
       const content = await fs.promises.readFile(filePath, 'utf-8');
       const store = JSON.parse(content) as Record<string, AIDiagnosis>;
       return store[testId] ?? null;
@@ -70,7 +72,9 @@ export class DiagnosisPersister {
   async loadClusterResult(runId: string): Promise<unknown[] | null> {
     try {
       const filePath = path.join(this.getDiagnosisDir(), `${runId}-clusters.json`);
-      if (!fs.existsSync(filePath)) return null;
+      if (!fs.existsSync(filePath)) {
+        return null;
+      }
       const content = await fs.promises.readFile(filePath, 'utf-8');
       return JSON.parse(content) as unknown[];
     } catch {

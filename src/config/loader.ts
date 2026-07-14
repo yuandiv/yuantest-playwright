@@ -5,7 +5,14 @@
  * 合并 CLI 参数与文件配置，提取 Dashboard 配置。
  * 不负责 Playwright 原生配置的处理（由 merger.ts 处理）。
  */
-import { TestConfig, BrowserType, TraceConfig, ArtifactConfig, LLMConfig, type MCPConfig } from '../types';
+import {
+  TestConfig,
+  BrowserType,
+  TraceConfig,
+  ArtifactConfig,
+  LLMConfig,
+  type MCPConfig,
+} from '../types';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from '../logger';

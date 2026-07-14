@@ -57,7 +57,13 @@ export type ToolsStreamEvent =
   | { type: 'content_delta'; content: string }
   | { type: 'thinking_delta'; content: string }
   | { type: 'tool_calls'; toolCalls: ToolCallInfo[]; thinkingContent?: string | null }
-  | { type: 'done'; content: string; thinkingContent: string | null; usage?: TokenUsage; truncated?: boolean };
+  | {
+      type: 'done';
+      content: string;
+      thinkingContent: string | null;
+      usage?: TokenUsage;
+      truncated?: boolean;
+    };
 
 /** 流式 Agent Loop 事件类型 */
 export type AgentLoopStreamEvent =
@@ -133,11 +139,13 @@ function buildRoundMessages(
     msgs.push({
       role: 'assistant',
       content: step.thought || null,
-      tool_calls: [{
-        id: `round_${step.step}`,
-        type: 'function',
-        function: { name: step.tool || '', arguments: step.input || '' },
-      }],
+      tool_calls: [
+        {
+          id: `round_${step.step}`,
+          type: 'function',
+          function: { name: step.tool || '', arguments: step.input || '' },
+        },
+      ],
     });
     if (step.output) {
       msgs.push({
@@ -265,7 +273,7 @@ export class LLMService {
         if (error instanceof Error && error.name === 'AbortError') {
           const msg = `LLM API 请求超时 (${timeout}ms, model: ${config.model})`;
           this.log.error(`[LLM] ${msg}`);
-          throw new Error(msg);
+          throw new Error(msg, { cause: error });
         }
 
         // 网络异常可重试
@@ -310,9 +318,7 @@ export class LLMService {
   async validateConnection(): Promise<{ success: boolean; error?: string }> {
     const body: Record<string, unknown> = {
       model: this.config.model,
-      messages: [
-        { role: 'user', content: 'hi' },
-      ],
+      messages: [{ role: 'user', content: 'hi' }],
       max_tokens: 1,
     };
     try {
@@ -333,7 +339,9 @@ export class LLMService {
       max_tokens: options.maxTokens ?? this.config.maxTokens,
       temperature: options.temperature ?? this.config.temperature ?? 0.2,
     };
-    if (this.config.chatTemplateKwargs && !options.responseFormat) { body.chat_template_kwargs = { enable_thinking: true }; }
+    if (this.config.chatTemplateKwargs && !options.responseFormat) {
+      body.chat_template_kwargs = { enable_thinking: true };
+    }
     if (options.responseFormat) {
       body.response_format = options.responseFormat;
     }
@@ -527,7 +535,10 @@ export class LLMService {
     let fullContent = '';
     let fullThinking: string | null = null;
     let lastFinishReason: string | undefined;
-    const toolCallMap = new Map<number, { id: string; type: string; name: string; arguments: string }>();
+    const toolCallMap = new Map<
+      number,
+      { id: string; type: string; name: string; arguments: string }
+    >();
     let lastUsage: TokenUsage | undefined;
 
     while (true) {
@@ -710,7 +721,8 @@ export class LLMService {
     ];
 
     try {
-      const firstStream = this.chatWithToolsStream(messages, config, tools, responseFormat);      let firstToolCalls: ToolCallInfo[] | null = null;
+      const firstStream = this.chatWithToolsStream(messages, config, tools, responseFormat);
+      let firstToolCalls: ToolCallInfo[] | null = null;
       let firstContent = '';
       let firstThinking: string | null = null;
       let firstUsage: TokenUsage | undefined;
@@ -799,7 +811,9 @@ export class LLMService {
           yield {
             type: 'done',
             data: {
-              content: currentContent || 'Agent 执行已达到最大轮数/Token 预算上限，部分结果可能不完整。请检查上述输出。',
+              content:
+                currentContent ||
+                'Agent 执行已达到最大轮数/Token 预算上限，部分结果可能不完整。请检查上述输出。',
               thinkingContent: collectedThinking,
               analysisMode: 'agent',
               reasoningSteps,
@@ -811,7 +825,12 @@ export class LLMService {
         }
 
         // 每轮从头构建消息数组：baseMessages + 已累积的 assistant+tool 消息
-        const roundMessages = buildRoundMessages(baseMessages, reasoningSteps, currentContent, currentToolCalls);
+        const roundMessages = buildRoundMessages(
+          baseMessages,
+          reasoningSteps,
+          currentContent,
+          currentToolCalls
+        );
 
         // 执行工具调用
         for (const toolCall of currentToolCalls) {
@@ -849,9 +868,7 @@ export class LLMService {
             tool_call_id: toolCall.id,
           });
 
-          planProgress.push(
-            `[Round ${round}] ${toolCall.function.name}: completed`
-          );
+          planProgress.push(`[Round ${round}] ${toolCall.function.name}: completed`);
         }
 
         // ── Inject plan progress context for the next LLM call ──
@@ -861,7 +878,8 @@ export class LLMService {
         });
 
         // 再次流式调用 LLM
-        const nextStream = this.chatWithToolsStream(roundMessages, config, tools, responseFormat);        let nextToolCalls: ToolCallInfo[] | null = null;
+        const nextStream = this.chatWithToolsStream(roundMessages, config, tools, responseFormat);
+        let nextToolCalls: ToolCallInfo[] | null = null;
         let nextContent = '';
         let nextThinking: string | null = null;
         let nextUsage: TokenUsage | undefined;
@@ -910,7 +928,12 @@ export class LLMService {
       }
 
       // 兜底：不应到达这里，但以防万一
-      const finalResponse = await this.chatWithTools(baseMessages, config, undefined, responseFormat);
+      const finalResponse = await this.chatWithTools(
+        baseMessages,
+        config,
+        undefined,
+        responseFormat
+      );
       accumulateUsage(finalResponse.usage);
       collectThinking(finalResponse.thinkingContent);
       yield {
@@ -963,7 +986,12 @@ export class LLMService {
   }> {
     // 委托给流式版本，收集所有事件后重组为对象结果
     const stream = this.chatWithAgentLoopStream(
-      prompt, config, tools, screenshotBase64, toolExecutor, responseFormat
+      prompt,
+      config,
+      tools,
+      screenshotBase64,
+      toolExecutor,
+      responseFormat
     );
 
     let content = '';

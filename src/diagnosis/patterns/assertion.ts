@@ -9,7 +9,12 @@ export const ASSERTION_PATTERNS: ErrorPattern[] = [
     category: 'assertion',
     name: '文本断言不匹配',
     description: '期望的文本与实际页面文本不一致',
-    regex: [/expected.*text.*to.*be/i, /text.*mismatch/i, /expect.*toHaveText/i, /toContainText.*failed/i],
+    regex: [
+      /expected.*text.*to.*be/i,
+      /text.*mismatch/i,
+      /expect.*toHaveText/i,
+      /toContainText.*failed/i,
+    ],
     rootCauseTemplate: {
       zh: '页面实际文本与断言期望值不匹配，可能是因为页面内容变更、国际化切换或元素状态变化',
       en: 'The actual text on the page does not match the expected assertion value, possibly due to content changes, i18n switching, or element state changes',
@@ -67,7 +72,12 @@ export const ASSERTION_PATTERNS: ErrorPattern[] = [
     category: 'assertion',
     name: '元素可操作性断言失败',
     description: '期望可操作的元素实际不可用',
-    regex: [/expected.*enabled/i, /element.*not enabled/i, /toBeEnabled.*failed/i, /not actionable/i],
+    regex: [
+      /expected.*enabled/i,
+      /element.*not enabled/i,
+      /toBeEnabled.*failed/i,
+      /not actionable/i,
+    ],
     rootCauseTemplate: {
       zh: '元素存在于页面上但不可操作，可能是因为元素处于禁用状态、被遮挡或正在加载中',
       en: 'The element exists on the page but is not actionable, possibly because it is disabled, obscured, or still loading',

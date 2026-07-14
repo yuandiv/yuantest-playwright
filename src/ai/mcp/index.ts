@@ -4,15 +4,9 @@
  * 负责 MCP 服务器的连接管理、配置管理和工具调用。
  */
 
-export {
-  MCPClientManager,
-} from './client-manager';
+export { MCPClientManager } from './client-manager';
 
-export {
-  MCPConfigService,
-  MCPPreset,
-  BUILTIN_MCP_PRESETS,
-} from './config-service';
+export { MCPConfigService, MCPPreset, BUILTIN_MCP_PRESETS } from './config-service';
 
 export {
   MCPToolInfo,

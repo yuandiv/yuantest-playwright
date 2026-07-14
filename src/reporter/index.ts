@@ -242,7 +242,15 @@ export class Reporter {
     }
 
     if (this.diagnosisService) {
-      const config = loadLLMConfig() || { enabled: false, apiKey: '', baseUrl: 'http://localhost:11434', model: '', remark: '', maxTokens: 4096, temperature: 0.3 };
+      const config = loadLLMConfig() || {
+        enabled: false,
+        apiKey: '',
+        baseUrl: 'http://localhost:11434',
+        model: '',
+        remark: '',
+        maxTokens: 4096,
+        temperature: 0.3,
+      };
       if (config.enabled) {
         for (const analysis of analyses) {
           try {
