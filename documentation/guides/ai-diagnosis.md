@@ -10,9 +10,8 @@ This document provides a detailed introduction to the architecture design, core 
 - [Diagnosis Process](#diagnosis-process)
 - [Context Enrichment Engine](#context-enrichment-engine)
 - [Playwright Knowledge Base](#playwright-knowledge-base)
-- [Agent Multi-turn Reasoning](#agent-multi-turn-reasoning)
+- [Diagnosis Mode and LLM Invocation](#diagnosis-mode-and-llm-invocation)
 - [Confidence Calibration](#confidence-calibration)
-- [Streaming Diagnosis](#streaming-diagnosis)
 - [LLM Configuration](#llm-configuration)
 - [Diagnosis Result Types](#diagnosis-result-types)
 - [Cache and Persistence](#cache-and-persistence)
@@ -26,9 +25,15 @@ The AI intelligent failure analysis system consists of the following core module
 
 | Module | Source File | Responsibility |
 |--------|-------------|----------------|
-| Context Enrichment Engine | `src/diagnosis/context-enricher.ts` | Collects and assembles multi-dimensional context information |
-| Playwright Knowledge Base | `src/diagnosis/knowledge-base.ts` | Error pattern matching and few-shot example generation |
-| Diagnosis Service | `src/diagnosis/index.ts` | Orchestrates the complete diagnosis process, including Agent loop and confidence calibration |
+| Context Enrichment Engine | `src/diagnosis/context-enricher.ts` | Collects and assembles multi-dimensional context information (source code, screenshots, logs, stack trace, environment, history) |
+| Playwright Knowledge Base | `src/diagnosis/knowledge-base.ts` | Error pattern matching and few-shot example generation, supports custom pattern registration |
+| Error Pattern Definitions | `src/diagnosis/patterns/*.ts` | 7 categories, 30+ built-in error patterns split by category |
+| Error Categorizer | `src/diagnosis/categorizer.ts` | Regex-based error message classification into 7 predefined categories |
+| Response Parser | `src/diagnosis/response-parser.ts` | Parses LLM JSON responses into structured `AIDiagnosis` objects with fallback logic |
+| Diagnosis Cache | `src/diagnosis/diagnosis-cache.ts` | TTLCache-based in-memory cache, max 100 entries, TTL 30 min, LRU eviction |
+| Diagnosis Persister | `src/diagnosis/diagnosis-persister.ts` | Persists diagnosis results by `runId` to `{dataDir}/diagnosis/` directory |
+| Diagnosis Agent | `src/ai/agents/diagnosis.ts` | Orchestrates the complete diagnosis flow, extends `BaseAgent`, supports sync and streaming modes |
+| Cluster Analysis | `src/diagnosis/cluster.ts` | Failure test clustering using Jaccard similarity + Union-Find algorithm |
 | Type Definitions | `src/types/index.ts` | Type definitions for all diagnosis-related interfaces |
 
 ---
@@ -38,14 +43,25 @@ The AI intelligent failure analysis system consists of the following core module
 The complete diagnosis process executes in the following order:
 
 ```
-enrichContext → matchPatterns → agentLoop → parseResponse → calibrateConfidence
+prepareDiagnosis → callLLM or chatStream → finalizeDiagnosis
 ```
 
-1. **enrichContext** — Collects source code, screenshots, console logs, stack traces, environment information, and historical data
-2. **matchPatterns** — Uses local knowledge base pattern matching to identify error categories and generate few-shot examples
-3. **agentLoop** — Calls LLM for multi-turn reasoning (supports tool calling), or falls back to single call
-4. **parseResponse** — Parses the LLM's JSON response into a structured `AIDiagnosis` object
-5. **calibrateConfidence** — Calibrates confidence based on context usage and pattern matching results
+### 1. prepareDiagnosis (Preparation Phase)
+
+1. **matchPatterns** — Match error categories using the local knowledge base
+2. **enrichContext** — Collect source code, screenshots, console logs, stack traces, environment info, and history data, generating an `EnrichedContext` object
+3. **buildEnrichedPrompt** — Build the system prompt (with few-shot examples) and user prompt (with context information), instructing the LLM to return JSON format
+
+### 2. callLLM / chatStream (LLM Call)
+
+- **Non-streaming** (`diagnose` method): Calls `BaseAgent.callLLM()` with `responseFormat: { type: 'json_object' }` to enforce JSON output
+- **Streaming** (`diagnoseStream` method): Calls `llmService.chatStream()` as an AsyncGenerator, yielding tokens one by one, finally returning the complete `AIDiagnosis`
+
+### 3. finalizeDiagnosis (Finalization Phase)
+
+1. **parseResponse** — Parse the LLM's text response into a structured `AIDiagnosis` object (with JSON extraction and fallback logic)
+2. **calibrateConfidence** — Calibrate confidence based on pattern matching results and context usage
+3. Write to cache (`DiagnosisCache`) and persistence (`DiagnosisPersister`)
 
 ---
 
@@ -142,7 +158,7 @@ Source file: [knowledge-base.ts](https://github.com/yuandiv/yuantest-playwright/
 
 ### Error Pattern Classification
 
-The knowledge base defines **6 major categories** of error patterns, each containing multiple specific patterns:
+The knowledge base defines **7 categories** of error patterns, each containing multiple specific patterns, with 30+ built-in patterns total:
 
 #### 1. TimeoutError — Wait Timeout
 
@@ -232,13 +248,85 @@ The knowledge base supports registering custom error patterns:
 
 ---
 
-## Agent Multi-turn Reasoning
+## Diagnosis Mode and LLM Invocation
 
-Source file: [index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts) (`DiagnosisService` class)
+Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/ai/agents/diagnosis.ts) (`DiagnosisAgent` class)
 
-### Tool Definitions
+### Diagnosis Mode
 
-The Agent loop provides 7 default tools (registered by `ToolRegistry.createDefaultRegistry()`, defined in OpenAI function calling format):
+`DiagnosisAgent` uses a **single LLM call** mode, with `responseFormat: { type: 'json_object' }` to enforce JSON-formatted structured diagnosis results. No multi-turn tool calling loop is involved.
+
+### Analysis Mode
+
+`analysisMode` has three possible values, determined by `parseResponse` based on the parsing result:
+
+| Mode | Meaning |
+|------|---------|
+| `single` | LLM successfully returned a parseable JSON response |
+| `fallback` | LLM response parsing failed, using raw text truncated as summary |
+
+### Non-streaming Diagnosis (diagnose method)
+
+1. Check cache (`DiagnosisCache`), return directly if hit
+2. Call `prepareDiagnosis` to prepare context, patterns, and prompt
+3. Call `BaseAgent.callLLM()` (delegates to `LLMService.chat()`), with `responseFormat: { type: 'json_object' }`
+4. Call `finalizeDiagnosis` to parse the response and calibrate confidence
+5. Write to cache and return
+
+### Streaming Diagnosis (diagnoseStream method)
+
+Streaming diagnosis uses SSE (Server-Sent Events) for real-time push.
+
+1. Call `prepareDiagnosis` to prepare diagnosis context
+2. Call `llmService.chatStream()` yielding tokens one by one
+3. Return the complete `AIDiagnosis` object at the end
+
+#### SSE Transmission Format
+
+Server sets response headers:
+
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+X-Accel-Buffering: no
+```
+
+Each event is sent with `data:` prefix, format:
+
+```
+data: {"type":"...","...":"..."}\n\n
+```
+
+#### Event Types
+
+| Event type | Description | Data Fields |
+|------------|-------------|-------------|
+| `start` | Diagnosis started | `testTitle` |
+| `chunk` | LLM generated content chunk | `content` |
+| `complete` | Diagnosis completed | `diagnosis` (complete AIDiagnosis object) |
+| `error` | Diagnosis error | `error` (error message string) |
+
+#### Event Stream Sequence
+
+```
+→ data: {"type":"start","testTitle":"Login Test"}\n\n
+→ data: {"type":"chunk","content":"{"}\n\n
+→ data: {"type":"chunk","content":"\"summary\":"}\n\n
+→ data: {"type":"chunk","content":"\"Element wait timeout\""}\n\n
+... (multiple chunk events)
+→ data: {"type":"complete","diagnosis":{...}}\n\n
+```
+
+#### Streaming Mode Characteristics
+
+- `analysisMode` is always `'single'`
+- No `reasoningSteps` generated
+- Tool calling not supported
+
+### Agent Multi-turn Reasoning in Chat System
+
+In the chat system (`LLMService.chatWithAgentLoop` / `chatWithAgentLoopStream`), a full Agent multi-turn tool calling loop is available, providing the following tools:
 
 | Tool Name | Parameters | Description |
 |-----------|------------|-------------|
@@ -249,61 +337,19 @@ The Agent loop provides 7 default tools (registered by `ToolRegistry.createDefau
 | `get_heal_history` | `testFilePath` (required) | Get heal history for a test |
 | `list_plans` | `options?` | List test plans |
 
-### Reasoning Loop
+Agent loop logic:
+- Maximum **5 rounds** (controlled by `MAX_AGENT_ROUNDS = 5`)
+- Each round: execute tool call → record `ReasoningStep` → append tool result to message list → call LLM again
+- When LLM no longer returns tool_calls, return final content
+- After reaching max rounds, force terminate with `truncated = true`
 
-The execution logic of the `agentLoop` method:
-
-1. Build initial message list (system + user, with screenshots passed in vision format if available)
-2. First call to `callLLMWithTools(messages, config, TOOL_SCHEMAS)`
-3. **If LLM doesn't return tool_calls**:
-   - Has content → return directly, `analysisMode = 'single'`
-   - No content and no tool_calls → LLM doesn't support tool_calling, fallback to `callLLM` single call, `analysisMode = 'single'`
-4. **If LLM returns tool_calls** → enter tool calling loop:
-   - Maximum **5 rounds** (controlled by `MAX_AGENT_ROUNDS = 5`)
-   - Each round: execute tool call → record `ReasoningStep` → append tool result to message list → call LLM again
-   - When LLM no longer returns tool_calls, return final content, `analysisMode = 'agent'`
-   - After reaching maximum rounds, make final call without tools parameter
-5. **Exception fallback**: When Agent loop errors, fallback to `callLLM` single call mode, `analysisMode = 'single'`
-
-### ReasoningStep Record
-
-Each round of tool calling records a reasoning step:
-
-```typescript
-interface ReasoningStep {
-  step: number;      // Round number
-  tool?: string;     // Tool name
-  input?: string;    // Tool call parameters (JSON string)
-  output?: string;   // Tool execution result (truncated to 500 characters)
-  thought: string;   // Reasoning description
-}
-```
-
-### Analysis Mode
-
-`analysisMode` has three possible values:
-
-| Mode | Meaning |
-|------|---------|
-| `agent` | Successfully executed Agent multi-turn tool calling loop |
-| `single` | LLM doesn't support tool_calling or directly gave final answer, using single call |
-| `fallback` | LLM response parsing failed, using raw text as summary |
-
-### Diagnosis with Heal
-
-The `diagnoseWithHeal()` method combines diagnosis with automatic healing:
-
-```typescript
-diagnoseWithHeal(testFilePath: string, options?: { error?: string; stackTrace?: string; apply?: boolean }): Promise<AgentResult<AgentHealResult>>
-```
-
-Diagnose a failing test and automatically attempt to heal it.
+> Note: The `DiagnosisAgent`'s diagnosis flow itself does not invoke the Agent loop; Agent multi-turn reasoning is primarily used by the `agent_diagnose` tool in the chat system.
 
 ---
 
 ## Confidence Calibration
 
-Source file: [index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts) (`calibrateConfidence` method)
+Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/ai/agents/diagnosis.ts) (`calibrateConfidence` method)
 
 Calibration formula:
 
@@ -323,6 +369,8 @@ Bonus rules for each item:
 
 Final result is clamped to **[0, 1]** range via `Math.min(1, Math.max(0, calibrated))`.
 
+> **Note**: In the current implementation, `historyConsistent` is hardcoded to `false` in `finalizeDiagnosis`, so the history consistency bonus is not yet applied.
+
 ### Low Confidence Warning
 
 When `calibratedConfidence < 0.5`, the system automatically appends a warning to the end of the `suggestions` array:
@@ -330,58 +378,11 @@ When `calibratedConfidence < 0.5`, the system automatically appends a warning to
 - Chinese: `⚠️ 置信度较低，建议人工确认此诊断结果`
 - English: `⚠️ Low confidence, manual review recommended for this diagnosis`
 
----
+### Low Confidence in agent_diagnose Tool
 
-## Streaming Diagnosis
-
-Source file: [index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts) (`diagnoseStream` method)
-
-Streaming diagnosis implements real-time push via SSE (Server-Sent Events).
-
-### SSE Transmission Format
-
-Server sets response headers:
-
-```
-Content-Type: text/event-stream
-Cache-Control: no-cache
-Connection: keep-alive
-X-Accel-Buffering: no
-```
-
-Each event is sent with `data:` prefix, format:
-
-```
-data: {"type":"...","...":"..."}\n\n
-```
-
-### Event Types
-
-| Event type | Description | Data Fields |
-|------------|-------------|-------------|
-| `start` | Diagnosis started | `testTitle` |
-| `chunk` | LLM generated content chunk | `content` |
-| `complete` | Diagnosis completed | `diagnosis` (complete AIDiagnosis object) |
-| `error` | Diagnosis error | `error` (error message string) |
-
-### Event Stream Sequence
-
-```
-→ data: {"type":"start","testTitle":"Login Test"}\n\n
-→ data: {"type":"chunk","content":"{"}\n\n
-→ data: {"type":"chunk","content":"\"summary\":"}\n\n
-→ data: {"type":"chunk","content":"\"Element wait timeout\""}\n\n
-... (multiple chunk events)
-→ data: {"type":"complete","diagnosis":{...}}\n\n
-```
-
-### Streaming Mode Limitations
-
-Streaming diagnosis uses a simplified single call mode (`callLLMStream`), **does not use Agent loop**, therefore:
-
-- `analysisMode` is always `'single'`
-- No `reasoningSteps` generated
-- Tool calling not supported
+The `agent_diagnose` tool also checks confidence when returning diagnosis results:
+- When confidence is below 50%, appends a manual review prompt at the end of the result
+- Includes code modification suggestion (`codeDiffs`) count in the result
 
 ---
 
@@ -391,14 +392,14 @@ Streaming diagnosis uses a simplified single call mode (`callLLMStream`), **does
 
 ```typescript
 interface LLMConfig {
-  enabled: boolean;      // Whether AI diagnosis is enabled
-  apiKey: string;        // API key
-  baseUrl: string;       // API base URL
-  model: string;         // Model name
-  remark: string;        // Configuration remark
-  maxTokens: number;     // Maximum generation tokens
-  temperature: number;   // Generation temperature
-  maxAgentRounds: number; // Maximum agent loop rounds (default: 5)
+  enabled: boolean;          // Whether AI diagnosis is enabled
+  apiKey: string;            // API key
+  baseUrl: string;           // API base URL
+  model: string;             // Model name
+  remark: string;            // Configuration remark
+  maxTokens: number;         // Maximum generation tokens
+  temperature: number;       // Generation temperature
+  chatTemplateKwargs?: boolean; // Whether to use chat template parameters
 }
 ```
 
@@ -413,7 +414,6 @@ const DEFAULT_CONFIG: LLMConfig = {
   remark: '',
   maxTokens: 4096,
   temperature: 0.3,
-  maxAgentRounds: 5,
 };
 ```
 
@@ -467,11 +467,11 @@ interface AIDiagnosis {
   codeDiffs?: CodeDiff[];        // Suggested code changes
   docLinks?: DocLink[];          // Related documentation links
   contextUsed: ContextUsed;      // Actually used context information
-  reasoningSteps?: ReasoningStep[]; // Agent reasoning steps
+  reasoningSteps?: ReasoningStep[]; // Reasoning steps (used by chat system Agent loop)
   calibratedConfidence: number;  // Calibrated confidence (0-1)
-  analysisMode: 'agent' | 'single' | 'fallback'; // Analysis mode
+  analysisMode: 'single' | 'fallback'; // Analysis mode (currently only single and fallback)
   relatedFailures?: string[];    // Related failure information
-  healerPatch?: HealerPatch;     // Auto-generated healing patch (when diagnoseWithHeal is used)
+  healerPatch?: HealerPatch;     // Auto-generated healing patch
 }
 ```
 

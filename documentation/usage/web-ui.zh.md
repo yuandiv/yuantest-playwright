@@ -200,16 +200,17 @@ Agent 代理面板提供 AI 驱动的测试创建和修复能力：
 
 ### 查看内置模式
 
-系统内置 6 大类 18 个 Playwright 错误模式：
+系统内置 7 大类 30+ 个 Playwright 错误模式：
 
 | 类别 | 典型模式 |
 |------|----------|
-| TimeoutError | 元素未出现、导航超时、API 响应超时 |
-| SelectorError | 元素不存在、选择器歧义、iframe 内选择器 |
-| AssertionError | 文本不匹配、可见性断言、属性断言 |
-| NetworkError | 请求失败、CORS、DNS 解析失败 |
+| TimeoutError | 元素未出现、导航超时、API 响应超时、内存溢出、并发冲突 |
+| SelectorError | 元素不存在、选择器歧义、iframe 内选择器、Headless 环境差异 |
+| AssertionError | 文本不匹配、可见性断言、属性断言、数据校验异常、状态不一致 |
+| NetworkError | 请求失败、CORS、DNS 解析失败、环境配置错误、依赖缺失 |
 | FrameError | Frame detached、跨 Frame 操作 |
 | AuthError | Token 过期、未登录重定向 |
+| 其他 | 竞态条件、环境配置差异、Headless 模式差异、并发执行冲突 |
 
 ### 添加自定义模式
 

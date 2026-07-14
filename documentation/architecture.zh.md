@@ -16,7 +16,7 @@ graph TB
 
     subgraph 智能分析
         FTM[FlakyTestManager<br/>不稳定测试管理]
-        DIA[DiagnosisService<br/>AI智能诊断]
+        DIA[DiagnosisAgent<br/>AI智能诊断]
     end
 
     subgraph 实时服务
@@ -153,14 +153,21 @@ graph TB
 | causal-graph.ts | 构建因果关系图，揭示失败传播路径 |
 | quarantine-strategy.ts | 制定隔离策略，将高 Flaky 测试隔离执行 |
 
-### 3.5 DiagnosisService — AI 智能诊断
+### 3.5 DiagnosisAgent — AI 智能诊断
 
-- **源码位置**：[src/diagnosis/index.ts](file:///d:/Coding/yuantest-playwright/src/diagnosis/index.ts)
-- **核心职责**：利用 AI Agent 对测试失败进行智能诊断
-- **关键能力**：
-  - **context-enricher.ts**：上下文富集，为诊断提供充分的上下文信息（代码片段、执行日志、环境信息等）
-  - **knowledge-base.ts**：知识库，积累历史诊断经验与常见模式
-  - **Agent 多轮推理**：通过多轮对话式推理，逐步缩小问题范围，给出诊断结论与修复建议
+- **源码位置**：[src/ai/agents/diagnosis.ts](file:///d:/Coding/yuantest-playwright/src/ai/agents/diagnosis.ts)
+- **核心职责**：利用 AI 对测试失败进行智能诊断，生成结构化诊断结果（根因分析、修复建议、置信度评分）
+- **关键技术模块**：
+  - **context-enricher.ts**：上下文富集，自动收集源代码、截图、控制台日志、堆栈跟踪、环境信息和历史数据
+  - **knowledge-base.ts**：知识库，内置 7 大类 30+ 个错误模式，支持自动匹配与自定义模式注册
+  - **patterns/**：按类别拆分的错误模式定义文件（timeout、selector、assertion、network、frame、auth、other）
+  - **categorizer.ts**：错误分类器，基于正则匹配将错误消息归类为 7 种预定义类别
+  - **response-parser.ts**：LLM 响应解析器，将 JSON 回复解析为结构化 `AIDiagnosis` 对象，含 JSON 提取与兜底降级逻辑
+  - **diagnosis-cache.ts**：内存缓存，最大 100 条，TTL 30 分钟，LRU 淘汰策略
+  - **diagnosis-persister.ts**：磁盘持久化，按 `runId` 存储诊断结果到 `{dataDir}/diagnosis/` 目录
+  - **cluster.ts**：失败聚类分析，基于 Jaccard 相似度 + 并查集算法将相似失败归为同一组
+- **诊断流程**：`prepareDiagnosis`（富集上下文 + 匹配模式 + 构建 Prompt）→ `callLLM`/`chatStream`（单次 LLM 调用，JSON 格式返回）→ `finalizeDiagnosis`（解析响应 + 校准置信度）
+- **流式诊断**：基于 SSE 协议实时推送 LLM 生成内容，支持 `start`/`chunk`/`complete`/`error` 事件类型
 
 ### 3.6 DashboardServer — Web UI 服务
 
@@ -346,7 +353,7 @@ flowchart TB
     EXE[Executor] --> STO
     RPT[Reporter] --> STO
     FTM[FlakyTestManager] --> STO
-    DIA[DiagnosisService] --> STO
+    DIA[DiagnosisAgent] --> STO
 
     STO --> FS[文件系统]
 

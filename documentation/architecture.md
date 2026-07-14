@@ -16,7 +16,7 @@ graph TB
 
     subgraph Intelligent Analysis
         FTM[FlakyTestManager<br/>Flaky Test Management]
-        DIA[DiagnosisService<br/>AI Intelligent Diagnosis]
+        DIA[DiagnosisAgent<br/>AI Intelligent Diagnosis]
     end
 
     subgraph Realtime Services
@@ -153,14 +153,21 @@ graph TB
 | causal-graph.ts | Build causal relationship graphs, reveal failure propagation paths |
 | quarantine-strategy.ts | Develop quarantine strategies, isolate high Flaky tests for execution |
 
-### 3.5 DiagnosisService — AI Intelligent Diagnosis
+### 3.5 DiagnosisAgent — AI Intelligent Diagnosis
 
-- **Source Location**: [src/diagnosis/index.ts](file:///d:/Coding/yuantest-playwright/src/diagnosis/index.ts)
-- **Core Responsibility**: Use AI Agent for intelligent diagnosis of test failures
-- **Key Capabilities**:
-  - **context-enricher.ts**: Context enrichment, providing sufficient context information for diagnosis (code snippets, execution logs, environment information, etc.)
-  - **knowledge-base.ts**: Knowledge base, accumulating historical diagnosis experience and common patterns
-  - **Agent Multi-turn Reasoning**: Through multi-turn conversational reasoning, gradually narrow down the problem scope and provide diagnosis conclusions and fix suggestions
+- **Source Location**: [src/ai/agents/diagnosis.ts](file:///d:/Coding/yuantest-playwright/src/ai/agents/diagnosis.ts)
+- **Core Responsibility**: Use AI to diagnose test failures and generate structured diagnosis results (root cause analysis, fix suggestions, confidence scoring)
+- **Key Technical Modules**:
+  - **context-enricher.ts**: Context enrichment, automatically collecting source code, screenshots, console logs, stack traces, environment info, and history data
+  - **knowledge-base.ts**: Knowledge base with 7 categories, 30+ error patterns, supporting auto-matching and custom pattern registration
+  - **patterns/**: Category-split error pattern definition files (timeout, selector, assertion, network, frame, auth, other)
+  - **categorizer.ts**: Error classifier that categorizes error messages into 7 predefined categories via regex matching
+  - **response-parser.ts**: LLM response parser that converts JSON replies into structured `AIDiagnosis` objects with JSON extraction and fallback logic
+  - **diagnosis-cache.ts**: In-memory cache, max 100 entries, TTL 30 minutes, LRU eviction
+  - **diagnosis-persister.ts**: Disk persistence, stores diagnosis results by `runId` into `{dataDir}/diagnosis/` directory
+  - **cluster.ts**: Failure cluster analysis using Jaccard similarity + Union-Find algorithm to group similar failures
+- **Diagnosis Flow**: `prepareDiagnosis` (enrich context + match patterns + build prompt) → `callLLM`/`chatStream` (single LLM call, JSON response) → `finalizeDiagnosis` (parse response + calibrate confidence)
+- **Streaming Diagnosis**: SSE-based real-time push of LLM-generated content, supporting `start`/`chunk`/`complete`/`error` event types
 
 ### 3.6 DashboardServer — Web UI Service
 
@@ -346,7 +353,7 @@ flowchart TB
     EXE[Executor] --> STO
     RPT[Reporter] --> STO
     FTM[FlakyTestManager] --> STO
-    DIA[DiagnosisService] --> STO
+    DIA[DiagnosisAgent] --> STO
 
     STO --> FS[File System]
 

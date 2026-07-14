@@ -10,9 +10,8 @@
 - [诊断流程](#diagnosis-process)
 - [上下文富集引擎](#context-enrichment-engine)
 - [Playwright 知识库](#playwright-knowledge-base)
-- [Agent 多轮推理](#agent-multi-turn-reasoning)
+- [诊断模式与 LLM 调用](#diagnosis-mode-and-llm-invocation)
 - [置信度校准](#confidence-calibration)
-- [流式诊断](#streaming-diagnosis)
 - [LLM 配置](#llm-configuration)
 - [诊断结果类型](#diagnosis-result-types)
 - [缓存与持久化](#cache-and-persistence)
@@ -27,9 +26,15 @@ AI 智能失败分析系统由以下核心模块组成：
 
 | 模块 | 源文件 | 职责 |
 |------|--------|------|
-| 上下文富集引擎 | `src/diagnosis/context-enricher.ts` | 收集并组装多维度上下文信息 |
-| Playwright 知识库 | `src/diagnosis/knowledge-base.ts` | 错误模式匹配与 few-shot 示例生成 |
-| 诊断服务 | `src/diagnosis/index.ts` | 编排完整诊断流程，含 Agent 循环与置信度校准 |
+| 上下文富集引擎 | `src/diagnosis/context-enricher.ts` | 收集并组装多维度上下文信息（源代码、截图、日志、堆栈、环境、历史） |
+| Playwright 知识库 | `src/diagnosis/knowledge-base.ts` | 错误模式匹配与 few-shot 示例生成，支持自定义模式注册 |
+| 错误模式定义 | `src/diagnosis/patterns/*.ts` | 按类别拆分的 7 大类 30+ 个内置错误模式 |
+| 错误分类器 | `src/diagnosis/categorizer.ts` | 基于正则的错误消息分类，将错误归为 7 种预定义类别 |
+| 响应解析器 | `src/diagnosis/response-parser.ts` | 将 LLM 的 JSON 回复解析为结构化 `AIDiagnosis` 对象，含兜底降级逻辑 |
+| 诊断缓存 | `src/diagnosis/diagnosis-cache.ts` | 基于 TTLCache 的内存缓存，最大 100 条，TTL 30 分钟，LRU 淘汰 |
+| 诊断持久化 | `src/diagnosis/diagnosis-persister.ts` | 按 `runId` 将诊断结果存储到磁盘 `{dataDir}/diagnosis/` 目录 |
+| 诊断 Agent | `src/ai/agents/diagnosis.ts` | 编排完整诊断流程，继承 `BaseAgent`，支持同步与流式两种诊断模式 |
+| 聚类分析 | `src/diagnosis/cluster.ts` | 基于 Jaccard 相似度 + 并查集算法的失败测试聚类 |
 | 类型定义 | `src/types/index.ts` | 所有诊断相关接口的类型定义 |
 
 ---
@@ -37,17 +42,28 @@ AI 智能失败分析系统由以下核心模块组成：
 <a id="diagnosis-process"></a>
 ## 诊断流程
 
-完整的诊断流程按以下顺序执行：
+完整的诊断流程按以下步骤执行：
 
 ```
-enrichContext → matchPatterns → agentLoop → parseResponse → calibrateConfidence
+prepareDiagnosis → callLLM 或 chatStream → finalizeDiagnosis
 ```
 
-1. **enrichContext** — 收集源代码、截图、控制台日志、堆栈跟踪、环境信息和历史数据
-2. **matchPatterns** — 用本地知识库模式匹配识别错误类别，生成 few-shot 示例
-3. **agentLoop** — 调用 LLM 进行多轮推理（支持工具调用），或降级为单次调用
-4. **parseResponse** — 解析 LLM 返回的 JSON 响应为结构化 `AIDiagnosis` 对象
-5. **calibrateConfidence** — 基于上下文使用情况和模式匹配结果校准置信度
+### 1. prepareDiagnosis（准备阶段）
+
+1. **matchPatterns** — 用本地知识库模式匹配识别错误类别
+2. **enrichContext** — 收集源代码、截图、控制台日志、堆栈跟踪、环境信息和历史数据，生成 `EnrichedContext` 对象
+3. **buildEnrichedPrompt** — 构建 system prompt（含 few-shot 示例）和 user prompt（含上下文信息），要求 LLM 以 JSON 格式返回
+
+### 2. callLLM / chatStream（LLM 调用）
+
+- **非流式诊断**（`diagnose` 方法）：调用 `BaseAgent.callLLM()`，使用 `responseFormat: { type: 'json_object' }` 强制 JSON 格式输出
+- **流式诊断**（`diagnoseStream` 方法）：调用 `llmService.chatStream()`，以 AsyncGenerator 逐 token 产出，最终返回完整 `AIDiagnosis`
+
+### 3. finalizeDiagnosis（收尾阶段）
+
+1. **parseResponse** — 解析 LLM 返回的文本为结构化 `AIDiagnosis` 对象（含 JSON 提取与兜底降级逻辑）
+2. **calibrateConfidence** — 基于模式匹配结果和上下文使用情况校准置信度
+3. 写入缓存（`DiagnosisCache`）和持久化（`DiagnosisPersister`）
 
 ---
 
@@ -146,7 +162,7 @@ interface ContextUsed {
 
 ### 错误模式分类
 
-知识库定义了 **6 大类**错误模式，每类包含多个具体模式：
+知识库定义了 **7 大类**错误模式，每类包含多个具体模式，总共 30+ 个内置模式：
 
 #### 1. TimeoutError — 等待超时
 
@@ -237,13 +253,85 @@ interface ErrorPattern {
 ---
 
 <a id="agent-multi-turn-reasoning"></a>
-## Agent 多轮推理
+## 诊断模式与 LLM 调用
 
-源文件：[index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts)（`DiagnosisService` 类）
+源文件：[diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/ai/agents/diagnosis.ts)（`DiagnosisAgent` 类）
 
-### 工具定义
+### 诊断模式
 
-Agent 循环提供 6 个默认工具（由 `ToolRegistry.createDefaultRegistry()` 注册，以 OpenAI function calling 格式定义）：
+`DiagnosisAgent` 使用 **单次 LLM 调用**模式，通过 `responseFormat: { type: 'json_object' }` 强制 LLM 以 JSON 格式返回结构化诊断结果。不涉及多轮工具调用循环。
+
+### 分析模式
+
+`analysisMode` 有三种取值，由 `parseResponse` 根据解析结果决定：
+
+| 模式 | 含义 |
+|------|------|
+| `single` | LLM 成功返回了可解析的 JSON 响应 |
+| `fallback` | LLM 响应解析失败，使用原始文本截断作为摘要 |
+
+### 非流式诊断（diagnose 方法）
+
+1. 检查缓存（`DiagnosisCache`），命中则直接返回
+2. 调用 `prepareDiagnosis` 准备上下文、模式和 Prompt
+3. 调用 `BaseAgent.callLLM()`（实际委托 `LLMService.chat()`），指定 `responseFormat: { type: 'json_object' }`
+4. 调用 `finalizeDiagnosis` 解析响应并校准置信度
+5. 写入缓存后返回
+
+### 流式诊断（diagnoseStream 方法）
+
+流式诊断通过 SSE（Server-Sent Events）实现实时推送。
+
+1. 调用 `prepareDiagnosis` 准备诊断上下文
+2. 调用 `llmService.chatStream()` 逐 token 产出
+3. 最终返回完整 `AIDiagnosis` 对象
+
+#### SSE 传输格式
+
+服务端设置响应头：
+
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+X-Accel-Buffering: no
+```
+
+每个事件以 `data:` 前缀发送，格式为：
+
+```
+data: {"type":"...","...":"..."}\n\n
+```
+
+#### 事件类型
+
+| 事件 type | 说明 | 数据字段 |
+|-----------|------|----------|
+| `start` | 诊断开始 | `testTitle` |
+| `chunk` | LLM 生成内容片段 | `content` |
+| `complete` | 诊断完成 | `diagnosis`（完整 AIDiagnosis 对象） |
+| `error` | 诊断出错 | `error`（错误信息字符串） |
+
+#### 事件流时序
+
+```
+→ data: {"type":"start","testTitle":"登录测试"}\n\n
+→ data: {"type":"chunk","content":"{"}\n\n
+→ data: {"type":"chunk","content":"\"summary\":"}\n\n
+→ data: {"type":"chunk","content":"\"元素等待超时\""}\n\n
+...（多个 chunk 事件）
+→ data: {"type":"complete","diagnosis":{...}}\n\n
+```
+
+#### 流式模式特点
+
+- `analysisMode` 固定为 `'single'`
+- 不产生 `reasoningSteps`
+- 不支持工具调用
+
+### 聊天系统中的 Agent 多轮推理
+
+在聊天系统（`LLMService.chatWithAgentLoop` / `chatWithAgentLoopStream`）中，支持完整的 Agent 多轮工具调用循环，提供以下工具：
 
 | 工具名称 | 参数 | 说明 |
 |----------|------|------|
@@ -254,62 +342,20 @@ Agent 循环提供 6 个默认工具（由 `ToolRegistry.createDefaultRegistry()
 | `get_heal_history` | `testFilePath` (必填) | 获取测试修复历史 |
 | `list_plans` | `options?` | 列出测试计划 |
 
-### 推理循环
+该 Agent 循环逻辑：
+- 最多执行 **5 轮**（由 `MAX_AGENT_ROUNDS = 5` 控制）
+- 每轮：执行工具调用 → 记录 `ReasoningStep` → 将工具结果追加到消息列表 → 再次调用 LLM
+- LLM 不再返回 tool_calls 时，返回最终内容
+- 达到最大轮数后强制终止，`truncated = true`
 
-`agentLoop` 方法的执行逻辑：
-
-1. 构建初始消息列表（system + user，如有截图则以 vision 格式传入）
-2. 首次调用 `callLLMWithTools(messages, config, TOOL_SCHEMAS)`
-3. **如果 LLM 不返回 tool_calls**：
-   - 有内容 → 直接返回，`analysisMode = 'single'`
-   - 无内容且无 tool_calls → LLM 不支持 tool_calling，降级为 `callLLM` 单次调用，`analysisMode = 'single'`
-4. **如果 LLM 返回 tool_calls** → 进入工具调用循环：
-   - 最多执行 **5 轮**（由 `MAX_AGENT_ROUNDS = 5` 控制）
-   - 每轮：执行工具调用 → 记录 `ReasoningStep` → 将工具结果追加到消息列表 → 再次调用 LLM
-   - LLM 不再返回 tool_calls 时，返回最终内容，`analysisMode = 'agent'`
-   - 达到最大轮数后，不带 tools 参数做最终调用
-5. **异常降级**：Agent 循环出错时，退回 `callLLM` 单次调用模式，`analysisMode = 'single'`
-
-### ReasoningStep 记录
-
-每轮工具调用都会记录推理步骤：
-
-```typescript
-interface ReasoningStep {
-  step: number;      // 轮次序号
-  tool?: string;     // 工具名称
-  input?: string;    // 工具调用参数（JSON 字符串）
-  output?: string;   // 工具执行结果（截断至 500 字符）
-  thought: string;   // 推理描述
-}
-```
-
-### 分析模式
-
-`analysisMode` 有三种取值：
-
-| 模式 | 含义 |
-|------|------|
-| `agent` | 成功执行了 Agent 多轮工具调用循环 |
-| `single` | LLM 不支持 tool_calling 或直接给出最终答案，使用单次调用 |
-| `fallback` | LLM 响应解析失败，使用原始文本作为摘要 |
-
-### 诊断与修复
-
-`diagnoseWithHeal()` 方法将诊断与自动修复结合：
-
-```typescript
-diagnoseWithHeal(testFilePath: string, options?: { error?: string; stackTrace?: string; apply?: boolean }): Promise<AgentResult<AgentHealResult>>
-```
-
-诊断失败测试并自动尝试修复。
+> 注意：`DiagnosisAgent` 的诊断流程本身不调用 Agent 循环；Agent 多轮推理主要供聊天系统中的 `agent_diagnose` 工具使用。
 
 ---
 
 <a id="confidence-calibration"></a>
 ## 置信度校准
 
-源文件：[index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts)（`calibrateConfidence` 方法）
+源文件：[diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/ai/agents/diagnosis.ts)（`calibrateConfidence` 方法）
 
 校准公式：
 
@@ -329,6 +375,8 @@ calibratedConfidence = llmConfidence × 0.6 + patternMatchBonus + contextBonus +
 
 最终结果通过 `Math.min(1, Math.max(0, calibrated))` 限制在 **[0, 1]** 范围内。
 
+> **注意**：当前实现中 `historyConsistent` 参数在 `finalizeDiagnosis` 中固定为 `false`，历史一致性加分暂未生效。
+
 ### 低置信度警告
 
 当 `calibratedConfidence < 0.5` 时，系统自动在 `suggestions` 数组末尾追加警告信息：
@@ -336,59 +384,11 @@ calibratedConfidence = llmConfidence × 0.6 + patternMatchBonus + contextBonus +
 - 中文：`⚠️ 置信度较低，建议人工确认此诊断结果`
 - 英文：`⚠️ Low confidence, manual review recommended for this diagnosis`
 
----
+### 低置信度提示（agent_diagnose 工具）
 
-<a id="streaming-diagnosis"></a>
-## 流式诊断
-
-源文件：[index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/diagnosis/index.ts)（`diagnoseStream` 方法）
-
-流式诊断通过 SSE（Server-Sent Events）实现实时推送。
-
-### SSE 传输格式
-
-服务端设置响应头：
-
-```
-Content-Type: text/event-stream
-Cache-Control: no-cache
-Connection: keep-alive
-X-Accel-Buffering: no
-```
-
-每个事件以 `data:` 前缀发送，格式为：
-
-```
-data: {"type":"...","...":"..."}\n\n
-```
-
-### 事件类型
-
-| 事件 type | 说明 | 数据字段 |
-|-----------|------|----------|
-| `start` | 诊断开始 | `testTitle` |
-| `chunk` | LLM 生成内容片段 | `content` |
-| `complete` | 诊断完成 | `diagnosis`（完整 AIDiagnosis 对象） |
-| `error` | 诊断出错 | `error`（错误信息字符串） |
-
-### 事件流时序
-
-```
-→ data: {"type":"start","testTitle":"登录测试"}\n\n
-→ data: {"type":"chunk","content":"{"}\n\n
-→ data: {"type":"chunk","content":"\"summary\":"}\n\n
-→ data: {"type":"chunk","content":"\"元素等待超时\""}\n\n
-→ ...（多个 chunk 事件）
-→ data: {"type":"complete","diagnosis":{...}}\n\n
-```
-
-### 流式模式限制
-
-流式诊断使用简化的单次调用模式（`callLLMStream`），**不使用 Agent 循环**，因此：
-
-- `analysisMode` 固定为 `'single'`
-- 不产生 `reasoningSteps`
-- 不支持工具调用
+`agent_diagnose` 工具在返回诊断结果时，也会根据 `calibratedConfidence` 判断置信度：
+- 当置信度低于 50% 时，在结果末尾追加人工复核提示
+- 诊断结果中包含代码修改建议（`codeDiffs`）数量统计
 
 ---
 
@@ -399,14 +399,14 @@ data: {"type":"...","...":"..."}\n\n
 
 ```typescript
 interface LLMConfig {
-  enabled: boolean;      // 是否启用 AI 诊断
-  apiKey: string;        // API 密钥
-  baseUrl: string;       // API 基础 URL
-  model: string;         // 模型名称
-  remark: string;        // 配置备注
-  maxTokens: number;     // 最大生成 token 数
-  temperature: number;   // 生成温度
-  maxAgentRounds: number; // Agent 最大循环轮数（默认：5）
+  enabled: boolean;          // 是否启用 AI 诊断
+  apiKey: string;            // API 密钥
+  baseUrl: string;           // API 基础 URL
+  model: string;             // 模型名称
+  remark: string;            // 配置备注
+  maxTokens: number;         // 最大生成 token 数
+  temperature: number;       // 生成温度
+  chatTemplateKwargs?: boolean; // 是否使用聊天模板参数
 }
 ```
 
@@ -421,7 +421,6 @@ const DEFAULT_CONFIG: LLMConfig = {
   remark: '',
   maxTokens: 4096,
   temperature: 0.3,
-  maxAgentRounds: 5,
 };
 ```
 
@@ -477,11 +476,11 @@ interface AIDiagnosis {
   codeDiffs?: CodeDiff[];        // 建议的代码修改
   docLinks?: DocLink[];          // 相关文档链接
   contextUsed: ContextUsed;      // 实际使用的上下文信息
-  reasoningSteps?: ReasoningStep[]; // Agent 推理步骤
+  reasoningSteps?: ReasoningStep[]; // 推理步骤（聊天系统 Agent 循环使用）
   calibratedConfidence: number;  // 校准后的置信度 (0-1)
-  analysisMode: 'agent' | 'single' | 'fallback'; // 分析模式
+  analysisMode: 'single' | 'fallback'; // 分析模式（当前仅有 single 和 fallback）
   relatedFailures?: string[];    // 关联失败信息
-  healerPatch?: HealerPatch;     // 自动生成的修复补丁（使用 diagnoseWithHeal 时）
+  healerPatch?: HealerPatch;     // 自动生成的修复补丁
 }
 ```
 

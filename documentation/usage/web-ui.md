@@ -200,16 +200,17 @@ When multiple tests fail in the same run:
 
 ### View Built-in Patterns
 
-System has 6 categories with 18 built-in Playwright error patterns:
+System has 7 categories with 30+ built-in Playwright error patterns:
 
 | Category | Typical Patterns |
 |----------|------------------|
-| TimeoutError | Element not appeared, navigation timeout, API response timeout |
-| SelectorError | Element not exists, selector ambiguity, selector in iframe |
-| AssertionError | Text mismatch, visibility assertion, attribute assertion |
-| NetworkError | Request failed, CORS, DNS resolution failed |
+| TimeoutError | Element not appeared, navigation timeout, API response timeout, memory overflow, concurrent conflict |
+| SelectorError | Element not exists, selector ambiguity, selector in iframe, headless environment difference |
+| AssertionError | Text mismatch, visibility assertion, attribute assertion, data validation error, state inconsistency |
+| NetworkError | Request failed, CORS, DNS resolution failed, environment config error, dependency missing |
 | FrameError | Frame detached, cross-frame operation |
 | AuthError | Token expired, unauthorized redirect |
+| Other | Race condition, environment config mismatch, headless mode difference, concurrent execution conflict |
 
 ### Add Custom Patterns
 

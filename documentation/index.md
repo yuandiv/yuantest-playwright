@@ -41,12 +41,14 @@ A powerful Playwright test orchestrator, executor, and reporter with CLI tools a
 - **Health score** - 4-dimensional scoring (stability/trend/recoverability/predictability), A-F grades
 
 ### 🤖 AI Intelligent Diagnosis
-- **Context enrichment engine** - Automatic collection of source code, screenshots, console logs, stack traces
-- **Playwright knowledge base** - Built-in 6 categories with 18 error patterns
-- **Agent multi-turn reasoning** - LLM can actively read source code, query history, view screenshots
-- **Confidence calibration** - Calibration based on pattern matching, context completeness
-- **Streaming diagnosis** - SSE real-time push of reasoning process
-- **Batch clustering** - Automatic identification of same-root-cause batch failures
+- **Context enrichment engine** - Automatic collection of source code, screenshots, console logs, stack traces, environment info, history data
+- **Playwright knowledge base** - Built-in 7 categories, 30+ error patterns, auto-matching with few-shot injection
+- **Single LLM call** - Uses `responseFormat: json_object` for structured JSON output
+- **Confidence calibration** - Multi-dimensional confidence scoring (0.6 × LLM confidence + bonuses) based on pattern matching and context completeness
+- **Streaming diagnosis** - SSE real-time push, supports `start`/`chunk`/`complete`/`error` events
+- **Batch clustering** - Jaccard similarity + Union-Find algorithm to identify same-root-cause batch failures
+- **Actionable fix suggestions** - Structured fix plans with code diffs and Playwright documentation links
+- **Cache & persistence** - In-memory cache (LRU, 100 entries, 30min TTL) + disk persistence `{dataDir}/diagnosis/`
 
 ## 🌟 Core Advantages
 
