@@ -12,3 +12,4 @@ export { createQueryTestHistoryTool } from './builtin/query-test-history';
 export { createReadScreenshotTool } from './builtin/read-screenshot';
 export { createRunTestTool } from './builtin/run-test';
 export { createApplyPatchTool } from './builtin/apply-patch';
+export { createRequestUserInputTool } from './builtin/request-user-input';

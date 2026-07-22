@@ -1032,4 +1032,36 @@ export interface AgentSessionContext {
   totalHealRounds?: number;
   /** 累计修复 token 用量 */
   healTokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+
+  // ─── 会话状态机（HITL 支持） ─────────────────────────────
+  /**
+   * 会话当前状态。
+   * - `idle`：刚创建，未开始任何 Agent 调用
+   * - `running`：某个 Agent 正在执行
+   * - `interrupted`：因 HITL（如人工审批补丁）暂停，等待 continue()
+   * - `completed`：会话所有 Agent 调用正常结束
+   * - `error`：会话因错误终止
+   *
+   * 默认 `idle`，由 AgentSessionManager 状态机驱动流转。
+   */
+  state?: AgentSessionState;
+  /** 进入 interrupted 状态的原因（如 'patch-awaiting-approval'） */
+  interruptReason?: string;
+  /** 最近一次状态流转的时间戳 */
+  stateUpdatedAt?: number;
 }
+
+/**
+ * Agent 会话状态机的合法状态集合。
+ *
+ * 合法流转：
+ * - `idle → running`
+ * - `running → interrupted | completed | error | running`
+ * - `interrupted → running`（continue 后恢复）
+ * - `completed → idle`（会话重置，可选）
+ * - `error → idle`（重试，可选）
+ *
+ * `idle` 不能直接跳到 `interrupted`/`completed`；
+ * `interrupted`/`completed`/`error` 不能直接跳到 `interrupted`/`completed`。
+ */
+export type AgentSessionState = 'idle' | 'running' | 'interrupted' | 'completed' | 'error';

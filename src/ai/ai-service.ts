@@ -34,6 +34,7 @@ import { createAgentGenerateTool } from './tools/agent/generate';
 import { createAgentHealTool } from './tools/agent/heal';
 import { createAgentExecuteTool } from './tools/agent/execute';
 import { createAgentDiagnoseTool } from './tools/agent/diagnose';
+import { createRequestUserInputTool } from './tools/builtin/request-user-input';
 import type { AgentToolContext } from './tools/agent/types';
 import { AGENT_EVENT } from './agents/agent-events';
 
@@ -150,6 +151,10 @@ export class UnifiedAIService {
       { name: 'agent_heal', ...createAgentHealTool(ctx) },
       { name: 'agent_execute', ...createAgentExecuteTool(ctx) },
       { name: 'agent_diagnose', ...createAgentDiagnoseTool(ctx) },
+      {
+        name: 'request_user_input',
+        ...createRequestUserInputTool(diagnosisAgent ?? undefined),
+      },
     ]);
   }
 

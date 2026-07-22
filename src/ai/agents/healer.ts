@@ -49,6 +49,14 @@ export class HealerAgent extends BaseAgent {
       maxRounds?: number;
       error?: string;
       stackTrace?: string;
+      /**
+       * HITL：是否在写盘前等待人工审批补丁。
+       * - true：每轮 patch 应用前调用 interrupt('patch-awaiting-approval')，
+       *         UI 端通过 continue({ approved, modifiedPatch? }) 恢复。
+       *         approved=false 时跳过本轮写盘，进入下一轮。
+       * - false / undefined：自动写盘（默认行为，向后兼容）。
+       */
+      requireApproval?: boolean;
     }
   ): Promise<AgentHealResult> {
     if (!this.llmService) {
@@ -103,6 +111,32 @@ export class HealerAgent extends BaseAgent {
         }
 
         if (anyPatchApplied && result.healed) {
+          // HITL：若启用 requireApproval，写盘前等待人工审批
+          if (options?.requireApproval) {
+            const decision = await this.interrupt('patch-awaiting-approval', {
+              round,
+              testFile: testFilePath,
+              patches: result.patches,
+              preview: memoryContent,
+            });
+
+            const d = decision as {
+              approved?: boolean;
+              modifiedPatch?: string;
+            };
+            if (d.modifiedPatch) {
+              // 用户提供了修改后的内容，直接写盘
+              memoryContent = d.modifiedPatch;
+            }
+            if (d.approved === false) {
+              // 用户拒绝，跳过本轮写盘，进入下一轮
+              this.log.info(`Healer round ${round} rejected by reviewer`);
+              currentError = result.summary;
+              continue;
+            }
+            // approved=true 或未明确拒绝：写盘
+          }
+
           healed = true;
           // 仅在确认修复成功后才写入磁盘
           fs.writeFileSync(testFilePath, memoryContent, 'utf-8');

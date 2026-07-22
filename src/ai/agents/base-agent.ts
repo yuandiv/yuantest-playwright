@@ -17,6 +17,10 @@ import {
   AgentMessage,
   AgentPersist,
   AgentError,
+  AgentInterrupt,
+  AgentContinue,
+  PendingCitation,
+  PendingAttachment,
 } from './agent-events';
 
 /** callLLM 方法的可选参数 */
@@ -40,6 +44,20 @@ export abstract class BaseAgent {
   private toolRegistry: ToolRegistry | null = null;
   /** 已注册的钩子列表，按注册顺序串行执行 */
   private hooks: AgentHooks[] = [];
+  /**
+   * HITL 等待中的 interrupt resolver 集合。
+   * key = sessionId（无 sessionId 时回退到 agentName），
+   * value = interrupt() 返回的 Promise 的 resolve 函数，
+   * 由 continue(decision) 唤醒。
+   */
+  private continueResolvers: Map<string, (decision: Record<string, unknown>) => void> = new Map();
+  /**
+   * 引用/附件缓冲区（借鉴 anything-llm AIbitat `_pendingCitations`/`_toolAttachments`）。
+   * 工具执行过程中产生的副作用不逐条 emit，
+   * 而是缓冲在此，等响应最终化时随 done 事件统一 flush。
+   */
+  private pendingCitations: PendingCitation[] = [];
+  private pendingAttachments: PendingAttachment[] = [];
   /** 当前 Agent 上下文（由 withContext 设置，供钩子读取） */
   private currentContext: AgentContext = { agentName: '' };
   /**
@@ -190,6 +208,131 @@ export abstract class BaseAgent {
     return () => {
       this.currentContext = previous;
     };
+  }
+
+  // ─── HITL：interrupt / continue ───────────────────────────
+
+  /**
+   * 暂停当前 Agent 执行，进入 `interrupted` 态等待人工 continue。
+   *
+   * 设计借鉴 anything-llm AIbitat 的 `interrupt(route)` + `shouldAgentInterrupt`。
+   * 与 AIbitat 不同的是，本实现把"等待"语义交给调用方：
+   * `interrupt` 仅 emit `agent.interrupt` 事件并返回一个 `Promise<decision>`，
+   * 该 Promise 的 resolve 函数挂到 `this.continueResolvers` 上，
+   * 由 `continue(decision)` 唤醒。
+   *
+   * 典型用法（HealerAgent）：
+   * ```ts
+   * const decision = await this.interrupt('patch-awaiting-approval', {
+   *   round, patches, testFile,
+   * });
+   * if (decision.approved) { fs.writeFileSync(testFile, patched); }
+   * ```
+   *
+   * @param reason 中断原因标识（如 'patch-awaiting-approval'）
+   * @param payload 中断上下文（供 UI 渲染）
+   * @returns 人工 continue 时传入的 decision 对象
+   */
+  interrupt(
+    reason: string,
+    payload?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return new Promise<Record<string, unknown>>((resolve) => {
+      const key = this.currentContext.sessionId ?? this.getAgentName();
+      this.continueResolvers.set(key, resolve);
+
+      const evt: AgentInterrupt = {
+        agentName: this.currentContext.agentName,
+        reason,
+        payload,
+        sessionId: this.currentContext.sessionId,
+        runId: this.currentContext.runId,
+        testId: this.currentContext.testId,
+      };
+      this.emitAgentEvent(AGENT_EVENT.INTERRUPT, evt);
+      this.log.info(`Agent interrupted: ${reason} (key=${key})`);
+    });
+  }
+
+  /**
+   * 人工恢复被 `interrupt` 暂停的 Agent。
+   *
+   * @param decision 用户/调用方提供的恢复决策
+   * @returns true 表示成功唤醒等待中的 interrupt；false 表示无等待中的 interrupt
+   */
+  continue(decision: Record<string, unknown>): boolean {
+    const key = this.currentContext.sessionId ?? this.getAgentName();
+    const resolver = this.continueResolvers.get(key);
+    if (!resolver) {
+      this.log.warn(`continue() called but no pending interrupt (key=${key})`);
+      return false;
+    }
+    this.continueResolvers.delete(key);
+
+    const evt: AgentContinue = {
+      agentName: this.currentContext.agentName,
+      decision,
+      sessionId: this.currentContext.sessionId,
+      runId: this.currentContext.runId,
+      testId: this.currentContext.testId,
+    };
+    this.emitAgentEvent(AGENT_EVENT.CONTINUE, evt);
+    this.log.info(`Agent continued (key=${key})`);
+
+    resolver(decision);
+    return true;
+  }
+
+  /** 当前是否有等待 continue 的 interrupt */
+  isAwaitingContinue(): boolean {
+    const key = this.currentContext.sessionId ?? this.getAgentName();
+    return this.continueResolvers.has(key);
+  }
+
+  // ─── 引用/附件缓冲区（借鉴 anything-llm AIbitat `_pendingCitations`/`_toolAttachments`） ──
+
+  /**
+   * 向引用缓冲区追加一项（工具执行过程中调用）。
+   * 缓冲内容将在响应最终化时随 done 事件统一 flush，不逐条 emit。
+   */
+  addPendingCitation(citation: PendingCitation): void {
+    this.pendingCitations.push(citation);
+  }
+
+  /**
+   * 向附件缓冲区追加一项（工具执行过程中调用）。
+   * 缓冲内容将在响应最终化时随 done 事件统一 flush，不逐条 emit。
+   */
+  addPendingAttachment(attachment: PendingAttachment): void {
+    this.pendingAttachments.push(attachment);
+  }
+
+  /** 获取当前引用缓冲区的快照（不消耗） */
+  getPendingCitations(): readonly PendingCitation[] {
+    return this.pendingCitations;
+  }
+
+  /** 获取当前附件缓冲区的快照（不消耗） */
+  getPendingAttachments(): readonly PendingAttachment[] {
+    return this.pendingAttachments;
+  }
+
+  /**
+   * 清空缓冲区。
+   * 通常在响应最终化、缓冲内容已随 done 事件 flush 后调用。
+   * @returns 清空前的快照（citations + attachments），供调用方一次性 flush
+   */
+  clearPendingBuffers(): {
+    citations: PendingCitation[];
+    attachments: PendingAttachment[];
+  } {
+    const snapshot = {
+      citations: this.pendingCitations,
+      attachments: this.pendingAttachments,
+    };
+    this.pendingCitations = [];
+    this.pendingAttachments = [];
+    return snapshot;
   }
 
   /**
