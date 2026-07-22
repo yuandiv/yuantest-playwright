@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { AgentService } from '../../src/agents';
+import { AgentService } from '../../src/ai/agents';
 import { TestPlan } from '../../src/types';
 
 describe('AgentService', () => {

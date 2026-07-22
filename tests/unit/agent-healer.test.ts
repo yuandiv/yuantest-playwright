@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { HealerAgent } from '../../src/agents/healer';
+import { HealerAgent } from '../../src/ai/agents/healer';
 import { AgentConfig, LLMConfig, HealerPatch, AgentHealResult } from '../../src/types';
 import * as fs from 'fs';
 import * as path from 'path';

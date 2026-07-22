@@ -14,6 +14,7 @@ export const ASSERTION_PATTERNS: ErrorPattern[] = [
       /text.*mismatch/i,
       /expect.*toHaveText/i,
       /toContainText.*failed/i,
+      /expected.*text.*but.*received/i,
     ],
     rootCauseTemplate: {
       zh: '页面实际文本与断言期望值不匹配，可能是因为页面内容变更、国际化切换或元素状态变化',

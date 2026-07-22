@@ -1,5 +1,16 @@
 import { LLMConfig, ReasoningStep } from '../../types';
 import { logger } from '../../logger';
+import { TokenBudget } from './token-budget';
+import type { EventEmitter } from 'events';
+import {
+  AGENT_EVENT,
+  AgentToken,
+  AgentThinking,
+  AgentToolCall,
+  AgentToolResult,
+  AgentDone,
+  AgentError,
+} from './agent-events';
 
 export interface LLMChatOptions {
   systemPrompt: string;
@@ -51,6 +62,24 @@ export interface ToolSchema {
 
 const DEFAULT_TIMEOUT = 120000;
 const MAX_AGENT_ROUNDS = 30;
+/**
+ * 单次 Agent Loop 允许的最大工具调用次数（含首次模型响应触发的工具调用）。
+ * 超限后清空 tools 数组，强制模型给出最终文本响应，防止死循环烧 Token。
+ * 可通过环境变量 AGENT_MAX_TOOL_CALLS 覆盖。
+ */
+const DEFAULT_MAX_TOOL_CALLS = (() => {
+  const envValue = parseInt(process.env.AGENT_MAX_TOOL_CALLS ?? '', 10);
+  return !isNaN(envValue) && envValue > 0 ? envValue : 10;
+})();
+/**
+ * 单次 Agent Loop 允许的最大累计 total tokens。
+ * 超限后强制收尾，防止异常情况下 Token 失控。
+ * 可通过环境变量 AGENT_MAX_TOTAL_TOKENS 覆盖。
+ */
+const DEFAULT_MAX_TOTAL_TOKENS = (() => {
+  const envValue = parseInt(process.env.AGENT_MAX_TOTAL_TOKENS ?? '', 10);
+  return !isNaN(envValue) && envValue > 0 ? envValue : 100_000;
+})();
 
 /** 流式 chatWithTools 事件类型 */
 export type ToolsStreamEvent =
@@ -677,13 +706,46 @@ export class LLMService {
     tools?: ToolSchema[],
     screenshotBase64?: string,
     toolExecutor?: (toolName: string, args: Record<string, unknown>) => Promise<string>,
-    responseFormat?: { type: string }
+    responseFormat?: { type: string },
+    /**
+     * 单次 Agent Loop 允许的最大工具调用次数（含首次）。
+     * 超限后清空 tools 数组，强制模型给出最终文本响应。
+     * 默认值由环境变量 AGENT_MAX_TOOL_CALLS 控制，回退到 10。
+     */
+    maxToolCalls: number = DEFAULT_MAX_TOOL_CALLS,
+    /**
+     * Phase D — 事件流与可观测性：可选的 EventEmitter 事件总线。
+     * 调用方注入 BaseAgent.getEventBus()，本方法在 yield 前同时 emit agent.* 事件，
+     * 供 UI / 遥测 / 日志层订阅，与 Agent 主流程解耦。
+     * 不传则仅按原有 AgentLoopStreamEvent 流式返回，行为不变。
+     */
+    eventBus?: EventEmitter,
+    /** 关联的会话 id（透传到事件载荷，便于 UI 关联） */
+    sessionId?: string
   ): AsyncGenerator<AgentLoopStreamEvent, void, unknown> {
+    const agentName = 'AgentLoop'; // llm-service 无 agentName 概念，用固定标识
+    /** 安全 emit：吞掉 listener 异常，避免污染主流程 */
+    const safeEmit = (eventName: string, payload: unknown) => {
+      if (!eventBus) return;
+      try {
+        eventBus.emit(eventName, payload);
+      } catch (err) {
+        this.log.warn(
+          `emit ${eventName} listener failed: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    };
     const reasoningSteps: ReasoningStep[] = [];
     let accPrompt = 0;
     let accCompletion = 0;
     let accTotal = 0;
     let collectedThinking: string | null = null;
+
+    // Token 配额追踪器：限制单次 Agent Loop 的工具调用次数和累计 Token
+    const budget = new TokenBudget({
+      maxToolCalls,
+      maxTotalTokens: DEFAULT_MAX_TOTAL_TOKENS,
+    });
 
     const accumulateUsage = (usage?: TokenUsage) => {
       if (!usage) {
@@ -692,6 +754,8 @@ export class LLMService {
       accPrompt += usage.promptTokens;
       accCompletion += usage.completionTokens;
       accTotal += usage.totalTokens;
+      // 同步到 TokenBudget，使 isTokenLimitReached() 能反映累计用量
+      budget.accumulate(usage);
     };
 
     const getTotalUsage = (): TokenUsage | undefined => {
@@ -730,9 +794,11 @@ export class LLMService {
       for await (const event of firstStream) {
         if (event.type === 'content_delta') {
           firstContent += event.content;
+          safeEmit(AGENT_EVENT.TOKEN, { agentName, data: event.content, sessionId } as AgentToken);
           yield { type: 'token', data: event.content };
         } else if (event.type === 'thinking_delta') {
           firstThinking = firstThinking ? firstThinking + event.content : event.content;
+          safeEmit(AGENT_EVENT.THINKING, { agentName, data: event.content, sessionId } as AgentThinking);
           yield { type: 'thinking', data: event.content };
         } else if (event.type === 'tool_calls') {
           firstToolCalls = event.toolCalls;
@@ -763,7 +829,17 @@ export class LLMService {
             responseFormat,
           });
           accumulateUsage(fallbackText.usage);
+          safeEmit(AGENT_EVENT.TOKEN, { agentName, data: fallbackText.content, sessionId } as AgentToken);
           yield { type: 'token', data: fallbackText.content };
+          safeEmit(AGENT_EVENT.DONE, {
+            agentName,
+            content: fallbackText.content,
+            thinkingContent: collectedThinking,
+            analysisMode: 'single',
+            reasoningSteps: [],
+            totalUsage: getTotalUsage(),
+            sessionId,
+          } as AgentDone);
           yield {
             type: 'done',
             data: {
@@ -786,6 +862,15 @@ export class LLMService {
             totalUsage: getTotalUsage(),
           },
         };
+        safeEmit(AGENT_EVENT.DONE, {
+          agentName,
+          content: firstContent,
+          thinkingContent: collectedThinking,
+          analysisMode: 'single',
+          reasoningSteps: [],
+          totalUsage: getTotalUsage(),
+          sessionId,
+        } as AgentDone);
         return;
       }
 
@@ -802,12 +887,82 @@ export class LLMService {
       // Plan progress tracking: maps step index → status
       const planProgress: string[] = [];
 
+      /**
+       * 配额超限时的强制收尾分支：
+       * 用空 tools 数组再次调用模型，强制其给出文本响应而非继续调用工具。
+       * 使用箭头函数生成器以保留外层 this（LLMService 实例）绑定。
+       */
+      const emitForcedTermination = async function* (this: LLMService): AsyncGenerator<AgentLoopStreamEvent, void, unknown> {
+        const reason = budget.isToolCallLimitReached()
+          ? `max tool calls (${budget.maxToolCalls})`
+          : `max total tokens (${budget.maxTotalTokens})`;
+        this.log.warn(`Agent loop exceeded ${reason}, executing final call without tools`);
+        const finalStream = this.chatWithToolsStream(
+          buildRoundMessages(baseMessages, reasoningSteps, currentContent, []),
+          config,
+          [],
+          responseFormat
+        );
+        let finalContent = '';
+        let finalThinking: string | null = null;
+        let finalUsage: TokenUsage | undefined;
+        for await (const event of finalStream) {
+          if (event.type === 'content_delta') {
+            finalContent += event.content;
+            safeEmit(AGENT_EVENT.TOKEN, { agentName, data: event.content, sessionId } as AgentToken);
+            yield { type: 'token', data: event.content };
+          } else if (event.type === 'thinking_delta') {
+            finalThinking = finalThinking ? finalThinking + event.content : event.content;
+            safeEmit(AGENT_EVENT.THINKING, { agentName, data: event.content, sessionId } as AgentThinking);
+            yield { type: 'thinking', data: event.content };
+          } else if (event.type === 'done') {
+            finalContent = event.content ?? finalContent;
+            finalThinking = event.thinkingContent ?? finalThinking;
+            finalUsage = event.usage;
+          }
+        }
+        accumulateUsage(finalUsage);
+        collectThinking(finalThinking);
+        safeEmit(AGENT_EVENT.DONE, {
+          agentName,
+          content: finalContent || currentContent || '',
+          thinkingContent: collectedThinking,
+          analysisMode: 'agent',
+          reasoningSteps,
+          totalUsage: getTotalUsage(),
+          truncated: true,
+          sessionId,
+        } as AgentDone);
+        yield {
+          type: 'done',
+          data: {
+            content: finalContent || currentContent || '',
+            thinkingContent: collectedThinking,
+            analysisMode: 'agent',
+            reasoningSteps,
+            totalUsage: getTotalUsage(),
+            truncated: true,
+          },
+        };
+      }.bind(this);
+
       while (currentToolCalls && currentToolCalls.length > 0) {
         round++;
 
-        const totalUsage = getTotalUsage();
         if (round > MAX_AGENT_ROUNDS) {
           this.log.warn(`Agent loop reached max rounds (${MAX_AGENT_ROUNDS}), force terminating`);
+          safeEmit(AGENT_EVENT.DONE, {
+            agentName,
+            content:
+              currentContent ||
+              'Agent 执行已达到最大轮数/Token 预算上限，部分结果可能不完整。请检查上述输出。',
+            thinkingContent: collectedThinking,
+            analysisMode: 'agent',
+            reasoningSteps,
+            totalUsage: getTotalUsage(),
+            truncated: true,
+            sessionId,
+          } as AgentDone);
           yield {
             type: 'done',
             data: {
@@ -848,6 +1003,13 @@ export class LLMService {
             args = {};
           }
 
+          safeEmit(AGENT_EVENT.TOOL_CALL, {
+            agentName,
+            name: toolCall.function.name,
+            arguments: toolCall.function.arguments,
+            round,
+            sessionId,
+          } as AgentToolCall);
           yield {
             type: 'tool_call',
             data: { name: toolCall.function.name, arguments: toolCall.function.arguments },
@@ -859,7 +1021,16 @@ export class LLMService {
 
           step.output = toolResult.slice(0, 500);
           reasoningSteps.push(step);
+          // 递增工具调用计数，供 TokenBudget 配额检查使用
+          budget.recordToolCall();
 
+          safeEmit(AGENT_EVENT.TOOL_RESULT, {
+            agentName,
+            name: toolCall.function.name,
+            result: toolResult,
+            round,
+            sessionId,
+          } as AgentToolResult);
           yield { type: 'tool_result', data: { name: toolCall.function.name, result: toolResult } };
 
           roundMessages.push({
@@ -869,6 +1040,12 @@ export class LLMService {
           });
 
           planProgress.push(`[Round ${round}] ${toolCall.function.name}: completed`);
+        }
+
+        // 配额检查：工具执行后立即判断是否超限，超限则强制收尾
+        if (budget.isExceeded()) {
+          yield* emitForcedTermination();
+          return;
         }
 
         // ── Inject plan progress context for the next LLM call ──
@@ -887,9 +1064,11 @@ export class LLMService {
         for await (const event of nextStream) {
           if (event.type === 'content_delta') {
             nextContent += event.content;
+            safeEmit(AGENT_EVENT.TOKEN, { agentName, data: event.content, sessionId } as AgentToken);
             yield { type: 'token', data: event.content };
           } else if (event.type === 'thinking_delta') {
             nextThinking = nextThinking ? nextThinking + event.content : event.content;
+            safeEmit(AGENT_EVENT.THINKING, { agentName, data: event.content, sessionId } as AgentThinking);
             yield { type: 'thinking', data: event.content };
           } else if (event.type === 'tool_calls') {
             nextToolCalls = event.toolCalls;
@@ -910,6 +1089,15 @@ export class LLMService {
         collectThinking(nextThinking);
 
         if (!nextToolCalls || nextToolCalls.length === 0) {
+          safeEmit(AGENT_EVENT.DONE, {
+            agentName,
+            content: nextContent,
+            thinkingContent: collectedThinking,
+            analysisMode: 'agent',
+            reasoningSteps,
+            totalUsage: getTotalUsage(),
+            sessionId,
+          } as AgentDone);
           yield {
             type: 'done',
             data: {
@@ -936,6 +1124,15 @@ export class LLMService {
       );
       accumulateUsage(finalResponse.usage);
       collectThinking(finalResponse.thinkingContent);
+      safeEmit(AGENT_EVENT.DONE, {
+        agentName,
+        content: finalResponse.content || '',
+        thinkingContent: collectedThinking,
+        analysisMode: 'agent',
+        reasoningSteps,
+        totalUsage: getTotalUsage(),
+        sessionId,
+      } as AgentDone);
       yield {
         type: 'done',
         data: {
@@ -950,12 +1147,29 @@ export class LLMService {
       this.log.warn(
         `Agent loop stream failed, falling back to single call: ${error instanceof Error ? error.message : String(error)}`
       );
+      // 触发 agent.error 事件，供 UI / 遥测层感知降级
+      safeEmit(AGENT_EVENT.ERROR, {
+        agentName,
+        error,
+        context: 'agentLoopStream fallback',
+        sessionId,
+      } as AgentError);
       const fallbackText = await this.chat({
         systemPrompt: prompt.system,
         userPrompt: prompt.user,
       });
       accumulateUsage(fallbackText.usage);
+      safeEmit(AGENT_EVENT.TOKEN, { agentName, data: fallbackText.content, sessionId } as AgentToken);
       yield { type: 'token', data: fallbackText.content };
+      safeEmit(AGENT_EVENT.DONE, {
+        agentName,
+        content: fallbackText.content,
+        thinkingContent: collectedThinking,
+        analysisMode: 'fallback',
+        reasoningSteps: [],
+        totalUsage: getTotalUsage(),
+        sessionId,
+      } as AgentDone);
       yield {
         type: 'done',
         data: {
@@ -975,7 +1189,19 @@ export class LLMService {
     tools?: ToolSchema[],
     screenshotBase64?: string,
     toolExecutor?: (toolName: string, args: Record<string, unknown>) => Promise<string>,
-    responseFormat?: { type: string }
+    responseFormat?: { type: string },
+    /**
+     * 单次 Agent Loop 允许的最大工具调用次数（含首次）。
+     * 默认值由环境变量 AGENT_MAX_TOOL_CALLS 控制，回退到 10。
+     */
+    maxToolCalls: number = DEFAULT_MAX_TOOL_CALLS,
+    /**
+     * Phase D — 事件流与可观测性：透传给 chatWithAgentLoopStream，
+     * 供 UI / 遥测层订阅 agent.* 事件。
+     */
+    eventBus?: EventEmitter,
+    /** 关联的会话 id（透传到事件载荷） */
+    sessionId?: string
   ): Promise<{
     responseText: string;
     thinkingContent: string | null;
@@ -991,7 +1217,10 @@ export class LLMService {
       tools,
       screenshotBase64,
       toolExecutor,
-      responseFormat
+      responseFormat,
+      maxToolCalls,
+      eventBus,
+      sessionId
     );
 
     let content = '';

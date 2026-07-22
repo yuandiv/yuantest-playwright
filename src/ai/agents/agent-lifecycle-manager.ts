@@ -5,6 +5,8 @@ import { DiagnosisAgent } from './diagnosis';
 import { ToolRegistry } from './tool-registry';
 import { LLMService } from './llm-service';
 import { AgentConfigManager } from './agent-config-manager';
+import { DiagnosisCacheHook } from './diagnosis-cache-hook';
+import { DiagnosisPersisterHook } from './diagnosis-persister-hook';
 
 /**
  * Agent 实例生命周期管理器。
@@ -77,10 +79,17 @@ export class AgentLifecycleManager {
     this.agents.set('healer', new HealerAgent(config, llmConfig, llmService ?? undefined));
 
     // Diagnosis: Agent，诊断测试失败原因
-    this.agents.set(
-      'diagnosis',
-      new DiagnosisAgent(config, llmConfig, llmService ?? undefined, this.dataDir)
+    const diagnosisAgent = new DiagnosisAgent(
+      config,
+      llmConfig,
+      llmService ?? undefined,
+      this.dataDir
     );
+    // 显式注入缓存钩子 + 持久化钩子
+    diagnosisAgent
+      .use(new DiagnosisCacheHook(diagnosisAgent.getCache()))
+      .use(new DiagnosisPersisterHook(diagnosisAgent.getPersister()));
+    this.agents.set('diagnosis', diagnosisAgent);
 
     this.distributeToolRegistry();
   }

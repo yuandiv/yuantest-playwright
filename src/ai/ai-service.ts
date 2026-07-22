@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { EventEmitter } from 'events';
 import { logger } from '../logger';
 import { LLMService, type ToolSchema } from './agents/llm-service';
 import { ToolRegistry } from './agents/tool-registry';
@@ -34,6 +35,7 @@ import { createAgentHealTool } from './tools/agent/heal';
 import { createAgentExecuteTool } from './tools/agent/execute';
 import { createAgentDiagnoseTool } from './tools/agent/diagnose';
 import type { AgentToolContext } from './tools/agent/types';
+import { AGENT_EVENT } from './agents/agent-events';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +74,13 @@ export class UnifiedAIService {
   private projectRoot: string;
   private log = logger.child('UnifiedAIService');
   private _agentGenerateTriggered = false;
+  /**
+   * Phase D — 事件流与可观测性：公共 Agent 事件总线。
+   * sendMessage 调用 chatWithAgentLoopStream 时注入此总线，
+   * UI / 路由层可通过 on() 订阅 agent.* 统一事件命名，
+   * 不再耦合 onEvent 回调的散乱事件类型。
+   */
+  private agentEventBus = new EventEmitter();
 
   constructor(
     dataDir: string,
@@ -332,7 +341,12 @@ export class UnifiedAIService {
           });
 
           return toolResult;
-        }
+        },
+        undefined, // responseFormat
+        undefined, // maxToolCalls（用默认值）
+        // Phase D — 注入公共事件总线，供 UI/路由层订阅 agent.* 事件
+        this.agentEventBus,
+        conversationId
       );
 
       let roundContent = '';
@@ -685,6 +699,46 @@ export class UnifiedAIService {
 
   createSessionContext(): AgentSessionContext {
     return this.sessionManager.createSession();
+  }
+
+  // ── Phase D — 事件流与可观测性 ─────────────────────────────────────────────
+
+  /**
+   * 订阅 Agent 事件总线（agent.* 统一事件命名）。
+   *
+   * UI / 路由 / 遥测层可通过此方法订阅，与 onEvent 回调解耦：
+   * - `agent.start`     → Agent 主入口开始
+   * - `agent.token`     → 流式 token 增量
+   * - `agent.thinking`  → 思考内容增量
+   * - `agent.tool_call` → 工具调用开始
+   * - `agent.tool_result` → 工具调用返回
+   * - `agent.message`   → 单次 LLM 调用完成
+   * - `agent.persist`   → 结果落盘
+   * - `agent.error`     → 执行错误
+   * - `agent.done`      → Agent Loop 完成
+   *
+   * @param eventName 事件名（见 AGENT_EVENT 常量）
+   * @param listener 事件载荷监听器
+   * @returns unsubscribe 函数
+   */
+  on(eventName: string, listener: (payload: unknown) => void): () => void {
+    this.agentEventBus.on(eventName, listener);
+    return () => {
+      this.agentEventBus.off(eventName, listener);
+    };
+  }
+
+  /** 一次性订阅：触发一次后自动注销 */
+  once(eventName: string, listener: (payload: unknown) => void): () => void {
+    this.agentEventBus.once(eventName, listener);
+    return () => {
+      this.agentEventBus.off(eventName, listener);
+    };
+  }
+
+  /** 暴露事件总线实例，供高级订阅者直接操作 */
+  getAgentEventBus(): EventEmitter {
+    return this.agentEventBus;
   }
 
   // ─── 代码提取与保存（agent_generate 后处理） ─────────────────────────────

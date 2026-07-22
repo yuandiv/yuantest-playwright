@@ -9,7 +9,7 @@ export const SELECTOR_PATTERNS: ErrorPattern[] = [
     category: 'selector',
     name: '元素未找到',
     description: '在 DOM 中未找到匹配选择器的元素',
-    regex: [/selector.*not found/, /element.*not found/i, /Cannot find element.*using.*selector/i],
+    regex: [/selector.*not found/, /element.*not found/i, /Cannot find element.*using.*selector/i, /no element found/i],
     rootCauseTemplate: {
       zh: '页面 DOM 中不存在匹配指定选择器的元素，可能由于页面结构变化、动态渲染未完成或选择器拼写错误',
       en: 'No element matching the specified selector was found in the DOM, possibly due to page structure changes, incomplete dynamic rendering, or incorrect selector spelling',

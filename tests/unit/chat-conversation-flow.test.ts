@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { LLMService } from '../../src/agents/llm-service';
+import { LLMService } from '../../src/ai/agents/llm-service';
 import { LLMConfig } from '../../src/types';
 
 // Mock logger
@@ -217,32 +217,23 @@ describe('对话流', () => {
   it('5. 进度上下文注入：每轮之间注入进度提示', async () => {
     // 这个测试验证 agent loop 在每轮之间注入 Progress 上下文
     // 通过验证 system 角色的消息内容来判断
-    fetchSpy.mockImplementation(() =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            choices: [
-              {
-                message: {
-                  content: '继续执行...',
-                  tool_calls: [
-                    {
-                      id: 'call_1',
-                      function: {
-                        name: 'test_tool',
-                        arguments: '{}',
-                      },
-                    },
-                  ],
-                },
-                finish_reason: 'stop',
-              },
-            ],
-          }),
-      } as Response)
-    );
+    const round1Chunks = [
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"test_tool","arguments":"{}"}}]}}]}\n',
+      'data: [DONE]\n',
+    ];
+    const round2Chunks = [
+      'data: {"choices":[{"delta":{"content":"任务完成"}}]}\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n',
+      'data: [DONE]\n',
+    ];
+    let callCount = 0;
+    fetchSpy.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve(mockSSEChunks(round1Chunks));
+      }
+      return Promise.resolve(mockSSEChunks(round2Chunks));
+    });
 
     const result = await client.chatWithAgentLoop(
       { system: '你是测试助手。', user: '执行测试' },

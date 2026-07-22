@@ -1,6 +1,6 @@
 import type { MockInstance } from 'vitest';
 import { vi } from 'vitest';
-import { LLMService, LLMChatOptions } from '../../src/agents/llm-service';
+import { LLMService, LLMChatOptions } from '../../src/ai/agents/llm-service';
 import { LLMConfig } from '../../src/types';
 
 const { logger } = await import('../../src/logger');
@@ -27,11 +27,13 @@ const defaultConfig: LLMConfig = {
 };
 
 function mockFetchResponse(body: unknown, ok = true, status = 200, statusText = 'OK') {
+  const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
   return Promise.resolve({
     ok,
     status,
     statusText,
     json: () => Promise.resolve(body),
+    text: () => Promise.resolve(bodyStr),
   } as Response);
 }
 

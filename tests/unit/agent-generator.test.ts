@@ -2,11 +2,15 @@ import { vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { GeneratorAgent } from '../../src/agents/generator';
+import { GeneratorAgent } from '../../src/ai/agents/generator';
+import { AgentOutputParser } from '../../src/ai/agents/output-parser';
 import { AgentConfig, LLMConfig } from '../../src/types';
-import { LLMService } from '../../src/agents/llm-service';
+import { LLMService } from '../../src/ai/agents/llm-service';
 
 // Helper to cast private methods for testing
+// NOTE: extractTestName/generateSlug/extractCodeBlocks/cleanCode were moved from
+// GeneratorAgent (instance methods) to AgentOutputParser (static methods) in refactor b2d9e91.
+// We delegate to AgentOutputParser static methods to preserve test intent.
 type PrivateMethods = {
   extractTestName: (code: string) => string | null;
   extractCodeBlocks: (text: string) => string[];
@@ -14,8 +18,13 @@ type PrivateMethods = {
   generateSlug: (text: string) => string;
 };
 
-function getPrivateMethods(agent: GeneratorAgent): PrivateMethods {
-  return agent as unknown as PrivateMethods;
+function getPrivateMethods(_agent: GeneratorAgent): PrivateMethods {
+  return {
+    extractTestName: (code: string) => AgentOutputParser.extractTestNameFromCode(code),
+    extractCodeBlocks: (text: string) => AgentOutputParser.extractCodeBlocks(text),
+    cleanCode: (text: string) => AgentOutputParser.cleanCode(text),
+    generateSlug: (text: string) => AgentOutputParser.generateSlug(text),
+  };
 }
 
 /** Mock LLMService.chat to return a given response text */

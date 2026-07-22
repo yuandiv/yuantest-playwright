@@ -93,4 +93,31 @@ export const NETWORK_PATTERNS: ErrorPattern[] = [
     },
     docLinks: [{ title: 'Network', url: 'https://playwright.dev/docs/network' }],
   },
+  {
+    id: 'network-cors',
+    category: 'network',
+    name: 'CORS 跨域错误',
+    description: '请求被 CORS 策略阻止',
+    regex: [/CORS/i, /cross-origin/i, /Access-Control-Allow-Origin/i],
+    rootCauseTemplate: {
+      zh: '请求被浏览器的 CORS 策略阻止，可能因为后端未返回正确的跨域响应头',
+      en: 'The request was blocked by the browser CORS policy, possibly because the backend did not return correct cross-origin response headers',
+    },
+    suggestionsTemplate: {
+      zh: [
+        '确认后端是否返回了正确的 Access-Control-Allow-Origin 响应头',
+        '检查请求是否包含需要预检的自定义头部',
+        '使用 page.route() 拦截并 mock 响应以隔离测试',
+      ],
+      en: [
+        'Verify the backend returns the correct Access-Control-Allow-Origin header',
+        'Check if the request includes custom headers that require a preflight',
+        'Use page.route() to intercept and mock responses for test isolation',
+      ],
+    },
+    docLinks: [
+      { title: 'Network', url: 'https://playwright.dev/docs/network' },
+      { title: 'CORS', url: 'https://developer.mozilla.org/docs/Web/HTTP/CORS' },
+    ],
+  },
 ];

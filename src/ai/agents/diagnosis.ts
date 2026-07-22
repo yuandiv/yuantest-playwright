@@ -2,6 +2,10 @@
  * DiagnosisAgent — 诊断 Agent，继承 BaseAgent
  *
  * 职责：分析失败的 Playwright 测试，给出结构化诊断（根因、修复建议、置信度）。
+ *
+ * 缓存与持久化已抽离为 AgentHooks 实现（DiagnosisCacheHook / DiagnosisPersisterHook），
+ * 由 AgentLifecycleManager 通过 agent.use(...) 注入。
+ * 本类不再直接持有 DiagnosisCache / DiagnosisPersister。
  */
 import * as path from 'path';
 import { BaseAgent } from './base-agent';
@@ -21,6 +25,7 @@ import { DiagnosisPersister } from '../../diagnosis/diagnosis-persister';
 import { parseResponse } from '../../diagnosis/response-parser';
 
 export class DiagnosisAgent extends BaseAgent {
+  /** 兼容旧测试：保留可注入的 cache/persister，但默认走钩子 */
   private cache: DiagnosisCache;
   private persister: DiagnosisPersister;
   private dataDir: string;
@@ -38,6 +43,18 @@ export class DiagnosisAgent extends BaseAgent {
     this.dataDir = resolvedDataDir;
     this.cache = cache ?? new DiagnosisCache();
     this.persister = persister ?? new DiagnosisPersister(resolvedDataDir);
+    // 钩子注入由 AgentLifecycleManager.initializeAgents() 负责，
+    // 此处仅持有 cache/persister 引用以供旧测试与读路径使用。
+  }
+
+  /** 暴露 cache 供 AgentLifecycleManager 注册 CacheHook */
+  getCache(): DiagnosisCache {
+    return this.cache;
+  }
+
+  /** 暴露 persister 供 AgentLifecycleManager 注册 PersisterHook */
+  getPersister(): DiagnosisPersister {
+    return this.persister;
   }
 
   protected getAgentName(): string {
@@ -224,30 +241,42 @@ export class DiagnosisAgent extends BaseAgent {
     testId?: string,
     rootCauseData?: RootCauseAnalysis
   ): Promise<AIDiagnosis> {
-    // 缓存命中
+    // 设置钩子上下文，供 CacheHook / PersisterHook 读取
     const cacheKey = this.cache.getCacheKey(testInfo);
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      return cached;
+    const restore = this.withContext({ runId, testId: testId || cacheKey });
+    try {
+      // 缓存命中：通过 onStart 钩子链短路
+      const cached = await this.triggerOnStart(testInfo);
+      if (cached !== null && cached !== undefined) {
+        return cached as AIDiagnosis;
+      }
+
+      const { prompt, context, patterns, llmConfig, contextUsed } = await this.prepareDiagnosis(
+        testInfo,
+        lang,
+        rootCauseData
+      );
+
+      // 使用 BaseAgent.callLLM，统一 token 记录与异常处理
+      const content = await this.callLLM(prompt.system, prompt.user, {
+        maxTokens: llmConfig?.maxTokens || 4096,
+        temperature: llmConfig?.temperature ?? 0.3,
+        responseFormat: { type: 'json_object' },
+      });
+
+      const diagnosis = this.finalizeDiagnosis(content, patterns, llmConfig, contextUsed);
+
+      // 写缓存（通过 onPersist 钩子链，category='diagnosis'）
+      await this.triggerOnPersist({
+        key: cacheKey,
+        result: diagnosis,
+        category: 'diagnosis',
+      });
+
+      return diagnosis;
+    } finally {
+      restore();
     }
-
-    const { prompt, context, patterns, llmConfig, contextUsed } = await this.prepareDiagnosis(
-      testInfo,
-      lang,
-      rootCauseData
-    );
-
-    // 使用 BaseAgent.callLLM，统一 token 记录与异常处理
-    const content = await this.callLLM(prompt.system, prompt.user, {
-      maxTokens: llmConfig?.maxTokens || 4096,
-      temperature: llmConfig?.temperature ?? 0.3,
-      responseFormat: { type: 'json_object' },
-    });
-
-    const diagnosis = this.finalizeDiagnosis(content, patterns, llmConfig, contextUsed);
-
-    this.cache.set(cacheKey, diagnosis);
-    return diagnosis;
   }
 
   // ─── 核心诊断（流式） ────────────────────────────────────────

@@ -1,6 +1,6 @@
 import type { Mock } from 'vitest';
 import { vi } from 'vitest';
-import { PlannerAgent, PLANNER_SYSTEM_PROMPT_ZH, PLANNER_SYSTEM_PROMPT_EN, PLANNER_FEW_SHOT_ZH, PLANNER_FEW_SHOT_EN } from '../../src/agents/planner';
+import { PlannerAgent, PLANNER_SYSTEM_PROMPT_ZH, PLANNER_SYSTEM_PROMPT_EN, PLANNER_FEW_SHOT_ZH, PLANNER_FEW_SHOT_EN } from '../../src/ai/agents/planner';
 import { AgentConfig, LLMConfig } from '../../src/types';
 import * as fs from 'fs';
 import * as path from 'path';
