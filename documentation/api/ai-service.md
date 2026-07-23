@@ -173,10 +173,6 @@ Get the current project context information.
 
 Set custom prompts for agent operations.
 
-### `setBrowserSessionManager(manager: BrowserSessionManager | null): void`
-
-Set a browser session manager for agent operations.
-
 ---
 
 ### `parseMarkdownPlan(filePath: string): TestPlan | null`

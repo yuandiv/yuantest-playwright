@@ -265,10 +265,6 @@ async runPipeline(
 
 LLM 服务类，提供 `chat()`、`chatWithTools()`、`chatStream()`、`chatWithAgentLoop()`、`updateConfig()`、`getConfig()` 方法。
 
-### BrowserSessionManager
-
-浏览器会话管理，提供 `getSession()`、`getPage()`、`getActivePage()`、`closeSession()`、`closeAll()`、`getActiveSessionIds()` 方法。
-
 ### PatchApplier
 
 补丁应用，提供 `applyPatchToContent()`、`applyPatch()`、`isWithinProjectRoot()`（静态）方法。

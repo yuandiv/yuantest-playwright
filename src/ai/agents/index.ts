@@ -15,7 +15,6 @@ import {
   AgentSessionContext,
 } from '../../types';
 import { AgentOutputParser } from './output-parser';
-import { BrowserSessionManager } from './browser-session';
 import { LLMService } from './llm-service';
 import { ToolRegistry } from './tool-registry';
 import { AgentConfigManager } from './agent-config-manager';
@@ -69,10 +68,6 @@ export class AgentService {
 
   setPrompts(prompts: Partial<AgentPrompts> | null): void {
     this.configManager.setPrompts(prompts);
-  }
-
-  setBrowserSessionManager(manager: BrowserSessionManager | null): void {
-    this.configManager.setBrowserSessionManager(manager);
   }
 
   setProjectRoot(root: string): void {

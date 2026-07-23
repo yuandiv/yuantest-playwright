@@ -14,7 +14,6 @@ import {
   createReadSourceFileTool,
   createSearchCodebaseTool,
   createQueryTestHistoryTool,
-  createReadScreenshotTool,
   createRunTestTool,
   createApplyPatchTool,
 } from '../tools/index';
@@ -131,7 +130,6 @@ export class ToolRegistry {
       { name: 'read_source_file', ...createReadSourceFileTool(projectRoot) },
       { name: 'search_codebase', ...createSearchCodebaseTool(projectRoot) },
       { name: 'query_test_history', ...createQueryTestHistoryTool(dataDir) },
-      { name: 'read_screenshot', ...createReadScreenshotTool(dataDir) },
       { name: 'run_test', ...createRunTestTool(projectRoot) },
       { name: 'apply_patch', ...createApplyPatchTool(projectRoot) },
     ];

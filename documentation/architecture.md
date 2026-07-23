@@ -211,7 +211,7 @@ Previously split into `AgentService` and `ChatService + MCP`, these have been fu
   - **Project Context**: Auto-load playwright.config and package.json for context-aware agent operations
   - **Code Extraction**: Agent-generated code blocks are automatically extracted and saved to `tests/` directory with smart naming
 - **Sub-modules**: `ConversationStore`, `MCPClientManager`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent`, `AgentConfigManager`, `AgentLifecycleManager`, `AgentPipelineOrchestrator`, `AgentFileOperations`
-- **Module Layout**: AI-related modules live under `src/ai/` including agent modules at `src/ai/agents/` (base-agent, browser-session, healer, planner, generator, diagnosis, etc.)
+- **Module Layout**: AI-related modules live under `src/ai/` including agent modules at `src/ai/agents/` (base-agent, healer, planner, generator, diagnosis, etc.)
 
 ### 3.11 ServiceContainer (DI) — Dependency Injection Container
 

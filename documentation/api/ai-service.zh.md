@@ -172,10 +172,6 @@ const result = await aiService.plan('用户登录流程', {
 
 设置自定义提示词。
 
-### `setBrowserSessionManager(manager): void`
-
-设置浏览器会话管理器。
-
 ---
 
 ### `parseMarkdownPlan(filePath): TestPlan | null`

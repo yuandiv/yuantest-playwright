@@ -9,7 +9,6 @@ export { ToolSchema, ToolDefinition, ToolInfo, ToolSource, makeSchema, defineToo
 export { createReadSourceFileTool } from './builtin/read-source-file';
 export { createSearchCodebaseTool } from './builtin/search-codebase';
 export { createQueryTestHistoryTool } from './builtin/query-test-history';
-export { createReadScreenshotTool } from './builtin/read-screenshot';
 export { createRunTestTool } from './builtin/run-test';
 export { createApplyPatchTool } from './builtin/apply-patch';
 export { createRequestUserInputTool } from './builtin/request-user-input';

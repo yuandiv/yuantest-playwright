@@ -211,7 +211,7 @@ graph TB
   - **项目上下文**：自动加载 playwright.config 和 package.json，支持上下文感知的 Agent 操作
   - **代码提取**：Agent 生成的代码块自动提取并保存到 `tests/` 目录，支持智能命名
 - **子模块**：`ConversationStore`、`MCPClientManager`、`PlannerAgent`、`GeneratorAgent`、`HealerAgent`、`AgentConfigManager`、`AgentLifecycleManager`、`AgentPipelineOrchestrator`、`AgentFileOperations`
-- **模块布局**：AI 相关模块位于 `src/ai/` 下，包括 `src/ai/agents/` 中的 Agent 模块（base-agent、browser-session、healer、planner、generator、diagnosis 等）
+- **模块布局**：AI 相关模块位于 `src/ai/` 下，包括 `src/ai/agents/` 中的 Agent 模块（base-agent、healer、planner、generator、diagnosis 等）
 
 ### 3.11 ServiceContainer (DI) — 依赖注入容器
 

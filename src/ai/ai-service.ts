@@ -25,7 +25,6 @@ import {
   ProjectContext,
 } from '../types';
 import { AgentOutputParser } from './agents/output-parser';
-import { BrowserSessionManager } from './agents/browser-session';
 import { AgentConfigManager } from './agents/agent-config-manager';
 import { AgentLifecycleManager } from './agents/agent-lifecycle-manager';
 import { AgentSessionManager } from './agents/agent-session-manager';
@@ -676,10 +675,6 @@ export class UnifiedAIService {
 
   setPrompts(prompts: Partial<AgentPrompts> | null): void {
     this.configManager.setPrompts(prompts);
-  }
-
-  setBrowserSessionManager(manager: BrowserSessionManager | null): void {
-    this.configManager.setBrowserSessionManager(manager);
   }
 
   getProjectRoot(): string {

@@ -265,10 +265,6 @@ Abstract base class providing `callLLM()`, `callLLMWithAgentLoop()`, `updateConf
 
 LLM service class providing `chat()`, `chatWithTools()`, `chatStream()`, `chatWithAgentLoop()`, `updateConfig()`, `getConfig()` methods.
 
-### BrowserSessionManager
-
-Browser session management providing `getSession()`, `getPage()`, `getActivePage()`, `closeSession()`, `closeAll()`, `getActiveSessionIds()` methods.
-
 ### PatchApplier
 
 Patch application providing `applyPatchToContent()`, `applyPatch()`, `isWithinProjectRoot()` (static) methods.

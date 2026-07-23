@@ -1,6 +1,5 @@
 import * as path from 'path';
 import { AgentConfig, AgentPrompts, LLMConfig, ProjectContext } from '../../types';
-import { BrowserSessionManager } from './browser-session';
 import { ProjectContextLoader } from './project-context';
 
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
@@ -30,7 +29,6 @@ export class AgentConfigManager {
   private prompts: Partial<AgentPrompts> | null = null;
   private extraConfigSources: Record<string, unknown> = {};
   private projectContext: ProjectContext | null = null;
-  private browserSessionManager: BrowserSessionManager | null = null;
   private listeners: ConfigChangeListener[] = [];
 
   constructor(config?: Partial<AgentConfig>) {
@@ -55,10 +53,6 @@ export class AgentConfigManager {
     return this.projectContext;
   }
 
-  getBrowserSessionManager(): BrowserSessionManager | null {
-    return this.browserSessionManager;
-  }
-
   // ─── 配置更新 ──────────────────────────────────────────────
 
   setLLMConfig(config: LLMConfig): void {
@@ -69,12 +63,6 @@ export class AgentConfigManager {
   setPrompts(prompts: Partial<AgentPrompts> | null): void {
     this.prompts = prompts;
     this.extraConfigSources.customPrompts = prompts;
-    this.notifyConfigChange();
-  }
-
-  setBrowserSessionManager(manager: BrowserSessionManager | null): void {
-    this.browserSessionManager = manager;
-    this.extraConfigSources.browserSessionManager = manager;
     this.notifyConfigChange();
   }
 

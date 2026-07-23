@@ -990,6 +990,24 @@ export interface AgentHealResult {
   roundsUsed: number;
 }
 
+/**
+ * 生成测试代码的验证运行结果。
+ * 由 GeneratorAgent.generateAndValidate 返回，
+ * 包含落盘文件列表、每轮验证状态、累计轮次与最终失败原因（若有）。
+ */
+export interface GeneratedTestResult {
+  /** 落盘的测试文件路径列表 */
+  files: string[];
+  /** 是否在生成后立即运行通过（无需任何修复轮次） */
+  passed: boolean;
+  /** 实际使用的修复轮次（0 表示首次即通过） */
+  roundsUsed: number;
+  /** 最终失败原因（passed=true 时为 undefined） */
+  finalError?: string;
+  /** 最终堆栈跟踪（passed=true 时为 undefined） */
+  finalStackTrace?: string;
+}
+
 /** Agent 自定义提示词配置 */
 export interface AgentPrompts {
   plannerSystemZh?: string;
