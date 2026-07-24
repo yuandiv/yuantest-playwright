@@ -1,6 +1,6 @@
 {
   "name": "yuantest-playwright",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Playwright test orchestrator, executor and reporter with web UI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
