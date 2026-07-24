@@ -27,7 +27,14 @@ export function LLMStatusProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refresh();
     const timer = setInterval(refresh, 60_000);
-    return () => clearInterval(timer);
+    // 全局监听 LLM 配置变更事件（AgentConfigDialog 测试/保存后触发），
+    // 确保无论 ChatPanel 是否挂载，Header 状态指示灯都能即时刷新。
+    const handleLLMConfigChanged = () => { void refresh(); };
+    window.addEventListener('llm-config-changed', handleLLMConfigChanged);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('llm-config-changed', handleLLMConfigChanged);
+    };
   }, [refresh]);
 
   return (
