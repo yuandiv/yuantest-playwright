@@ -162,15 +162,20 @@ export class UnifiedAIService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   updateLLMConfig(config: LLMConfig): void {
-    if (this.llmService) {
-      this.llmService.updateConfig(config);
-    } else if (config.enabled) {
-      this.llmService = new LLMService(config);
-    }
-    if (!config.enabled) {
+    if (config.enabled) {
+      if (this.llmService) {
+        this.llmService.updateConfig(config);
+      } else {
+        this.llmService = new LLMService(config);
+      }
+    } else {
       this.llmService = null;
     }
     this.configManager.setLLMConfig(config);
+
+    // 重新注册 agent 工具，确保工具 ctx 中的 llmService 与 this.llmService 同步
+    // 否则启动时 llmService 为 null 的场景下，工具闭包会一直持有过期的 null 引用
+    this.registerAgentTools();
   }
 
   /**

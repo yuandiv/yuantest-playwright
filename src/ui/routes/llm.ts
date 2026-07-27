@@ -57,11 +57,24 @@ export function createLLMConfigRouter(aiService: UnifiedAIService): Router {
         ...body,
       };
 
-      saveLLMConfig(merged);
+      // saveLLMConfig 写入失败时会抛出异常（如目标目录无写权限），
+      // 这里捕获并返回 500，避免前端出现"保存成功但配置丢失"的假象。
+      try {
+        saveLLMConfig(merged);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        res.status(500).json({
+          saved: false,
+          error: `配置文件写入失败：${message}`,
+        });
+        return;
+      }
+
       aiService.updateLLMConfig(merged);
       clearStatusCache(); // 配置变更后清除缓存，下次 status 请求重新探测
 
-      res.json(merged);
+      // 统一响应契约：{ saved: true, config: merged }
+      res.json({ saved: true, config: merged });
     })
   );
 

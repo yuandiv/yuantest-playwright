@@ -135,13 +135,14 @@ function LLMConfigPanel({ lang, onSaved }: { lang: Lang; onSaved: () => void }) 
     setSaving(true);
     setSaveMessage(null);
     try {
-      const saved = await api.saveLLMConfig({ enabled, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
-      if (saved) {
+      const result = await api.saveLLMConfig({ enabled, apiKey, baseUrl, model, remark, maxTokens, temperature, chatTemplateKwargs });
+      if (result?.saved) {
         setSaveMessage({ success: true, text: '保存成功' });
         window.dispatchEvent(new CustomEvent('llm-config-changed'));
         onSaved();
       } else {
-        setSaveMessage({ success: false, text: '保存失败' });
+        const errMsg = result?.error || '保存失败';
+        setSaveMessage({ success: false, text: errMsg });
         return;
       }
     } catch (e) {

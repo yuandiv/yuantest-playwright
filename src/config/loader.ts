@@ -356,21 +356,24 @@ export function readJSONFile<T = Record<string, unknown>>(filePath: string): T |
   return null;
 }
 
-/** 从 JSON 文件同步写入（自动创建目录） */
+/** 从 JSON 文件同步写入（自动创建目录）
+ *
+ * 注意：写入失败时会重新抛出异常，而不是静默忽略。
+ * 调用方（如 saveLLMConfig/saveMCPConfigs）应当捕获并向用户报告错误，
+ * 否则会出现"前端提示保存成功，但配置文件根本没写入"的假象。
+ */
 function writeJSONFile(filePath: string, data: unknown): void {
-  try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-  } catch {
-    // 写入失败静默忽略
-  }
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 // ---------------------------------------------------------------------------
 // 以下为三个配置文件的专用读写工具，直接操作 ./test-data/ 目录
 // ---------------------------------------------------------------------------
 
-export const CONFIG_DIR = process.env.YUANTEST_CONFIG_DIR || './test-data';
+// 平台级配置目录：写死在平台目录 ./test-data 中，不跟随 testDir/dataDir 漂移。
+// 模块加载时一次性解析为绝对路径，避免后续 fs 调用受 process.cwd() 变化影响。
+export const CONFIG_DIR = path.resolve(process.env.YUANTEST_CONFIG_DIR || './test-data');
 
 // ── LLM 配置 ────────────────────────────────────────────────────────────────
 

@@ -63,15 +63,28 @@ export async function getLLMConfig(): Promise<LLMConfig | null> {
   return fetchJSON(`${API_BASE}/llm/config`);
 }
 
-export async function saveLLMConfig(config: Partial<LLMConfig>): Promise<LLMConfig | null> {
+export interface SaveLLMConfigResult {
+  saved: boolean;
+  config?: LLMConfig;
+  error?: string;
+}
+
+export async function saveLLMConfig(config: Partial<LLMConfig>): Promise<SaveLLMConfigResult | null> {
   try {
     const res = await fetch(`${API_BASE}/llm/config`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    if (!res.ok) {
+      // 尝试解析后端返回的 { saved: false, error }
+      const body = await res.json().catch(() => null);
+      return {
+        saved: false,
+        error: body?.error || `HTTP ${res.status}`,
+      };
+    }
+    return await res.json() as SaveLLMConfigResult;
   } catch (e) {
     console.error('Failed to save LLM config:', e);
     return null;
