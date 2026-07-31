@@ -1,10 +1,12 @@
 import { vi } from 'vitest';
 import { TestDiscovery } from '../../src/discovery';
-import { MemoryStorage } from '../../src/storage';
-import { CACHE_CONFIG } from '../../src/constants';
+import { MemoryStorage } from '@yuantest/core';
+import { CACHE_CONFIG } from '@yuantest/core';
 
-vi.mock('../../src/config/merger', () => {
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
   return {
+    ...actual,
     PlaywrightConfigMerger: vi.fn().mockImplementation(function (this: any) {
       this.validateProjectPath = vi.fn().mockResolvedValue({
         valid: true,
@@ -17,7 +19,6 @@ vi.mock('../../src/config/merger', () => {
       });
       this.setLang = vi.fn();
     }),
-    ConfigValidationResult: undefined,
   };
 });
 

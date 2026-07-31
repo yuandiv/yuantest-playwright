@@ -1,23 +1,27 @@
 import { vi } from 'vitest';
 import { Orchestrator } from '../../src/orchestrator';
 import { Executor } from '../../src/executor';
-import { MemoryStorage } from '../../src/storage';
-import { RunResult, BrowserType } from '../../src/types';
+import { MemoryStorage } from '@yuantest/core';
+import { RunResult, BrowserType } from '@yuantest/contracts';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-vi.mock('../../src/utils/environment', () => ({
-  checkEnvironment: vi.fn().mockResolvedValue({
-    nodeVersion: '18.0.0',
-    nodeOk: true,
-    playwrightAvailable: true,
-    playwrightVersion: '1.40.0',
-    playwrightOk: true,
-    errors: [],
-  }),
-  MIN_PLAYWRIGHT_VERSION: '1.40.0',
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    checkEnvironment: vi.fn().mockResolvedValue({
+      nodeVersion: '18.0.0',
+      nodeOk: true,
+      playwrightAvailable: true,
+      playwrightVersion: '1.40.0',
+      playwrightOk: true,
+      errors: [],
+    }),
+    MIN_PLAYWRIGHT_VERSION: '1.40.0',
+  };
+});
 
 describe('Orchestrator-Executor Integration', () => {
   let tmpDir: string;

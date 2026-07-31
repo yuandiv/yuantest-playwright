@@ -7,7 +7,7 @@
  * - 供 Agent 管线工具注册到同一注册表（不再使用独立的 agentTools Map）
  */
 import * as path from 'path';
-import { logger } from '../../logger';
+import { logger } from '@yuantest/core';
 import type { ToolSchema, ToolDefinition } from '../tools/types';
 import type { MCPToolDefinition } from '../mcp/types';
 import {

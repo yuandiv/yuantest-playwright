@@ -16,7 +16,7 @@ import {
   VisualTestingConfig,
   AnnotationConfig,
   TagConfig,
-} from '../types';
+} from '@yuantest/contracts';
 import * as path from 'path';
 import { StorageProvider, getStorage } from '../storage';
 
@@ -325,7 +325,7 @@ ${useOptions.join('\n')}
   }
 }
 
-export { loadConfigFile, mergeConfig, getDashboardConfig } from './loader';
+export { loadConfigFile, mergeConfig, getDashboardConfig, loadUserPreferences, saveUserPreferences, loadLLMConfig, saveLLMConfig, loadMCPConfigs, saveMCPConfigs } from './loader';
 export type { YuanTestConfigFile } from './loader';
 export { PlaywrightConfigMerger, configMerger } from './merger';
 export type {

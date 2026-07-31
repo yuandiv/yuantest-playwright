@@ -1,7 +1,7 @@
 import type { Mocked } from 'vitest';
 import { vi } from 'vitest';
 import { TraceManager } from '../../src/trace';
-import { StorageProvider } from '../../src/storage';
+import { StorageProvider } from '@yuantest/core';
 
 describe('TraceManager', () => {
   let traceManager: TraceManager;

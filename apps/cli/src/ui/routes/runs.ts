@@ -1,14 +1,14 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
-import { asyncHandler } from '../../middleware';
-import { HTTP_STATUS } from '../../constants';
-import { loadConfigFile, mergeConfig } from '../../config/loader';
+import { asyncHandler } from '@yuantest/core';
+import { HTTP_STATUS } from '@yuantest/core';
+import { loadConfigFile, mergeConfig } from '@yuantest/core';
 import { Executor } from '../../executor';
-import { logger } from '../../logger';
-import type { TestConfig, RunResult, DashboardStats } from '../../types';
+import { logger } from '@yuantest/core';
+import type { TestConfig, RunResult, DashboardStats } from '@yuantest/contracts';
 import type { RunResultSummary } from '../../reporter';
-import { validateBody } from '../../middleware';
-import { StartRunRequestSchema } from '../../validation';
+import { validateBody } from '@yuantest/core';
+import { StartRunRequestSchema } from '@yuantest/core';
 import * as path from 'path';
 import * as fs from 'fs';
 

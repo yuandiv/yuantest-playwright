@@ -1,6 +1,6 @@
 import { Reporter, JSONReporter } from '../../src/reporter';
-import { MemoryStorage } from '../../src/storage';
-import { RunResult } from '../../src/types';
+import { MemoryStorage } from '@yuantest/core';
+import { RunResult } from '@yuantest/contracts';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

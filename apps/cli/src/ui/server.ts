@@ -3,12 +3,12 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { getCustomPatterns, loadPatternsFromConfig } from '../diagnosis/knowledge-base';
 import { Executor } from '../executor';
-import { RunResult, TestResult } from '../types';
-import { loadConfigFile } from '../config/loader';
-import { logger } from '../logger';
-import { StorageProvider } from '../storage';
-import { errorHandler, notFoundHandler } from '../middleware';
-import { Lang, setLang } from '../i18n';
+import { RunResult, TestResult } from '@yuantest/contracts';
+import { loadConfigFile } from '@yuantest/core';
+import { logger } from '@yuantest/core';
+import { StorageProvider } from '@yuantest/core';
+import { errorHandler, notFoundHandler } from '@yuantest/core';
+import { Lang, setLang } from '@yuantest/core';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -31,9 +31,9 @@ import { createAgentsRouter } from './routes/agents';
 import { createChatRouter } from './routes/chat';
 import { createMiscRouter } from './routes/misc';
 
-import { ServiceContainer } from '../container/service-container';
-import { MutableRef } from '../container/mutable-ref';
-import { TOKENS } from '../container/tokens';
+import { ServiceContainer } from '@yuantest/core';
+import { MutableRef } from '@yuantest/core';
+import { TOKENS } from '@yuantest/core';
 import { registerCoreServices } from '../container/registrations';
 import { buildRouterDeps } from '../container/router-deps-builder';
 
@@ -48,8 +48,8 @@ import { UnifiedAIService } from '../ai/ai-service';
 import { MCPConfigService } from '../ai/mcp/config-service';
 import { createLLMConfigRouter } from './routes/llm';
 import { TestDiscovery } from '../discovery';
-import { LRUCache } from '../cache';
-import { loadUserPreferences, saveUserPreferences } from '../config/loader';
+import { LRUCache } from '@yuantest/core';
+import { loadUserPreferences, saveUserPreferences } from '@yuantest/core';
 
 export class DashboardServer {
   private app: Express;

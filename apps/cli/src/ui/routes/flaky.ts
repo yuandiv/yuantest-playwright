@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
-import { asyncHandler } from '../../middleware';
-import { HTTP_STATUS } from '../../constants';
-import { loadConfigFile, mergeConfig } from '../../config/loader';
+import { asyncHandler } from '@yuantest/core';
+import { HTTP_STATUS } from '@yuantest/core';
+import { loadConfigFile, mergeConfig } from '@yuantest/core';
 import { Executor } from '../../executor';
-import { logger } from '../../logger';
-import type { TestConfig, RunResult, FlakyClassification } from '../../types';
+import { logger } from '@yuantest/core';
+import type { TestConfig, RunResult, FlakyClassification } from '@yuantest/contracts';
 
 export function createFlakyRouter(deps: RouterDeps): Router {
   const router = Router();

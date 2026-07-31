@@ -22,18 +22,22 @@ import { DiagnosisCacheHook } from '../../src/ai/agents/diagnosis-cache-hook';
 import { DiagnosisPersisterHook } from '../../src/ai/agents/diagnosis-persister-hook';
 import { DiagnosisCache } from '../../src/diagnosis/diagnosis-cache';
 import { DiagnosisPersister } from '../../src/diagnosis/diagnosis-persister';
-import { AgentConfig, LLMConfig, AIDiagnosis } from '../../src/types';
+import { AgentConfig, LLMConfig, AIDiagnosis } from '@yuantest/contracts';
 
-vi.mock('../../src/logger', () => ({
-  logger: {
-    child: vi.fn().mockReturnValue({
-      warn: vi.fn(),
-      info: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn(),
-    }),
-  },
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    logger: {
+      child: vi.fn().mockReturnValue({
+        warn: vi.fn(),
+        info: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      }),
+    },
+  };
+});
 
 const baseConfig: AgentConfig = {
   projectRoot: process.cwd(),

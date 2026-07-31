@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { DashboardServer } from '../../ui/server';
-import { loadConfigFile, getDashboardConfig } from '../../config/loader';
+import { loadConfigFile, getDashboardConfig } from '@yuantest/core';
 import { CliContext } from '../context';
 
 export function registerUiCommands(program: Command, _ctx: CliContext): void {

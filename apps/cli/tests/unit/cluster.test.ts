@@ -1,5 +1,5 @@
 import { clusterFailures } from '../../src/diagnosis/cluster';
-import { TestResult } from '../../src/types';
+import { TestResult } from '@yuantest/contracts';
 
 /**
  * cluster 模块单元测试

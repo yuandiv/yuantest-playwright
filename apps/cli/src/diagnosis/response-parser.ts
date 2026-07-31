@@ -1,7 +1,7 @@
 /**
  * LLM 诊断响应解析器 — 将 LLM 的 JSON 回复解析为 AIDiagnosis 结构
  */
-import type { AIDiagnosis, CodeDiff, DocLink, ContextUsed } from '../types';
+import type { AIDiagnosis, CodeDiff, DocLink, ContextUsed } from '@yuantest/contracts';
 import type { ErrorPattern } from './knowledge-base';
 
 const defaultContextUsed: ContextUsed = {

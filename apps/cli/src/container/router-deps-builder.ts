@@ -1,4 +1,5 @@
-import type { ServiceContainer } from './service-container';
+import type { ServiceContainer } from '@yuantest/core';
+import { MutableRef, TOKENS } from '@yuantest/core';
 import type { RouterDeps } from '../ui/routes/types';
 import type { Executor } from '../executor';
 import type { Reporter } from '../reporter';
@@ -6,14 +7,12 @@ import type { FlakyTestManager } from '../flaky';
 import type { TraceManager } from '../trace';
 import type { ArtifactManager } from '../artifacts';
 import type { VisualTestingManager } from '../visual';
-import type { TestResult } from '../types';
-import { MutableRef } from './mutable-ref';
-import { TOKENS } from './tokens';
+import type { TestResult } from '@yuantest/contracts';
 
 export interface RouterDepsCallbacks {
   executor: { current: Executor | null };
   processAttachmentPath: (p: string) => string;
-  processRunAttachmentPaths: (run: import('../types').RunResult) => void;
+  processRunAttachmentPaths: (run: import('@yuantest/contracts').RunResult) => void;
   isPathSafe: (path: string) => boolean;
   discoverFilesInDir: (dir: string, extensions: string[]) => string[];
   invalidateAllCache: () => void;

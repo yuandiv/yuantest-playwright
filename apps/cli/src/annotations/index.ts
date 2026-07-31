@@ -1,6 +1,6 @@
-import { AnnotationConfig, Annotation, AnnotationType } from '../types';
-import { walkDirAsync } from '../utils/filesystem';
-import { StorageProvider, getStorage } from '../storage';
+import { AnnotationConfig, Annotation, AnnotationType } from '@yuantest/contracts';
+import { walkDirAsync } from '@yuantest/core';
+import { StorageProvider, getStorage } from '@yuantest/core';
 
 const ANNOTATION_PATTERNS: Record<AnnotationType, RegExp> = {
   skip: /(?:test|it|describe)\s*\.\s*skip\s*\(/,

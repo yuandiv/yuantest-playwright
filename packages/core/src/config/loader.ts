@@ -12,7 +12,7 @@ import {
   ArtifactConfig,
   LLMConfig,
   type MCPConfig,
-} from '../types';
+} from '@yuantest/contracts';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from '../logger';

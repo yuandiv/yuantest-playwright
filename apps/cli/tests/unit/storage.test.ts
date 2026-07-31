@@ -1,4 +1,4 @@
-import { MemoryStorage, FilesystemStorage, getStorage, setStorage } from '../../src/storage';
+import { MemoryStorage, FilesystemStorage, getStorage, setStorage } from '@yuantest/core';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
-import { asyncHandler, validateBody } from '../../middleware';
-import { SavePreferencesRequestSchema, SetTestDirRequestSchema } from '../../validation';
+import { asyncHandler, validateBody } from '@yuantest/core';
+import { SavePreferencesRequestSchema, SetTestDirRequestSchema } from '@yuantest/core';
 import * as path from 'path';
 import * as fs from 'fs';
-import { loadUserPreferences, saveUserPreferences } from '../../config/loader';
+import { loadUserPreferences, saveUserPreferences } from '@yuantest/core';
 
 export function createMiscRouter(deps: RouterDeps): Router {
   const router = Router();

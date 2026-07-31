@@ -6,7 +6,7 @@ import {
   FILE_PATTERNS,
   HTTP_STATUS,
   LOG_LEVELS,
-} from '../../src/constants';
+} from '@yuantest/core';
 
 describe('Constants', () => {
   describe('DEFAULTS', () => {

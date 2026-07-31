@@ -1,9 +1,9 @@
 import * as path from 'path';
 import { EventEmitter } from 'events';
-import { logger } from '../../logger';
+import { logger } from '@yuantest/core';
 import { LLMService, TokenUsage } from './llm-service';
 import { ToolRegistry } from './tool-registry';
-import { AgentConfig, LLMConfig } from '../../types';
+import { AgentConfig, LLMConfig } from '@yuantest/contracts';
 import {
   AgentHooks,
   AgentContext,

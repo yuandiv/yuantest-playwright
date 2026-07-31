@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { Logger, ChildLogger, LogLevel, logger } from '../../src/logger';
+import { Logger, ChildLogger, LogLevel, logger } from '@yuantest/core';
 
 describe('Logger', () => {
   let loggerInstance: Logger;

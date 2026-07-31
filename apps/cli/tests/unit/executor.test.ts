@@ -1,20 +1,24 @@
 import { vi } from 'vitest';
 import { Executor, ParallelExecutor } from '../../src/executor';
 import { PlaywrightReportParser } from '../../src/executor/playwright-report-parser';
-import { MemoryStorage } from '../../src/storage';
+import { MemoryStorage } from '@yuantest/core';
 import { FlakyTestManager } from '../../src/flaky';
 
-vi.mock('../../src/utils/environment', () => ({
-  checkEnvironment: vi.fn().mockResolvedValue({
-    nodeVersion: '18.0.0',
-    nodeOk: true,
-    playwrightAvailable: true,
-    playwrightVersion: '1.40.0',
-    playwrightOk: true,
-    errors: [],
-  }),
-  MIN_PLAYWRIGHT_VERSION: '1.40.0',
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    checkEnvironment: vi.fn().mockResolvedValue({
+      nodeVersion: '18.0.0',
+      nodeOk: true,
+      playwrightAvailable: true,
+      playwrightVersion: '1.40.0',
+      playwrightOk: true,
+      errors: [],
+    }),
+    MIN_PLAYWRIGHT_VERSION: '1.40.0',
+  };
+});
 
 describe('Executor', () => {
   let storage: MemoryStorage;

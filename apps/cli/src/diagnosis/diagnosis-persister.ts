@@ -3,8 +3,8 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../logger';
-import type { AIDiagnosis } from '../types';
+import { logger } from '@yuantest/core';
+import type { AIDiagnosis } from '@yuantest/contracts';
 
 const log = logger.child('DiagnosisPersister');
 

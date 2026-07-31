@@ -1083,3 +1083,6 @@ export interface AgentSessionContext {
  * `interrupted`/`completed`/`error` 不能直接跳到 `interrupted`/`completed`。
  */
 export type AgentSessionState = 'idle' | 'running' | 'interrupted' | 'completed' | 'error';
+
+// ── 包间接口（契约） ──────────────────────────────────────────────
+export * from './interfaces';

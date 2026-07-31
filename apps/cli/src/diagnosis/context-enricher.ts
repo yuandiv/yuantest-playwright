@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ContextUsed, RootCauseAnalysis } from '../types';
+import { ContextUsed, RootCauseAnalysis } from '@yuantest/contracts';
 
 /** 富集后的上下文信息接口 */
 export interface EnrichedContext {

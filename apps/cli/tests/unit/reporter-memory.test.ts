@@ -1,6 +1,6 @@
 import { Reporter } from '../../src/reporter';
-import { MemoryStorage } from '../../src/storage';
-import { RunResult } from '../../src/types';
+import { MemoryStorage } from '@yuantest/core';
+import { RunResult } from '@yuantest/contracts';
 
 describe('Reporter with MemoryStorage', () => {
   let storage: MemoryStorage;

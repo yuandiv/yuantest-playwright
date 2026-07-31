@@ -1,8 +1,8 @@
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { BaseManager } from '../base';
-import { ArtifactConfig, Artifact, ArtifactType, BrowserType } from '../types';
-import { StorageProvider, getStorage } from '../storage';
+import { BaseManager } from '@yuantest/core';
+import { ArtifactConfig, Artifact, ArtifactType, BrowserType } from '@yuantest/contracts';
+import { StorageProvider, getStorage } from '@yuantest/core';
 
 export class ArtifactManager extends BaseManager {
   private config: ArtifactConfig;

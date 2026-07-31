@@ -11,7 +11,7 @@
  */
 import { AgentHooks, AgentContext, AgentPersistEvent } from './agent-hooks';
 import { DiagnosisPersister } from '../../diagnosis/diagnosis-persister';
-import type { AIDiagnosis } from '../../types';
+import type { AIDiagnosis } from '@yuantest/contracts';
 
 export class DiagnosisPersisterHook implements AgentHooks {
   readonly name = 'diagnosis-persister';

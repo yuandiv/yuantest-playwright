@@ -6,7 +6,7 @@ import {
   prioritizeForQuarantine,
   QuarantineStrategyManager,
 } from '../../src/flaky/quarantine-strategy';
-import { FlakyTest } from '../../src/types';
+import { FlakyTest } from '@yuantest/contracts';
 
 function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   return {

@@ -1,20 +1,24 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { Executor } from '../../src/executor';
-import { MemoryStorage } from '../../src/storage';
+import { MemoryStorage } from '@yuantest/core';
 
 const PROGRESS_MARKER = '__PW_PROGRESS__';
 
-vi.mock('../../src/utils/environment', () => ({
-  checkEnvironment: vi.fn().mockResolvedValue({
-    nodeVersion: '18.0.0',
-    nodeOk: true,
-    playwrightAvailable: true,
-    playwrightVersion: '1.40.0',
-    playwrightOk: true,
-    errors: [],
-  }),
-  MIN_PLAYWRIGHT_VERSION: '1.40.0',
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    checkEnvironment: vi.fn().mockResolvedValue({
+      nodeVersion: '18.0.0',
+      nodeOk: true,
+      playwrightAvailable: true,
+      playwrightVersion: '1.40.0',
+      playwrightOk: true,
+      errors: [],
+    }),
+    MIN_PLAYWRIGHT_VERSION: '1.40.0',
+  };
+});
 
 function makeProgressMsg(type: string, data: any): string {
   return PROGRESS_MARKER + JSON.stringify({ type, ...data }) + '\n';

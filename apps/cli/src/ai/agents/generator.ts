@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BaseAgent } from './base-agent';
 import { LLMService } from './llm-service';
-import { AgentConfig, LLMConfig, GeneratedTestResult } from '../../types';
+import { AgentConfig, LLMConfig, GeneratedTestResult } from '@yuantest/contracts';
 import { AgentOutputParser } from './output-parser';
 import { TestRunner } from './test-runner';
 

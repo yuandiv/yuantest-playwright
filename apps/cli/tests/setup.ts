@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
-import { logger, initLoggerStorage } from '../src/logger';
-import { MemoryStorage } from '../src/storage';
+import { logger, initLoggerStorage } from '@yuantest/core';
+import { MemoryStorage } from '@yuantest/core';
 
 initLoggerStorage(new MemoryStorage());
 

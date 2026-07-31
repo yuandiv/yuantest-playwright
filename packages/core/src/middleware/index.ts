@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { z } from 'zod';
-import { PlaywrightRunnerError, ErrorCode } from '../types';
+import { PlaywrightRunnerError, ErrorCode } from '@yuantest/contracts';
 import { HTTP_STATUS } from '../constants';
 
 export type AsyncRequestHandler = (

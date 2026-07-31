@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ServiceContainer } from '../../src/container/service-container';
-import { MutableRef } from '../../src/container/mutable-ref';
-import { TOKENS } from '../../src/container/tokens';
+import { ServiceContainer } from '@yuantest/core';
+import { MutableRef } from '@yuantest/core';
+import { TOKENS } from '@yuantest/core';
 
 describe('ServiceContainer', () => {
   let container: ServiceContainer;

@@ -1,5 +1,5 @@
 import { detectDurationAnomaly, predictFailure, FlakyPredictor } from '../../src/flaky/predictor';
-import { FlakyTest } from '../../src/types';
+import { FlakyTest } from '@yuantest/contracts';
 
 function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   const now = Date.now();

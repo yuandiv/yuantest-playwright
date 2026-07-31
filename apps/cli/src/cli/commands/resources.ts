@@ -7,7 +7,7 @@ import { AnnotationManager } from '../../annotations';
 import { TagManager } from '../../tags';
 import { ArtifactManager } from '../../artifacts';
 import { VisualTestingManager } from '../../visual';
-import { Artifact } from '../../types';
+import { Artifact } from '@yuantest/contracts';
 import dayjs from 'dayjs';
 import { CliContext } from '../context';
 

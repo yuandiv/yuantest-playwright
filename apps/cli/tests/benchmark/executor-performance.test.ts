@@ -2,20 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProgressTracker } from '../../src/executor/progress-tracker';
 import { Executor } from '../../src/executor';
 import { RealtimeReporter } from '../../src/realtime';
-import { MemoryStorage } from '../../src/storage';
-import { PROGRESS_MARKER } from '../../src/constants';
+import { MemoryStorage } from '@yuantest/core';
+import { PROGRESS_MARKER } from '@yuantest/core';
 
-vi.mock('../../src/utils/environment', () => ({
-  checkEnvironment: vi.fn().mockResolvedValue({
-    playwrightAvailable: true,
-    playwrightOk: true,
-    playwrightVersion: '1.40.0',
-    nodeOk: true,
-    nodeVersion: '18.0.0',
-    errors: [],
-  }),
-  MIN_PLAYWRIGHT_VERSION: '1.40.0',
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    checkEnvironment: vi.fn().mockResolvedValue({
+      playwrightAvailable: true,
+      playwrightOk: true,
+      playwrightVersion: '1.40.0',
+      nodeOk: true,
+      nodeVersion: '18.0.0',
+      errors: [],
+    }),
+    MIN_PLAYWRIGHT_VERSION: '1.40.0',
+  };
+});
 
 interface BenchmarkResult {
   name: string;

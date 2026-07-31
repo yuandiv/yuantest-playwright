@@ -2,10 +2,10 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../../logger';
-import { FILE_PATTERNS } from '../../constants';
+import { logger } from '@yuantest/core';
+import { FILE_PATTERNS } from '@yuantest/core';
 import type { ToolSchema } from '../tools/types';
-import type { MCPConfig } from '../../types';
+import type { MCPConfig } from '@yuantest/contracts';
 
 import type { MCPToolInfo, MCPServerStatus, MCPConnectionStatus } from './types';
 

@@ -1,7 +1,7 @@
 import type { Mocked } from 'vitest';
 import { vi } from 'vitest';
 import { VisualTestingManager } from '../../src/visual';
-import { StorageProvider } from '../../src/storage';
+import { StorageProvider } from '@yuantest/core';
 
 describe('VisualTestingManager', () => {
   let visualManager: VisualTestingManager;

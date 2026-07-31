@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { AgentConfig, AgentPrompts, LLMConfig, ProjectContext } from '../../types';
+import { AgentConfig, AgentPrompts, LLMConfig, ProjectContext } from '@yuantest/contracts';
 import { ProjectContextLoader } from './project-context';
 
 const DEFAULT_AGENT_CONFIG: AgentConfig = {

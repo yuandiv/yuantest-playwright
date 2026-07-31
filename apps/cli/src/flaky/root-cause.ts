@@ -4,7 +4,7 @@ import {
   RootCauseAnalysis,
   RootCauseEvidence,
   RunResult,
-} from '../types';
+} from '@yuantest/contracts';
 
 /** 根因分析所需的上下文信息 */
 export interface AnalysisContext {

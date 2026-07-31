@@ -1,5 +1,5 @@
 import { CausalGraphBuilder } from '../../src/flaky/causal-graph';
-import { FlakyTest, RunResult, CorrelationGroup } from '../../src/types';
+import { FlakyTest, RunResult, CorrelationGroup } from '@yuantest/contracts';
 
 function createFlakyTest(testId: string, overrides: Partial<FlakyTest> = {}): FlakyTest {
   const now = Date.now();

@@ -4,7 +4,7 @@
  */
 import { defineTool } from '../types';
 import type { AgentToolContext } from './types';
-import type { AIDiagnosis } from '../../../types';
+import type { AIDiagnosis } from '@yuantest/contracts';
 
 export function createAgentDiagnoseTool(ctx: AgentToolContext) {
   return defineTool(

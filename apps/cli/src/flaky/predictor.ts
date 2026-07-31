@@ -4,8 +4,8 @@ import {
   PredictionResult,
   PredictionSignal,
   DurationAnomaly,
-} from '../types';
-import { FLAKY_CONFIG } from '../constants';
+} from '@yuantest/contracts';
+import { FLAKY_CONFIG } from '@yuantest/core';
 
 /** 预测器配置 */
 export interface PredictorConfig {

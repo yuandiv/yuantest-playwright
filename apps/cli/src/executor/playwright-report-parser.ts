@@ -1,5 +1,5 @@
-import { TestResult, SuiteResult, BrowserType } from '../types';
-import { stripAnsi } from '../utils/strings';
+import { TestResult, SuiteResult, BrowserType } from '@yuantest/contracts';
+import { stripAnsi } from '@yuantest/core';
 
 interface PlaywrightJSONAttachment {
   name: string;

@@ -5,7 +5,7 @@ import * as path from 'path';
 import { defineTool } from '../types';
 import type { AgentToolContext } from './types';
 import { GeneratorAgent } from '../../agents/generator';
-import { AgentConfig, LLMConfig } from '../../../types';
+import { AgentConfig, LLMConfig } from '@yuantest/contracts';
 
 export function createAgentGenerateTool(ctx: AgentToolContext) {
   return defineTool(

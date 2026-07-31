@@ -1,5 +1,5 @@
 import { RootCauseAnalyzer, AnalysisContext } from '../../src/flaky/root-cause';
-import { FlakyTest, FlakyHistoryEntry, RunResult } from '../../src/types';
+import { FlakyTest, FlakyHistoryEntry, RunResult } from '@yuantest/contracts';
 
 function makeFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   return {

@@ -10,7 +10,7 @@ import {
   TestPlanScenario,
   TestPlanStep,
   ProjectContext,
-} from '../../types';
+} from '@yuantest/contracts';
 
 export const PLANNER_SYSTEM_PROMPT_ZH =
   '你是一位专业的测试规划专家。你的任务是根据被测应用的实际页面结构和用户描述的功能场景，生成全面、深入的结构化测试计划。' +

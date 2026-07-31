@@ -20,18 +20,18 @@ import {
   ImmediateFailure,
   FlakyCriteriaConfig,
   QuarantineCriteriaConfig,
-} from '../types';
+} from '@yuantest/contracts';
 import * as path from 'path';
 import dayjs from 'dayjs';
-import { ManagedManager } from '../base';
-import { StorageProvider, getStorage } from '../storage';
+import { ManagedManager } from '@yuantest/core';
+import { StorageProvider, getStorage } from '@yuantest/core';
 import {
   FLAKY_CONFIG,
   CACHE_CONFIG,
   DEFAULTS,
   DEFAULT_FLAKY_CRITERIA,
   DEFAULT_QUARANTINE_CRITERIA,
-} from '../constants';
+} from '@yuantest/core';
 import {
   classifyTest,
   calculateWeightedFailureRate,

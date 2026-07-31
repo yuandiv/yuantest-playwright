@@ -7,8 +7,8 @@ import {
   ImpactAnalysis,
   CorrelationGroup,
   RootCauseType,
-} from '../types';
-import { FLAKY_CONFIG } from '../constants';
+} from '@yuantest/contracts';
+import { FLAKY_CONFIG } from '@yuantest/core';
 
 /** 因果图构建配置 */
 export interface CausalGraphConfig {

@@ -22,7 +22,7 @@
  */
 
 import type { TokenUsage } from './llm-service';
-import type { ReasoningStep } from '../../types';
+import type { ReasoningStep } from '@yuantest/contracts';
 
 /** Agent 主入口开始 */
 export interface AgentStart {

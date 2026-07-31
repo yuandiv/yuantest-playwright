@@ -24,18 +24,22 @@ import type {
   AgentDone,
 } from '../../src/ai/agents/agent-events';
 import { BaseAgent } from '../../src/ai/agents/base-agent';
-import { AgentConfig, LLMConfig, ToolSchema } from '../../src/types';
+import { AgentConfig, LLMConfig, ToolSchema } from '@yuantest/contracts';
 
-vi.mock('../../src/logger', () => ({
-  logger: {
-    child: vi.fn().mockReturnValue({
-      warn: vi.fn(),
-      info: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn(),
-    }),
-  },
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    logger: {
+      child: vi.fn().mockReturnValue({
+        warn: vi.fn(),
+        info: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      }),
+    },
+  };
+});
 
 const baseConfig: AgentConfig = {
   projectRoot: process.cwd(),

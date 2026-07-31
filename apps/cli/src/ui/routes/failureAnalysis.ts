@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
-import { asyncHandler } from '../../middleware';
+import { asyncHandler } from '@yuantest/core';
 import { categorizeError, generateSuggestions } from '../../diagnosis/categorizer';
-import type { ReportFailureSummary, ReportFailureItem } from '../../types';
+import type { ReportFailureSummary, ReportFailureItem } from '@yuantest/contracts';
 
 export function createFailureAnalysisRouter(deps: RouterDeps): Router {
   const router = Router();

@@ -9,18 +9,22 @@
 import { vi } from 'vitest';
 import { LLMService } from '../../src/ai/agents/llm-service';
 import { TokenBudget } from '../../src/ai/agents/token-budget';
-import { LLMConfig, ToolSchema } from '../../src/types';
+import { LLMConfig, ToolSchema } from '@yuantest/contracts';
 
-vi.mock('../../src/logger', () => ({
-  logger: {
-    child: vi.fn().mockReturnValue({
-      warn: vi.fn(),
-      info: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn(),
-    }),
-  },
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    logger: {
+      child: vi.fn().mockReturnValue({
+        warn: vi.fn(),
+        info: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      }),
+    },
+  };
+});
 
 const defaultConfig: LLMConfig = {
   enabled: true,

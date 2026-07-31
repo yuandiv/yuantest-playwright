@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
-import { asyncHandler } from '../../middleware';
-import { getErrorMessage } from '../../types';
-import { logger } from '../../logger';
-import { checkEnvironment } from '../../utils/environment';
+import { asyncHandler } from '@yuantest/core';
+import { getErrorMessage } from '@yuantest/contracts';
+import { logger } from '@yuantest/core';
+import { checkEnvironment } from '@yuantest/core';
 
 export function createTestDiscoveryRouter(deps: RouterDeps): Router {
   const router = Router();

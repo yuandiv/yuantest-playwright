@@ -9,10 +9,10 @@ import {
   ensureDirAsync,
   getFileStats,
   getFileStatsAsync,
-} from '../../src/utils/filesystem';
+} from '@yuantest/core';
 import * as fs from 'fs';
 import * as path from 'path';
-import { StorageProvider } from '../../src/storage';
+import { StorageProvider } from '@yuantest/core';
 
 describe('filesystem utils', () => {
   let mockStorage: Mocked<StorageProvider>;

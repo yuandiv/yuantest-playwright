@@ -7,10 +7,10 @@ import { Orchestrator } from '../../orchestrator';
 import { Executor, ParallelExecutor } from '../../executor';
 import { Reporter } from '../../reporter';
 import { FlakyTestManager } from '../../flaky';
-import { loadConfigFile, mergeConfig } from '../../config/loader';
-import { TestConfig, BrowserType } from '../../types';
-import { logger } from '../../logger';
-import { getStorage } from '../../storage';
+import { loadConfigFile, mergeConfig } from '@yuantest/core';
+import { TestConfig, BrowserType } from '@yuantest/contracts';
+import { logger } from '@yuantest/core';
+import { getStorage } from '@yuantest/core';
 import { CliContext } from '../context';
 
 export function registerExecutionCommands(program: Command, _ctx: CliContext): void {
@@ -495,7 +495,7 @@ export function registerExecutionCommands(program: Command, _ctx: CliContext): v
           getStorage(),
           new FlakyTestManager('./test-data', {}, getStorage())
         );
-        let testResult: import('../../types').TestResult | null = null;
+        let testResult: import('@yuantest/contracts').TestResult | null = null;
 
         executor.on('test_result', (result) => {
           if (

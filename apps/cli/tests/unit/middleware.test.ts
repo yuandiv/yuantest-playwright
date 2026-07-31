@@ -9,9 +9,9 @@ import {
   errorHandler,
   notFoundHandler,
   createAppError,
-} from '../../src/middleware';
-import { PlaywrightRunnerError, ErrorCode } from '../../src/types';
-import { HTTP_STATUS } from '../../src/constants';
+} from '@yuantest/core';
+import { PlaywrightRunnerError, ErrorCode } from '@yuantest/contracts';
+import { HTTP_STATUS } from '@yuantest/core';
 
 describe('Middleware Module', () => {
   let app: Application;

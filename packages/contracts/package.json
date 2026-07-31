@@ -1,0 +1,16 @@
+{
+  "name": "@yuantest/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared domain types, contracts and event definitions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -6,8 +6,8 @@ import {
   IsolationLevel,
   RetryPolicy,
   RootCauseType,
-} from '../types';
-import { FLAKY_CONFIG } from '../constants';
+} from '@yuantest/contracts';
+import { FLAKY_CONFIG } from '@yuantest/core';
 
 /** 隔离策略配置 */
 export interface QuarantineStrategyConfig {

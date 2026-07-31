@@ -6,7 +6,7 @@
 import { Orchestrator } from '../../src/orchestrator';
 import { Reporter } from '../../src/reporter';
 import { RealtimeReporter } from '../../src/realtime';
-import { MemoryStorage } from '../../src/storage';
+import { MemoryStorage } from '@yuantest/core';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

@@ -3,7 +3,7 @@
  */
 import { defineTool } from '../types';
 import { PatchApplier } from '../../agents/patch-applier';
-import type { HealerPatch } from '../../../types';
+import type { HealerPatch } from '@yuantest/contracts';
 
 export function createApplyPatchTool(projectRoot: string) {
   return defineTool(

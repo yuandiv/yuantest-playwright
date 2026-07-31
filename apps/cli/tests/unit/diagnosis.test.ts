@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 // This test file is pending rewrite against the new DiagnosisAgent (src/ai/agents/diagnosis.ts).
 // We stub the import so the file loads, then skip the entire suite.
 const DiagnosisService = undefined as unknown as import('../../src/types').LLMConfig;
-import { LLMConfig } from '../../src/types';
+import { LLMConfig } from '@yuantest/contracts';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

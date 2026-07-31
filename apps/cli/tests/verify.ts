@@ -3,7 +3,7 @@ import { Reporter } from '../src/reporter';
 import { FlakyTestManager } from '../src/flaky';
 import { RealtimeReporter } from '../src/realtime';
 import { DashboardServer } from '../src/ui/server';
-import { TestConfig, TestResult, RunResult, SuiteResult, BrowserType } from '../src/types';
+import { TestConfig, TestResult, RunResult, SuiteResult, BrowserType } from '@yuantest/contracts';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';

@@ -8,7 +8,7 @@ import {
   validateSetTestDirRequest,
   validateSavePreferencesRequest,
   getDefaultConfig,
-} from '../../src/validation';
+} from '@yuantest/core';
 
 describe('Validation Module', () => {
   describe('TestConfigSchema', () => {

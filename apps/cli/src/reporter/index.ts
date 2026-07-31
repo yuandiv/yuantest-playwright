@@ -6,14 +6,14 @@ import {
   DashboardStats,
   TestRunHistory,
   RootCauseAnalysis,
-} from '../types';
+} from '@yuantest/contracts';
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../logger';
-import { StorageProvider, getStorage } from '../storage';
-import { CACHE_CONFIG, DEFAULTS } from '../constants';
+import { logger } from '@yuantest/core';
+import { StorageProvider, getStorage } from '@yuantest/core';
+import { CACHE_CONFIG, DEFAULTS } from '@yuantest/core';
 import { categorizeError, generateSuggestions } from '../diagnosis/categorizer';
-import { loadLLMConfig } from '../config/loader';
+import { loadLLMConfig } from '@yuantest/core';
 import type { DiagnosisAgent } from '../ai/agents/diagnosis';
 import type { FlakyTestManager } from '../flaky';
 

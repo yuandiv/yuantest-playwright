@@ -8,9 +8,9 @@ import {
   TestResult,
   FlakyClassification,
   RootCauseType,
-} from '../types';
-import { logger } from '../logger';
-import { CACHE_CONFIG, WEBSOCKET_CONFIG } from '../constants';
+} from '@yuantest/contracts';
+import { logger } from '@yuantest/core';
+import { CACHE_CONFIG, WEBSOCKET_CONFIG } from '@yuantest/core';
 
 export class RealtimeReporter extends EventEmitter {
   private wss: WebSocketServer | null = null;

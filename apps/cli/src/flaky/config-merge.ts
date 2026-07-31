@@ -1,5 +1,5 @@
-import { FlakyCriteriaConfig, QuarantineCriteriaConfig } from '../types';
-import { DEFAULT_FLAKY_CRITERIA, DEFAULT_QUARANTINE_CRITERIA } from '../constants';
+import { FlakyCriteriaConfig, QuarantineCriteriaConfig } from '@yuantest/contracts';
+import { DEFAULT_FLAKY_CRITERIA, DEFAULT_QUARANTINE_CRITERIA } from '@yuantest/core';
 
 /**
  * 合并用户自定义不稳定用例配置与默认值

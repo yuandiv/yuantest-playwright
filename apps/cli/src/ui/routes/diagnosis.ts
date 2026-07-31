@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
-import { asyncHandler } from '../../middleware';
-import { logger } from '../../logger';
-import { loadLLMConfig } from '../../config/loader';
-import type { LLMConfig, RootCauseAnalysis } from '../../types';
+import { asyncHandler } from '@yuantest/core';
+import { logger } from '@yuantest/core';
+import { loadLLMConfig } from '@yuantest/core';
+import type { LLMConfig, RootCauseAnalysis } from '@yuantest/contracts';
 
 export function createDiagnosisRouter(deps: RouterDeps): Router {
   const router = Router();

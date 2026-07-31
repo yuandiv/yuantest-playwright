@@ -2,7 +2,7 @@ import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { EventEmitter } from 'events';
-import { logger } from '../logger';
+import { logger } from '@yuantest/core';
 import { LLMService, type ToolSchema } from './agents/llm-service';
 import { ToolRegistry } from './agents/tool-registry';
 import { MCPClientManager } from './mcp/client-manager';
@@ -12,7 +12,7 @@ import {
   type Conversation,
   type ConversationSummary,
 } from './chat/conversation-store';
-import type { LLMConfig, AIDiagnosis } from '../types';
+import type { LLMConfig, AIDiagnosis } from '@yuantest/contracts';
 import {
   AgentConfig,
   AgentInitResult,
@@ -23,7 +23,7 @@ import {
   AgentPrompts,
   AgentSessionContext,
   ProjectContext,
-} from '../types';
+} from '@yuantest/contracts';
 import { AgentOutputParser } from './agents/output-parser';
 import { AgentConfigManager } from './agents/agent-config-manager';
 import { AgentLifecycleManager } from './agents/agent-lifecycle-manager';

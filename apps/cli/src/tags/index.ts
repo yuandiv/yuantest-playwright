@@ -1,6 +1,6 @@
-import { TagConfig, TagInfo } from '../types';
-import { walkDirAsync } from '../utils/filesystem';
-import { StorageProvider, getStorage } from '../storage';
+import { TagConfig, TagInfo } from '@yuantest/contracts';
+import { walkDirAsync } from '@yuantest/core';
+import { StorageProvider, getStorage } from '@yuantest/core';
 
 const TAG_PATTERN = /@tag\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
 const TAG_ALT_PATTERN =

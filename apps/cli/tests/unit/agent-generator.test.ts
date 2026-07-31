@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { GeneratorAgent } from '../../src/ai/agents/generator';
 import { AgentOutputParser } from '../../src/ai/agents/output-parser';
-import { AgentConfig, LLMConfig } from '../../src/types';
+import { AgentConfig, LLMConfig } from '@yuantest/contracts';
 import { LLMService } from '../../src/ai/agents/llm-service';
 
 // Helper to cast private methods for testing

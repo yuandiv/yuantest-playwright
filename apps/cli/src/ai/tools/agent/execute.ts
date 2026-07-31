@@ -5,7 +5,7 @@ import * as path from 'path';
 import { defineTool } from '../types';
 import type { AgentToolContext } from './types';
 import { Executor } from '../../../executor';
-import type { TestConfig } from '../../../types';
+import type { TestConfig } from '@yuantest/contracts';
 
 export function createAgentExecuteTool(ctx: AgentToolContext) {
   return defineTool(

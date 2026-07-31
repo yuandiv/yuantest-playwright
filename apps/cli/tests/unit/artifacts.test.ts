@@ -1,5 +1,5 @@
 import { ArtifactManager } from '../../src/artifacts';
-import { FilesystemStorage } from '../../src/storage';
+import { FilesystemStorage } from '@yuantest/core';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

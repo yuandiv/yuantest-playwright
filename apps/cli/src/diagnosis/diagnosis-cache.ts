@@ -1,8 +1,8 @@
 /**
  * 诊断缓存 — TTLCache 封装，提供缓存读取/写入/清除
  */
-import { TTLCache } from '../cache';
-import type { AIDiagnosis } from '../types';
+import { TTLCache } from '@yuantest/core';
+import type { AIDiagnosis } from '@yuantest/contracts';
 
 const CACHE_MAX_SIZE = 100;
 const CACHE_TTL_MS = 30 * 60 * 1000;

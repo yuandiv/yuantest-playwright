@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
-import { asyncHandler } from '../../middleware';
+import { asyncHandler } from '@yuantest/core';
 import {
   registerPattern,
   unregisterPattern,

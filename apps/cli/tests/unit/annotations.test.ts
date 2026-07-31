@@ -1,7 +1,7 @@
 import type { Mocked } from 'vitest';
 import { vi } from 'vitest';
 import { AnnotationManager } from '../../src/annotations';
-import { StorageProvider } from '../../src/storage';
+import { StorageProvider } from '@yuantest/core';
 
 describe('AnnotationManager', () => {
   let annotationManager: AnnotationManager;

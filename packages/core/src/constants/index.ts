@@ -63,7 +63,7 @@ export const FLAKY_CONFIG = {
   },
 } as const;
 
-export const DEFAULT_FLAKY_CRITERIA: import('../types').FlakyCriteriaConfig = {
+export const DEFAULT_FLAKY_CRITERIA: import('@yuantest/contracts').FlakyCriteriaConfig = {
   minimumRuns: FLAKY_CONFIG.MINIMUM_RUNS_FOR_QUARANTINE,
   flakyThreshold: FLAKY_CONFIG.DEFAULT_THRESHOLD,
   monitorThreshold: FLAKY_CONFIG.MONITOR_THRESHOLD,
@@ -78,7 +78,7 @@ export const DEFAULT_FLAKY_CRITERIA: import('../types').FlakyCriteriaConfig = {
   autoReleaseAfterPasses: FLAKY_CONFIG.AUTO_RELEASE_AFTER_PASSES,
 };
 
-export const DEFAULT_QUARANTINE_CRITERIA: import('../types').QuarantineCriteriaConfig = {
+export const DEFAULT_QUARANTINE_CRITERIA: import('@yuantest/contracts').QuarantineCriteriaConfig = {
   softThreshold: FLAKY_CONFIG.QUARANTINE_SOFT_THRESHOLD,
   hardThreshold: FLAKY_CONFIG.QUARANTINE_HARD_THRESHOLD,
   maxQuarantineRatio: FLAKY_CONFIG.QUARANTINE_MAX_RATIO,

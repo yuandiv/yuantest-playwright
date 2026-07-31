@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
-import { asyncHandler } from '../../middleware';
-import { getErrorMessage } from '../../types';
+import { asyncHandler } from '@yuantest/core';
+import { getErrorMessage } from '@yuantest/contracts';
 
 export function createHealthRouter(deps: RouterDeps): Router {
   const router = Router();

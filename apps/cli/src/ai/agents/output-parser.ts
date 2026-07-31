@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { TestPlan, TestPlanScenario, TestPlanStep, HealerPatch } from '../../types';
+import { TestPlan, TestPlanScenario, TestPlanStep, HealerPatch } from '@yuantest/contracts';
 
 /**
  * Agent 输出解析器，统一三个 Agent 的 LLM 响应解析逻辑

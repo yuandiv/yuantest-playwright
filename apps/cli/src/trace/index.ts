@@ -1,8 +1,8 @@
-import { TraceConfig, TraceFile } from '../types';
+import { TraceConfig, TraceFile } from '@yuantest/contracts';
 import * as path from 'path';
-import { walkDirWithCallbackAsync } from '../utils/filesystem';
-import { StorageProvider, getStorage } from '../storage';
-import { logger } from '../logger';
+import { walkDirWithCallbackAsync } from '@yuantest/core';
+import { StorageProvider, getStorage } from '@yuantest/core';
+import { logger } from '@yuantest/core';
 
 export class TraceManager {
   private config: TraceConfig;

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../../logger';
-import { ProjectContext } from '../../types';
+import { logger } from '@yuantest/core';
+import { ProjectContext } from '@yuantest/contracts';
 
 export class ProjectContextLoader {
   private log = logger.child('ProjectContextLoader');

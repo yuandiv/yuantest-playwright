@@ -1,12 +1,10 @@
 import * as path from 'path';
-import { ServiceContainer } from './service-container';
-import { MutableRef } from './mutable-ref';
-import { TOKENS } from './tokens';
-import { getStorage, type StorageProvider } from '../storage';
+import { ServiceContainer, MutableRef, TOKENS } from '@yuantest/core';
+import { getStorage, type StorageProvider } from '@yuantest/core';
 import { TestDiscovery } from '../discovery';
-import { PlaywrightConfigMerger } from '../config/merger';
-import { loadLLMConfig } from '../config/loader';
-import { LRUCache } from '../cache';
+import { PlaywrightConfigMerger } from '@yuantest/core';
+import { loadLLMConfig } from '@yuantest/core';
+import { LRUCache } from '@yuantest/core';
 import { ToolRegistry } from '../ai/agents/tool-registry';
 import { LLMService } from '../ai/agents/llm-service';
 import { UnifiedAIService } from '../ai/ai-service';
@@ -21,7 +19,7 @@ import { ArtifactManager } from '../artifacts';
 import { AnnotationManager } from '../annotations';
 import { TagManager } from '../tags';
 import { VisualTestingManager } from '../visual';
-import type { LLMConfig } from '../types';
+import type { LLMConfig } from '@yuantest/contracts';
 
 export interface ContainerOptions {
   port: number;

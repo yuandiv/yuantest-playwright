@@ -9,7 +9,7 @@ import {
   calculateHealthScore,
   TrendAnalyzer,
 } from '../../src/flaky/trend';
-import { FlakyTest, TrendDataPoint, ChangePoint, CodeChangeCorrelation } from '../../src/types';
+import { FlakyTest, TrendDataPoint, ChangePoint, CodeChangeCorrelation } from '@yuantest/contracts';
 
 function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   const now = Date.now();

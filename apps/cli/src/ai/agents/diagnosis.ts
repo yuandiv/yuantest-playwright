@@ -17,7 +17,7 @@ import type {
   AIDiagnosis,
   ContextUsed,
   RootCauseAnalysis,
-} from '../../types';
+} from '@yuantest/contracts';
 import { matchPatterns, buildFewShotExamples, ErrorPattern } from '../../diagnosis/knowledge-base';
 import { enrichContext, EnrichedContext } from '../../diagnosis/context-enricher';
 import { DiagnosisCache } from '../../diagnosis/diagnosis-cache';

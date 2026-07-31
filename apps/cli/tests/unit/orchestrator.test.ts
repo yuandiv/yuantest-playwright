@@ -1,5 +1,5 @@
 import { Orchestrator, ShardOptimizer } from '../../src/orchestrator';
-import { MemoryStorage } from '../../src/storage';
+import { MemoryStorage } from '@yuantest/core';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

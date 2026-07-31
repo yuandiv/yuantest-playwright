@@ -32,7 +32,7 @@ export interface AgentContext {
    * 是否处于 `interrupted`（等待人工 continue）等场景。
    * 默认 `idle`。
    */
-  state?: import('../../types').AgentSessionState;
+  state?: import('@yuantest/contracts').AgentSessionState;
   /** 进入 interrupted 状态的原因（如 'patch-awaiting-approval'） */
   interruptReason?: string;
 }

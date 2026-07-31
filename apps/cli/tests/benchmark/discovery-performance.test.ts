@@ -1,14 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TestDiscovery } from '../../src/discovery';
-import { MemoryStorage } from '../../src/storage';
+import { MemoryStorage } from '@yuantest/core';
 
-vi.mock('../../src/config/merger', () => ({
-  PlaywrightConfigMerger: vi.fn().mockImplementation(function(this: any) {
-    this.validateProjectPath = vi.fn().mockResolvedValue({ valid: true, configPath: '/mock/config.ts', error: null });
-    this.setLang = vi.fn();
-  }),
-  ConfigValidationResult: undefined,
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    PlaywrightConfigMerger: vi.fn().mockImplementation(function(this: any) {
+      this.validateProjectPath = vi.fn().mockResolvedValue({ valid: true, configPath: '/mock/config.ts', error: null });
+      this.setLang = vi.fn();
+    }),
+  };
+});
 
 interface BenchmarkResult {
   name: string;

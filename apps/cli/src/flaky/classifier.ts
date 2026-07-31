@@ -1,5 +1,5 @@
-import { FlakyTest, FlakyClassification, FlakyHistoryEntry } from '../types';
-import { FLAKY_CONFIG } from '../constants';
+import { FlakyTest, FlakyClassification, FlakyHistoryEntry } from '@yuantest/contracts';
+import { FLAKY_CONFIG } from '@yuantest/core';
 
 function normalQuantile(p: number): number {
   if (p <= 0) {

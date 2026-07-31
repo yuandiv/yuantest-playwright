@@ -12,7 +12,7 @@
  */
 import { AgentHooks, AgentContext } from './agent-hooks';
 import { DiagnosisCache } from '../../diagnosis/diagnosis-cache';
-import type { AIDiagnosis } from '../../types';
+import type { AIDiagnosis } from '@yuantest/contracts';
 
 export class DiagnosisCacheHook implements AgentHooks {
   readonly name = 'diagnosis-cache';

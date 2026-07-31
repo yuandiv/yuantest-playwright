@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../../logger';
+import { logger } from '@yuantest/core';
 import {
   AgentConfig,
   AgentInitResult,
@@ -13,7 +13,7 @@ import {
   LLMConfig,
   ProjectContext,
   AgentSessionContext,
-} from '../../types';
+} from '@yuantest/contracts';
 import { AgentOutputParser } from './output-parser';
 import { LLMService } from './llm-service';
 import { ToolRegistry } from './tool-registry';

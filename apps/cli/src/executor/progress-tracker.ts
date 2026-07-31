@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events';
-import { TestResult, RunResult, SuiteResult, BrowserType } from '../types';
-import { PROGRESS_MARKER } from '../constants';
-import { stripAnsi } from '../utils/strings';
-import { logger } from '../logger';
-import { StorageProvider } from '../storage';
+import { TestResult, RunResult, SuiteResult, BrowserType } from '@yuantest/contracts';
+import { PROGRESS_MARKER } from '@yuantest/core';
+import { stripAnsi } from '@yuantest/core';
+import { logger } from '@yuantest/core';
+import { StorageProvider } from '@yuantest/core';
 import * as path from 'path';
 
 interface PlaywrightJSONAttachment {

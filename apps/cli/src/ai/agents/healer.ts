@@ -4,7 +4,7 @@ import { BaseAgent } from './base-agent';
 import { PatchApplier } from './patch-applier';
 import { LLMService } from './llm-service';
 import { AgentOutputParser } from './output-parser';
-import { AgentConfig, HealerPatch, LLMConfig, AgentHealResult } from '../../types';
+import { AgentConfig, HealerPatch, LLMConfig, AgentHealResult } from '@yuantest/contracts';
 
 const HEALER_SYSTEM_PROMPT_ZH =
   '你是一位 Playwright 测试修复专家。你的任务是分析失败的测试并生成修复补丁。' +

@@ -6,7 +6,7 @@ import {
   wilsonConfidenceInterval,
   isStatisticallySignificant,
 } from '../../src/flaky/classifier';
-import { FlakyTest, FlakyHistoryEntry } from '../../src/types';
+import { FlakyTest, FlakyHistoryEntry } from '@yuantest/contracts';
 
 function makeFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {
   return {

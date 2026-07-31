@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { BaseManager, ManagedManager } from '../../src/base';
+import { BaseManager, ManagedManager } from '@yuantest/core';
 
 class TestManager extends BaseManager {
   public initCalled = false;

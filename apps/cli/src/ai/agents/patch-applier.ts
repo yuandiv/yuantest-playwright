@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { HealerPatch } from '../../types';
-import { logger } from '../../logger';
+import { HealerPatch } from '@yuantest/contracts';
+import { logger } from '@yuantest/core';
 
 /**
  * Unified patch application module that consolidates the logic from

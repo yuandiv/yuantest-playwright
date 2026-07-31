@@ -4,12 +4,12 @@ import {
   VisualTestStatus,
   VisualTestComparison,
   BrowserType,
-} from '../types';
+} from '@yuantest/contracts';
 import * as path from 'path';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
-import { StorageProvider, getStorage } from '../storage';
-import { logger } from '../logger';
+import { StorageProvider, getStorage } from '@yuantest/core';
+import { logger } from '@yuantest/core';
 
 export class VisualTestingManager {
   private config: VisualTestingConfig;

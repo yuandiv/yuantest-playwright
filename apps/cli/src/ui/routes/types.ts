@@ -6,15 +6,15 @@ import type { RealtimeReporter } from '../../realtime';
 import type { FlakyTestManager } from '../../flaky';
 import type { DiagnosisAgent } from '../../ai/agents/diagnosis';
 import type { TestDiscovery } from '../../discovery';
-import type { LRUCache } from '../../cache';
-import type { StorageProvider } from '../../storage';
-import type { PlaywrightConfigMerger } from '../../config/merger';
+import type { LRUCache } from '@yuantest/core';
+import type { StorageProvider } from '@yuantest/core';
+import type { PlaywrightConfigMerger } from '@yuantest/core';
 import type { TraceManager } from '../../trace';
 import type { ArtifactManager } from '../../artifacts';
 import type { AnnotationManager } from '../../annotations';
 import type { TagManager } from '../../tags';
 import type { VisualTestingManager } from '../../visual';
-import type { TestResult } from '../../types';
+import type { TestResult } from '@yuantest/contracts';
 
 export interface RouterDeps {
   // Core services
@@ -45,7 +45,7 @@ export interface RouterDeps {
 
   // Shared helpers
   processAttachmentPath: (path: string) => string;
-  processRunAttachmentPaths: (run: import('../../types').RunResult) => void;
+  processRunAttachmentPaths: (run: import('@yuantest/contracts').RunResult) => void;
   isPathSafe: (path: string) => boolean;
   discoverFilesInDir: (dir: string, extensions: string[]) => string[];
   invalidateAllCache: () => void;

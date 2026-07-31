@@ -1,18 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { LLMService } from '../../src/ai/agents/llm-service';
-import { LLMConfig } from '../../src/types';
+import { LLMConfig } from '@yuantest/contracts';
 
 // Mock logger
-vi.mock('../../src/logger', () => ({
-  logger: {
-    child: vi.fn().mockReturnValue({
-      warn: vi.fn(),
-      info: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn(),
-    }),
-  },
-}));
+vi.mock('@yuantest/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@yuantest/core')>();
+  return {
+    ...actual,
+    logger: {
+      child: vi.fn().mockReturnValue({
+        warn: vi.fn(),
+        info: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      }),
+    },
+  };
+});
 
 const defaultConfig: LLMConfig = {
   enabled: true,

@@ -1,4 +1,4 @@
-import { LRUCache, TTLCache, createCache } from '../../src/cache';
+import { LRUCache, TTLCache, createCache } from '@yuantest/core';
 
 describe('LRUCache', () => {
   let cache: LRUCache<string>;

@@ -1,5 +1,5 @@
 import { FlakyTestManager } from '../../src/flaky';
-import { MemoryStorage } from '../../src/storage';
+import { MemoryStorage } from '@yuantest/core';
 
 describe('FlakyTestManager with MemoryStorage', () => {
   let storage: MemoryStorage;

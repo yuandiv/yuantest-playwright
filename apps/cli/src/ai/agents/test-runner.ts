@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { logger } from '../../logger';
+import { logger } from '@yuantest/core';
 
 const execFileAsync = promisify(execFile);
 

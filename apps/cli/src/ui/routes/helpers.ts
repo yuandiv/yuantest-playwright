@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import type { RunResult, SuiteResult } from '../../types';
+import type { RunResult, SuiteResult } from '@yuantest/contracts';
 
 export function isPathSafe(inputPath: string): boolean {
   if (inputPath.includes('..')) {

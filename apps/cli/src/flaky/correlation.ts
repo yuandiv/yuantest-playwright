@@ -1,5 +1,5 @@
-import { FlakyTest, RunResult, CorrelationGroup, CorrelationType } from '../types';
-import { FLAKY_CONFIG } from '../constants';
+import { FlakyTest, RunResult, CorrelationGroup, CorrelationType } from '@yuantest/contracts';
+import { FLAKY_CONFIG } from '@yuantest/core';
 
 /** 关联分析配置 */
 export interface CorrelationConfig {

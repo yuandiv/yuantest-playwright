@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { AgentService } from '../../src/ai/agents';
-import { TestPlan } from '../../src/types';
+import { TestPlan } from '@yuantest/contracts';
 
 describe('AgentService', () => {
   let tmpDir: string;

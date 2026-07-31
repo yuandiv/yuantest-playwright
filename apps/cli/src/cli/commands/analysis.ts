@@ -3,8 +3,8 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { Reporter } from '../../reporter';
 import { FlakyTestManager } from '../../flaky';
-import { RootCauseAnalysis, LLMConfig } from '../../types';
-import { getStorage } from '../../storage';
+import { RootCauseAnalysis, LLMConfig } from '@yuantest/contracts';
+import { getStorage } from '@yuantest/core';
 import { CliContext } from '../context';
 
 export function registerAnalysisCommands(program: Command, _ctx: CliContext): void {
@@ -59,7 +59,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
         if (options.ai) {
           try {
             const { DiagnosisAgent } = await import('../../ai/agents/diagnosis');
-            const { loadLLMConfig } = await import('../../config/loader');
+            const { loadLLMConfig } = await import('@yuantest/core');
             const config = loadLLMConfig() || {
               enabled: false,
               apiKey: '',
@@ -327,10 +327,10 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
       try {
         if (options.set) {
           const config = JSON.parse(options.set);
-          const { saveLLMConfig } = await import('../../config/loader');
+          const { saveLLMConfig } = await import('@yuantest/core');
           saveLLMConfig(config);
           console.log(chalk.green('✅ LLM configuration updated'));
-          const { loadLLMConfig } = await import('../../config/loader');
+          const { loadLLMConfig } = await import('@yuantest/core');
           const masked = loadLLMConfig() || {
             enabled: false,
             apiKey: '',
@@ -346,7 +346,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
 
         if (options.test) {
           const spinner = ora('Testing LLM connection...').start();
-          const { loadLLMConfig } = await import('../../config/loader');
+          const { loadLLMConfig } = await import('@yuantest/core');
           const { LLMService } = await import('../../ai/agents/llm-service');
           const config = (loadLLMConfig() || {
             enabled: false,
@@ -368,7 +368,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
         }
 
         if (options.status) {
-          const { loadLLMConfig } = await import('../../config/loader');
+          const { loadLLMConfig } = await import('@yuantest/core');
           const { LLMService } = await import('../../ai/agents/llm-service');
           const config = (loadLLMConfig() || {
             enabled: false,
@@ -402,7 +402,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
           return;
         }
 
-        const { loadLLMConfig } = await import('../../config/loader');
+        const { loadLLMConfig } = await import('@yuantest/core');
         const config = loadLLMConfig() || {
           enabled: false,
           apiKey: '',

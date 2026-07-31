@@ -1,4 +1,4 @@
-import { TestResult } from '../types';
+import { TestResult } from '@yuantest/contracts';
 import { categorizeError, FailureCategory } from './categorizer';
 
 /** 错误聚类结果接口 */

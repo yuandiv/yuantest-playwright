@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import dayjs from 'dayjs';
 import { CliContext } from '../context';
-import type { LLMConfig } from '../../types';
+import type { LLMConfig } from '@yuantest/contracts';
 
 export function registerAgentsCommands(program: Command, ctx: CliContext): void {
   program
@@ -69,7 +69,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
       const spinner = ora('Generating test plan...').start();
       try {
         const { AgentService } = await import('../../ai/agents');
-        const { loadLLMConfig } = await import('../../config/loader');
+        const { loadLLMConfig } = await import('@yuantest/core');
         const llmConfig = (loadLLMConfig() || {
           enabled: false,
           apiKey: '',
@@ -143,7 +143,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
       const spinner = ora('Generating test code...').start();
       try {
         const { AgentService } = await import('../../ai/agents');
-        const { loadLLMConfig } = await import('../../config/loader');
+        const { loadLLMConfig } = await import('@yuantest/core');
         const llmConfig = (loadLLMConfig() || {
           enabled: false,
           apiKey: '',
@@ -199,7 +199,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
       const spinner = ora('Healing test...').start();
       try {
         const { AgentService } = await import('../../ai/agents');
-        const { loadLLMConfig } = await import('../../config/loader');
+        const { loadLLMConfig } = await import('@yuantest/core');
         const llmConfig = (loadLLMConfig() || {
           enabled: false,
           apiKey: '',
@@ -218,7 +218,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
         }
 
         const projectRoot = ctx.findProjectRoot(options.projectRoot);
-        const agentConfig: Partial<import('../../types').AgentConfig> = {
+        const agentConfig: Partial<import('@yuantest/contracts').AgentConfig> = {
           autoHeal: options.apply,
           projectRoot,
         };

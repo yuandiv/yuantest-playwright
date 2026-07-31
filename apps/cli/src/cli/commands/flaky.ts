@@ -3,9 +3,9 @@ import chalk from 'chalk';
 import { FlakyTestManager } from '../../flaky';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { getStorage } from '../../storage';
+import { getStorage } from '@yuantest/core';
 import { CliContext } from '../context';
-import { loadUserPreferences } from '../../config/loader';
+import { loadUserPreferences } from '@yuantest/core';
 
 dayjs.extend(relativeTime);
 

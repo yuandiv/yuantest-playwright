@@ -1,7 +1,7 @@
 import * as crypto from 'crypto';
-import { logger } from '../../logger';
-import { loadMCPConfigs, saveMCPConfigs } from '../../config/loader';
-import type { MCPConfig } from '../../types';
+import { logger } from '@yuantest/core';
+import { loadMCPConfigs, saveMCPConfigs } from '@yuantest/core';
+import type { MCPConfig } from '@yuantest/contracts';
 
 /** MCP 内置预设（默认配置） */
 export interface MCPPreset {

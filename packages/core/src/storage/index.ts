@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ErrorCode, PlaywrightRunnerError, Result, Ok, Err, createError } from '../types';
+import { ErrorCode, PlaywrightRunnerError, Result, Ok, Err, createError } from '@yuantest/contracts';
 import { logger as _loggerInstance, ChildLogger } from '../logger';
 
 type LoggerType = typeof _loggerInstance;

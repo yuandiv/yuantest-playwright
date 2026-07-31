@@ -1,8 +1,8 @@
 import {
   AgentSessionContext,
   AgentSessionState,
-} from '../../types';
-import { logger } from '../../logger';
+} from '@yuantest/contracts';
+import { logger } from '@yuantest/core';
 
 /**
  * 合法状态流转表。

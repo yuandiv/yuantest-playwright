@@ -4,7 +4,7 @@ import type { Mock } from 'vitest';
 // Config persistence now lives in src/config/loader; diagnosis flow moved to src/ai/agents/diagnosis.ts (DiagnosisAgent).
 // This integration test is pending rewrite against the new architecture, so we stub the import and skip the suite.
 const DiagnosisService = undefined as unknown as import('../../src/types').LLMConfig;
-import { LLMConfig } from '../../src/types';
+import { LLMConfig } from '@yuantest/contracts';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
