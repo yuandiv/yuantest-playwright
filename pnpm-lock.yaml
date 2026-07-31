@@ -29,6 +29,9 @@ importers:
       '@yuantest/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@yuantest/executor':
+        specifier: workspace:*
+        version: link:../../packages/executor
       chalk:
         specifier: ^4.1.2
         version: 4.1.2
@@ -204,6 +207,22 @@ importers:
       zod:
         specifier: ^3.25.76
         version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/executor:
+    dependencies:
+      '@yuantest/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@yuantest/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^20.10.0

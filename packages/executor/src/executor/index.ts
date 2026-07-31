@@ -1,15 +1,22 @@
 import { EventEmitter } from 'events';
 import { spawn, ChildProcess } from 'child_process';
-import { TestConfig, RunResult, RunMetadata, ErrorCode, Artifact } from '@yuantest/contracts';
+import {
+  TestConfig,
+  RunResult,
+  RunMetadata,
+  ErrorCode,
+  Artifact,
+  type IFlakyManager,
+  type IResultEnrichers,
+  type IAnnotationManager,
+  type ITagManager,
+  type IArtifactManager,
+  type IVisualTestingManager,
+} from '@yuantest/contracts';
 import { PlaywrightRunnerError } from '@yuantest/contracts';
 import * as path from 'path';
 import dayjs from 'dayjs';
 import { TraceManager } from '../trace';
-import { AnnotationManager } from '../annotations';
-import { TagManager } from '../tags';
-import { ArtifactManager } from '../artifacts';
-import { VisualTestingManager } from '../visual';
-import { FlakyTestManager } from '../flaky';
 import { logger } from '@yuantest/core';
 import { StorageProvider, getStorage } from '@yuantest/core';
 import { PlaywrightConfigMerger } from '@yuantest/core';
@@ -26,11 +33,12 @@ export class Executor extends EventEmitter {
   private isRunning: boolean = false;
   private currentProcess: ChildProcess | null = null;
   private traceManager: TraceManager | null = null;
-  private annotationManager: AnnotationManager | null = null;
-  private tagManager: TagManager | null = null;
-  private artifactManager: ArtifactManager | null = null;
-  private visualManager: VisualTestingManager | null = null;
-  private flakyManager: FlakyTestManager | null = null;
+  private annotationManager: IAnnotationManager | null = null;
+  private tagManager: ITagManager | null = null;
+  private artifactManager: IArtifactManager | null = null;
+  private visualManager: IVisualTestingManager | null = null;
+  private flakyManager: IFlakyManager | null = null;
+  private enrichers: IResultEnrichers | null = null;
   private log = logger.child('Executor');
   private lastExecuteOptions: {
     testFiles?: string[];
@@ -135,7 +143,12 @@ export class Executor extends EventEmitter {
     return filteredOptions;
   }
 
-  constructor(config: TestConfig, storage?: StorageProvider, flakyManager?: FlakyTestManager) {
+  constructor(
+    config: TestConfig,
+    storage?: StorageProvider,
+    flakyManager?: IFlakyManager,
+    enrichers?: IResultEnrichers
+  ) {
     super();
     this.config = {
       retries: 0,
@@ -148,6 +161,7 @@ export class Executor extends EventEmitter {
     };
     this.storage = storage || getStorage();
     this.flakyManager = flakyManager || null;
+    this.enrichers = enrichers || null;
     this.configMerger = new PlaywrightConfigMerger(this.storage);
     this.progressTracker = new ProgressTracker(this.storage);
     this.forwardProgressTrackerEvents();
@@ -167,6 +181,7 @@ export class Executor extends EventEmitter {
   }
 
   private initializeManagers(): void {
+    // TraceManager 属执行器域，包内直接创建；其余结果管理器由 apps 层经 IResultEnrichers 注入
     if (this.config.traces?.enabled) {
       this.traceManager = new TraceManager(
         this.config.traces,
@@ -175,28 +190,20 @@ export class Executor extends EventEmitter {
       );
     }
 
-    if (this.config.annotations?.enabled) {
-      this.annotationManager = new AnnotationManager(this.config.annotations, this.storage);
+    if (this.config.annotations?.enabled && this.enrichers?.annotations) {
+      this.annotationManager = this.enrichers.annotations;
     }
 
-    if (this.config.tags?.enabled) {
-      this.tagManager = new TagManager(this.config.tags, this.storage);
+    if (this.config.tags?.enabled && this.enrichers?.tags) {
+      this.tagManager = this.enrichers.tags;
     }
 
-    if (this.config.artifacts?.enabled) {
-      this.artifactManager = new ArtifactManager(
-        this.config.artifacts,
-        path.join(this.config.outputDir, 'test-results'),
-        this.storage
-      );
+    if (this.config.artifacts?.enabled && this.enrichers?.artifacts) {
+      this.artifactManager = this.enrichers.artifacts;
     }
 
-    if (this.config.visualTesting?.enabled) {
-      this.visualManager = new VisualTestingManager(
-        this.config.visualTesting,
-        path.join(this.config.outputDir, 'visual-testing'),
-        this.storage
-      );
+    if (this.config.visualTesting?.enabled && this.enrichers?.visual) {
+      this.visualManager = this.enrichers.visual;
     }
   }
 
@@ -1496,19 +1503,19 @@ module.exports = defineConfig({
     return this.traceManager;
   }
 
-  getAnnotationManager(): AnnotationManager | null {
+  getAnnotationManager(): IAnnotationManager | null {
     return this.annotationManager;
   }
 
-  getTagManager(): TagManager | null {
+  getTagManager(): ITagManager | null {
     return this.tagManager;
   }
 
-  getArtifactManager(): ArtifactManager | null {
+  getArtifactManager(): IArtifactManager | null {
     return this.artifactManager;
   }
 
-  getVisualManager(): VisualTestingManager | null {
+  getVisualManager(): IVisualTestingManager | null {
     return this.visualManager;
   }
 }

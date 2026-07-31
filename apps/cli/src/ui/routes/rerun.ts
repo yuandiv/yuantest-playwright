@@ -3,7 +3,7 @@ import type { RouterDeps } from './types';
 import { asyncHandler } from '@yuantest/core';
 import { HTTP_STATUS } from '@yuantest/core';
 import { loadConfigFile, mergeConfig } from '@yuantest/core';
-import { Executor } from '../../executor';
+import { Executor } from '@yuantest/executor';
 import { logger } from '@yuantest/core';
 import type { TestConfig, RunResult, TestResult } from '@yuantest/contracts';
 

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { Executor } from '../../src/executor';
+import { Executor } from '@yuantest/executor';
 import { MemoryStorage } from '@yuantest/core';
 
 const PROGRESS_MARKER = '__PW_PROGRESS__';

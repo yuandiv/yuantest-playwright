@@ -3,7 +3,7 @@
  * 测试大规模测试文件发现、报告生成和 WebSocket 消息吞吐量
  */
 
-import { Orchestrator } from '../../src/orchestrator';
+import { Orchestrator } from '@yuantest/executor';
 import { Reporter } from '../../src/reporter';
 import { RealtimeReporter } from '../../src/realtime';
 import { MemoryStorage } from '@yuantest/core';

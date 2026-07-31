@@ -1,10 +1,10 @@
 import type { ServiceContainer } from '@yuantest/core';
 import { MutableRef, TOKENS } from '@yuantest/core';
 import type { RouterDeps } from '../ui/routes/types';
-import type { Executor } from '../executor';
+import type { Executor } from '@yuantest/executor';
 import type { Reporter } from '../reporter';
 import type { FlakyTestManager } from '../flaky';
-import type { TraceManager } from '../trace';
+import type { TraceManager } from '@yuantest/executor';
 import type { ArtifactManager } from '../artifacts';
 import type { VisualTestingManager } from '../visual';
 import type { TestResult } from '@yuantest/contracts';

@@ -78,6 +78,7 @@
   "dependencies": {
     "@yuantest/contracts": "workspace:*",
     "@yuantest/core": "workspace:*",
+    "@yuantest/executor": "workspace:*",
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@playwright/mcp": "^0.0.75",

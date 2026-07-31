@@ -1,8 +1,13 @@
 import { vi } from 'vitest';
-import { Executor, ParallelExecutor } from '../../src/executor';
-import { PlaywrightReportParser } from '../../src/executor/playwright-report-parser';
+import { Executor, ParallelExecutor } from '@yuantest/executor';
+import { PlaywrightReportParser } from '@yuantest/executor';
 import { MemoryStorage } from '@yuantest/core';
 import { FlakyTestManager } from '../../src/flaky';
+import { AnnotationManager } from '../../src/annotations';
+import { TagManager } from '../../src/tags';
+import { ArtifactManager } from '../../src/artifacts';
+import { VisualTestingManager } from '../../src/visual';
+import type { IResultEnrichers } from '@yuantest/contracts';
 
 vi.mock('@yuantest/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@yuantest/core')>();
@@ -137,7 +142,9 @@ describe('Executor', () => {
           customAnnotations: {},
         },
       };
-      const executor = new Executor(configWithAnnotations, storage);
+      const executor = new Executor(configWithAnnotations, storage, undefined, {
+        annotations: new AnnotationManager(configWithAnnotations.annotations, storage),
+      } satisfies IResultEnrichers);
       expect(executor.getAnnotationManager()).not.toBeNull();
     });
 
@@ -148,7 +155,9 @@ describe('Executor', () => {
           enabled: true,
         },
       };
-      const executor = new Executor(configWithTags, storage);
+      const executor = new Executor(configWithTags, storage, undefined, {
+        tags: new TagManager(configWithTags.tags, storage),
+      } satisfies IResultEnrichers);
       expect(executor.getTagManager()).not.toBeNull();
     });
 
@@ -161,7 +170,13 @@ describe('Executor', () => {
           videos: 'retain-on-failure' as const,
         },
       };
-      const executor = new Executor(configWithArtifacts, storage);
+      const executor = new Executor(configWithArtifacts, storage, undefined, {
+        artifacts: new ArtifactManager(
+          configWithArtifacts.artifacts,
+          `${configWithArtifacts.outputDir}/test-results`,
+          storage
+        ),
+      } satisfies IResultEnrichers);
       expect(executor.getArtifactManager()).not.toBeNull();
     });
 
@@ -176,7 +191,13 @@ describe('Executor', () => {
           updateSnapshots: false,
         },
       };
-      const executor = new Executor(configWithVisual, storage);
+      const executor = new Executor(configWithVisual, storage, undefined, {
+        visual: new VisualTestingManager(
+          configWithVisual.visualTesting,
+          `${configWithVisual.outputDir}/visual-testing`,
+          storage
+        ),
+      } satisfies IResultEnrichers);
       expect(executor.getVisualManager()).not.toBeNull();
     });
   });

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { TestDiscovery } from '../../src/discovery';
+import { TestDiscovery } from '@yuantest/executor';
 import { MemoryStorage } from '@yuantest/core';
 import { CACHE_CONFIG } from '@yuantest/core';
 

@@ -1,9 +1,9 @@
-export { Orchestrator, ShardOptimizer } from './orchestrator';
-export { Executor, ParallelExecutor } from './executor';
-export { PlaywrightReportParser } from './executor/playwright-report-parser';
-export type { PlaywrightJSONReport, ParsedReport } from './executor/playwright-report-parser';
-export { ProgressTracker } from './executor/progress-tracker';
-export type { ProgressMessage } from './executor/progress-tracker';
+export { Orchestrator, ShardOptimizer } from '@yuantest/executor';
+export { Executor, ParallelExecutor } from '@yuantest/executor';
+export { PlaywrightReportParser } from '@yuantest/executor';
+export type { PlaywrightJSONReport, ParsedReport } from '@yuantest/executor';
+export { ProgressTracker } from '@yuantest/executor';
+export type { ProgressMessage } from '@yuantest/executor';
 export { Reporter, JSONReporter } from './reporter';
 export { RealtimeReporter, RealtimeReporterClient } from './realtime';
 export { FlakyTestManager } from './flaky';
@@ -35,7 +35,7 @@ export type {
   MergedPlaywrightConfig,
   ConfigValidationResult,
 } from '@yuantest/core';
-export { TraceManager } from './trace';
+export { TraceManager } from '@yuantest/executor';
 export { AnnotationManager } from './annotations';
 export { TagManager } from './tags';
 export { ArtifactManager } from './artifacts';
@@ -50,8 +50,8 @@ export {
 } from '@yuantest/core';
 export { BaseManager, ManagedManager, Initializable } from '@yuantest/core';
 export { LRUCache, TTLCache, createCache } from '@yuantest/core';
-export { TestDiscovery } from './discovery';
-export type { PaginatedTestDiscoveryResult } from './discovery';
+export { TestDiscovery } from '@yuantest/executor';
+export type { PaginatedTestDiscoveryResult } from '@yuantest/executor';
 export {
   asyncHandler,
   validateBody,

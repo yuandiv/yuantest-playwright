@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { ServiceContainer, MutableRef, TOKENS } from '@yuantest/core';
 import { getStorage, type StorageProvider } from '@yuantest/core';
-import { TestDiscovery } from '../discovery';
+import { TestDiscovery } from '@yuantest/executor';
 import { PlaywrightConfigMerger } from '@yuantest/core';
 import { loadLLMConfig } from '@yuantest/core';
 import { LRUCache } from '@yuantest/core';
@@ -14,7 +14,7 @@ import { DiagnosisAgent } from '../ai/agents/diagnosis';
 import { FlakyTestManager } from '../flaky';
 import { Reporter } from '../reporter';
 import { RealtimeReporter } from '../realtime';
-import { TraceManager } from '../trace';
+import { TraceManager } from '@yuantest/executor';
 import { ArtifactManager } from '../artifacts';
 import { AnnotationManager } from '../annotations';
 import { TagManager } from '../tags';

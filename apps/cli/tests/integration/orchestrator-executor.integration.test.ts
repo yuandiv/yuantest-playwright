@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
-import { Orchestrator } from '../../src/orchestrator';
-import { Executor } from '../../src/executor';
+import { Orchestrator } from '@yuantest/executor';
+import { Executor } from '@yuantest/executor';
 import { MemoryStorage } from '@yuantest/core';
 import { RunResult, BrowserType } from '@yuantest/contracts';
 import * as fs from 'fs';

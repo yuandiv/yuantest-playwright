@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction, Router } from 'expre
 import cors from 'cors';
 import { createServer } from 'http';
 import { getCustomPatterns, loadPatternsFromConfig } from '../diagnosis/knowledge-base';
-import { Executor } from '../executor';
+import { Executor } from '@yuantest/executor';
 import { RunResult, TestResult } from '@yuantest/contracts';
 import { loadConfigFile } from '@yuantest/core';
 import { logger } from '@yuantest/core';
@@ -40,14 +40,14 @@ import { buildRouterDeps } from '../container/router-deps-builder';
 import { RealtimeReporter } from '../realtime';
 import { Reporter } from '../reporter';
 import { FlakyTestManager } from '../flaky';
-import { TraceManager } from '../trace';
+import { TraceManager } from '@yuantest/executor';
 import { ArtifactManager } from '../artifacts';
 import { VisualTestingManager } from '../visual';
 import { DiagnosisAgent } from '../ai/agents/diagnosis';
 import { UnifiedAIService } from '../ai/ai-service';
 import { MCPConfigService } from '../ai/mcp/config-service';
 import { createLLMConfigRouter } from './routes/llm';
-import { TestDiscovery } from '../discovery';
+import { TestDiscovery } from '@yuantest/executor';
 import { LRUCache } from '@yuantest/core';
 import { loadUserPreferences, saveUserPreferences } from '@yuantest/core';
 

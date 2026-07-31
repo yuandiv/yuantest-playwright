@@ -8,11 +8,15 @@
  */
 import type {
   AIDiagnosis,
+  Annotation,
+  Artifact,
   FlakyTest,
   RootCauseAnalysis,
   RunResult,
+  TagInfo,
   TestConfig,
   TestResult,
+  VisualTestResult,
 } from './index';
 
 /** Executor.execute 的选项（与 apps/cli/src/executor 对齐） */
@@ -76,9 +80,50 @@ export interface IFailureDiagnoser {
 
 /**
  * IResultEnrichers — 执行结果管理（artifacts / annotations / tags / visual）
- * 实现：@yuantest/reporter；消费：@yuantest/executor（经注入，P3 对齐）
+ * 实现：@yuantest/reporter 的结果管理器；消费：@yuantest/executor（经 apps 层注入）
+ * executor 不直接 new 这些管理器，由 apps 组合根按配置创建后传入。
  */
+export interface IAnnotationManager {
+  scanDirectory(testDir: string): Promise<Annotation[]>;
+  getSummary(): {
+    total: number;
+    byType: Record<string, number>;
+    byFile: Record<string, number>;
+  };
+}
+
+export interface ITagManager {
+  scanDirectory(testDir: string): Promise<TagInfo[]>;
+  getSummary(): {
+    totalTags: number;
+    totalTaggedTests: number;
+    tags: { name: string; count: number }[];
+  };
+  buildGrepPattern(include?: string[], exclude?: string[]): string;
+}
+
+export interface IArtifactManager {
+  initialize(): Promise<void>;
+  discoverArtifacts(runId?: string): Promise<Artifact[]>;
+}
+
+export interface IVisualTestingManager {
+  initialize(): Promise<void>;
+  runVisualTests(testIds: string[]): Promise<VisualTestResult[]>;
+  getSummary(): {
+    total: number;
+    identical: number;
+    different: number;
+    new: number;
+    missing: number;
+    regression: number;
+    passRate: number;
+  };
+}
+
 export interface IResultEnrichers {
-  /** 按配置驱动的 enrichment 生命周期，具体方法在 P3 抽取 executor 时对齐 */
-  readonly enabled: boolean;
+  annotations?: IAnnotationManager;
+  tags?: ITagManager;
+  artifacts?: IArtifactManager;
+  visual?: IVisualTestingManager;
 }

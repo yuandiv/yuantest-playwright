@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import * as path from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { TraceManager } from '../../trace';
+import { TraceManager } from '@yuantest/executor';
 import { AnnotationManager } from '../../annotations';
 import { TagManager } from '../../tags';
 import { ArtifactManager } from '../../artifacts';

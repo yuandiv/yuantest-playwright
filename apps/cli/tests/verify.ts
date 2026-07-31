@@ -1,4 +1,4 @@
-import { Orchestrator, ShardOptimizer } from '../src/orchestrator';
+import { Orchestrator, ShardOptimizer } from '@yuantest/executor';
 import { Reporter } from '../src/reporter';
 import { FlakyTestManager } from '../src/flaky';
 import { RealtimeReporter } from '../src/realtime';

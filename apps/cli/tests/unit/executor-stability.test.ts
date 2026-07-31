@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { Executor, ParallelExecutor } from '../../src/executor';
+import { Executor, ParallelExecutor } from '@yuantest/executor';
 import { PlaywrightRunnerError, ErrorCode } from '@yuantest/contracts';
 import { MemoryStorage } from '@yuantest/core';
 import { checkEnvironment } from '@yuantest/core';
