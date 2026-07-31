@@ -5,6 +5,12 @@ coverage/
 site/
 logs/
 
+# Turborepo
+.turbo/
+
+# pnpm
+pnpm-debug.log*
+
 
 test-data/
 test-output/
