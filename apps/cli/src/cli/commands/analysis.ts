@@ -58,7 +58,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
 
         if (options.ai) {
           try {
-            const { DiagnosisAgent } = await import('../../ai/agents/diagnosis');
+            const { DiagnosisAgent } = await import('@yuantest/ai');
             const { loadLLMConfig } = await import('@yuantest/core');
             const config = loadLLMConfig() || {
               enabled: false,
@@ -347,7 +347,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
         if (options.test) {
           const spinner = ora('Testing LLM connection...').start();
           const { loadLLMConfig } = await import('@yuantest/core');
-          const { LLMService } = await import('../../ai/agents/llm-service');
+          const { LLMService } = await import('@yuantest/ai');
           const config = (loadLLMConfig() || {
             enabled: false,
             apiKey: '',
@@ -369,7 +369,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
 
         if (options.status) {
           const { loadLLMConfig } = await import('@yuantest/core');
-          const { LLMService } = await import('../../ai/agents/llm-service');
+          const { LLMService } = await import('@yuantest/ai');
           const config = (loadLLMConfig() || {
             enabled: false,
             apiKey: '',

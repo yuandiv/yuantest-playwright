@@ -1,16 +1,16 @@
 import * as path from 'path';
 import { ServiceContainer, MutableRef, TOKENS } from '@yuantest/core';
 import { getStorage, type StorageProvider } from '@yuantest/core';
-import { TestDiscovery } from '@yuantest/executor';
+import { TestDiscovery, Executor } from '@yuantest/executor';
 import { PlaywrightConfigMerger } from '@yuantest/core';
 import { loadLLMConfig } from '@yuantest/core';
 import { LRUCache } from '@yuantest/core';
-import { ToolRegistry } from '../ai/agents/tool-registry';
-import { LLMService } from '../ai/agents/llm-service';
-import { UnifiedAIService } from '../ai/ai-service';
-import { MCPConfigService } from '../ai/mcp/config-service';
-import { MCPClientManager } from '../ai/mcp/client-manager';
-import { DiagnosisAgent } from '../ai/agents/diagnosis';
+import { ToolRegistry } from '@yuantest/ai';
+import { LLMService } from '@yuantest/ai';
+import { UnifiedAIService } from '@yuantest/ai';
+import { MCPConfigService } from '@yuantest/ai';
+import { MCPClientManager } from '@yuantest/ai';
+import { DiagnosisAgent } from '@yuantest/ai';
 import { FlakyTestManager } from '@yuantest/flaky';
 import { Reporter } from '@yuantest/reporter';
 import { RealtimeReporter } from '@yuantest/reporter';
@@ -19,7 +19,13 @@ import { ArtifactManager } from '@yuantest/reporter';
 import { AnnotationManager } from '@yuantest/reporter';
 import { TagManager } from '@yuantest/reporter';
 import { VisualTestingManager } from '@yuantest/reporter';
-import type { LLMConfig } from '@yuantest/contracts';
+import type {
+  LLMConfig,
+  ITestExecutor,
+  IResultEnrichers,
+  TestConfig,
+  RunResult,
+} from '@yuantest/contracts';
 
 export interface ContainerOptions {
   port: number;
@@ -95,6 +101,29 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
       const toolRegistry = c.resolve<ToolRegistry>(TOKENS.ToolRegistry);
       const mcpConfigService = c.resolve<MCPConfigService>(TOKENS.MCPConfigService);
       const mcpClientManager = c.resolve<MCPClientManager>(TOKENS.MCPClientManager);
+      const storage = c.resolve<StorageProvider>(TOKENS.StorageProvider);
+      const flakyManager = c.resolve<FlakyTestManager>(TOKENS.FlakyTestManager);
+      const outputDir = c.resolve<MutableRef<string>>(TOKENS.OutputDir);
+      const enrichers: IResultEnrichers = {
+        annotations: c.resolve<AnnotationManager>(TOKENS.AnnotationManager),
+        tags: c.resolve<TagManager>(TOKENS.TagManager),
+        artifacts: c.resolve<ArtifactManager>(TOKENS.ArtifactManager),
+        visual: c.resolve<VisualTestingManager>(TOKENS.VisualTestingManager),
+      };
+      // 组合根：将真实 Executor 包装为 ITestExecutor 供 AI 层注入
+      const executor: ITestExecutor = {
+        execute: async (config: TestConfig, options) => {
+          const runner = new Executor(config, storage, flakyManager, enrichers);
+          if (options?.onProgress) {
+            runner.on('run_progress', options.onProgress as (p: unknown) => void);
+          }
+          if (options?.onTestResult) {
+            runner.on('test_result', options.onTestResult as (r: unknown) => void);
+          }
+          const result: RunResult = await runner.execute();
+          return result;
+        },
+      };
       return new UnifiedAIService(
         dataDir.current,
         process.cwd(),
@@ -102,7 +131,10 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
         llmConfig,
         llmService ?? undefined,
         mcpConfigService,
-        mcpClientManager
+        mcpClientManager,
+        undefined,
+        undefined,
+        executor
       );
     },
     'singleton'

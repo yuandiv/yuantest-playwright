@@ -11,6 +11,7 @@ export default defineConfig({
       '@yuantest/reporter': path.resolve(__dirname, '../../packages/reporter/src/index.ts'),
       '@yuantest/diagnosis': path.resolve(__dirname, '../../packages/diagnosis/src/index.ts'),
       '@yuantest/flaky': path.resolve(__dirname, '../../packages/flaky/src/index.ts'),
+      '@yuantest/ai': path.resolve(__dirname, '../../packages/ai/src/index.ts'),
     },
   },
   test: {

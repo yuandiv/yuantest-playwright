@@ -11,8 +11,8 @@
  */
 import { vi } from 'vitest';
 import { EventEmitter } from 'events';
-import { LLMService } from '../../src/ai/agents/llm-service';
-import { AGENT_EVENT } from '../../src/ai/agents/agent-events';
+import { LLMService } from '@yuantest/ai';
+import { AGENT_EVENT } from '@yuantest/ai';
 import type {
   AgentStart,
   AgentToken,
@@ -22,8 +22,8 @@ import type {
   AgentMessage,
   AgentError,
   AgentDone,
-} from '../../src/ai/agents/agent-events';
-import { BaseAgent } from '../../src/ai/agents/base-agent';
+} from '@yuantest/ai';
+import { BaseAgent } from '@yuantest/ai';
 import { AgentConfig, LLMConfig, ToolSchema } from '@yuantest/contracts';
 
 vi.mock('@yuantest/core', async (importOriginal) => {

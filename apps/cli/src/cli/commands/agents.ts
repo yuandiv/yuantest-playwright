@@ -32,7 +32,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
     .action(async (options) => {
       const spinner = ora('Initializing agent definitions...').start();
       try {
-        const { AgentService } = await import('../../ai/agents');
+        const { AgentService } = await import('@yuantest/ai');
         const projectRoot = ctx.findProjectRoot(options.projectRoot);
         const agentService = new AgentService('./test-data', { projectRoot });
         const result = await agentService.initAgents(options.loop);
@@ -68,7 +68,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
     .action(async (description, options) => {
       const spinner = ora('Generating test plan...').start();
       try {
-        const { AgentService } = await import('../../ai/agents');
+        const { AgentService } = await import('@yuantest/ai');
         const { loadLLMConfig } = await import('@yuantest/core');
         const llmConfig = (loadLLMConfig() || {
           enabled: false,
@@ -142,7 +142,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
     .action(async (planPath, options) => {
       const spinner = ora('Generating test code...').start();
       try {
-        const { AgentService } = await import('../../ai/agents');
+        const { AgentService } = await import('@yuantest/ai');
         const { loadLLMConfig } = await import('@yuantest/core');
         const llmConfig = (loadLLMConfig() || {
           enabled: false,
@@ -198,7 +198,7 @@ export function registerAgentsCommands(program: Command, ctx: CliContext): void 
     .action(async (testFilePath, options) => {
       const spinner = ora('Healing test...').start();
       try {
-        const { AgentService } = await import('../../ai/agents');
+        const { AgentService } = await import('@yuantest/ai');
         const { loadLLMConfig } = await import('@yuantest/core');
         const llmConfig = (loadLLMConfig() || {
           enabled: false,

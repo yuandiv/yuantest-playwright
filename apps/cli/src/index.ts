@@ -12,12 +12,12 @@ export { TrendAnalyzer } from '@yuantest/flaky';
 export { FlakyPredictor } from '@yuantest/flaky';
 export { QuarantineStrategyManager } from '@yuantest/flaky';
 export { CausalGraphBuilder } from '@yuantest/flaky';
-export { AgentService } from './ai/agents';
-export { ChatService } from './ai/chat/chat-service';
-export { UnifiedAIService, SSEEvent } from './ai/ai-service';
-export { PlannerAgent } from './ai/agents/planner';
-export { GeneratorAgent } from './ai/agents/generator';
-export { HealerAgent } from './ai/agents/healer';
+export { AgentService } from '@yuantest/ai';
+export { ChatService } from '@yuantest/ai';
+export { UnifiedAIService, SSEEvent } from '@yuantest/ai';
+export { PlannerAgent } from '@yuantest/ai';
+export { GeneratorAgent } from '@yuantest/ai';
+export { HealerAgent } from '@yuantest/ai';
 export { DashboardServer } from './ui/server';
 export {
   PlaywrightConfigBuilder,

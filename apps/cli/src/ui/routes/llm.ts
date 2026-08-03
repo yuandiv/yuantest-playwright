@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '@yuantest/core';
 import { loadLLMConfig, saveLLMConfig } from '@yuantest/core';
-import { LLMService } from '../../ai/agents/llm-service';
-import type { UnifiedAIService } from '../../ai/ai-service';
+import { LLMService } from '@yuantest/ai';
+import type { UnifiedAIService } from '@yuantest/ai';
 import type { LLMConfig } from '@yuantest/contracts';
 
 export function createLLMConfigRouter(aiService: UnifiedAIService): Router {

@@ -4,6 +4,7 @@
 import type { LLMService } from '../../agents/llm-service';
 import type { ToolRegistry } from '../../agents/tool-registry';
 import type { DiagnosisAgent } from '../../agents/diagnosis';
+import type { ITestExecutor } from '@yuantest/contracts';
 
 export interface AgentToolContext {
   dataDir: string;
@@ -12,6 +13,8 @@ export interface AgentToolContext {
   toolRegistry: ToolRegistry;
   /** 共享的诊断 Agent 实例（避免每次调用新建 DiagnosisAgent/Service） */
   diagnosisAgent: DiagnosisAgent | null;
+  /** 执行器能力（经注入，agent_execute 工具不直接 new Executor；未配置时为 null） */
+  executor: ITestExecutor | null;
   /** agent_generate 触发后需设为 true，以便后续保存代码 */
   setGenerateTriggered: (v: boolean) => void;
   /** agent_heal 直接委托 */

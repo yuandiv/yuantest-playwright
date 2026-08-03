@@ -1,10 +1,10 @@
-import type { UnifiedAIService } from '../../ai/ai-service';
+import type { UnifiedAIService } from '@yuantest/ai';
 import type { Router } from 'express';
 import type { Executor } from '@yuantest/executor';
 import type { Reporter } from '@yuantest/reporter';
 import type { RealtimeReporter } from '@yuantest/reporter';
 import type { FlakyTestManager } from '@yuantest/flaky';
-import type { DiagnosisAgent } from '../../ai/agents/diagnosis';
+import type { DiagnosisAgent } from '@yuantest/ai';
 import type { TestDiscovery } from '@yuantest/executor';
 import type { LRUCache } from '@yuantest/core';
 import type { StorageProvider } from '@yuantest/core';

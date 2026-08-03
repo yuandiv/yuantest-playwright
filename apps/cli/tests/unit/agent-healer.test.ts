@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { HealerAgent } from '../../src/ai/agents/healer';
+import { HealerAgent } from '@yuantest/ai';
 import { AgentConfig, LLMConfig, HealerPatch, AgentHealResult } from '@yuantest/contracts';
 import * as fs from 'fs';
 import * as path from 'path';

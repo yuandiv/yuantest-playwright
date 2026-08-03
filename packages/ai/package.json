@@ -1,0 +1,23 @@
+{
+  "name": "@yuantest/ai",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LLM capability layer: agents, chat, mcp, tools, ai-service",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@yuantest/contracts": "workspace:*",
+    "@yuantest/core": "workspace:*",
+    "@yuantest/diagnosis": "workspace:*",
+    "@yuantest/executor": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.9.3"
+  }
+}

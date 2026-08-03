@@ -4,7 +4,6 @@
 import * as path from 'path';
 import { defineTool } from '../types';
 import type { AgentToolContext } from './types';
-import { Executor } from '@yuantest/executor';
 import type { TestConfig } from '@yuantest/contracts';
 
 export function createAgentExecuteTool(ctx: AgentToolContext) {
@@ -41,21 +40,22 @@ export function createAgentExecuteTool(ctx: AgentToolContext) {
         browsers: ['chromium'],
       };
 
-      const executor = new Executor(config);
       const progressMessages: string[] = [];
 
-      executor.on('run_progress', (progress: { passed: number; totalTests: number }) => {
-        const msg = `⏳ 进度: ${progress.passed}/${progress.totalTests} 通过`;
-        progressMessages.push(msg);
-      });
-
-      executor.on('test_result', (result: { status: string; title: string; duration: number }) => {
-        const icon = result.status === 'passed' ? '✅' : result.status === 'failed' ? '❌' : '⏭️';
-        progressMessages.push(`${icon} [${result.status}] ${result.title} (${result.duration}ms)`);
-      });
-
       try {
-        const runResult = await executor.execute();
+        if (!ctx.executor) {
+          return '❌ 执行器未配置（agent_execute 不可用）：请检查 yuantest 配置是否正确注入执行能力。';
+        }
+        const runResult = await ctx.executor.execute(config, {
+          onProgress: (progress: { passed: number; totalTests: number }) => {
+            const msg = `⏳ 进度: ${progress.passed}/${progress.totalTests} 通过`;
+            progressMessages.push(msg);
+          },
+          onTestResult: (result: { status: string; title: string; duration: number }) => {
+            const icon = result.status === 'passed' ? '✅' : result.status === 'failed' ? '❌' : '⏭️';
+            progressMessages.push(`${icon} [${result.status}] ${result.title} (${result.duration}ms)`);
+          },
+        });
         const recentProgress = progressMessages.slice(-5);
 
         const summary = [

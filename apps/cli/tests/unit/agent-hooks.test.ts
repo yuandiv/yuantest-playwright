@@ -10,16 +10,16 @@
  * 6. withContext 设置 runId/testId 供钩子读取，restore 后恢复
  */
 import { vi } from 'vitest';
-import { BaseAgent } from '../../src/ai/agents/base-agent';
+import { BaseAgent } from '@yuantest/ai';
 import {
   AgentHooks,
   AgentContext,
   AgentMessageEvent,
   AgentPersistEvent,
   AgentErrorEvent,
-} from '../../src/ai/agents/agent-hooks';
-import { DiagnosisCacheHook } from '../../src/ai/agents/diagnosis-cache-hook';
-import { DiagnosisPersisterHook } from '../../src/ai/agents/diagnosis-persister-hook';
+} from '@yuantest/ai';
+import { DiagnosisCacheHook } from '@yuantest/ai';
+import { DiagnosisPersisterHook } from '@yuantest/ai';
 import { DiagnosisCache } from '@yuantest/diagnosis';
 import { DiagnosisPersister } from '@yuantest/diagnosis';
 import { AgentConfig, LLMConfig, AIDiagnosis } from '@yuantest/contracts';

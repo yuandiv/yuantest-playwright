@@ -44,12 +44,22 @@ export interface DiagnoseInput {
   browser?: string;
 }
 
+/** 测试执行进度回调（供 agent_execute 工具观测执行过程） */
+export interface TestExecutionCallbacks {
+  onProgress?: (progress: { passed: number; totalTests: number }) => void;
+  onTestResult?: (result: { status: string; title: string; duration: number }) => void;
+}
+
 /**
  * ITestExecutor — 执行测试能力
- * 实现：@yuantest/executor 的 Executor；消费：@yuantest/ai（agent_execute 工具，经注入）
+ * 实现：@yuantest/executor 的 Executor（经 apps 层适配器包装）；
+ * 消费：@yuantest/ai（agent_execute 工具，经 AgentToolContext 注入）
  */
 export interface ITestExecutor {
-  execute(config: TestConfig, options?: ExecutorRunOptions): Promise<RunResult>;
+  execute(
+    config: TestConfig,
+    options?: ExecutorRunOptions & TestExecutionCallbacks
+  ): Promise<RunResult>;
 }
 
 /**

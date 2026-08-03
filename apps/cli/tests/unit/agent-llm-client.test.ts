@@ -1,6 +1,6 @@
 import type { MockInstance } from 'vitest';
 import { vi } from 'vitest';
-import { LLMService, LLMChatOptions } from '../../src/ai/agents/llm-service';
+import { LLMService, LLMChatOptions } from '@yuantest/ai';
 import { LLMConfig } from '@yuantest/contracts';
 
 const { logger } = await import('@yuantest/core');

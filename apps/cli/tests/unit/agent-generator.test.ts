@@ -2,10 +2,10 @@ import { vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { GeneratorAgent } from '../../src/ai/agents/generator';
-import { AgentOutputParser } from '../../src/ai/agents/output-parser';
+import { GeneratorAgent } from '@yuantest/ai';
+import { AgentOutputParser } from '@yuantest/ai';
 import { AgentConfig, LLMConfig } from '@yuantest/contracts';
-import { LLMService } from '../../src/ai/agents/llm-service';
+import { LLMService } from '@yuantest/ai';
 
 // Helper to cast private methods for testing
 // NOTE: extractTestName/generateSlug/extractCodeBlocks/cleanCode were moved from

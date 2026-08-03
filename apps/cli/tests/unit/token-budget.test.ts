@@ -7,8 +7,8 @@
  * 3. maxToolCalls=1 时首次工具调用后立即触发收尾
  */
 import { vi } from 'vitest';
-import { LLMService } from '../../src/ai/agents/llm-service';
-import { TokenBudget } from '../../src/ai/agents/token-budget';
+import { LLMService } from '@yuantest/ai';
+import { TokenBudget } from '@yuantest/ai';
 import { LLMConfig, ToolSchema } from '@yuantest/contracts';
 
 vi.mock('@yuantest/core', async (importOriginal) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { LLMService } from '../../src/ai/agents/llm-service';
+import { LLMService } from '@yuantest/ai';
 import { LLMConfig } from '@yuantest/contracts';
 
 // Mock logger

@@ -12,7 +12,7 @@ import {
   type Conversation,
   type ConversationSummary,
 } from './chat/conversation-store';
-import type { LLMConfig, AIDiagnosis } from '@yuantest/contracts';
+import type { LLMConfig, AIDiagnosis, ITestExecutor } from '@yuantest/contracts';
 import {
   AgentConfig,
   AgentInitResult,
@@ -70,6 +70,7 @@ export class UnifiedAIService {
   // ── 共享 ──────────────────────────────────────────────────────────────────
   private toolRegistry: ToolRegistry;
   private llmService: LLMService | null = null;
+  private executor: ITestExecutor | null = null;
   private dataDir: string;
   private projectRoot: string;
   private log = logger.child('UnifiedAIService');
@@ -91,11 +92,13 @@ export class UnifiedAIService {
     mcpConfigService?: MCPConfigService,
     sharedMCPClientManager?: MCPClientManager,
     agentConfig?: Partial<AgentConfig>,
-    sharedToolRegistry?: ToolRegistry
+    sharedToolRegistry?: ToolRegistry,
+    executor?: ITestExecutor
   ) {
     this.dataDir = dataDir;
     this.projectRoot = projectRoot;
     this.toolRegistry = sharedToolRegistry || toolRegistry;
+    this.executor = executor ?? null;
 
     // 初始化 Chat 子模块
     this.store = new ConversationStore(dataDir);
@@ -139,6 +142,7 @@ export class UnifiedAIService {
       llmService: this.llmService,
       toolRegistry: this.toolRegistry,
       diagnosisAgent,
+      executor: this.executor,
       setGenerateTriggered: (v) => {
         this._agentGenerateTriggered = v;
       },
