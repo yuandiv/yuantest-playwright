@@ -13,8 +13,7 @@
   "dependencies": {
     "@yuantest/contracts": "workspace:*",
     "@yuantest/core": "workspace:*",
-    "@yuantest/diagnosis": "workspace:*",
-    "@yuantest/executor": "workspace:*"
+    "@yuantest/diagnosis": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

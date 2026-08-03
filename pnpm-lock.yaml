@@ -229,9 +229,6 @@ importers:
       '@yuantest/diagnosis':
         specifier: workspace:*
         version: link:../diagnosis
-      '@yuantest/executor':
-        specifier: workspace:*
-        version: link:../executor
     devDependencies:
       '@types/node':
         specifier: ^20.10.0

@@ -1,8 +1,8 @@
 # 目标架构设计（V3）— Monorepo + Turborepo 改造
 
-> 状态：**已定稿**（2026-07-31）
+> 状态：**已实施完成**（P1–P6 已合入，2026-08-03）
 > 目标：将 yuantest-playwright 从单包单体重构为 pnpm + Turborepo 的 Monorepo，将**执行器 / 报告器 / AI 能力**分离并解耦。
-> 本文件为实施基线，迁移过程严格按文末路线图执行。
+> 本文档为实施基线，§8 路线图各阶段均已落地；实施过程中的拓扑调整（P5a 提前至 P4）已在下文注明。
 
 ---
 
@@ -138,6 +138,19 @@ diagnosis / flaky ──► core（含容器内核）；core ──► contracts
 | container 归属 | `service-container/mutable-ref/tokens` 零外部依赖；`registrations/router-deps-builder` import 全部业务包 | 容器内核归 core；组合根归 apps |
 | 其余模块 | realtime→core、base→core、trace→core、discovery→core、logger→core | 边界全部成立 |
 
+**实施后对照（P1–P6 落地验证）**：
+
+| 设计结论 | 实施状态 |
+|---|---|
+| storage 在 core | ✅ 已落实 |
+| executor 结果管理器接口化 | ✅ P3 已落实（`IResultEnrichers` 四接口注入） |
+| reporter 仅 type-only 依赖 ai/flaky | ✅ P4 已落实（`IFailureDiagnoser`/`IFlakyManager`） |
+| ai 例外经 ITestExecutor 消除 | ✅ P5c 已落实（组合根包装适配器注入） |
+| analyzer 拆三包 | ✅ P5 已落实（diagnosis/flaky/ai 独立包） |
+| 容器内核归 core、组合根归 apps | ✅ P2 已落实 |
+| 包间依赖图无环 | ✅ 实测通过（contracts 零依赖，其余单向） |
+| 对外兼容（bin/main/types/files） | ✅ P7 复核通过（`yuantest` bin → `dist/cli/index.js`，公共 API 45 项重导出） |
+
 ---
 
 ## 6. Turborepo 要点
@@ -177,24 +190,29 @@ diagnosis / flaky ──► core（含容器内核）；core ──► contracts
 
 ## 8. 迁移路线图
 
-| 阶段 | 内容 | 验收 |
-|---|---|---|
-| P0 基线 | 锁定 `npm test` 全绿 | 现状可回退 |
-| P1 骨架 | pnpm workspaces + turbo.json + 根配置；旧单包不动 | `turbo build` 跑通 |
-| P2 contracts+core | types/validation/logger/config/utils/storage/constants 等平移为 workspace 包 | 旧代码改 import 后测试全绿 |
-| P3 executor | orchestrator/executor/discovery/trace + 结果管理器接口注入改造 | 同上 |
-| P4 reporter | reporter/realtime/报告读写/模板 + artifacts/annotations/tags/visual | 报告产物一致 |
-| P5a diagnosis | 纯规则诊断引擎独立成包 | 测试全绿 |
-| P5b flaky | 统计 flaky 引擎独立成包 | 同上 |
-| P5c ai | LLM 层独立成包 + `ITestExecutor` 接口注入改造 | LLM/降级两模式都过 |
-| P6 组装 | apps/cli + apps/dashboard 就位，删旧 src 兼容层，更新 CI（`turbo run …`） | 全量 e2e 通过 |
-| P7 收尾 | 测试归位、文档、发布流程 | 发布产物与 v1.2.4 等价 |
+> 实施状态：✅ = 已合入（提交哈希见 git log）。
+
+| 阶段 | 内容 | 验收 | 状态 |
+|---|---|---|---|
+| P0 基线 | 锁定 `npm test` 全绿 | 现状可回退 | ✅ |
+| P1 骨架 | pnpm workspaces + turbo.json + 根配置；旧单包平移至 apps/cli | `turbo build` 跑通 | ✅ |
+| P2 contracts+core | types/validation/logger/config/utils/storage/constants 等平移为 workspace 包 | 旧代码改 import 后测试全绿 | ✅ |
+| P3 executor | orchestrator/executor/discovery/trace + 结果管理器接口注入改造 | 同上 | ✅ |
+| P4 reporter | reporter/realtime/报告读写/模板 + artifacts/annotations/tags/visual | 报告产物一致 | ✅ |
+| P5a diagnosis | 纯规则诊断引擎独立成包 | 测试全绿 | ✅（**提前至 P4**，见下） |
+| P5b flaky | 统计 flaky 引擎独立成包 | 同上 | ✅ |
+| P5c ai | LLM 层独立成包 + `ITestExecutor` 接口注入改造 | LLM/降级两模式都过 | ✅ |
+| P6 组装 | apps/cli + apps/dashboard 就位，删旧 src 兼容层，更新 CI（`turbo run …`） | 全量 e2e 通过 | ✅ |
+| P7 收尾 | 测试归位、文档、发布流程 | 发布产物与 v1.2.4 等价 | 进行中 |
+
+**实施中的拓扑调整**：P4 阶段实测发现 reporter **运行时**依赖 diagnosis/categorizer（错误分类是报告核心功能），而 diagnosis 零业务依赖，故将 **P5a（diagnosis 抽包）提前至 P4** 一并完成——依赖顺序变为 diagnosis 先于 reporter，符合依赖拓扑。
 
 **主要风险与对策**：
-- 巨型 barrel `src/index.ts` → 各包 index 重导出 + apps/cli 提供兼容层
-- `container/registrations.ts` 跨包 import → 拆为各包 register 扩展，组合根归 apps
-- `tests/` 40+ 文件 → 随包归位，根 vitest workspace 统一调度
-- `.github/workflows/*.yml` → 改为 `turbo run build test lint typecheck`
+- 巨型 barrel `src/index.ts` → 各包 index 重导出 + apps/cli 提供兼容层 ✅
+- `container/registrations.ts` 跨包 import → 拆为各包 register 扩展，组合根归 apps ✅
+- `tests/` 40+ 文件 → 随包归位，根 vitest workspace 统一调度 ✅
+- `.github/workflows/*.yml` → 改为 `turbo run build test lint typecheck` ✅
+- **vitest 双重实例**（workspace 包解析到 dist 导致 instanceof 失效）→ `resolve.alias` 指向各包源码 ✅（实测：contracts/core/executor/reporter/diagnosis/flaky/ai 全量加入）
 
 ---
 

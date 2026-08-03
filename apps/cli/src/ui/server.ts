@@ -414,13 +414,7 @@ export class DashboardServer {
           prefs.customErrorPatterns as Array<{
             id: string;
             category:
-              | 'timeout'
-              | 'selector'
-              | 'assertion'
-              | 'network'
-              | 'frame'
-              | 'auth'
-              | 'unknown';
+              'timeout' | 'selector' | 'assertion' | 'network' | 'frame' | 'auth' | 'unknown';
             name: string;
             description: string;
             regex: string[];

@@ -67,7 +67,7 @@
     "bin",
     "LICENSE",
     "README.md",
-    "README.en.md",
+    "README.zh.md",
     "USAGE.md"
   ],
   "dependencies": {
