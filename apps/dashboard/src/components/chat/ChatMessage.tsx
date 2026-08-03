@@ -88,7 +88,8 @@ function MessageContent({ content }: { content: string }) {
           p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
           ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
-          li: ({ children, checked }) => {
+          li: ({ children, ...props }) => {
+            const checked = (props as { checked?: boolean }).checked;
             if (checked !== undefined && checked !== null) {
               return (
                 <li className="flex items-start gap-1.5 text-xs">

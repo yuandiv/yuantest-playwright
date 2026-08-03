@@ -658,7 +658,7 @@ export function FlakyTestsDialog({
                         </div>
                         <div className="rounded-lg p-3 text-center" style={{ backgroundColor: RISK_COLORS[selectedImpact.riskLevel] + '15' }}>
                           <div className="text-xs mb-1" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{t('riskLevel', lang)}</div>
-                          <div className="text-lg font-bold" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{selectedImpact.riskLevel === 'low' ? t('riskLow', lang) : selectedImpact.riskLevel === 'medium' ? t('riskMedium', lang) : selectedImpact.riskLevel === 'high' ? t('riskHigh', lang) : selectedImpact.riskLevel === 'critical' ? t('riskCritical', lang) : selectedImpact.riskLevel.toUpperCase()}</div>
+                          <div className="text-lg font-bold" style={{ color: RISK_COLORS[selectedImpact.riskLevel] }}>{selectedImpact.riskLevel === 'low' ? t('riskLow', lang) : selectedImpact.riskLevel === 'medium' ? t('riskMedium', lang) : selectedImpact.riskLevel === 'high' ? t('riskHigh', lang) : t('riskCritical', lang)}</div>
                         </div>
                       </div>
                       {selectedImpact.recommendation && (

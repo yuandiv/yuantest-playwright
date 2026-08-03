@@ -33,7 +33,7 @@ interface TreeNode {
 function buildTree(testCases: TestCase[]): TreeNode[] {
   const root: TreeNode = { name: '', fullPath: '', children: [], tests: [] };
   for (const tc of testCases) {
-    const parts = tc.path.split(/[/\\]/);
+    const parts = (tc.path || tc.file).split(/[/\\]/);
     let current = root;
     for (let i = 0; i < parts.length - 1; i++) {
       let child = current.children.find(c => c.name === parts[i]);
@@ -86,10 +86,11 @@ interface StatusCount {
   running: number;
   pending: number;
   idle: number;
+  skipped: number;
 }
 
 function countStatus(node: TreeNode): StatusCount {
-  const count: StatusCount = { passed: 0, failed: 0, running: 0, pending: 0, idle: 0 };
+  const count: StatusCount = { passed: 0, failed: 0, running: 0, pending: 0, idle: 0, skipped: 0 };
   function collect(n: TreeNode) {
     for (const t of n.tests) {
       const status = t.status || 'idle';
@@ -123,7 +124,7 @@ function TreeNodeView({ node, lang, selectedIds, expandedPaths, depth, onSelecte
     onExpandedPathsChange(next);
   };
 
-  const toggleSelect = (e: React.MouseEvent) => {
+  const toggleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     const next = new Set(selectedIds);
     const allIds = collectAllIds(node);

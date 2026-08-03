@@ -1,13 +1,12 @@
-/// <reference types="vitest" />
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import * as path from 'path';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  root: 'dashboard',
   build: {
-    outDir: '../dist/public',
+    outDir: path.resolve(__dirname, '../cli/dist/public'),
     emptyOutDir: false,
   },
   server: {

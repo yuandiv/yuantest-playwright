@@ -217,9 +217,9 @@ npm install --save-dev yuantest-playwright
 ```bash
 git clone https://github.com/yuandiv/yuantest-playwright.git
 cd yuantest-playwright
-npm install
-npm run build
-npm link
+pnpm install
+pnpm build
+pnpm --filter yuantest-playwright link
 ```
 
 ## 🚀 快速开始

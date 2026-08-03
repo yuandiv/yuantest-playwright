@@ -3,10 +3,11 @@ export interface TestCase {
   name: string;
   fullTitle: string;
   file: string;
+  path?: string;
   line: number;
   column: number;
   group?: string;
-  status?: 'idle' | 'pending' | 'running' | 'passed' | 'failed';
+  status?: 'idle' | 'pending' | 'running' | 'passed' | 'failed' | 'skipped';
   lastDuration: number | null;
   lastError: string | null;
 }
@@ -62,6 +63,8 @@ export interface RunDetail {
   manualReruns?: number;
   aiDiagnosis?: AIDiagnosis | null;
   screenshots?: string[];
+  videos?: string[];
+  traces?: string[];
   logs?: string[];
   browser?: string;
   stackTrace?: string;

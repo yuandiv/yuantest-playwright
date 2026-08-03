@@ -89,7 +89,7 @@ describe('BatchUpdater', () => {
       batchSize: 10,
       flushDelay: 1000,
       immediateTypes: ['urgent'],
-      getType: (item: { type: string }) => item.type,
+      getType: (item: { type: string; value?: number }) => item.type,
     });
     updater.add({ type: 'normal', value: 1 });
     expect(onFlush).not.toHaveBeenCalled();

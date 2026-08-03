@@ -272,7 +272,9 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 interface TabSelectorProps {
   lang: Lang;
   activeTab: string;
-  onTabChange: (tab: 'runStatus' | 'runDuration' | 'testSuiteSize' | 'testFlakiness') => void;
+  onTabChange: (
+    tab: 'runStatus' | 'runDuration' | 'testSuiteSize' | 'testFlakiness' | 'failureAnalysis'
+  ) => void;
 }
 
 /**

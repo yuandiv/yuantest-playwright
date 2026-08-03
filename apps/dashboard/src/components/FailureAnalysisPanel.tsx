@@ -291,7 +291,7 @@ function FailureAnalysisPanel({ lang, reports, onRefresh, onNavigateToFlakyTests
     try {
       const data = await api.getRunAnalysis(runId);
       if (data && Array.isArray(data) && data.length > 0) {
-        setRunAnalysis(data as FailureItem[]);
+        setRunAnalysis(data as unknown as FailureItem[]);
       } else {
         const fromReports = computeRunAnalysisFromReport(runId, reports);
         setRunAnalysis(fromReports);

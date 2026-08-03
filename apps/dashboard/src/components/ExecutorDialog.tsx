@@ -127,7 +127,7 @@ const TestItemView = memo(function TestItemView({ test, statusOverride, selected
   const isSelected = selectedIds.has(test.id);
   const currentStatus = statusOverride || test.status;
 
-  const toggleSelect = (e: React.MouseEvent) => {
+  const toggleSelect = (e: React.SyntheticEvent) => {
     e.stopPropagation();
     const next = new Set(selectedIds);
     if (isSelected) next.delete(test.id);
@@ -260,7 +260,7 @@ const DescribeView = memo(function DescribeView({ describe, depth, selectedIds, 
     onExpandedPathsChange(next);
   };
 
-  const toggleSelect = (e: React.MouseEvent) => {
+  const toggleSelect = (e: React.SyntheticEvent) => {
     e.stopPropagation();
     const next = new Set(selectedIds);
     const allIds = collectAllIdsInDescribe(describe);
@@ -444,7 +444,7 @@ const FileView = memo(function FileView({ file, selectedIds, expandedPaths, test
     onExpandedPathsChange(next);
   };
 
-  const toggleSelect = (e: React.MouseEvent) => {
+  const toggleSelect = (e: React.SyntheticEvent) => {
     e.stopPropagation();
     const next = new Set(selectedIds);
     const allIds = collectAllIdsInFile(file);

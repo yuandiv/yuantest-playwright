@@ -48,7 +48,7 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
         existing.totalTests += r.totalTests;
         existing.passed += r.passed;
         existing.failed += r.failed;
-        existing.duration += r.duration;
+        existing.duration += parseFloat(r.duration) || 0;
         existing.runs += 1;
         // 保留最新的时间戳用于排序
         if (new Date(r.timestamp).getTime() > new Date(existing.timestamp).getTime()) {
@@ -59,7 +59,7 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
           totalTests: r.totalTests,
           passed: r.passed,
           failed: r.failed,
-          duration: r.duration,
+          duration: parseFloat(r.duration) || 0,
           runs: 1,
           timestamp: r.timestamp,
         });
@@ -81,7 +81,7 @@ export function SidebarCards({ lang, reports, flakyTests, quarantinedTests, onRe
           total: data.totalTests,
           runs: data.runs,
           failed: data.failed,
-          duration: data.duration,
+          duration: String(data.duration),
         };
       });
   }, [reports, lang]);

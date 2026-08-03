@@ -5,6 +5,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "@yuantest/dashboard#build": {
+      "outputs": [],
+      "cache": false
+    },
     "typecheck": {
       "dependsOn": ["^build"]
     },

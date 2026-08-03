@@ -10,6 +10,7 @@ vi.mock('../../services/api', () => ({
 }));
 
 import { useTestTree } from '../../hooks/useTestTree';
+import type { RunReport } from '../../types';
 
 function generateMockFiles(fileCount: number, testsPerFile: number) {
   const files = [];
@@ -243,18 +244,18 @@ describe('useTestTree Stability Tests', () => {
         { id: 't1', name: 'test1', fullTitle: 'test1', file: 'tests/a.spec.ts', line: 1, column: 0, lastDuration: null, lastError: null },
       ];
 
-      const reports = [
+      const reports: RunReport[] = [
         {
           id: 1, timestamp: new Date().toISOString(), version: '1.0.0',
           totalTests: 1, passed: 1, failed: 0, duration: '1.00',
-          details: [{ id: 't1', name: 'test1', status: 'passed' as const, duration: '1.00', error: undefined }],
-          status: 'completed' as const,
+          details: [{ id: 't1', name: 'test1', status: 'passed', duration: '1.00', error: null }],
+          status: 'completed',
         },
         {
           id: 2, timestamp: new Date().toISOString(), version: '1.0.0',
           totalTests: 1, passed: 0, failed: 1, duration: '2.00',
-          details: [{ id: 't1', name: 'test1', status: 'failed' as const, duration: '2.00', error: 'error' }],
-          status: 'completed' as const,
+          details: [{ id: 't1', name: 'test1', status: 'failed', duration: '2.00', error: 'error' }],
+          status: 'completed',
         },
       ];
 
@@ -299,7 +300,7 @@ describe('useTestTree Stability Tests', () => {
 
       const updatedCases = result.current.testCases.map((tc, i) => ({
         ...tc,
-        status: i % 2 === 0 ? 'passed' : 'failed',
+        status: i % 2 === 0 ? ('passed' as const) : ('failed' as const),
         lastDuration: i * 10,
         lastError: i % 2 !== 0 ? `error-${i}` : null,
       }));
