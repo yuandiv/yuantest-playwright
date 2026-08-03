@@ -11,7 +11,7 @@ import { UnifiedAIService } from '../ai/ai-service';
 import { MCPConfigService } from '../ai/mcp/config-service';
 import { MCPClientManager } from '../ai/mcp/client-manager';
 import { DiagnosisAgent } from '../ai/agents/diagnosis';
-import { FlakyTestManager } from '../flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import { Reporter } from '@yuantest/reporter';
 import { RealtimeReporter } from '@yuantest/reporter';
 import { TraceManager } from '@yuantest/executor';

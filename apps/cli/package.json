@@ -81,6 +81,7 @@
     "@yuantest/executor": "workspace:*",
     "@yuantest/reporter": "workspace:*",
     "@yuantest/diagnosis": "workspace:*",
+    "@yuantest/flaky": "workspace:*",
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@playwright/mcp": "^0.0.75",

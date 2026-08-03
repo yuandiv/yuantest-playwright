@@ -35,6 +35,9 @@ importers:
       '@yuantest/executor':
         specifier: workspace:*
         version: link:../../packages/executor
+      '@yuantest/flaky':
+        specifier: workspace:*
+        version: link:../../packages/flaky
       '@yuantest/reporter':
         specifier: workspace:*
         version: link:../../packages/reporter
@@ -238,6 +241,22 @@ importers:
         version: 5.9.3
 
   packages/executor:
+    dependencies:
+      '@yuantest/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@yuantest/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/flaky:
     dependencies:
       '@yuantest/contracts':
         specifier: workspace:*

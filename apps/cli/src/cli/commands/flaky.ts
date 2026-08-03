@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { FlakyTestManager } from '../../flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { getStorage } from '@yuantest/core';

@@ -8,7 +8,7 @@ import {
   generateForecast,
   calculateHealthScore,
   TrendAnalyzer,
-} from '../../src/flaky/trend';
+} from '@yuantest/flaky';
 import { FlakyTest, TrendDataPoint, ChangePoint, CodeChangeCorrelation } from '@yuantest/contracts';
 
 function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {

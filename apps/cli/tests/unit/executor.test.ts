@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import { Executor, ParallelExecutor } from '@yuantest/executor';
 import { PlaywrightReportParser } from '@yuantest/executor';
 import { MemoryStorage } from '@yuantest/core';
-import { FlakyTestManager } from '../../src/flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import { AnnotationManager } from '@yuantest/reporter';
 import { TagManager } from '@yuantest/reporter';
 import { ArtifactManager } from '@yuantest/reporter';

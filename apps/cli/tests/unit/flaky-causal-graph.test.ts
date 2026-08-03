@@ -1,4 +1,4 @@
-import { CausalGraphBuilder } from '../../src/flaky/causal-graph';
+import { CausalGraphBuilder } from '@yuantest/flaky';
 import { FlakyTest, RunResult, CorrelationGroup } from '@yuantest/contracts';
 
 function createFlakyTest(testId: string, overrides: Partial<FlakyTest> = {}): FlakyTest {

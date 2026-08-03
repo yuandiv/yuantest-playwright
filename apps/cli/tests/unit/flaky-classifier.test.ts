@@ -5,7 +5,7 @@ import {
   calculateConsecutivePasses,
   wilsonConfidenceInterval,
   isStatisticallySignificant,
-} from '../../src/flaky/classifier';
+} from '@yuantest/flaky';
 import { FlakyTest, FlakyHistoryEntry } from '@yuantest/contracts';
 
 function makeFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {

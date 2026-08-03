@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { Reporter } from '@yuantest/reporter';
-import { FlakyTestManager } from '../../flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import { RootCauseAnalysis, LLMConfig } from '@yuantest/contracts';
 import { getStorage } from '@yuantest/core';
 import { CliContext } from '../context';

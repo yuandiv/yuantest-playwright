@@ -1,4 +1,4 @@
-import { analyzeCorrelations } from '../../src/flaky/correlation';
+import { analyzeCorrelations } from '@yuantest/flaky';
 import { FlakyTest, RunResult } from '@yuantest/contracts';
 
 function makeFlakyTest(testId: string, overrides: Partial<FlakyTest> = {}): FlakyTest {

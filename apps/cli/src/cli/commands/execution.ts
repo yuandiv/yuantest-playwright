@@ -6,7 +6,7 @@ import ora from 'ora';
 import { Orchestrator } from '@yuantest/executor';
 import { Executor, ParallelExecutor } from '@yuantest/executor';
 import { Reporter } from '@yuantest/reporter';
-import { FlakyTestManager } from '../../flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import { loadConfigFile, mergeConfig } from '@yuantest/core';
 import { TestConfig, BrowserType } from '@yuantest/contracts';
 import { logger } from '@yuantest/core';

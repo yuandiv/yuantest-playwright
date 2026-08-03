@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import chalk from 'chalk';
 import ora from 'ora';
 import { Reporter } from '@yuantest/reporter';
-import { FlakyTestManager } from '../../flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import { getStorage } from '@yuantest/core';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';

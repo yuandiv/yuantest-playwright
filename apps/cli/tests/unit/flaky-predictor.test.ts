@@ -1,4 +1,4 @@
-import { detectDurationAnomaly, predictFailure, FlakyPredictor } from '../../src/flaky/predictor';
+import { detectDurationAnomaly, predictFailure, FlakyPredictor } from '@yuantest/flaky';
 import { FlakyTest } from '@yuantest/contracts';
 
 function createFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {

@@ -1,4 +1,4 @@
-import { FlakyTestManager } from '../../src/flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import { MemoryStorage } from '@yuantest/core';
 
 describe('FlakyTestManager with MemoryStorage', () => {

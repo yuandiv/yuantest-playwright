@@ -1,4 +1,4 @@
-import { RootCauseAnalyzer, AnalysisContext } from '../../src/flaky/root-cause';
+import { RootCauseAnalyzer, AnalysisContext } from '@yuantest/flaky';
 import { FlakyTest, FlakyHistoryEntry, RunResult } from '@yuantest/contracts';
 
 function makeFlakyTest(overrides: Partial<FlakyTest> = {}): FlakyTest {

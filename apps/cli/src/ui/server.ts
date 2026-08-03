@@ -39,7 +39,7 @@ import { buildRouterDeps } from '../container/router-deps-builder';
 
 import { RealtimeReporter } from '@yuantest/reporter';
 import { Reporter } from '@yuantest/reporter';
-import { FlakyTestManager } from '../flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import { TraceManager } from '@yuantest/executor';
 import { ArtifactManager } from '@yuantest/reporter';
 import { VisualTestingManager } from '@yuantest/reporter';

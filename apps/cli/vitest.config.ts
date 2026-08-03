@@ -8,6 +8,9 @@ export default defineConfig({
       '@yuantest/contracts': path.resolve(__dirname, '../../packages/contracts/src/index.ts'),
       '@yuantest/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
       '@yuantest/executor': path.resolve(__dirname, '../../packages/executor/src/index.ts'),
+      '@yuantest/reporter': path.resolve(__dirname, '../../packages/reporter/src/index.ts'),
+      '@yuantest/diagnosis': path.resolve(__dirname, '../../packages/diagnosis/src/index.ts'),
+      '@yuantest/flaky': path.resolve(__dirname, '../../packages/flaky/src/index.ts'),
     },
   },
   test: {

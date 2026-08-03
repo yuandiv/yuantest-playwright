@@ -1119,3 +1119,13 @@ export class FlakyTestManager extends ManagedManager {
     await super.flush(() => this.saveHistory());
   }
 }
+
+// ── 子模块聚合导出（供 apps 层 / barrel 使用） ──────────────────────
+export * from './root-cause';
+export * from './trend';
+export * from './predictor';
+export * from './quarantine-strategy';
+export * from './causal-graph';
+export * from './correlation';
+export * from './config-merge';
+export * from './classifier';

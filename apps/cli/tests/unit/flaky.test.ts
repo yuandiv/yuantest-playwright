@@ -1,4 +1,4 @@
-import { FlakyTestManager } from '../../src/flaky';
+import { FlakyTestManager } from '@yuantest/flaky';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
