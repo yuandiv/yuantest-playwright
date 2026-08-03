@@ -29,9 +29,15 @@ importers:
       '@yuantest/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@yuantest/diagnosis':
+        specifier: workspace:*
+        version: link:../../packages/diagnosis
       '@yuantest/executor':
         specifier: workspace:*
         version: link:../../packages/executor
+      '@yuantest/reporter':
+        specifier: workspace:*
+        version: link:../../packages/reporter
       chalk:
         specifier: ^4.1.2
         version: 4.1.2
@@ -215,6 +221,22 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/diagnosis:
+    dependencies:
+      '@yuantest/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@yuantest/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/executor:
     dependencies:
       '@yuantest/contracts':
@@ -223,6 +245,25 @@ importers:
       '@yuantest/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/reporter:
+    dependencies:
+      '@yuantest/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@yuantest/core':
+        specifier: workspace:*
+        version: link:../core
+      '@yuantest/diagnosis':
+        specifier: workspace:*
+        version: link:../diagnosis
     devDependencies:
       '@types/node':
         specifier: ^20.10.0

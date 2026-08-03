@@ -20,8 +20,8 @@ import {
 } from '../../src/ai/agents/agent-hooks';
 import { DiagnosisCacheHook } from '../../src/ai/agents/diagnosis-cache-hook';
 import { DiagnosisPersisterHook } from '../../src/ai/agents/diagnosis-persister-hook';
-import { DiagnosisCache } from '../../src/diagnosis/diagnosis-cache';
-import { DiagnosisPersister } from '../../src/diagnosis/diagnosis-persister';
+import { DiagnosisCache } from '@yuantest/diagnosis';
+import { DiagnosisPersister } from '@yuantest/diagnosis';
 import { AgentConfig, LLMConfig, AIDiagnosis } from '@yuantest/contracts';
 
 vi.mock('@yuantest/core', async (importOriginal) => {

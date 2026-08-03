@@ -8,8 +8,8 @@
     "yuantest": "./bin/cli.js"
   },
   "scripts": {
-    "build": "tsc && node -e \"require('fs').cpSync('src/reporter/templates','dist/reporter/templates',{recursive:true})\" && vite build",
-    "build:server": "tsc && node -e \"require('fs').cpSync('src/reporter/templates','dist/reporter/templates',{recursive:true})\"",
+    "build": "tsc && vite build",
+    "build:server": "tsc",
     "build:dashboard": "vite build",
     "start": "node bin/cli.js",
     "dev": "npx tsx src/cli/index.ts",
@@ -79,6 +79,8 @@
     "@yuantest/contracts": "workspace:*",
     "@yuantest/core": "workspace:*",
     "@yuantest/executor": "workspace:*",
+    "@yuantest/reporter": "workspace:*",
+    "@yuantest/diagnosis": "workspace:*",
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@playwright/mcp": "^0.0.75",

@@ -238,7 +238,7 @@ export function createDiagnosisRouter(deps: RouterDeps): Router {
       }
 
       try {
-        const { clusterFailures } = await import('../../diagnosis/cluster');
+        const { clusterFailures } = await import('@yuantest/diagnosis');
         const clusters = clusterFailures(testResults);
 
         const config = getLLMConfigOrDefault();

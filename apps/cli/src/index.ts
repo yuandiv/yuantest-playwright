@@ -4,8 +4,8 @@ export { PlaywrightReportParser } from '@yuantest/executor';
 export type { PlaywrightJSONReport, ParsedReport } from '@yuantest/executor';
 export { ProgressTracker } from '@yuantest/executor';
 export type { ProgressMessage } from '@yuantest/executor';
-export { Reporter, JSONReporter } from './reporter';
-export { RealtimeReporter, RealtimeReporterClient } from './realtime';
+export { Reporter, JSONReporter } from '@yuantest/reporter';
+export { RealtimeReporter, RealtimeReporterClient } from '@yuantest/reporter';
 export { FlakyTestManager } from './flaky';
 export { RootCauseAnalyzer } from './flaky/root-cause';
 export { TrendAnalyzer } from './flaky/trend';
@@ -36,10 +36,10 @@ export type {
   ConfigValidationResult,
 } from '@yuantest/core';
 export { TraceManager } from '@yuantest/executor';
-export { AnnotationManager } from './annotations';
-export { TagManager } from './tags';
-export { ArtifactManager } from './artifacts';
-export { VisualTestingManager } from './visual';
+export { AnnotationManager } from '@yuantest/reporter';
+export { TagManager } from '@yuantest/reporter';
+export { ArtifactManager } from '@yuantest/reporter';
+export { VisualTestingManager } from '@yuantest/reporter';
 export { logger, Logger, ChildLogger } from '@yuantest/core';
 export {
   StorageProvider,

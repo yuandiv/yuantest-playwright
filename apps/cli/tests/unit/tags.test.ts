@@ -1,6 +1,6 @@
 import type { Mocked } from 'vitest';
 import { vi } from 'vitest';
-import { TagManager } from '../../src/tags';
+import { TagManager } from '@yuantest/reporter';
 import { StorageProvider } from '@yuantest/core';
 
 describe('TagManager', () => {

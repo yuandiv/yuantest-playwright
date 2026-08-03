@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProgressTracker } from '@yuantest/executor';
 import { Executor } from '@yuantest/executor';
-import { RealtimeReporter } from '../../src/realtime';
+import { RealtimeReporter } from '@yuantest/reporter';
 import { MemoryStorage } from '@yuantest/core';
 import { PROGRESS_MARKER } from '@yuantest/core';
 

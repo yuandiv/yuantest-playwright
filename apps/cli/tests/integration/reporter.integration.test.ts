@@ -1,4 +1,4 @@
-import { Reporter } from '../../src/reporter';
+import { Reporter } from '@yuantest/reporter';
 import { RunResult, TestResult, SuiteResult } from '@yuantest/contracts';
 import { MemoryStorage } from '@yuantest/core';
 import * as fs from 'fs';

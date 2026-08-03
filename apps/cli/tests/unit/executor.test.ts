@@ -3,10 +3,10 @@ import { Executor, ParallelExecutor } from '@yuantest/executor';
 import { PlaywrightReportParser } from '@yuantest/executor';
 import { MemoryStorage } from '@yuantest/core';
 import { FlakyTestManager } from '../../src/flaky';
-import { AnnotationManager } from '../../src/annotations';
-import { TagManager } from '../../src/tags';
-import { ArtifactManager } from '../../src/artifacts';
-import { VisualTestingManager } from '../../src/visual';
+import { AnnotationManager } from '@yuantest/reporter';
+import { TagManager } from '@yuantest/reporter';
+import { ArtifactManager } from '@yuantest/reporter';
+import { VisualTestingManager } from '@yuantest/reporter';
 import type { IResultEnrichers } from '@yuantest/contracts';
 
 vi.mock('@yuantest/core', async (importOriginal) => {

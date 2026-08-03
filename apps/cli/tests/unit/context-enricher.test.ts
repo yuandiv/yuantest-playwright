@@ -4,7 +4,7 @@ import {
   encodeScreenshot,
   buildHistoryContext,
   enrichContext,
-} from '../../src/diagnosis/context-enricher';
+} from '@yuantest/diagnosis';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

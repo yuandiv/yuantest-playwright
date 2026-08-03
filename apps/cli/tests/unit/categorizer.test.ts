@@ -1,4 +1,4 @@
-import { categorizeError, generateSuggestions } from '../../src/diagnosis/categorizer';
+import { categorizeError, generateSuggestions } from '@yuantest/diagnosis';
 
 describe('categorizer', () => {
   describe('categorizeError', () => {

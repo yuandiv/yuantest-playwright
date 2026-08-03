@@ -6,7 +6,7 @@ import {
   unregisterPattern,
   getCustomPatterns,
   getAllPatterns,
-} from '../../diagnosis/knowledge-base';
+} from '@yuantest/diagnosis';
 
 export function createErrorPatternsRouter(deps: RouterDeps): Router {
   const router = Router();

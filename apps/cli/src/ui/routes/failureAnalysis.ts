@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import type { RouterDeps } from './types';
 import { asyncHandler } from '@yuantest/core';
-import { categorizeError, generateSuggestions } from '../../diagnosis/categorizer';
+import { categorizeError, generateSuggestions } from '@yuantest/diagnosis';
 import type { ReportFailureSummary, ReportFailureItem } from '@yuantest/contracts';
 
 export function createFailureAnalysisRouter(deps: RouterDeps): Router {

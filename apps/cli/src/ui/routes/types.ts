@@ -1,8 +1,8 @@
 import type { UnifiedAIService } from '../../ai/ai-service';
 import type { Router } from 'express';
 import type { Executor } from '@yuantest/executor';
-import type { Reporter } from '../../reporter';
-import type { RealtimeReporter } from '../../realtime';
+import type { Reporter } from '@yuantest/reporter';
+import type { RealtimeReporter } from '@yuantest/reporter';
 import type { FlakyTestManager } from '../../flaky';
 import type { DiagnosisAgent } from '../../ai/agents/diagnosis';
 import type { TestDiscovery } from '@yuantest/executor';
@@ -10,10 +10,10 @@ import type { LRUCache } from '@yuantest/core';
 import type { StorageProvider } from '@yuantest/core';
 import type { PlaywrightConfigMerger } from '@yuantest/core';
 import type { TraceManager } from '@yuantest/executor';
-import type { ArtifactManager } from '../../artifacts';
-import type { AnnotationManager } from '../../annotations';
-import type { TagManager } from '../../tags';
-import type { VisualTestingManager } from '../../visual';
+import type { ArtifactManager } from '@yuantest/reporter';
+import type { AnnotationManager } from '@yuantest/reporter';
+import type { TagManager } from '@yuantest/reporter';
+import type { VisualTestingManager } from '@yuantest/reporter';
 import type { TestResult } from '@yuantest/contracts';
 
 export interface RouterDeps {

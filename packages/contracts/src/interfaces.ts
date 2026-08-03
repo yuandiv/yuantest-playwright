@@ -62,6 +62,8 @@ export interface IFlakyManager {
   isQuarantined(testId: string): boolean;
   recordTestResult(result: TestResult): Promise<void>;
   recordRunResults(runResult: RunResult): Promise<void>;
+  /** 报告器统计 flaky 测试（阈值由实现内部决定） */
+  getFlakyTests(threshold?: number): FlakyTest[];
 }
 
 /**

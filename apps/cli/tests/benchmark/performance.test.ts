@@ -4,8 +4,8 @@
  */
 
 import { Orchestrator } from '@yuantest/executor';
-import { Reporter } from '../../src/reporter';
-import { RealtimeReporter } from '../../src/realtime';
+import { Reporter } from '@yuantest/reporter';
+import { RealtimeReporter } from '@yuantest/reporter';
 import { MemoryStorage } from '@yuantest/core';
 import * as fs from 'fs';
 import * as path from 'path';

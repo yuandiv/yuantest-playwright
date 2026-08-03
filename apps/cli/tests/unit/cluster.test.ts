@@ -1,4 +1,4 @@
-import { clusterFailures } from '../../src/diagnosis/cluster';
+import { clusterFailures } from '@yuantest/diagnosis';
 import { TestResult } from '@yuantest/contracts';
 
 /**

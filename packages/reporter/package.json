@@ -1,0 +1,22 @@
+{
+  "name": "@yuantest/reporter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test reporter: report generation, realtime, artifacts, annotations, tags, visual testing",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').cpSync('src/reporter/templates','dist/reporter/templates',{recursive:true})\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@yuantest/contracts": "workspace:*",
+    "@yuantest/core": "workspace:*",
+    "@yuantest/diagnosis": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.9.3"
+  }
+}

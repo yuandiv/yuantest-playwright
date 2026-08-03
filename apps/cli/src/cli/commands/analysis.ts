@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { Reporter } from '../../reporter';
+import { Reporter } from '@yuantest/reporter';
 import { FlakyTestManager } from '../../flaky';
 import { RootCauseAnalysis, LLMConfig } from '@yuantest/contracts';
 import { getStorage } from '@yuantest/core';
@@ -156,7 +156,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
             );
           } else {
             try {
-              const { clusterFailures } = await import('../../diagnosis/cluster');
+              const { clusterFailures } = await import('@yuantest/diagnosis');
               const failedTests = analysis.map((a) => ({
                 id: a.testId,
                 title: a.title,
@@ -253,7 +253,7 @@ export function registerAnalysisCommands(program: Command, _ctx: CliContext): vo
     .action(async (options) => {
       try {
         const { getAllPatterns, getCustomPatterns, registerPattern, unregisterPattern } =
-          await import('../../diagnosis/knowledge-base');
+          await import('@yuantest/diagnosis');
 
         if (options.add) {
           const pattern = JSON.parse(options.add);

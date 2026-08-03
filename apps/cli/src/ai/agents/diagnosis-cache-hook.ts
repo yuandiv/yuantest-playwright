@@ -11,7 +11,7 @@
  * - 缓存键由调用方通过 AgentContext.testId 传入，钩子据此查缓存
  */
 import { AgentHooks, AgentContext } from './agent-hooks';
-import { DiagnosisCache } from '../../diagnosis/diagnosis-cache';
+import { DiagnosisCache } from '@yuantest/diagnosis';
 import type { AIDiagnosis } from '@yuantest/contracts';
 
 export class DiagnosisCacheHook implements AgentHooks {

@@ -6,16 +6,16 @@ import {
   DashboardStats,
   TestRunHistory,
   RootCauseAnalysis,
+  type IFailureDiagnoser,
+  type IFlakyManager,
 } from '@yuantest/contracts';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '@yuantest/core';
 import { StorageProvider, getStorage } from '@yuantest/core';
 import { CACHE_CONFIG, DEFAULTS } from '@yuantest/core';
-import { categorizeError, generateSuggestions } from '../diagnosis/categorizer';
+import { categorizeError, generateSuggestions } from '@yuantest/diagnosis';
 import { loadLLMConfig } from '@yuantest/core';
-import type { DiagnosisAgent } from '../ai/agents/diagnosis';
-import type { FlakyTestManager } from '../flaky';
 
 function resolveTemplatesDir(): string {
   const distDir = path.join(__dirname, 'templates');
@@ -54,8 +54,8 @@ export class Reporter {
   private storage: StorageProvider;
   private initialized: Promise<void>;
   private pendingReports: Map<string, RunResult> = new Map();
-  private diagnosisService: DiagnosisAgent | null = null;
-  private flakyManager?: FlakyTestManager;
+  private diagnosisService: IFailureDiagnoser | null = null;
+  private flakyManager?: IFlakyManager;
   private pendingSuiteIndex: Map<string, { suite: SuiteResult; report: RunResult }> = new Map();
   private pendingTestIndex: Map<string, SuiteResult> = new Map();
   private pendingFlushTimer: NodeJS.Timeout | null = null;
@@ -65,8 +65,8 @@ export class Reporter {
   constructor(
     outputDir: string = DEFAULTS.REPORTS_DIR,
     storage?: StorageProvider,
-    diagnosisService?: DiagnosisAgent,
-    flakyManager?: FlakyTestManager
+    diagnosisService?: IFailureDiagnoser,
+    flakyManager?: IFlakyManager
   ) {
     this.outputDir = outputDir;
     this.storage = storage || getStorage();

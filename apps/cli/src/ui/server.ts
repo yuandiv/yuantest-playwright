@@ -1,7 +1,7 @@
 import express, { Express, Request, Response, NextFunction, Router } from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
-import { getCustomPatterns, loadPatternsFromConfig } from '../diagnosis/knowledge-base';
+import { getCustomPatterns, loadPatternsFromConfig } from '@yuantest/diagnosis';
 import { Executor } from '@yuantest/executor';
 import { RunResult, TestResult } from '@yuantest/contracts';
 import { loadConfigFile } from '@yuantest/core';
@@ -37,12 +37,12 @@ import { TOKENS } from '@yuantest/core';
 import { registerCoreServices } from '../container/registrations';
 import { buildRouterDeps } from '../container/router-deps-builder';
 
-import { RealtimeReporter } from '../realtime';
-import { Reporter } from '../reporter';
+import { RealtimeReporter } from '@yuantest/reporter';
+import { Reporter } from '@yuantest/reporter';
 import { FlakyTestManager } from '../flaky';
 import { TraceManager } from '@yuantest/executor';
-import { ArtifactManager } from '../artifacts';
-import { VisualTestingManager } from '../visual';
+import { ArtifactManager } from '@yuantest/reporter';
+import { VisualTestingManager } from '@yuantest/reporter';
 import { DiagnosisAgent } from '../ai/agents/diagnosis';
 import { UnifiedAIService } from '../ai/ai-service';
 import { MCPConfigService } from '../ai/mcp/config-service';

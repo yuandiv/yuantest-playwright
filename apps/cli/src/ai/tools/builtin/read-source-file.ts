@@ -3,7 +3,7 @@
  */
 import { defineTool } from '../types';
 import { isPathAllowed } from '../../agents/tool-registry';
-import { readSourceCode } from '../../../diagnosis/context-enricher';
+import { readSourceCode } from '@yuantest/diagnosis';
 
 export function createReadSourceFileTool(projectRoot: string) {
   return defineTool(

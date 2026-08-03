@@ -1,4 +1,4 @@
-import { ArtifactManager } from '../../src/artifacts';
+import { ArtifactManager } from '@yuantest/reporter';
 import { FilesystemStorage } from '@yuantest/core';
 import * as fs from 'fs';
 import * as path from 'path';

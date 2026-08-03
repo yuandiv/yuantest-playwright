@@ -1,4 +1,4 @@
-import { matchPatterns, buildFewShotExamples } from '../../src/diagnosis/knowledge-base';
+import { matchPatterns, buildFewShotExamples } from '@yuantest/diagnosis';
 
 /**
  * knowledge-base 模块单元测试

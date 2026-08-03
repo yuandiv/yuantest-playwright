@@ -18,11 +18,11 @@ import type {
   ContextUsed,
   RootCauseAnalysis,
 } from '@yuantest/contracts';
-import { matchPatterns, buildFewShotExamples, ErrorPattern } from '../../diagnosis/knowledge-base';
-import { enrichContext, EnrichedContext } from '../../diagnosis/context-enricher';
-import { DiagnosisCache } from '../../diagnosis/diagnosis-cache';
-import { DiagnosisPersister } from '../../diagnosis/diagnosis-persister';
-import { parseResponse } from '../../diagnosis/response-parser';
+import { matchPatterns, buildFewShotExamples, ErrorPattern } from '@yuantest/diagnosis';
+import { enrichContext, EnrichedContext } from '@yuantest/diagnosis';
+import { DiagnosisCache } from '@yuantest/diagnosis';
+import { DiagnosisPersister } from '@yuantest/diagnosis';
+import { parseResponse } from '@yuantest/diagnosis';
 
 export class DiagnosisAgent extends BaseAgent {
   /** 兼容旧测试：保留可注入的 cache/persister，但默认走钩子 */

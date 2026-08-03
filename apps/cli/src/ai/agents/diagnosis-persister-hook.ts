@@ -10,7 +10,7 @@
  * - 不实现 onMessage/onError（持久化钩子不关心 LLM 调用细节）
  */
 import { AgentHooks, AgentContext, AgentPersistEvent } from './agent-hooks';
-import { DiagnosisPersister } from '../../diagnosis/diagnosis-persister';
+import { DiagnosisPersister } from '@yuantest/diagnosis';
 import type { AIDiagnosis } from '@yuantest/contracts';
 
 export class DiagnosisPersisterHook implements AgentHooks {

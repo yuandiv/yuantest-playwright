@@ -1,7 +1,7 @@
 import { Orchestrator, ShardOptimizer } from '@yuantest/executor';
-import { Reporter } from '../src/reporter';
+import { Reporter } from '@yuantest/reporter';
 import { FlakyTestManager } from '../src/flaky';
-import { RealtimeReporter } from '../src/realtime';
+import { RealtimeReporter } from '@yuantest/reporter';
 import { DashboardServer } from '../src/ui/server';
 import { TestConfig, TestResult, RunResult, SuiteResult, BrowserType } from '@yuantest/contracts';
 import * as fs from 'fs';

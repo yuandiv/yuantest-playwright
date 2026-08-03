@@ -12,13 +12,13 @@ import { MCPConfigService } from '../ai/mcp/config-service';
 import { MCPClientManager } from '../ai/mcp/client-manager';
 import { DiagnosisAgent } from '../ai/agents/diagnosis';
 import { FlakyTestManager } from '../flaky';
-import { Reporter } from '../reporter';
-import { RealtimeReporter } from '../realtime';
+import { Reporter } from '@yuantest/reporter';
+import { RealtimeReporter } from '@yuantest/reporter';
 import { TraceManager } from '@yuantest/executor';
-import { ArtifactManager } from '../artifacts';
-import { AnnotationManager } from '../annotations';
-import { TagManager } from '../tags';
-import { VisualTestingManager } from '../visual';
+import { ArtifactManager } from '@yuantest/reporter';
+import { AnnotationManager } from '@yuantest/reporter';
+import { TagManager } from '@yuantest/reporter';
+import { VisualTestingManager } from '@yuantest/reporter';
 import type { LLMConfig } from '@yuantest/contracts';
 
 export interface ContainerOptions {

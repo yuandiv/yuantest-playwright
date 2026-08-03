@@ -1,4 +1,4 @@
-import { Reporter } from '../../src/reporter';
+import { Reporter } from '@yuantest/reporter';
 import { MemoryStorage } from '@yuantest/core';
 import { RunResult } from '@yuantest/contracts';
 

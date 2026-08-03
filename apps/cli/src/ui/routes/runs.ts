@@ -6,7 +6,7 @@ import { loadConfigFile, mergeConfig } from '@yuantest/core';
 import { Executor } from '@yuantest/executor';
 import { logger } from '@yuantest/core';
 import type { TestConfig, RunResult, DashboardStats } from '@yuantest/contracts';
-import type { RunResultSummary } from '../../reporter';
+import type { RunResultSummary } from '@yuantest/reporter';
 import { validateBody } from '@yuantest/core';
 import { StartRunRequestSchema } from '@yuantest/core';
 import * as path from 'path';
