@@ -377,7 +377,6 @@ export class DashboardServer {
 
   async start(): Promise<void> {
     const dataDirRef = this.container.resolve<MutableRef<string>>(TOKENS.DataDir);
-    const storage = this.container.resolve<StorageProvider>(TOKENS.StorageProvider);
     const flakyManager = this.container.resolve<FlakyTestManager>(TOKENS.FlakyTestManager);
     const realtimeReporter = this.container.resolve<RealtimeReporter>(TOKENS.RealtimeReporter);
 

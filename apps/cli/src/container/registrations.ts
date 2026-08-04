@@ -84,7 +84,7 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
 
   container.register(
     TOKENS.MCPClientManager,
-    (c) => {
+    (_c) => {
       return new MCPClientManager(process.cwd());
     },
     'singleton'
@@ -103,7 +103,6 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
       const mcpClientManager = c.resolve<MCPClientManager>(TOKENS.MCPClientManager);
       const storage = c.resolve<StorageProvider>(TOKENS.StorageProvider);
       const flakyManager = c.resolve<FlakyTestManager>(TOKENS.FlakyTestManager);
-      const outputDir = c.resolve<MutableRef<string>>(TOKENS.OutputDir);
       const enrichers: IResultEnrichers = {
         annotations: c.resolve<AnnotationManager>(TOKENS.AnnotationManager),
         tags: c.resolve<TagManager>(TOKENS.TagManager),
@@ -153,9 +152,7 @@ export function registerCoreServices(container: ServiceContainer, options: Conta
     (c) => {
       const dataDir = c.resolve<MutableRef<string>>(TOKENS.DataDir);
       const llmService = c.resolve<LLMService | null>(TOKENS.LLMService);
-      const toolRegistry = c.resolve<ToolRegistry>(TOKENS.ToolRegistry);
       // 创建 DiagnosisAgent 实例
-      const { DiagnosisAgent } = require('../ai/agents/diagnosis');
       const diagnosisAgent = new DiagnosisAgent(
         {
           enabled: true,

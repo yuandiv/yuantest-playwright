@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import dayjs from 'dayjs';
 import { CliContext } from '../context';
 import type { LLMConfig } from '@yuantest/contracts';
 
