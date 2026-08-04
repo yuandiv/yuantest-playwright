@@ -13,7 +13,8 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "dev": "turbo run dev",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "ui": "node apps/cli/bin/cli.js ui"
   },
   "devDependencies": {
     "turbo": "^2.5.0"
