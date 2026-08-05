@@ -46,6 +46,7 @@ function App() {
     isLoadingTests, setIsLoadingTests, configWorkers,
     testCasesRef, lastLoadTestsTimeRef, LOAD_TESTS_CACHE_TTL,
     scheduleStatusUpdate, loadTests, collectAllPaths, startTransition,
+    markExecutionStarted,
   } = testTree;
 
   const execution = useExecution();
@@ -168,6 +169,10 @@ function App() {
       setIsExecuting(true);
       setCurrentTest(null);
       logBatchUpdater.current?.add({ msg: `📡 ${t('running', lang)}...`, type: 'info' });
+
+      // 执行开始：之后的 loadTests 不再从 localStorage 恢复历史状态，
+      // 避免异步 loadTests 晚于本清空完成时把上次的成功状态覆盖回来
+      markExecutionStarted();
 
       const selectedArr = Array.from(selectedIds);
       startTransition(() => {

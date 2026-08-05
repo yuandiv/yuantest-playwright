@@ -23,6 +23,7 @@ export function useTestTree(reports: RunReport[]) {
   const originalTestFilesRef = useRef<TestFile[]>([]);
   const testCasesRef = useRef<TestCase[]>([]);
   const hasRestoredFromReportsRef = useRef(false);
+  const skipLocalStorageRestoreRef = useRef(false);
   const lastLoadTestsTimeRef = useRef<number>(0);
   const localStorageTimerRef = useRef<NodeJS.Timeout | null>(null);
   const testStatusMapRef = useRef<Map<string, TestStatusUpdate>>(new Map());
@@ -79,7 +80,17 @@ export function useTestTree(reports: RunReport[]) {
     }
   }, [flushPendingStatusUpdates]);
 
+  /** 执行开始标记：之后 loadTests 不再从 localStorage 恢复历史状态 */
+  const markExecutionStarted = useCallback(() => {
+    skipLocalStorageRestoreRef.current = true;
+  }, []);
+
   const restoreTestCasesFromLocalStorage = useCallback((cases: TestCase[]): TestCase[] => {
+    // 执行开始后不再从 localStorage 恢复历史状态：避免异步 loadTests 晚于
+    // run_started 清空时，把上次运行的成功状态覆盖回用例树（"执行中计成功"根因）
+    if (skipLocalStorageRestoreRef.current) {
+      return cases;
+    }
     try {
       const saved = localStorage.getItem('testCasesStatus');
       if (!saved) return cases;
@@ -427,6 +438,7 @@ export function useTestTree(reports: RunReport[]) {
     LOAD_TESTS_CACHE_TTL,
     scheduleStatusUpdate,
     flushPendingStatusUpdates,
+    markExecutionStarted,
     restoreTestCasesFromLocalStorage,
     restoreTestCasesFromReports,
     loadTests,

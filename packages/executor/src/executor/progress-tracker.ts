@@ -413,7 +413,8 @@ class ProgressReporter {
 
   onTestBegin(test, result) {
     const fullTitle = this.getFullTitle(test);
-    this.emit({ type: 'testBegin', test: { title: test.title, fullTitle: fullTitle } });
+    const testId = test.spec && test.spec.id ? test.spec.id : test.id;
+    this.emit({ type: 'testBegin', test: { id: testId, title: test.title, fullTitle: fullTitle } });
   }
 
   onStdOut(chunk, test, result) {
