@@ -946,6 +946,28 @@ module.exports = defineConfig({
             if (!existingTest.line && test.line) {
               existingTest.line = test.line;
             }
+            // 用最终报告状态纠正实时状态（若实时事件 id 不匹配/丢失导致用例树残留中间态，
+            // 结束阶段必须收敛为最终 passed/failed/skipped，并重发事件供 dashboard 更新）
+            if (existingTest.status !== test.status) {
+              const ownerSuite = testSuiteIndex.get(test.id) || existingSuite;
+              if (existingTest.status === 'passed') {
+                ownerSuite.passed--;
+              } else if (existingTest.status === 'failed' || existingTest.status === 'timedout') {
+                ownerSuite.failed--;
+              } else if (existingTest.status === 'skipped') {
+                ownerSuite.skipped--;
+              }
+              existingTest.status = test.status;
+              existingTest.duration = test.duration || existingTest.duration;
+              if (test.status === 'passed') {
+                ownerSuite.passed++;
+              } else if (test.status === 'failed' || test.status === 'timedout') {
+                ownerSuite.failed++;
+              } else if (test.status === 'skipped') {
+                ownerSuite.skipped++;
+              }
+              this.emit('test_result', existingTest);
+            }
           } else {
             existingSuite.tests.push(test);
             existingSuite.totalTests++;

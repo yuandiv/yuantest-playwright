@@ -171,8 +171,12 @@ function App() {
 
       const selectedArr = Array.from(selectedIds);
       startTransition(() => {
+        // 执行开始：清空所有用例历史状态（含未选中项），避免 localStorage/旧报告恢复的成功状态
+        // 在本次执行中残留为"先计成功"的中间态
         setTestCases(prev => prev.map(tc =>
-          selectedIds.has(tc.id) ? { ...tc, status: 'pending' as const } : tc
+          selectedIds.has(tc.id)
+            ? { ...tc, status: 'pending' as const, lastDuration: null, lastError: null }
+            : { ...tc, status: 'idle' as const, lastDuration: null, lastError: null }
         ));
       });
     } else if (msg.type === 'run_progress') {

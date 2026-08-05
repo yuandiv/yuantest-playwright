@@ -390,6 +390,23 @@ export function useTestTree(reports: RunReport[]) {
     hasRestoredFromReportsRef.current = true;
   }, [testCases, reports, restoreTestCasesFromReports]);
 
+  // 执行结束后收敛：若存在 completed 报告且用例树残留 running/pending 中间态
+  // （因实时 test_result 事件 id 不匹配/丢失未收敛），从报告 details 恢复最终状态
+  useEffect(() => {
+    if (testCases.length === 0 || reports.length === 0) return;
+    const completedReport = reports.find(r => r.status === 'completed' || !r.status);
+    if (!completedReport || !completedReport.details || completedReport.details.length === 0) return;
+
+    const hasStale = testCases.some(tc => tc.status === 'running' || tc.status === 'pending');
+    if (!hasStale) return;
+
+    const restoredCases = restoreTestCasesFromReports(testCases, reports);
+    const hasChanges = restoredCases.some((tc, i) => tc.status !== testCases[i]?.status);
+    if (hasChanges) {
+      setTestCases(restoredCases);
+    }
+  }, [testCases, reports, restoreTestCasesFromReports]);
+
   return {
     testFiles,
     setTestFiles,
