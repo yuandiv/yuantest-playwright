@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@playwright/test':
+        specifier: ^1.60.0
+        version: 1.62.0
       turbo:
         specifier: ^2.5.0
         version: 2.10.7
