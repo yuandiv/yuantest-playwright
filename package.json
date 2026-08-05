@@ -8,13 +8,15 @@
     "node": ">=21.7.0"
   },
   "scripts": {
+    "start": "node apps/cli/bin/cli.js ui",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "dev": "turbo run dev",
     "clean": "turbo run clean",
-    "ui": "node apps/cli/bin/cli.js ui"
+    "ui": "node apps/cli/bin/cli.js ui",
+    "cli": "node apps/cli/bin/cli.js"
   },
   "devDependencies": {
     "turbo": "^2.5.0"
