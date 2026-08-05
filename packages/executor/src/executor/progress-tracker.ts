@@ -324,6 +324,7 @@ export class ProgressTracker extends EventEmitter {
       }
       ownerSuite.duration += testResult.duration;
 
+      // 递减旧状态
       if (existingTest.status === 'passed') {
         ownerSuite.passed--;
         this.realtimeStats.passed--;
@@ -333,6 +334,18 @@ export class ProgressTracker extends EventEmitter {
       } else if (existingTest.status === 'skipped') {
         ownerSuite.skipped--;
         this.realtimeStats.skipped--;
+      }
+
+      // 递增新状态（修复：existingTest 更新时仅递减旧状态、不递增新状态导致的计数错乱）
+      if (status === 'passed') {
+        ownerSuite.passed++;
+        this.realtimeStats.passed++;
+      } else if (status === 'failed' || status === 'timedout') {
+        ownerSuite.failed++;
+        this.realtimeStats.failed++;
+      } else if (status === 'skipped') {
+        ownerSuite.skipped++;
+        this.realtimeStats.skipped++;
       }
     } else {
       suite.tests.push(testResult);
@@ -418,7 +431,7 @@ class ProgressReporter {
     const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8');
     if (text.trim()) {
       if (test && /error|warn|ERR/i.test(text)) {
-        const testId = test.id;
+        const testId = test.spec && test.spec.id ? test.spec.id : test.id;
         if (!this.consoleLogs.has(testId)) {
           this.consoleLogs.set(testId, []);
         }
@@ -437,7 +450,7 @@ class ProgressReporter {
     const lastResult = result;
     const fullTitle = this.getFullTitle(test);
     const location = test.location || {};
-    const testId = test.id;
+    const testId = test.spec && test.spec.id ? test.spec.id : test.id;
     const consoleLogs = this.consoleLogs.has(testId) ? this.consoleLogs.get(testId) : [];
     this.emit({
       type: 'testEnd',
