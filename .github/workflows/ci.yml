@@ -86,10 +86,40 @@ jobs:
           files: ./apps/cli/coverage/lcov.info
           fail_ci_if_error: false
 
+  e2e:
+    name: E2E (AI Chat)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run E2E tests (AI chat conversation)
+        run: pnpm --filter yuantest-playwright test:e2e
+
+      - name: Upload E2E results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-chat-e2e-results
+          path: apps/cli/test-output/e2e/
+          retention-days: 14
+
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, e2e]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -17,7 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:integration": "vitest run tests/integration",
-    "test:e2e": "vitest run tests/e2e",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:all": "vitest run",
     "test:benchmark": "vitest run --testPathPattern=tests/benchmark --pool=forks --verbose",
     "benchmark": "npm run test:benchmark",

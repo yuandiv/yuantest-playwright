@@ -1,6 +1,10 @@
 import { defineConfig } from 'vitest/config';
 import * as path from 'path';
 
+/**
+ * E2E 测试专用配置：只运行 tests/e2e/**，与默认 vitest run（unit/integration）隔离。
+ * 用法：vitest run --config vitest.e2e.config.ts（npm run test:e2e 已指向该配置）。
+ */
 export default defineConfig({
   resolve: {
     alias: {
@@ -17,11 +21,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
-    // e2e 测试走独立配置（vitest.e2e.config.ts），避免混入默认 vitest run
-    exclude: ['tests/verify.ts', 'tests/e2e/**', 'dashboard/**'],
-    testTimeout: 60000,
-    hookTimeout: 60000,
+    include: ['tests/e2e/**/*.test.ts'],
+    testTimeout: 120000,
+    hookTimeout: 120000,
     setupFiles: ['tests/setup.ts'],
     singleFork: true,
   },
