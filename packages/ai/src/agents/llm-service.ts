@@ -1128,8 +1128,12 @@ export class LLMService {
       let round = 0;
       // Plan progress tracking: maps step index → status
       const planProgress: string[] = [];
-      // 重复调用防护：key = 工具名 + 稳定序列化的参数，value = 已调用次数
-      const callCounts = new Map<string, number>();
+      // 重复调用防护：记录"最近一次调用"及其连续相同调用次数。
+      // 仅当连续（中间无其他工具/参数调用）出现相同工具+参数时才累加；
+      // 穿插其他调用（如探索序列 snapshot→click→snapshot）会使计数重置，
+      // 避免将正常的页面探索误判为死循环。
+      let lastCallKey: string | null = null;
+      let lastCallCount = 0;
       // 本轮是否触发了重复调用防护（对应工具调用被跳过未执行）
       let repeatedGuardTriggered = false;
       // 强制收尾原因（可由重复调用防护等非预算场景覆盖默认文案）
@@ -1256,15 +1260,20 @@ export class LLMService {
           }
 
           // ── 重复调用防护（死循环硬闸）──
-          // key = 工具名 + 稳定序列化参数；参数变化（滚动/展开/点击后重拍）视为新调用，不受限。
+          // 仅当【连续】出现相同工具+参数时才累加；中间穿插其他调用（如
+          // snapshot→click→snapshot 的页面探索序列）会使计数重置为 1，
+          // 避免把正常探索误判为死循环。
           const callKey = `${toolCall.function.name}:${stableStringify(args)}`;
-          const count = (callCounts.get(callKey) ?? 0) + 1;
-          callCounts.set(callKey, count);
+          const count = callKey === lastCallKey ? lastCallCount + 1 : 1;
+          lastCallKey = callKey;
+          lastCallCount = count;
 
           if (count >= 3) {
-            // 第 3 次原样重试：跳过执行，注入防护提示并强制无工具收尾（保留已执行结果）
+            // 第 3 次连续原样重试：跳过该次执行，注入防护提示；
+            // 不 break——同一轮中后续不同的工具调用（如点击）仍应执行，
+            // 避免丢弃模型本轮已规划的其他合法动作。
             this.log.warn(
-              `Repeated identical tool call (${callKey}) x${count}, skipping execution and force terminating`
+              `Repeated identical tool call (${callKey}) x${count}, skipping execution`
             );
             const guardMsg =
               `[System] 重复调用防护：工具 ${toolCall.function.name} 已以完全相同参数连续调用 ${count} 次，` +
@@ -1286,13 +1295,13 @@ export class LLMService {
               sessionId,
             } as AgentToolResult);
             yield { type: 'tool_result', data: { name: toolCall.function.name, result: guardMsg } };
-            break;
+            continue;
           }
 
-          // 第 2 次原样重试：仍执行，但注入引导提示（下一轮 LLM 将看到）
+          // 第 2 次连续原样重试：仍执行，但注入引导提示（下一轮 LLM 将看到）
           if (count === 2) {
             planProgress.push(
-              `[System] 提示：工具 ${toolCall.function.name}（相同参数）已执行过且结果相同，` +
+              `[System] 提示：工具 ${toolCall.function.name}（相同参数）已连续执行过且结果相同，` +
                 `原样重试不会获得新信息，请先滚动/展开/点击或改用其他工具/参数。`
             );
           }
@@ -1359,7 +1368,8 @@ export class LLMService {
           planProgress.push(`[Round ${round}] ${toolCall.function.name}: completed`);
         }
 
-        // 重复调用防护触发：跳过本轮剩余工具执行，直接进入无工具强制收尾。
+        // 重复调用防护触发：本轮已跳过重复的相同调用（其余不同工具仍已执行），
+        // 直接进入无工具强制收尾，让模型基于已执行结果作答。
         // 注意：已执行的工具结果已保留在 reasoningSteps 中，收尾时模型仍可基于它们作答。
         if (repeatedGuardTriggered) {
           yield* emitForcedTermination();

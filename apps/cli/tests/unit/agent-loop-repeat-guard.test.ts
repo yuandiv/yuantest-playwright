@@ -116,6 +116,41 @@ function makeStreamTextChunks(text: string) {
   ];
 }
 
+/** 模型在同一轮内返回多个工具调用（模拟一轮声明 snapshot + click 等） */
+function makeStreamMultipleToolCallChunks(
+  calls: Array<{ name: string; args: Record<string, unknown> }>
+) {
+  const firstChunk = {
+    choices: [
+      {
+        delta: {
+          tool_calls: calls.map((c, i) => ({
+            index: i,
+            id: `call_${i}_${Math.random().toString(36).slice(2, 8)}`,
+            type: 'function',
+            function: { name: c.name, arguments: '' },
+          })),
+        },
+      },
+    ],
+  };
+  const secondChunk = {
+    choices: [
+      {
+        delta: {
+          tool_calls: calls.map((c, i) => ({
+            index: i,
+            function: { arguments: JSON.stringify(c.args) },
+          })),
+        },
+        finish_reason: 'tool_calls',
+      },
+    ],
+    usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+  };
+  return [firstChunk, secondChunk];
+}
+
 /** 收集事件总线事件 */
 function collectEvents(bus: EventEmitter, ...eventNames: string[]) {
   const collected: Array<{ event: string; payload: unknown }> = [];
@@ -274,5 +309,77 @@ describe('Agent Loop 死循环防护（对话级回归）', () => {
     expect(toolExecutor).toHaveBeenCalledTimes(3);
     expect(donePayload!.truncated).toBeFalsy();
     expect(donePayload!.content).toContain('三个区域均已分析');
+  });
+
+  it('页面探索序列（snapshot→click→snapshot→click→snapshot）不触发防护：穿插其他工具使计数重置', async () => {
+    // 复现用户报告场景：模型交替调用 browser_snapshot 与 browser_click 探索页面，
+    // snapshot 参数相同但中间穿插 click（改变页面状态），不应被判为死循环
+    const snapshotArgs = { url: 'http://localhost:5274/' };
+    const responses = [
+      makeSSEResponse(makeStreamToolCallChunks('browser_snapshot', snapshotArgs)), // 第 1 次 snapshot
+      makeSSEResponse(makeStreamToolCallChunks('browser_click', { element: 'Dashboard 按钮' })),
+      makeSSEResponse(makeStreamToolCallChunks('browser_snapshot', snapshotArgs)), // 第 2 次 snapshot（穿插 click 后）
+      makeSSEResponse(makeStreamToolCallChunks('browser_click', { element: 'Agents 按钮' })),
+      makeSSEResponse(makeStreamToolCallChunks('browser_snapshot', snapshotArgs)), // 第 3 次 snapshot（穿插 click 后）
+      makeSSEResponse(makeStreamTextChunks('页面探索完成，已掌握各功能区域结构。')), // 正常结束
+    ];
+    fetchSpy.mockImplementation(() => Promise.resolve(responses.shift() as Response));
+
+    const snapshotExec = vi.fn().mockResolvedValue('page snapshot content');
+    const clickExec = vi.fn().mockResolvedValue('clicked');
+    const toolExecutor = vi.fn((name: string) =>
+      name === 'browser_snapshot' ? snapshotExec() : clickExec()
+    );
+    const { donePayload, toolResultPayloads } = await consumeStream(client, toolExecutor);
+
+    // 3 次 snapshot 全部真实执行（未触发防护跳过），click 也全部执行
+    expect(snapshotExec).toHaveBeenCalledTimes(3);
+    expect(clickExec).toHaveBeenCalledTimes(2);
+    // 无防护跳过提示
+    const guardResults = toolResultPayloads.filter((t) => t.result.includes('重复调用防护'));
+    expect(guardResults).toHaveLength(0);
+    // 正常结束：truncated=false，模型给出最终文本
+    expect(donePayload).toBeDefined();
+    expect(donePayload!.truncated).toBeFalsy();
+    expect(donePayload!.content).toContain('页面探索完成');
+  });
+
+  it('同轮多个工具调用中仅跳过重复项：重复 snapshot 被跳过但后续 click 仍执行', async () => {
+    // 模型在同一轮同时声明 snapshot + click：snapshot 已连续 2 次（跨轮），
+    // 本轮再声明第 3 次相同 snapshot 应被跳过，但同轮的 click 仍应执行
+    const snapshotArgs = { url: 'http://localhost:5274/' };
+    const responses = [
+      // 第 1 轮：snapshot（连续计数 1）
+      makeSSEResponse(makeStreamToolCallChunks('browser_snapshot', snapshotArgs)),
+      // 第 2 轮：snapshot（连续计数 2）
+      makeSSEResponse(makeStreamToolCallChunks('browser_snapshot', snapshotArgs)),
+      // 第 3 轮：同一轮声明 [snapshot, click] —— snapshot 连续计数 3（跳过），click 仍执行
+      makeSSEResponse(
+        makeStreamMultipleToolCallChunks([
+          { name: 'browser_snapshot', args: snapshotArgs },
+          { name: 'browser_click', args: { element: 'Ready Executor 按钮' } },
+        ])
+      ),
+      makeSSEResponse(makeStreamTextChunks('已点击 Ready Executor 按钮，分析完成。')),
+    ];
+    fetchSpy.mockImplementation(() => Promise.resolve(responses.shift() as Response));
+
+    const snapshotExec = vi.fn().mockResolvedValue('page snapshot content');
+    const clickExec = vi.fn().mockResolvedValue('clicked ready executor');
+    const toolExecutor = vi.fn((name: string) =>
+      name === 'browser_snapshot' ? snapshotExec() : clickExec()
+    );
+    const { donePayload, toolResultPayloads } = await consumeStream(client, toolExecutor);
+
+    // snapshot 仅执行 2 次（第 3 次被防护跳过），click 执行 1 次
+    expect(snapshotExec).toHaveBeenCalledTimes(2);
+    expect(clickExec).toHaveBeenCalledTimes(1);
+    // 有防护跳过提示
+    const guardResults = toolResultPayloads.filter((t) => t.result.includes('重复调用防护'));
+    expect(guardResults).toHaveLength(1);
+    // 同轮 click 已执行（click 结果存在）
+    expect(toolResultPayloads.some((t) => t.name === 'browser_click' && t.result === 'clicked ready executor')).toBe(true);
+    expect(donePayload).toBeDefined();
+    expect(donePayload!.truncated).toBe(true); // 防护触发后强制收尾
   });
 });
