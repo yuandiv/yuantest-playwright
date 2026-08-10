@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { spawn, ChildProcess } from 'child_process';
+import { StringDecoder } from 'string_decoder';
 import {
   TestConfig,
   RunResult,
@@ -21,7 +22,7 @@ import { logger } from '@yuantest/core';
 import { StorageProvider, getStorage } from '@yuantest/core';
 import { PlaywrightConfigMerger } from '@yuantest/core';
 import { stripAnsi } from '@yuantest/core';
-import { safePathForCLI, buildSpawnEnv } from '@yuantest/core';
+import { safePathForCLI, buildSpawnEnv, escapeShellArg } from '@yuantest/core';
 import { checkEnvironment, MIN_PLAYWRIGHT_VERSION } from '@yuantest/core';
 import { PROGRESS_MARKER } from '@yuantest/core';
 import { PlaywrightReportParser, PlaywrightJSONReport } from './playwright-report-parser';
@@ -601,7 +602,9 @@ module.exports = defineConfig({
       this.config.processTimeout && this.config.processTimeout > 0 ? this.config.processTimeout : 0;
 
     const exitCode = await new Promise<number>((resolve, reject) => {
-      const proc = spawn('npx', ['playwright', ...args], {
+      // Windows（shell:true）下参数只拼接不转义，含空格路径会被 cmd 拆词并输出
+      // GBK 中文错误 → UTF-8 解码成乱码、进程立即退出；此处逐参数转义修复
+      const proc = spawn('npx', ['playwright', ...args.map(escapeShellArg)], {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: true,
@@ -631,10 +634,14 @@ module.exports = defineConfig({
 
       this.currentProcess = proc;
 
+      // 流式解码：避免多字节 UTF-8 字符被 chunk 边界截断产生乱码
+      const stdoutDecoder = new StringDecoder('utf8');
+      const stderrDecoder = new StringDecoder('utf8');
+
       proc.stdout?.on('data', (chunk: Buffer) => {
         // stdout 由 ProgressReporter 通过 progress channel 统一处理，
         // 此处仅记录到日志，不再发射 output 事件以避免重复打印
-        const text = chunk.toString();
+        const text = stdoutDecoder.write(chunk);
         const strippedText = stripAnsi(text);
         if (strippedText.trim()) {
           this.log.debug(`[stdout] ${strippedText.trim()}`);
@@ -643,7 +650,7 @@ module.exports = defineConfig({
 
       proc.stderr?.on('data', (chunk: Buffer) => {
         try {
-          const text = chunk.toString();
+          const text = stderrDecoder.write(chunk);
           this.progressTracker.handleData(text);
           const cleanText = text
             .split('\n')
@@ -1175,7 +1182,7 @@ module.exports = defineConfig({
       this.log.info(`Running merge command: npx ${mergeArgs.join(' ')}`);
 
       const mergeExitCode = await new Promise<number>((resolve, reject) => {
-        const proc = spawn('npx', mergeArgs, {
+        const proc = spawn('npx', mergeArgs.map(escapeShellArg), {
           cwd: this.resolvedOutputDir,
           stdio: ['ignore', 'pipe', 'pipe'],
           shell: true,
@@ -1186,16 +1193,21 @@ module.exports = defineConfig({
 
         let stdout = '';
         let stderr = '';
+        // 流式解码：避免多字节 UTF-8 字符被 chunk 边界截断产生乱码
+        const stdoutDecoder = new StringDecoder('utf8');
+        const stderrDecoder = new StringDecoder('utf8');
 
         proc.stdout?.on('data', (chunk: Buffer) => {
-          stdout += chunk.toString();
+          stdout += stdoutDecoder.write(chunk);
         });
 
         proc.stderr?.on('data', (chunk: Buffer) => {
-          stderr += chunk.toString();
+          stderr += stderrDecoder.write(chunk);
         });
 
         proc.on('close', (code: number | null) => {
+          stdout += stdoutDecoder.end();
+          stderr += stderrDecoder.end();
           if (stdout) {
             this.log.info(`Merge stdout: ${stdout}`);
           }
@@ -1676,7 +1688,7 @@ export class ParallelExecutor {
     this.log.info(`Running merge command: npx ${mergeArgs.join(' ')}`);
 
     const mergeExitCode = await new Promise<number>((resolve, reject) => {
-      const proc = spawn('npx', mergeArgs, {
+      const proc = spawn('npx', mergeArgs.map(escapeShellArg), {
         cwd: this.config.outputDir,
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: true,
@@ -1687,16 +1699,21 @@ export class ParallelExecutor {
 
       let stdout = '';
       let stderr = '';
+      // 流式解码：避免多字节 UTF-8 字符被 chunk 边界截断产生乱码
+      const stdoutDecoder = new StringDecoder('utf8');
+      const stderrDecoder = new StringDecoder('utf8');
 
       proc.stdout?.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString();
+        stdout += stdoutDecoder.write(chunk);
       });
 
       proc.stderr?.on('data', (chunk: Buffer) => {
-        stderr += chunk.toString();
+        stderr += stderrDecoder.write(chunk);
       });
 
       proc.on('close', (code: number | null) => {
+        stdout += stdoutDecoder.end();
+        stderr += stderrDecoder.end();
         if (stdout) {
           this.log.info(`Merge stdout: ${stdout}`);
         }

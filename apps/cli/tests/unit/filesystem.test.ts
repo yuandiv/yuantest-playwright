@@ -248,4 +248,37 @@ describe('filesystem utils', () => {
       expect(result?.size).toBe(1024);
     });
   });
+
+  describe('escapeShellArg', () => {
+    it('Windows：含空格路径应被双引号包裹，避免 cmd 拆词', async () => {
+      const { escapeShellArg } = await import('@yuantest/core');
+      // 模拟 Windows 平台行为（测试环境为 Windows 时直接验证；否则按 POSIX 分支验证）
+      const result = escapeShellArg('D:/my project/playwright.config.ts');
+      if (process.platform === 'win32') {
+        expect(result).toBe('"D:/my project/playwright.config.ts"');
+      } else {
+        expect(result).toBe("'D:/my project/playwright.config.ts'");
+      }
+    });
+
+    it('Windows：无空格的普通参数不做多余包装', async () => {
+      const { escapeShellArg } = await import('@yuantest/core');
+      const result = escapeShellArg('specs/login.spec.ts');
+      if (process.platform === 'win32') {
+        expect(result).toBe('specs/login.spec.ts');
+      } else {
+        expect(result).toBe('specs/login.spec.ts');
+      }
+    });
+
+    it('Windows：含空格的 --config 参数整体被引号包裹', async () => {
+      const { escapeShellArg } = await import('@yuantest/core');
+      const result = escapeShellArg('--config=D:/my project/playwright.config.ts');
+      if (process.platform === 'win32') {
+        expect(result).toBe('"--config=D:/my project/playwright.config.ts"');
+      } else {
+        expect(result).toBe("'--config=D:/my project/playwright.config.ts'");
+      }
+    });
+  });
 });

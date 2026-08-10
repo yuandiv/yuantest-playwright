@@ -419,6 +419,34 @@ export function safePathForCLI(inputPath: string): string {
   return inputPath;
 }
 
+/**
+ * 将单个参数转义为 shell 可安全解析的形式（用于 `shell: true` 场景）。
+ *
+ * 背景：Node spawn 在 `shell: true` 时会把参数数组直接用空格拼接交给 shell
+ * （cmd.exe / sh），**不做任何转义**（见 DEP0190 警告）。当参数含空格或特殊
+ * 字符（如 `--config=C:\my project\playwright.config.ts`）时，shell 会把路径
+ * 在空格处拆词，导致命令解析失败；在中文 Windows（代码页 936/GBK）上 cmd 会
+ * 输出 GBK 编码的错误消息（如"不是内部或外部命令"），被上层按 UTF-8 解码后
+ * 即为乱码，且进程立即退出（表现为"第二次点击运行选中后乱码报错、任务即结束"）。
+ *
+ * - Windows (cmd.exe)：含空格/特殊字符时用双引号包裹，内部双引号加倍；
+ * - POSIX (sh)：含特殊字符时用单引号包裹，内部单引号按 `'\''` 转义。
+ */
+export function escapeShellArg(arg: string): string {
+  if (process.platform === 'win32') {
+    // cmd.exe 特殊字符集合（双引号、空格及元字符）
+    if (/[ \t"&|<>^()%!]/.test(arg)) {
+      return '"' + arg.replace(/"/g, '""') + '"';
+    }
+    return arg;
+  }
+  // POSIX sh：保留字母数字与常见路径字符，其余用单引号包裹
+  if (/^[A-Za-z0-9_\-./:=@]+$/.test(arg)) {
+    return arg;
+  }
+  return "'" + arg.replace(/'/g, `'\\''`) + "'";
+}
+
 export function buildSpawnEnv(additionalEnv?: Record<string, string>): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
 

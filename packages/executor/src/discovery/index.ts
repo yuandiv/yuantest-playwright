@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { StringDecoder } from 'string_decoder';
 import * as path from 'path';
 import { logger } from '@yuantest/core';
 import { StorageProvider, getStorage } from '@yuantest/core';
@@ -7,7 +8,7 @@ import { CACHE_CONFIG } from '@yuantest/core';
 import { PlaywrightConfigMerger, ConfigValidationResult } from '@yuantest/core';
 import { Lang } from '@yuantest/core';
 import { stripAnsi } from '@yuantest/core';
-import { safePathForCLI, buildSpawnEnv } from '@yuantest/core';
+import { safePathForCLI, buildSpawnEnv, escapeShellArg } from '@yuantest/core';
 
 export interface DiscoveredTest {
   id: string;
@@ -353,7 +354,7 @@ export class TestDiscovery {
     const DISCOVERY_TIMEOUT_MS = 120000;
 
     return new Promise((resolve) => {
-      const proc = spawn('npx', args, {
+      const proc = spawn('npx', args.map(escapeShellArg), {
         cwd,
         shell: true,
         env: buildSpawnEnv(),
@@ -365,6 +366,9 @@ export class TestDiscovery {
       let truncated = false;
       let settled = false;
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      // 流式解码：避免多字节 UTF-8 字符被 chunk 边界截断产生乱码
+      const stdoutDecoder = new StringDecoder('utf8');
+      const stderrDecoder = new StringDecoder('utf8');
 
       const cleanup = () => {
         if (timeoutId) {
@@ -419,7 +423,7 @@ export class TestDiscovery {
         if (truncated) {
           return;
         }
-        const chunk = data.toString('utf-8');
+        const chunk = stdoutDecoder.write(data);
         const newSize = stdoutSize + Buffer.byteLength(chunk, 'utf-8');
 
         if (newSize > maxStdoutSize) {
@@ -444,7 +448,7 @@ export class TestDiscovery {
       });
 
       proc.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString('utf-8');
+        stderr += stderrDecoder.write(data);
       });
 
       proc.on('error', (error) => {

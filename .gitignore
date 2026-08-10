@@ -48,6 +48,7 @@ Thumbs.db
 /traces/
 /visual-testing/
 /html-report/
+playwright-report/
 
 .playwright-mcp/
 specs
