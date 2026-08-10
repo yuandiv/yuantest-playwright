@@ -19,6 +19,8 @@ export interface LLMChatOptions {
   temperature?: number;
   responseFormat?: { type: string };
   timeout?: number;
+  /** 外部取消信号（如 SSE 客户端断开），中止 LLM 请求 */
+  signal?: AbortSignal;
 }
 
 export interface TokenUsage {
@@ -63,6 +65,26 @@ export interface ToolSchema {
 const DEFAULT_TIMEOUT = 120000;
 const MAX_AGENT_ROUNDS = 30;
 /**
+ * 工具结果回灌 LLM 的最大字符数。
+ * 超出部分截断并追加提示，避免页面快照/大结果导致上下文随轮次 O(n²) 膨胀。
+ */
+const MAX_TOOL_RESULT_CHARS = 3000;
+/**
+ * 截断时保留的头部/尾部字符数（头+尾合计不超过 MAX_TOOL_RESULT_CHARS）。
+ * 与纯前截断相比，头尾双保留能让 LLM 同时看到页面快照的结构起始与结尾，
+ * 避免"只看到开头、中段核心结构永远缺失"导致的反复重试。
+ */
+const MAX_TOOL_RESULT_HEAD = 2000;
+const MAX_TOOL_RESULT_TAIL = 1000;
+/**
+ * 截断标记文案（条件引导，非"禁止重试"）：
+ * - 明确"以相同参数重复调用无益"，切断原样重试的死循环诱因；
+ * - 保留"改变前置状态后重试"（滚动/展开/点击后重拍）的合法性；
+ * - 引导改用 browser_evaluate 提取结构化摘要。
+ */
+const TOOL_RESULT_TRUNCATION_HINT =
+  '\n...(结果过长已截断，已保留开头与结尾；以相同参数重复调用不会获得新内容，请基于现有信息继续分析，或先滚动/展开/点击后再调用，或用 browser_evaluate 提取结构化摘要)';
+/**
  * 单次 Agent Loop 允许的最大工具调用次数（含首次模型响应触发的工具调用）。
  * 超限后清空 tools 数组，强制模型给出最终文本响应，防止死循环烧 Token。
  * 可通过环境变量 AGENT_MAX_TOOL_CALLS 覆盖。
@@ -99,6 +121,7 @@ export type AgentLoopStreamEvent =
   | { type: 'token'; data: string }
   | { type: 'thinking'; data: string }
   | { type: 'tool_call'; data: { name: string; arguments: string } }
+  | { type: 'tool_running'; data: { name: string } }
   | { type: 'tool_result'; data: { name: string; result: string } }
   | {
       type: 'done';
@@ -148,8 +171,84 @@ function parseThinkingTags(content: string): {
     return { cleanContent: content, thinkingContent: null };
   }
 
-  const cleanContent = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  let cleanContent = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+  // 容错：未闭合的 <think> 标签（模型输出中断等场景），剩余内容按思考处理，避免泄漏到正文
+  const unclosedIdx = cleanContent.lastIndexOf('<think>');
+  if (unclosedIdx !== -1) {
+    const rest = cleanContent.slice(unclosedIdx + '<think>'.length).trim();
+    if (rest) {
+      thinkingParts.push(rest);
+    }
+    cleanContent = cleanContent.slice(0, unclosedIdx).trim();
+  }
+
   return { cleanContent, thinkingContent: thinkingParts.join('\n') };
+}
+
+const THINK_OPEN = '<think>';
+const THINK_CLOSE = '</think>';
+
+/**
+ * 实时拆分流式 content 增量中的 <think>...</think> 标签。
+ * - 标签外文本 → content（正常正文）
+ * - 标签内文本 → thinking（思考过程）
+ * - 若缓冲区尾部是标签的部分前缀（跨 chunk 截断），保留在 rest 中待下一 chunk 续接
+ */
+function splitThinkChunks(
+  buffer: string,
+  inThink: boolean
+): { content: string; thinking: string; rest: string; inThink: boolean } {
+  let content = '';
+  let thinking = '';
+  let i = 0;
+
+  while (i < buffer.length) {
+    if (!inThink) {
+      const idx = buffer.indexOf(THINK_OPEN, i);
+      if (idx === -1) {
+        const tail = buffer.slice(i);
+        const hold = partialPrefixLen(tail, THINK_OPEN);
+        if (hold > 0) {
+          content += tail.slice(0, tail.length - hold);
+          return { content, thinking, rest: tail.slice(-hold), inThink: false };
+        }
+        content += tail;
+        return { content, thinking, rest: '', inThink: false };
+      }
+      content += buffer.slice(i, idx);
+      i = idx + THINK_OPEN.length;
+      inThink = true;
+    } else {
+      const idx = buffer.indexOf(THINK_CLOSE, i);
+      if (idx === -1) {
+        const tail = buffer.slice(i);
+        const hold = partialPrefixLen(tail, THINK_CLOSE);
+        if (hold > 0) {
+          thinking += tail.slice(0, tail.length - hold);
+          return { content, thinking, rest: tail.slice(-hold), inThink: true };
+        }
+        thinking += tail;
+        return { content, thinking, rest: '', inThink: true };
+      }
+      thinking += buffer.slice(i, idx);
+      i = idx + THINK_CLOSE.length;
+      inThink = false;
+    }
+  }
+
+  return { content, thinking, rest: '', inThink };
+}
+
+/** tail 尾部是否为 tag 的部分前缀（跨 chunk 截断检测），返回需要保留的长度 */
+function partialPrefixLen(tail: string, tag: string): number {
+  const max = Math.min(tail.length, tag.length - 1);
+  for (let len = max; len >= 1; len--) {
+    if (tag.startsWith(tail.slice(-len))) {
+      return len;
+    }
+  }
+  return 0;
 }
 
 /**
@@ -197,12 +296,53 @@ function buildRoundMessages(
   return msgs;
 }
 
+/**
+ * 参数稳定序列化：排序键后再 JSON.stringify，使"同一工具+同一参数"在不同调用间
+ * 产生一致的 key（无论模型返回的参数键顺序是否变化），用于重复调用防护判重。
+ */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => stableStringify(v)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export class LLMService {
   private config: LLMConfig;
   private log = logger.child('LLMService');
+  /**
+   * 嵌套调用预算栈：工具执行期间（agent_generate 等嵌套调用 LLM）由
+   * chatWithAgentLoopStream 将外层 TokenBudget 压栈，chat()/chatWithToolsStream
+   * 结束时自动将 usage 累加到栈顶预算，使嵌套调用 token 计入外层配额。
+   */
+  private budgetStack: TokenBudget[] = [];
 
   constructor(config: LLMConfig) {
     this.config = config;
+  }
+
+  /** 将预算压栈（工具执行开始时调用） */
+  pushBudget(budget: TokenBudget): void {
+    this.budgetStack.push(budget);
+  }
+
+  /** 弹出预算（工具执行结束时调用） */
+  popBudget(): void {
+    this.budgetStack.pop();
+  }
+
+  /** 将 usage 累加到栈顶预算（嵌套调用结束时调用） */
+  private accumulateNestedUsage(usage?: TokenUsage): void {
+    if (!usage) {
+      return;
+    }
+    const top = this.budgetStack[this.budgetStack.length - 1];
+    top?.accumulate(usage);
   }
 
   updateConfig(config: LLMConfig): void {
@@ -253,22 +393,28 @@ export class LLMService {
     config: LLMConfig,
     body: Record<string, unknown>,
     timeoutMs?: number,
-    retries: number = 5
+    retries: number = 5,
+    signal?: AbortSignal
   ): Promise<Response> {
-    const timeout = timeoutMs ?? DEFAULT_TIMEOUT;
+    // 超时优先级：显式传入 > 配置（推理型模型可按需调大）> 默认 120s
+    const timeout = timeoutMs ?? config.timeoutMs ?? DEFAULT_TIMEOUT;
     const url = this.buildURL(config);
     const headers = this.buildHeaders(config);
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
+      // 合并外部取消信号（SSE 客户端断开）与内部超时，任一触发即中止请求
+      const combinedSignal = signal
+        ? AbortSignal.any([controller.signal, signal])
+        : controller.signal;
 
       try {
         const response = await fetch(url, {
           method: 'POST',
           headers,
           body: JSON.stringify(body),
-          signal: controller.signal,
+          signal: combinedSignal,
         });
 
         if (!response.ok) {
@@ -298,8 +444,13 @@ export class LLMService {
 
         return response;
       } catch (error) {
-        // 超时不重试
+        // 区分外部取消（客户端断开）与内部超时，避免误报为"请求超时"
         if (error instanceof Error && error.name === 'AbortError') {
+          if (signal?.aborted) {
+            const msg = 'LLM API 请求已取消（客户端断开连接）';
+            this.log.warn(`[LLM] ${msg}`);
+            throw new Error(msg, { cause: error });
+          }
           const msg = `LLM API 请求超时 (${timeout}ms, model: ${config.model})`;
           this.log.error(`[LLM] ${msg}`);
           throw new Error(msg, { cause: error });
@@ -333,9 +484,10 @@ export class LLMService {
   private async callAPI(
     config: LLMConfig,
     body: Record<string, unknown>,
-    timeoutMs?: number
+    timeoutMs?: number,
+    signal?: AbortSignal
   ): Promise<RawAPIResponse> {
-    const response = await this.fetchWithRetry(config, body, timeoutMs);
+    const response = await this.fetchWithRetry(config, body, timeoutMs, undefined, signal);
     return (await response.json()) as RawAPIResponse;
   }
 
@@ -375,14 +527,19 @@ export class LLMService {
       body.response_format = options.responseFormat;
     }
 
-    const data = await this.callAPI(this.config, body, options.timeout);
+    const data = await this.callAPI(this.config, body, options.timeout, options.signal);
     const choice = data.choices?.[0];
     const rawContent = choice?.message?.content;
     const reasoningContent = choice?.message?.reasoning_content;
 
-    // 当模型开启推理模式时，部分模型会将实际回复放在 reasoning_content 中，
-    // 而 content 可能为 null/空，这里做兜底处理
-    const content = rawContent || reasoningContent || '';
+    // 统一 think 处理（与 chatWithToolsStream / chatWithTools 一致）：
+    // - content 中的 <think>...</think> 标签剥离，避免思考内容混入正文
+    //   （如代码生成路径曾把思考内容当代码保存）
+    // - 模型开启推理模式时 content 可能为空，回退到 reasoning_content（诊断等场景）
+    let content = rawContent ? parseThinkingTags(rawContent).cleanContent : '';
+    if (!content && reasoningContent) {
+      content = reasoningContent;
+    }
     if (!content) {
       throw new Error('Empty response from LLM');
     }
@@ -392,6 +549,9 @@ export class LLMService {
         `LLM response was truncated (finish_reason=length). Consider increasing maxTokens. Current: ${options.maxTokens ?? this.config.maxTokens}`
       );
     }
+
+    // 若处于工具嵌套调用中，将本次 usage 累加到外层 TokenBudget
+    this.accumulateNestedUsage(this.extractUsage(data));
 
     return {
       content,
@@ -527,7 +687,8 @@ export class LLMService {
     messages: LLMChatMessage[],
     config: LLMConfig,
     tools?: ToolSchema[],
-    responseFormat?: { type: string }
+    responseFormat?: { type: string },
+    signal?: AbortSignal
   ): AsyncGenerator<ToolsStreamEvent, void, unknown> {
     const body: Record<string, unknown> = {
       model: config.model,
@@ -550,7 +711,7 @@ export class LLMService {
       body.tool_choice = 'auto';
     }
 
-    const response = await this.fetchWithRetry(config, body);
+    const response = await this.fetchWithRetry(config, body, undefined, undefined, signal);
 
     if (!response.body) {
       throw new Error('Response body is null');
@@ -563,6 +724,21 @@ export class LLMService {
     // 累积状态
     let fullContent = '';
     let fullThinking: string | null = null;
+    // 实时 <think> 标签拆分状态（跨 chunk 维护）
+    let pendingBuffer = '';
+    let inThinkTag = false;
+    // 追加思考内容（去重：跳过与已累积内容相同的片段，避免 reasoning_content 与 content 中 <think> 重复）
+    const appendThinking = (segment: string): boolean => {
+      const trimmed = segment.trim();
+      if (!trimmed) {
+        return false;
+      }
+      if (fullThinking && fullThinking.includes(trimmed)) {
+        return false;
+      }
+      fullThinking = fullThinking ? fullThinking + '\n' + trimmed : trimmed;
+      return true;
+    };
     let lastFinishReason: string | undefined;
     const toolCallMap = new Map<
       number,
@@ -602,10 +778,27 @@ export class LLMService {
             continue;
           }
 
-          // 内容增量
+          // 内容增量：实时拆分 <think>...</think> 标签，标签外文本作为正文、标签内文本作为思考
           if (delta.content) {
-            fullContent += delta.content;
-            yield { type: 'content_delta', content: delta.content };
+            pendingBuffer += delta.content;
+            while (pendingBuffer.length > 0) {
+              const res = splitThinkChunks(pendingBuffer, inThinkTag);
+              // 整个缓冲区都是标签前缀（等待跨 chunk 续接），暂时不做处理
+              if (!res.content && !res.thinking && res.rest.length === pendingBuffer.length) {
+                break;
+              }
+              pendingBuffer = res.rest;
+              inThinkTag = res.inThink;
+              if (res.content) {
+                fullContent += res.content;
+                yield { type: 'content_delta', content: res.content };
+              }
+              if (res.thinking) {
+                if (appendThinking(res.thinking)) {
+                  yield { type: 'thinking_delta', content: res.thinking };
+                }
+              }
+            }
           }
 
           // 思考内容增量
@@ -667,16 +860,28 @@ export class LLMService {
       }
     }
 
-    // 解析 <think...</think 标签
+    // 流结束：冲刷残留缓冲区（未闭合的 <think> 标签按思考处理，避免泄漏到正文）
+    if (pendingBuffer) {
+      if (inThinkTag) {
+        appendThinking(pendingBuffer);
+      } else {
+        fullContent += pendingBuffer;
+      }
+      pendingBuffer = '';
+      inThinkTag = false;
+    }
+
+    // 兜底：若 fullContent 中仍残留 <think> 标签（极端情况），剥离并补入思考内容
     if (fullContent) {
       const parsed = parseThinkingTags(fullContent);
       if (parsed.thinkingContent) {
-        fullThinking = fullThinking
-          ? fullThinking + '\n' + parsed.thinkingContent
-          : parsed.thinkingContent;
+        appendThinking(parsed.thinkingContent);
         fullContent = parsed.cleanContent;
       }
     }
+
+    // 若处于工具嵌套调用中，将本次流式调用 usage 累加到外层 TokenBudget
+    this.accumulateNestedUsage(lastUsage);
 
     // 流结束，判断是否有工具调用
     if (toolCallMap.size > 0) {
@@ -721,7 +926,9 @@ export class LLMService {
      */
     eventBus?: EventEmitter,
     /** 关联的会话 id（透传到事件载荷，便于 UI 关联） */
-    sessionId?: string
+    sessionId?: string,
+    /** 外部取消信号（如 SSE 客户端断开），中止 agent loop 及内部 LLM 请求 */
+    signal?: AbortSignal
   ): AsyncGenerator<AgentLoopStreamEvent, void, unknown> {
     const agentName = 'AgentLoop'; // llm-service 无 agentName 概念，用固定标识
     /** 安全 emit：吞掉 listener 异常，避免污染主流程 */
@@ -737,6 +944,40 @@ export class LLMService {
     };
     const reasoningSteps: ReasoningStep[] = [];
     let accPrompt = 0;
+    // 最近一次成功执行的工具完整结果（synthesizeFinalContent 强制收尾时拼入有效内容，
+    // 避免最终回复退化为纯"已执行 N 次工具调用"清单）
+    let lastFullToolResult = '';
+
+    /**
+     * 工具执行后若模型未给出正文（content 为空），用已执行工具的结果合成摘要，
+     * 避免聊天流以空白消息"自动结束"（前端只显示思考过程/工具调用，看不到最终回复）。
+     */
+    const synthesizeFinalContent = (content: string | null | undefined): string => {
+      const trimmed = (content || '').trim();
+      if (trimmed) {
+        return trimmed;
+      }
+      if (reasoningSteps.length === 0) {
+        return content || '';
+      }
+      const lines = reasoningSteps.map((step) => {
+        const output = (step.output || '').trim();
+        return `- ${step.tool}: ${output ? output.slice(0, 200) : '已执行'}`;
+      });
+      let summary = `已执行 ${reasoningSteps.length} 次工具调用：\n${lines.join('\n')}`;
+      // 强制收尾时拼入最后一次成功执行的完整工具结果（截断预览），
+      // 避免最终回复退化为纯"已执行 N 次工具调用"清单，让用户拿到已获取的部分信息
+      if (lastFullToolResult) {
+        const preview =
+          lastFullToolResult.length > 1500
+            ? lastFullToolResult.slice(0, 1000) +
+              '\n...[预览截断]...\n' +
+              lastFullToolResult.slice(-500)
+            : lastFullToolResult;
+        summary += `\n\n[最后一次工具调用结果]\n${preview}`;
+      }
+      return `${summary}\n\n（模型未返回正文，以上为工具执行摘要与最近一次工具结果）`;
+    };
     let accCompletion = 0;
     let accTotal = 0;
     let collectedThinking: string | null = null;
@@ -785,7 +1026,7 @@ export class LLMService {
     ];
 
     try {
-      const firstStream = this.chatWithToolsStream(messages, config, tools, responseFormat);
+      const firstStream = this.chatWithToolsStream(messages, config, tools, responseFormat, signal);
       let firstToolCalls: ToolCallInfo[] | null = null;
       let firstContent = '';
       let firstThinking: string | null = null;
@@ -827,6 +1068,7 @@ export class LLMService {
             systemPrompt: prompt.system,
             userPrompt: prompt.user,
             responseFormat,
+            signal,
           });
           accumulateUsage(fallbackText.usage);
           safeEmit(AGENT_EVENT.TOKEN, { agentName, data: fallbackText.content, sessionId } as AgentToken);
@@ -886,6 +1128,12 @@ export class LLMService {
       let round = 0;
       // Plan progress tracking: maps step index → status
       const planProgress: string[] = [];
+      // 重复调用防护：key = 工具名 + 稳定序列化的参数，value = 已调用次数
+      const callCounts = new Map<string, number>();
+      // 本轮是否触发了重复调用防护（对应工具调用被跳过未执行）
+      let repeatedGuardTriggered = false;
+      // 强制收尾原因（可由重复调用防护等非预算场景覆盖默认文案）
+      let forcedTerminationReason: string | null = null;
 
       /**
        * 配额超限时的强制收尾分支：
@@ -893,15 +1141,18 @@ export class LLMService {
        * 使用箭头函数生成器以保留外层 this（LLMService 实例）绑定。
        */
       const emitForcedTermination = async function* (this: LLMService): AsyncGenerator<AgentLoopStreamEvent, void, unknown> {
-        const reason = budget.isToolCallLimitReached()
-          ? `max tool calls (${budget.maxToolCalls})`
-          : `max total tokens (${budget.maxTotalTokens})`;
+        const reason =
+          forcedTerminationReason ??
+          (budget.isToolCallLimitReached()
+            ? `max tool calls (${budget.maxToolCalls})`
+            : `max total tokens (${budget.maxTotalTokens})`);
         this.log.warn(`Agent loop exceeded ${reason}, executing final call without tools`);
         const finalStream = this.chatWithToolsStream(
           buildRoundMessages(baseMessages, reasoningSteps, currentContent, []),
           config,
           [],
-          responseFormat
+          responseFormat,
+          signal
         );
         let finalContent = '';
         let finalThinking: string | null = null;
@@ -923,9 +1174,10 @@ export class LLMService {
         }
         accumulateUsage(finalUsage);
         collectThinking(finalThinking);
+        const forcedFinalContent = synthesizeFinalContent(finalContent || currentContent || '');
         safeEmit(AGENT_EVENT.DONE, {
           agentName,
-          content: finalContent || currentContent || '',
+          content: forcedFinalContent,
           thinkingContent: collectedThinking,
           analysisMode: 'agent',
           reasoningSteps,
@@ -936,7 +1188,7 @@ export class LLMService {
         yield {
           type: 'done',
           data: {
-            content: finalContent || currentContent || '',
+            content: forcedFinalContent,
             thinkingContent: collectedThinking,
             analysisMode: 'agent',
             reasoningSteps,
@@ -1003,6 +1255,48 @@ export class LLMService {
             args = {};
           }
 
+          // ── 重复调用防护（死循环硬闸）──
+          // key = 工具名 + 稳定序列化参数；参数变化（滚动/展开/点击后重拍）视为新调用，不受限。
+          const callKey = `${toolCall.function.name}:${stableStringify(args)}`;
+          const count = (callCounts.get(callKey) ?? 0) + 1;
+          callCounts.set(callKey, count);
+
+          if (count >= 3) {
+            // 第 3 次原样重试：跳过执行，注入防护提示并强制无工具收尾（保留已执行结果）
+            this.log.warn(
+              `Repeated identical tool call (${callKey}) x${count}, skipping execution and force terminating`
+            );
+            const guardMsg =
+              `[System] 重复调用防护：工具 ${toolCall.function.name} 已以完全相同参数连续调用 ${count} 次，` +
+              `结果均相同且无新信息。本次调用已跳过。请勿再以相同参数调用该工具；` +
+              `如需更多信息请先滚动/展开/点击改变页面状态后重试，或用 browser_evaluate 提取结构化摘要，` +
+              `或基于已有信息直接给出最终答案。`;
+            step.output = guardMsg;
+            reasoningSteps.push(step);
+            planProgress.push(
+              `[Round ${round}] ${toolCall.function.name}: skipped (重复调用防护 x${count})`
+            );
+            forcedTerminationReason = `repeated identical tool call (${callKey}) x${count}`;
+            repeatedGuardTriggered = true;
+            safeEmit(AGENT_EVENT.TOOL_RESULT, {
+              agentName,
+              name: toolCall.function.name,
+              result: guardMsg,
+              round,
+              sessionId,
+            } as AgentToolResult);
+            yield { type: 'tool_result', data: { name: toolCall.function.name, result: guardMsg } };
+            break;
+          }
+
+          // 第 2 次原样重试：仍执行，但注入引导提示（下一轮 LLM 将看到）
+          if (count === 2) {
+            planProgress.push(
+              `[System] 提示：工具 ${toolCall.function.name}（相同参数）已执行过且结果相同，` +
+                `原样重试不会获得新信息，请先滚动/展开/点击或改用其他工具/参数。`
+            );
+          }
+
           safeEmit(AGENT_EVENT.TOOL_CALL, {
             agentName,
             name: toolCall.function.name,
@@ -1015,11 +1309,24 @@ export class LLMService {
             data: { name: toolCall.function.name, arguments: toolCall.function.arguments },
           };
 
-          const toolResult = toolExecutor
-            ? await toolExecutor(toolCall.function.name, args)
-            : `Tool execution not available: ${toolCall.function.name}`;
+          // 工具执行开始：通知前端显示"执行中"状态（嵌套调用可能长时间无 token）
+          yield { type: 'tool_running', data: { name: toolCall.function.name } };
+
+          // 工具执行期间将外层预算压栈：嵌套 LLM 调用（agent_generate 等）
+          // 的 usage 会由 chat()/chatWithToolsStream 累加到栈顶预算
+          this.pushBudget(budget);
+          let toolResult: string;
+          try {
+            toolResult = toolExecutor
+              ? await toolExecutor(toolCall.function.name, args)
+              : `Tool execution not available: ${toolCall.function.name}`;
+          } finally {
+            this.popBudget();
+          }
 
           step.output = toolResult.slice(0, 500);
+          // 记录最后一次成功执行的完整工具结果，供强制收尾拼入最终回复
+          lastFullToolResult = toolResult;
           reasoningSteps.push(step);
           // 递增工具调用计数，供 TokenBudget 配额检查使用
           budget.recordToolCall();
@@ -1035,11 +1342,28 @@ export class LLMService {
 
           roundMessages.push({
             role: 'tool',
-            content: toolResult,
+            // 工具结果回灌 LLM 前截断，避免页面快照/大结果使上下文随轮次 O(n²) 膨胀。
+            // 采用头尾双保留：LLM 同时看到结构起始与结尾，截断标记为条件引导（非禁止重试）。
+            content:
+              toolResult.length > MAX_TOOL_RESULT_CHARS
+                ? toolResult.slice(0, MAX_TOOL_RESULT_HEAD) +
+                  '\n...[中段省略 ' +
+                  (toolResult.length - MAX_TOOL_RESULT_HEAD - MAX_TOOL_RESULT_TAIL) +
+                  ' 字符]...\n' +
+                  toolResult.slice(-MAX_TOOL_RESULT_TAIL) +
+                  TOOL_RESULT_TRUNCATION_HINT
+                : toolResult,
             tool_call_id: toolCall.id,
           });
 
           planProgress.push(`[Round ${round}] ${toolCall.function.name}: completed`);
+        }
+
+        // 重复调用防护触发：跳过本轮剩余工具执行，直接进入无工具强制收尾。
+        // 注意：已执行的工具结果已保留在 reasoningSteps 中，收尾时模型仍可基于它们作答。
+        if (repeatedGuardTriggered) {
+          yield* emitForcedTermination();
+          return;
         }
 
         // 配额检查：工具执行后立即判断是否超限，超限则强制收尾
@@ -1055,7 +1379,7 @@ export class LLMService {
         });
 
         // 再次流式调用 LLM
-        const nextStream = this.chatWithToolsStream(roundMessages, config, tools, responseFormat);
+        const nextStream = this.chatWithToolsStream(roundMessages, config, tools, responseFormat, signal);
         let nextToolCalls: ToolCallInfo[] | null = null;
         let nextContent = '';
         let nextThinking: string | null = null;
@@ -1089,9 +1413,10 @@ export class LLMService {
         collectThinking(nextThinking);
 
         if (!nextToolCalls || nextToolCalls.length === 0) {
+          const finalContent = synthesizeFinalContent(nextContent);
           safeEmit(AGENT_EVENT.DONE, {
             agentName,
-            content: nextContent,
+            content: finalContent,
             thinkingContent: collectedThinking,
             analysisMode: 'agent',
             reasoningSteps,
@@ -1101,7 +1426,7 @@ export class LLMService {
           yield {
             type: 'done',
             data: {
-              content: nextContent,
+              content: finalContent,
               thinkingContent: collectedThinking,
               analysisMode: 'agent',
               reasoningSteps,
@@ -1124,9 +1449,10 @@ export class LLMService {
       );
       accumulateUsage(finalResponse.usage);
       collectThinking(finalResponse.thinkingContent);
+      const fallbackFinalContent = synthesizeFinalContent(finalResponse.content || '');
       safeEmit(AGENT_EVENT.DONE, {
         agentName,
-        content: finalResponse.content || '',
+        content: fallbackFinalContent,
         thinkingContent: collectedThinking,
         analysisMode: 'agent',
         reasoningSteps,
@@ -1136,7 +1462,7 @@ export class LLMService {
       yield {
         type: 'done',
         data: {
-          content: finalResponse.content || '',
+          content: fallbackFinalContent,
           thinkingContent: collectedThinking,
           analysisMode: 'agent',
           reasoningSteps,
@@ -1157,13 +1483,15 @@ export class LLMService {
       const fallbackText = await this.chat({
         systemPrompt: prompt.system,
         userPrompt: prompt.user,
+        signal,
       });
       accumulateUsage(fallbackText.usage);
       safeEmit(AGENT_EVENT.TOKEN, { agentName, data: fallbackText.content, sessionId } as AgentToken);
       yield { type: 'token', data: fallbackText.content };
+      const catchFallbackContent = synthesizeFinalContent(fallbackText.content);
       safeEmit(AGENT_EVENT.DONE, {
         agentName,
-        content: fallbackText.content,
+        content: catchFallbackContent,
         thinkingContent: collectedThinking,
         analysisMode: 'fallback',
         reasoningSteps: [],
@@ -1173,7 +1501,7 @@ export class LLMService {
       yield {
         type: 'done',
         data: {
-          content: fallbackText.content,
+          content: catchFallbackContent,
           thinkingContent: collectedThinking,
           analysisMode: 'fallback',
           reasoningSteps: [],
