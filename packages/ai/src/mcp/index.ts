@@ -8,6 +8,8 @@ export { MCPClientManager } from './client-manager';
 
 export { MCPConfigService, MCPPreset, BUILTIN_MCP_PRESETS } from './config-service';
 
+export { MCPService } from './mcp-service';
+
 export {
   MCPToolInfo,
   MCPServerStatus,

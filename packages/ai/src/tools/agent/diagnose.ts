@@ -9,23 +9,24 @@ import type { AIDiagnosis } from '@yuantest/contracts';
 export function createAgentDiagnoseTool(ctx: AgentToolContext) {
   return defineTool(
     'agent_diagnose',
-    'Analyze a test failure using AI and return structured diagnosis with root cause and fix suggestions. Use this when the user asks why a test failed.',
+    '使用 AI 分析测试失败原因，返回包含根因与修复建议的结构化诊断。' +
+      '当用户问"测试为什么失败、分析失败原因"时使用。',
     {
       title: {
         type: 'string',
-        description: 'The test case title or identifier',
+        description: '测试用例标题或标识',
       },
       error: {
         type: 'string',
-        description: 'The error message from the test failure',
+        description: '测试失败的错误信息',
       },
       stackTrace: {
         type: 'string',
-        description: 'Optional stack trace from the failure',
+        description: '失败堆栈跟踪（可选）',
       },
       filePath: {
         type: 'string',
-        description: 'Optional path to the test file',
+        description: '测试文件路径（可选）',
       },
     },
     ['title', 'error'],

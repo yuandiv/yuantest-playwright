@@ -9,23 +9,24 @@ import type { TestConfig } from '@yuantest/contracts';
 export function createAgentExecuteTool(ctx: AgentToolContext) {
   return defineTool(
     'agent_execute',
-    'Run Playwright tests and return pass/fail results. Use this when the user asks you to run or execute tests.',
+    '运行 Playwright 测试并返回通过/失败结果。' +
+      '当用户要求"运行/执行测试、跑一下用例、验证测试结果"时使用。',
     {
       testDir: {
         type: 'string',
-        description: 'Test file directory (optional, defaults to the project test dir)',
+        description: '测试文件目录（可选，默认项目测试目录）',
       },
       grep: {
         type: 'string',
-        description: 'Run only tests matching this name pattern (optional)',
+        description: '仅运行匹配此名称模式的测试（可选）',
       },
       timeout: {
         type: 'number',
-        description: 'Test timeout in milliseconds (optional, default 30000)',
+        description: '测试超时时间（毫秒，可选，默认 30000）',
       },
       retries: {
         type: 'number',
-        description: 'Number of retries on failure (optional, default 0)',
+        description: '失败重试次数（可选，默认 0）',
       },
     },
     [],

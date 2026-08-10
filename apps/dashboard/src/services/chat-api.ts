@@ -16,6 +16,8 @@ export interface ChatMessageData {
   resultContent?: string;
   thinkingContent?: string;
   truncated?: boolean;
+  /** 工具是否正在执行中（tool_running 事件置位，tool_result 到达后清除） */
+  running?: boolean;
   timestamp: number;
 }
 
@@ -70,7 +72,18 @@ export interface ToolInfo {
 }
 
 export interface SSEEventData {
-  type: 'token' | 'tool_call' | 'tool_result' | 'thinking' | 'done' | 'error';
+  type:
+    | 'token'
+    | 'tool_call'
+    | 'tool_running'
+    | 'tool_result'
+    | 'thinking'
+    | 'done'
+    | 'error'
+    // 事件桥接：agent.* 总线事件投影（HITL / 持久化等）
+    | 'interrupt'
+    | 'continue'
+    | 'agent_persist';
   data: unknown;
 }
 

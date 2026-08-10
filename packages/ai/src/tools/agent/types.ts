@@ -15,8 +15,6 @@ export interface AgentToolContext {
   diagnosisAgent: DiagnosisAgent | null;
   /** 执行器能力（经注入，agent_execute 工具不直接 new Executor；未配置时为 null） */
   executor: ITestExecutor | null;
-  /** agent_generate 触发后需设为 true，以便后续保存代码 */
-  setGenerateTriggered: (v: boolean) => void;
   /** agent_heal 直接委托 */
   heal: (
     testFilePath: string,

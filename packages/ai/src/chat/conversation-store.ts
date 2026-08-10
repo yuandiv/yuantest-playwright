@@ -12,6 +12,8 @@ export interface ChatMessage {
   toolCall?: {
     name: string;
     arguments: string;
+    /** 工具调用 id（用于与 tool_result 的 toolCallId 关联；旧数据可能缺失） */
+    id?: string;
   };
   /** 工具调用结果信息（仅 tool_result 类型） */
   toolResult?: {
@@ -52,6 +54,13 @@ export class ConversationStore {
   private dataDir: string;
   private conversationsDir: string;
   private log = logger.child('ConversationStore');
+  /** 内存缓存：避免每次 get 全量读盘 */
+  private cache = new Map<string, Conversation>();
+  /** 待落盘的会话 id 集合（防抖合并写） */
+  private dirtyIds = new Set<string>();
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 防抖落盘延迟（ms） */
+  private static readonly FLUSH_DELAY_MS = 100;
 
   constructor(dataDir: string) {
     this.dataDir = dataDir;
@@ -79,19 +88,26 @@ export class ConversationStore {
       createdAt: now,
       updatedAt: now,
     };
-    this.save(conversation);
+    this.cache.set(conversation.id, conversation);
+    this.scheduleFlush(conversation.id);
     return conversation;
   }
 
-  /** 获取会话 */
+  /** 获取会话（优先内存缓存，未命中才读盘） */
   get(id: string): Conversation | null {
+    const cached = this.cache.get(id);
+    if (cached) {
+      return cached;
+    }
     const filePath = this.getFilePath(id);
     if (!fs.existsSync(filePath)) {
       return null;
     }
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
-      return JSON.parse(content) as Conversation;
+      const conversation = JSON.parse(content) as Conversation;
+      this.cache.set(id, conversation);
+      return conversation;
     } catch (error) {
       this.log.warn(
         `Failed to read conversation ${id}: ${error instanceof Error ? error.message : String(error)}`
@@ -103,6 +119,8 @@ export class ConversationStore {
   /** 获取所有会话摘要列表（按更新时间倒序） */
   list(): ConversationSummary[] {
     this.ensureDir();
+    // 先落盘未写入的脏会话，确保 list 能看到最新数据
+    this.flush();
     const summaries: ConversationSummary[] = [];
 
     try {
@@ -129,15 +147,55 @@ export class ConversationStore {
     return summaries.sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
-  /** 保存会话 */
+  /** 保存会话：更新内存缓存并调度防抖落盘（避免每次全量写盘） */
   save(conversation: Conversation): void {
     conversation.updatedAt = Date.now();
-    const filePath = this.getFilePath(conversation.id);
-    fs.writeFileSync(filePath, JSON.stringify(conversation, null, 2), 'utf-8');
+    this.cache.set(conversation.id, conversation);
+    this.scheduleFlush(conversation.id);
   }
 
-  /** 删除会话 */
+  /** 调度防抖落盘：合并短时间内的多次写入 */
+  private scheduleFlush(id: string): void {
+    this.dirtyIds.add(id);
+    if (this.flushTimer) {
+      return;
+    }
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null;
+      this.flush();
+    }, ConversationStore.FLUSH_DELAY_MS);
+  }
+
+  /** 立即落盘所有脏会话（供 list / 进程退出前调用） */
+  flush(): void {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    if (this.dirtyIds.size === 0) {
+      return;
+    }
+    for (const id of this.dirtyIds) {
+      const conversation = this.cache.get(id);
+      if (!conversation) {
+        continue;
+      }
+      try {
+        const filePath = this.getFilePath(id);
+        fs.writeFileSync(filePath, JSON.stringify(conversation, null, 2), 'utf-8');
+      } catch (error) {
+        this.log.warn(
+          `Failed to save conversation ${id}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+    this.dirtyIds.clear();
+  }
+
+  /** 删除会话（同时清理内存缓存与待落盘标记） */
   delete(id: string): boolean {
+    this.cache.delete(id);
+    this.dirtyIds.delete(id);
     const filePath = this.getFilePath(id);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);

@@ -349,10 +349,12 @@ export class AgentOutputParser {
     const codeBlocks = this.extractCodeBlocks(responseText);
 
     if (codeBlocks.length === 0) {
-      const fileName = `generated-${Date.now()}.spec.ts`;
-      const filePath = path.join(testDir, fileName);
+      // 无代码块时：仅当内容确实像 TypeScript 代码才兜底保存，
+      // 避免把模型的思考过程 / JSON / 错误信息误写成 .spec.ts 垃圾文件
       const cleanedCode = this.cleanCode(responseText);
-      if (cleanedCode) {
+      if (cleanedCode && /import |test\(|test\.describe|describe\(|expect\(|from ['"]@playwright/i.test(cleanedCode)) {
+        const fileName = `generated-${Date.now()}.spec.ts`;
+        const filePath = path.join(testDir, fileName);
         fs.writeFileSync(filePath, cleanedCode, 'utf-8');
         savedFiles.push(filePath);
       }

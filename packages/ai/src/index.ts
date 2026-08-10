@@ -16,7 +16,7 @@ export { ConversationStore } from './chat/conversation-store';
 export type { ChatMessage, Conversation, ConversationSummary } from './chat/conversation-store';
 export { UnifiedAIService } from './ai-service';
 export type { SSEEvent } from './ai-service';
-export { MCPClientManager, MCPConfigService, MCPPreset, BUILTIN_MCP_PRESETS } from './mcp';
+export { MCPClientManager, MCPConfigService, MCPService, MCPPreset, BUILTIN_MCP_PRESETS } from './mcp';
 export type { MCPToolInfo, MCPServerStatus, MCPConnectionStatus } from './mcp';
 export { ToolRegistry } from './agents/tool-registry';
 export { LLMService } from './agents/llm-service';

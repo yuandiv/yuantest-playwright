@@ -3,6 +3,7 @@
  */
 import * as path from 'path';
 import { defineTool } from '../types';
+import { isPathAllowed } from '../../agents/tool-registry';
 import type { AgentToolContext } from './types';
 import { GeneratorAgent } from '../../agents/generator';
 import { AgentConfig, LLMConfig } from '@yuantest/contracts';
@@ -10,7 +11,10 @@ import { AgentConfig, LLMConfig } from '@yuantest/contracts';
 export function createAgentGenerateTool(ctx: AgentToolContext) {
   return defineTool(
     'agent_generate',
-    'Generate and save Playwright TypeScript test code from a test plan content',
+    '将一份【已经存在的】测试计划（Markdown）转换为 Playwright TypeScript 测试代码文件并保存。' +
+      '仅当用户要求"把计划转成测试代码 / 生成测试脚本 / 写测试用例代码"时使用。' +
+      '注意：不要用它生成测试计划文档本身——生成测试计划应先探索页面再直接以 Markdown 输出，' +
+      '需要 Word 文档时用 mcp__docx-forge-mcp__create_document。',
     {
       planContent: { type: 'string', description: 'The test plan content in markdown format' },
       outputDir: {
@@ -25,6 +29,11 @@ export function createAgentGenerateTool(ctx: AgentToolContext) {
 
       if (!ctx.llmService) {
         return '❌ LLM 未配置，无法生成测试代码。请先在设置中配置 LLM 连接。';
+      }
+
+      // 安全校验：outputDir 必须在项目目录内，禁止路径逃逸（../../ 等）
+      if (outputDir && !isPathAllowed(outputDir, ctx.projectRoot)) {
+        return `❌ 输出目录被拒绝（必须在项目目录内）: ${outputDir}`;
       }
 
       // 构造一个最小配置供 GeneratorAgent 使用

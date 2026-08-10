@@ -249,7 +249,14 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
       if (streamConvIdRef.current !== convId) return;
       if (abortController.signal.aborted) return;
       if (event.type === 'token') {
-        const token = event.data as string;
+        // 防御性剥离 <think> 标签（正常情况下后端已在流式解析时剔除，此处兜底防残留）
+        const raw = event.data as string;
+        let token = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
+        const unclosedIdx = token.lastIndexOf('<think>');
+        if (unclosedIdx !== -1) {
+          token = token.slice(0, unclosedIdx);
+        }
+        if (!token) return;
         setStreamingMessages((prev) => {
           const lastMsg = prev[prev.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
@@ -281,10 +288,24 @@ export function ChatPanel({ lang, onClose }: ChatPanelProps) {
             timestamp: Date.now(),
           },
         ]);
+      } else if (event.type === 'tool_running') {
+        // 工具执行中：把最后一条 tool_call 标记为执行中（嵌套调用可能长时间无 token）
+        const data = event.data as { name: string };
+        setStreamingMessages((prev) => {
+          const lastIdx = prev.length - 1;
+          const lastMsg = prev[lastIdx];
+          if (lastMsg && lastMsg.role === 'tool_call' && lastMsg.toolCall?.name === data.name) {
+            return prev.map((m, i) => (i === lastIdx ? { ...m, running: true } : m));
+          }
+          return prev;
+        });
       } else if (event.type === 'tool_result') {
         const data = event.data as { name: string; result?: string };
         setStreamingMessages((prev) => [
-          ...prev,
+          ...prev.map((m, i) =>
+            // 清除对应 tool_call 的执行中标记（tool_result 到达即完成）
+            i === prev.length - 1 && m.role === 'tool_call' ? { ...m, running: false } : m
+          ),
           {
             id: `streaming-tr-${Date.now()}`,
             role: 'tool_result',

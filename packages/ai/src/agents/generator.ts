@@ -79,7 +79,18 @@ export class GeneratorAgent extends BaseAgent {
     const responseText = await super.callLLM(systemPrompt, userPrompt);
     const projectRoot = this.config.projectRoot || process.cwd();
     const outputDir = options?.outputDir || path.resolve(projectRoot, 'tests');
-    return AgentOutputParser.saveGeneratedCode(responseText, outputDir);
+
+    // 双保险：chat() 已统一剥离 <think> 标签（与 chatWithTools 一致），
+    // 此处再剥离一次以防御 reasoning_content 回退等边界场景，
+    // 避免思考内容被当作代码保存
+    const cleanedResponse = responseText.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+    // 若剥离后无有效内容，说明模型只返回了思考过程（未给出代码），避免落盘垃圾文件
+    if (!cleanedResponse) {
+      return [];
+    }
+
+    return AgentOutputParser.saveGeneratedCode(cleanedResponse, outputDir);
   }
 
   /**

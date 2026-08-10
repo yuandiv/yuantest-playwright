@@ -72,7 +72,30 @@ export function createChatRouter(
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       };
 
-      await aiService.sendMessage(conversationId, message, sendSSE);
+      // 心跳：防止长连接被代理/负载均衡器因空闲掐断（嵌套工具调用可能长时间无事件）
+      const heartbeat = setInterval(() => {
+        res.write(': ping\n\n');
+      }, 30_000);
+
+      // 客户端断开（关闭页面/取消请求）时中止 LLM 循环，避免继续烧 token。
+      // 注意：必须监听 res（ServerResponse）而非 req（IncomingMessage）——
+      // Node 中 req 的 'close' 事件在请求体读完后即触发（与连接断开无关），
+      // 若监听 req 会在 LLM 请求刚发出时就被取消，导致误报"请求超时"。
+      const abortController = new AbortController();
+      const onClose = () => {
+        // 仅当响应未正常结束（客户端提前断开）时才中止；正常 res.end() 后忽略
+        if (!res.writableEnded) {
+          abortController.abort();
+        }
+      };
+      res.on('close', onClose);
+
+      try {
+        await aiService.sendMessage(conversationId, message, sendSSE, abortController.signal);
+      } finally {
+        clearInterval(heartbeat);
+        res.removeListener('close', onClose);
+      }
 
       res.end();
     })

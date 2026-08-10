@@ -740,6 +740,8 @@ export interface LLMConfig {
   maxTokens: number;
   temperature: number;
   chatTemplateKwargs?: boolean;
+  /** LLM 请求超时（毫秒，可选）。推理型模型首 token 较慢，可按需调大（默认 120s） */
+  timeoutMs?: number;
 }
 
 export interface MCPConfig {

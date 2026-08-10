@@ -7,6 +7,7 @@ import { LLMService, type ToolSchema } from './agents/llm-service';
 import { ToolRegistry } from './agents/tool-registry';
 import { MCPClientManager } from './mcp/client-manager';
 import { MCPConfigService } from './mcp/config-service';
+import { MCPService } from './mcp/mcp-service';
 import {
   ConversationStore,
   type Conversation,
@@ -33,14 +34,24 @@ import { createAgentGenerateTool } from './tools/agent/generate';
 import { createAgentHealTool } from './tools/agent/heal';
 import { createAgentExecuteTool } from './tools/agent/execute';
 import { createAgentDiagnoseTool } from './tools/agent/diagnose';
-import { createRequestUserInputTool } from './tools/builtin/request-user-input';
 import type { AgentToolContext } from './tools/agent/types';
 import { AGENT_EVENT } from './agents/agent-events';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface SSEEvent {
-  type: 'token' | 'tool_call' | 'tool_result' | 'thinking' | 'done' | 'error';
+  type:
+    | 'token'
+    | 'tool_call'
+    | 'tool_running'
+    | 'tool_result'
+    | 'thinking'
+    | 'done'
+    | 'error'
+    // 事件桥接：agent.* 总线事件投影（HITL / 持久化等）
+    | 'interrupt'
+    | 'continue'
+    | 'agent_persist';
   data: unknown;
 }
 
@@ -58,8 +69,7 @@ export interface SSEEvent {
 export class UnifiedAIService {
   // ── Chat 子模块 ───────────────────────────────────────────────────────────
   private store: ConversationStore;
-  private mcpManager: MCPClientManager;
-  private mcpConfigService: MCPConfigService | null;
+  private mcpService: MCPService;
 
   // ── Agent 子模块 ──────────────────────────────────────────────────────────
   private configManager: AgentConfigManager;
@@ -74,7 +84,6 @@ export class UnifiedAIService {
   private dataDir: string;
   private projectRoot: string;
   private log = logger.child('UnifiedAIService');
-  private _agentGenerateTriggered = false;
   /**
    * Phase D — 事件流与可观测性：公共 Agent 事件总线。
    * sendMessage 调用 chatWithAgentLoopStream 时注入此总线，
@@ -82,6 +91,12 @@ export class UnifiedAIService {
    * 不再耦合 onEvent 回调的散乱事件类型。
    */
   private agentEventBus = new EventEmitter();
+  /**
+   * 会话级互斥锁：同一 conversation 的 sendMessage 串行执行，
+   * 避免并发读-改-写 ConversationStore 造成消息丢失/覆盖。
+   * key = conversationId，value = 该会话当前请求链的 gate promise。
+   */
+  private conversationLocks = new Map<string, Promise<void>>();
 
   constructor(
     dataDir: string,
@@ -102,8 +117,8 @@ export class UnifiedAIService {
 
     // 初始化 Chat 子模块
     this.store = new ConversationStore(dataDir);
-    this.mcpManager = sharedMCPClientManager || new MCPClientManager(projectRoot);
-    this.mcpConfigService = mcpConfigService || null;
+    // MCP 管理委托给 MCPService（连接/状态/工具/配置）
+    this.mcpService = new MCPService(projectRoot, mcpConfigService, sharedMCPClientManager);
 
     // 初始化共享 LLM 服务
     if (sharedLLMService) {
@@ -143,22 +158,23 @@ export class UnifiedAIService {
       toolRegistry: this.toolRegistry,
       diagnosisAgent,
       executor: this.executor,
-      setGenerateTriggered: (v) => {
-        this._agentGenerateTriggered = v;
-      },
       heal: (filePath, opts) => this.heal(filePath, opts),
     };
 
-    this.toolRegistry.registerTools([
+    // 仅当执行器已注入时才注册 agent_execute；未注入时不注册，
+    // 避免 LLM 调用后才收到"执行器未配置"（可用性显式化）
+    const agentTools: Array<{ name: string } & import('./tools/types').ToolDefinition> = [
       { name: 'agent_generate', ...createAgentGenerateTool(ctx) },
       { name: 'agent_heal', ...createAgentHealTool(ctx) },
-      { name: 'agent_execute', ...createAgentExecuteTool(ctx) },
       { name: 'agent_diagnose', ...createAgentDiagnoseTool(ctx) },
-      {
-        name: 'request_user_input',
-        ...createRequestUserInputTool(diagnosisAgent ?? undefined),
-      },
-    ]);
+    ];
+    if (this.executor) {
+      agentTools.push({ name: 'agent_execute', ...createAgentExecuteTool(ctx) });
+    }
+    // 注意：request_user_input（HITL interrupt/continue）不在聊天轨注册——
+    // 前端 SSE 通道无 interrupt/continue 事件处理，注册会导致 LLM 调用后永久悬挂。
+    // 聊天有输入框，需要澄清时 LLM 直接在正文追问即可；该工具仅用于管线轨（如 healer 补丁审批）。
+    this.toolRegistry.registerTools(agentTools);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -217,7 +233,7 @@ export class UnifiedAIService {
   setProjectRoot(root: string): void {
     const resolvedRoot = path.resolve(root);
     this.projectRoot = resolvedRoot;
-    void this.mcpManager.setProjectRoot(resolvedRoot);
+    void this.mcpService.getManager().setProjectRoot(resolvedRoot);
     this.configManager.setProjectRoot(resolvedRoot);
     this.fileOperations.setProjectRoot(resolvedRoot);
     this.lifecycleManager.reinitializeToolRegistry();
@@ -248,39 +264,19 @@ export class UnifiedAIService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   async initMCP(): Promise<void> {
-    if (this.mcpConfigService) {
-      const enabledConfigs = this.mcpConfigService.getEnabledConfigs();
-      if (enabledConfigs.length > 0) {
-        await this.mcpManager.connectFromConfigs(enabledConfigs);
-        return;
-      }
-    }
-    const configPath = this.mcpManager.findPlaywrightConfig();
-    if (configPath) {
-      this.log.info(
-        'No MCP configs found, but playwright.config detected - using auto-detect fallback'
-      );
-    }
+    await this.mcpService.initMCP();
   }
 
   async reconnectMCP(): Promise<void> {
-    await this.mcpManager.disconnect();
-    await this.initMCP();
+    await this.mcpService.reconnectMCP();
   }
 
   async toggleMCPConnection(id: string, enabled: boolean): Promise<void> {
-    if (enabled) {
-      const config = this.mcpConfigService?.getConfig(id);
-      if (config) {
-        await this.mcpManager.connectFromConfig(config);
-      }
-    } else {
-      await this.mcpManager.disconnectServer(id);
-    }
+    await this.mcpService.toggleMCPConnection(id, enabled);
   }
 
   getMCPStatus() {
-    return this.mcpManager.getStatus();
+    return this.mcpService.getMCPStatus();
   }
 
   getAllTools(): { name: string; description: string; source: 'builtin' | 'mcp' }[] {
@@ -290,7 +286,7 @@ export class UnifiedAIService {
       description: s.function.description,
       source: 'builtin' as const,
     }));
-    const mcp = this.mcpManager.listTools().map((tool) => ({
+    const mcp = this.mcpService.listTools().map((tool) => ({
       name: `mcp__${tool.name}`,
       description: tool.description || '',
       source: 'mcp' as const,
@@ -302,10 +298,49 @@ export class UnifiedAIService {
   // 智能对话（sendMessage — 核心整合点）
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /**
+   * 会话级互斥执行：同一 key（conversationId）的请求串行执行。
+   * 后到的请求 await 前一请求的 gate promise，前序完成后释放。
+   */
+  private async runExclusive<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.conversationLocks.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const chain = prev.then(() => gate);
+    this.conversationLocks.set(key, chain);
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+      // 若没有后续排队请求（Map 中仍是本请求的 chain），清理避免泄漏
+      queueMicrotask(() => {
+        if (this.conversationLocks.get(key) === chain) {
+          this.conversationLocks.delete(key);
+        }
+      });
+    }
+  }
+
   async sendMessage(
     conversationId: string,
     userMessage: string,
-    onEvent: (event: SSEEvent) => void
+    onEvent: (event: SSEEvent) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    // 会话级互斥：同一会话的并发请求串行执行，避免 store 读-改-写竞争
+    await this.runExclusive(conversationId, () =>
+      this.doSendMessage(conversationId, userMessage, onEvent, signal)
+    );
+  }
+
+  private async doSendMessage(
+    conversationId: string,
+    userMessage: string,
+    onEvent: (event: SSEEvent) => void,
+    signal?: AbortSignal
   ): Promise<void> {
     if (!this.llmService) {
       onEvent({ type: 'error', data: 'LLM 未配置，请先配置 LLM 连接信息' });
@@ -327,40 +362,59 @@ export class UnifiedAIService {
     const historyMessages = conversation.messages.slice(0, -1);
     const llmHistory = this.buildLLMHistory(historyMessages);
 
-    const systemPrompt = this.buildSystemPrompt();
-    const tools = this.getAllToolSchemas();
+    // 简单对话（问候/闲聊）不传工具、使用精简 prompt，降低首字延迟
+    const needsTools = this.needsTools(userMessage, historyMessages);
+    const systemPrompt = this.buildSystemPrompt(needsTools);
+    const tools = needsTools ? this.getAllToolSchemas() : undefined;
 
     try {
-      const stream = this.llmService.chatWithAgentLoopStream(
-        { system: systemPrompt, user: userMessage, history: llmHistory },
-        this.llmService.getConfig(),
-        tools.length > 0 ? tools : undefined,
-        undefined,
-        async (toolName, args) => {
-          const toolResult = await this.executeTool(toolName, args);
-          // 生成本地 tool_call_id 用于关联 tool_call 和 tool_result
-          const localToolCallId = `tc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      // ── 事件桥接：将 agent.* 总线事件投影为 SSE 事件 ──
+      // stream 已通过 onEvent 转发 token/thinking/tool_call/tool_result/done；
+      // 此处桥接 stream 未覆盖的 HITL / 持久化事件（interrupt/continue/persist），
+      // 使前端可订阅 interrupt/citations 等 Phase D 能力。
+      const bridgeListeners: Array<[string, (payload: unknown) => void]> = [
+        [AGENT_EVENT.INTERRUPT, (payload) => onEvent({ type: 'interrupt', data: payload })],
+        [AGENT_EVENT.CONTINUE, (payload) => onEvent({ type: 'continue', data: payload })],
+        [AGENT_EVENT.PERSIST, (payload) => onEvent({ type: 'agent_persist', data: payload })],
+      ];
+      for (const [eventName, listener] of bridgeListeners) {
+        this.agentEventBus.on(eventName, listener);
+      }
 
-          this.store.addMessage(conversationId, {
-            role: 'tool_call',
-            content: `调用工具: ${toolName}`,
-            toolCall: { name: toolName, arguments: JSON.stringify(args) },
-          });
+      try {
+        const stream = this.llmService.chatWithAgentLoopStream(
+          { system: systemPrompt, user: userMessage, history: llmHistory },
+          this.llmService.getConfig(),
+          tools && tools.length > 0 ? tools : undefined,
+          undefined,
+          async (toolName, args) => {
+            const toolResult = await this.executeTool(toolName, args);
+            // 生成本地 tool_call_id 用于关联 tool_call 和 tool_result
+            const localToolCallId = `tc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-          this.store.addMessage(conversationId, {
-            role: 'tool_result',
-            content: toolResult,
-            toolResult: { toolCallId: localToolCallId, name: toolName, success: true },
-          });
+            this.store.addMessage(conversationId, {
+              role: 'tool_call',
+              content: `调用工具: ${toolName}`,
+              // 保存 tool_call_id，供历史重建（buildLLMHistory）时关联 tool_result，
+              // 并在 assistant 消息中声明 tool_calls，避免 tool 消息 tool_call_id 悬空
+              toolCall: { name: toolName, arguments: JSON.stringify(args), id: localToolCallId },
+            });
 
-          return toolResult;
-        },
-        undefined, // responseFormat
-        undefined, // maxToolCalls（用默认值）
-        // Phase D — 注入公共事件总线，供 UI/路由层订阅 agent.* 事件
-        this.agentEventBus,
-        conversationId
-      );
+            this.store.addMessage(conversationId, {
+              role: 'tool_result',
+              content: toolResult,
+              toolResult: { toolCallId: localToolCallId, name: toolName, success: true },
+            });
+
+            return toolResult;
+          },
+          undefined, // responseFormat
+          undefined, // maxToolCalls（用默认值）
+          // Phase D — 注入公共事件总线，供 UI/路由层订阅 agent.* 事件
+          this.agentEventBus,
+          conversationId,
+          signal
+        );
 
       let roundContent = '';
       let roundThinking = '';
@@ -394,6 +448,9 @@ export class UnifiedAIService {
             type: 'tool_call',
             data: { name: event.data.name, arguments: event.data.arguments },
           });
+        } else if (event.type === 'tool_running') {
+          // 工具执行中状态（嵌套调用可能长时间无 token，前端据此显示"执行中"）
+          onEvent({ type: 'tool_running', data: { name: event.data.name } });
         } else if (event.type === 'tool_result') {
           onEvent({
             type: 'tool_result',
@@ -414,24 +471,6 @@ export class UnifiedAIService {
             this.store.updateTitle(conversationId, title);
           }
 
-          // 如果本轮触发了 agent_generate，从 LLM 最终回复中提取代码保存到文件
-          if (this._agentGenerateTriggered && finalContent) {
-            try {
-              const savedFiles = this.saveGeneratedCodeFromResponse(finalContent);
-              if (savedFiles.length > 0) {
-                onEvent({
-                  type: 'token',
-                  data: `\n\n✅ 测试代码已保存到以下文件：\n${savedFiles.map((f) => `  - ${f}`).join('\n')}`,
-                });
-              }
-            } catch (err) {
-              this.log.warn(
-                `Failed to save generated code: ${err instanceof Error ? err.message : String(err)}`
-              );
-            }
-            this._agentGenerateTriggered = false;
-          }
-
           onEvent({
             type: 'done',
             data: {
@@ -443,6 +482,12 @@ export class UnifiedAIService {
               truncated: event.data.truncated,
             },
           });
+        }
+        }
+      } finally {
+        // 无论成功/失败，退订事件桥接监听器，避免泄漏
+        for (const [eventName, listener] of bridgeListeners) {
+          this.agentEventBus.off(eventName, listener);
         }
       }
     } catch (error) {
@@ -464,28 +509,62 @@ export class UnifiedAIService {
         i++;
       } else if (msg.role === 'assistant') {
         // 检查下一条是否是 tool_call（中间 assistant + tool_call 模式）
-        // 合并为一条 assistant 消息，避免连续 assistant 消息
         const nextMsg = i + 1 < messages.length ? messages[i + 1] : null;
         if (nextMsg && nextMsg.role === 'tool_call' && nextMsg.toolCall) {
-          const combinedContent = msg.content
-            ? `${msg.content}\n\n[调用工具: ${nextMsg.toolCall.name}] 参数: ${nextMsg.toolCall.arguments}`
-            : `[调用工具: ${nextMsg.toolCall.name}] 参数: ${nextMsg.toolCall.arguments}`;
-          history.push({ role: 'assistant', content: combinedContent });
+          // 保留 tool_calls 声明（而非合并为纯文本），
+          // 使后续 tool 消息的 tool_call_id 有对应声明，避免多轮会话恢复时被 API 拒绝
+          const toolResultMsg = i + 2 < messages.length ? messages[i + 2] : null;
+          const toolCallId =
+            nextMsg.toolCall.id ||
+            toolResultMsg?.toolResult?.toolCallId ||
+            `tc_legacy_${Date.now()}_${history.length}`;
+          history.push({
+            role: 'assistant',
+            content: msg.content || null,
+            tool_calls: [
+              {
+                id: toolCallId,
+                type: 'function',
+                function: {
+                  name: nextMsg.toolCall.name,
+                  arguments: nextMsg.toolCall.arguments,
+                },
+              },
+            ],
+          });
           i += 2;
         } else {
           history.push({ role: 'assistant', content: msg.content });
           i++;
         }
       } else if (msg.role === 'tool_call' && msg.toolCall) {
-        // 独立的 tool_call（无前置 assistant 消息，兼容旧数据）
+        // 独立的 tool_call（无前置 assistant 消息，兼容旧数据）：
+        // 生成带 tool_calls 声明的 assistant 消息，保证 tool 消息 id 有对应声明
+        const toolResultMsg = i + 1 < messages.length ? messages[i + 1] : null;
+        const toolCallId =
+          msg.toolCall.id ||
+          toolResultMsg?.toolResult?.toolCallId ||
+          `tc_legacy_${Date.now()}_${history.length}`;
         history.push({
           role: 'assistant',
-          content: `[调用工具: ${msg.toolCall.name}] 参数: ${msg.toolCall.arguments}`,
+          content: null,
+          tool_calls: [
+            {
+              id: toolCallId,
+              type: 'function',
+              function: {
+                name: msg.toolCall.name,
+                arguments: msg.toolCall.arguments,
+              },
+            },
+          ],
         });
         i++;
       } else if (msg.role === 'tool_result' && msg.toolResult) {
         const truncatedResult =
           msg.content.length > 2000 ? msg.content.slice(0, 2000) + '...(截断)' : msg.content;
+        // 与 tool_call 存储的 id（同一 localToolCallId）保持一致；
+        // 旧数据缺失时兜底生成
         const toolCallId = msg.toolResult.toolCallId || `tc_legacy_${Date.now()}`;
         history.push({
           role: 'tool',
@@ -500,7 +579,37 @@ export class UnifiedAIService {
     return history;
   }
 
-  private buildSystemPrompt(): string {
+  /**
+   * 判断当前消息是否需要启用工具：
+   * - 会话历史中已有工具调用（说明处于探索/执行流程中）→ 需要工具
+   * - 消息含 URL / 测试 / 分析等任务关键词 → 需要工具
+   * - 纯问候 / 闲聊 → 不需要工具（走精简 prompt，加快响应）
+   */
+  private needsTools(
+    userMessage: string,
+    history: import('./chat/conversation-store').ChatMessage[]
+  ): boolean {
+    if (history.some((m) => m.role === 'tool_call' || m.role === 'tool_result')) {
+      return true;
+    }
+    if (/https?:\/\/|localhost:\d+|127\.0\.0\.1/i.test(userMessage)) {
+      return true;
+    }
+    return /测试|分析|生成|调试|修复|执行|运行|探索|导航|页面|浏览器|选择器|用例|计划|自愈|诊断|spec|playwright|report/i.test(
+      userMessage
+    );
+  }
+
+  private buildSystemPrompt(includeTools: boolean = true): string {
+    if (!includeTools) {
+      return [
+        '你是一个 Playwright 测试助手。你的任务是帮助用户分析页面、生成测试计划和测试代码。',
+        '',
+        '当前为简单对话模式：请直接、简洁地回答用户的问题。',
+        '如果用户提出测试、分析、调试等任务，引导其提供页面 URL 或功能描述。',
+      ].join('\n');
+    }
+
     const parts: string[] = [
       '你是一个 Playwright 测试助手。你的任务是帮助用户分析页面、生成测试计划和测试代码。',
       '',
@@ -517,6 +626,15 @@ export class UnifiedAIService {
       '   - 已展开所有可见的折叠区域，看到完整 UI 结构',
       '   - 能清晰描述页面的核心功能和用户操作路径',
       '',
+      '## 重要：生成测试计划 ≠ 调用 agent_generate',
+      '当用户说"生成测试计划"时，指的是生成计划文档（先探索页面，再输出 Markdown 测试计划）。',
+      'agent_generate 工具的用途是：把一份【已经存在的】测试计划内容转换为 Playwright 测试代码文件，',
+      '不是用于生成计划本身。因此：',
+      '- 用户要求"生成测试计划 / 测试计划文档 / 测试方案"时：先浏览器探索页面，再直接以 Markdown 输出计划；',
+      '  如果用户要求 Word 文档，再用 mcp__docx-forge-mcp__create_document 导出 .docx。',
+      '- 仅当用户要求"把计划转成测试代码 / 生成测试脚本 / 写测试用例代码"时，才调用 agent_generate。',
+      '',
+      '',
       '## 测试计划格式要求',
       '输出测试计划时，请遵循以下格式：',
       '- 以 "# 测试计划: <标题>" 开头',
@@ -530,6 +648,9 @@ export class UnifiedAIService {
       '可用工具列在下方。浏览器类工具（如 browser_navigate / browser_snapshot / browser_click）用于页面探索；',
       'agent_ 前缀的工具用于测试生命周期管理。在选择器选择时注意：',
       'snapshot 中显示的 e1, e12 等编号是内部引用 ID，不能用作 selector，必须使用 text= / css= / xpath= 语法。',
+      '当用户要求将测试计划输出为 Word 文档（.docx）时，请调用 mcp__docx-forge-mcp__create_document 工具',
+      '（参数：title 文档标题、content 为 Markdown 格式的测试计划内容、outputPath 输出 .docx 文件路径），',
+      '并在回复中告知用户文件保存路径；不要只输出计划文本而跳过导出。',
       '',
     ];
 
@@ -551,14 +672,14 @@ export class UnifiedAIService {
    */
   private async executeTool(toolName: string, args: Record<string, unknown>): Promise<string> {
     if (toolName.startsWith('mcp__')) {
-      return this.mcpManager.callTool(toolName, args);
+      return this.mcpService.callTool(toolName, args);
     }
     return this.toolRegistry.executeTool(toolName, args);
   }
 
   private getAllToolSchemas(): ToolSchema[] {
     const builtinSchemas = this.toolRegistry.getToolSchemas();
-    const mcpSchemas = this.mcpManager.getToolSchemas();
+    const mcpSchemas = this.mcpService.getToolSchemas();
     return [...builtinSchemas, ...mcpSchemas];
   }
 
@@ -748,13 +869,5 @@ export class UnifiedAIService {
   /** 暴露事件总线实例，供高级订阅者直接操作 */
   getAgentEventBus(): EventEmitter {
     return this.agentEventBus;
-  }
-
-  // ─── 代码提取与保存（agent_generate 后处理） ─────────────────────────────
-
-  private saveGeneratedCodeFromResponse(responseText: string): string[] {
-    const projectRoot = this.configManager.getConfig().projectRoot || process.cwd();
-    const testDir = path.resolve(projectRoot, 'tests');
-    return AgentOutputParser.saveGeneratedCode(responseText, testDir);
   }
 }

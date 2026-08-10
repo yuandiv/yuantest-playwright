@@ -33,12 +33,12 @@ function ThinkingSection({ content }: { content: string }) {
   );
 }
 
-/** 从 content 中解析 <think...</think 标签 */
+/** 从 content 中解析 <think>...</think> 标签（与后端 llm-service 的解析规则保持一致） */
 function parseThinkingTags(content: string): {
   cleanContent: string;
   thinkingContent: string | null;
 } {
-  const thinkRegex = /<think([\s\S]*?)<\/think>/g;
+  const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
   const thinkingParts: string[] = [];
   let match: RegExpExecArray | null;
 
@@ -52,13 +52,34 @@ function parseThinkingTags(content: string): {
     return { cleanContent: content, thinkingContent: null };
   }
 
-  const cleanContent = content.replace(/<think[\s\S]*?<\/think>/g, '').trim();
+  let cleanContent = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+  // 容错：未闭合的 <think> 标签，剩余内容按思考处理，避免泄漏到正文
+  const unclosedIdx = cleanContent.lastIndexOf('<think>');
+  if (unclosedIdx !== -1) {
+    const rest = cleanContent.slice(unclosedIdx + '<think>'.length).trim();
+    if (rest) {
+      thinkingParts.push(rest);
+    }
+    cleanContent = cleanContent.slice(0, unclosedIdx).trim();
+  }
+
   return { cleanContent, thinkingContent: thinkingParts.join('\n') };
 }
 
 /** Markdown 消息内容渲染 */
-function MessageContent({ content }: { content: string }) {
-  const { cleanContent, thinkingContent } = parseThinkingTags(content);
+function MessageContent({
+  content,
+  existingThinking,
+}: {
+  content: string;
+  existingThinking?: string | null;
+}) {
+  // 若消息已有独立的 thinkingContent（流式事件或历史数据提供），
+  // 跳过从 content 中二次解析，避免思考过程重复显示
+  const { cleanContent, thinkingContent } = existingThinking
+    ? { cleanContent: content, thinkingContent: null }
+    : parseThinkingTags(content);
 
   return (
     <>
@@ -143,7 +164,7 @@ export function ChatMessage({ message, stepIndex }: ChatMessageProps) {
             <ThinkingSection content={message.thinkingContent} />
           )}
           <div className="prose prose-sm max-w-none">
-            <MessageContent content={message.content} />
+            <MessageContent content={message.content} existingThinking={message.thinkingContent} />
           </div>
           {message.truncated && (
             <div className="mt-2 flex items-center gap-1.5 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
@@ -160,13 +181,14 @@ export function ChatMessage({ message, stepIndex }: ChatMessageProps) {
     const toolName = message.toolCall?.name || 'unknown';
     const toolArgs = message.toolCall?.arguments || '';
     const hasResult = !!message.resultContent;
+    const running = !!message.running && !hasResult;
     const displayName = toolName.startsWith('mcp__playwright__') ? toolName.slice('mcp__playwright__'.length) : toolName;
 
     const argSummary = getArgSummary(toolArgs);
 
     return (
       <div className="flex justify-start mb-2">
-        <div className={`max-w-[80%] rounded-lg px-3 py-2 text-xs border ${hasResult ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
+        <div className={`max-w-[80%] rounded-lg px-3 py-2 text-xs border ${hasResult ? 'bg-blue-50 border-blue-200' : running ? 'bg-amber-50 border-amber-200 animate-pulse' : 'bg-amber-50 border-amber-200'}`}>
           <button
             onClick={() => setToolExpanded(!toolExpanded)}
             className="flex items-center gap-1.5 w-full text-left"
@@ -176,7 +198,7 @@ export function ChatMessage({ message, stepIndex }: ChatMessageProps) {
                 #{stepIndex}
               </span>
             )}
-            <i className={`fas ${hasResult ? 'fa-check-circle text-blue-500' : 'fa-wrench text-amber-500'}`}></i>
+            <i className={`fas ${hasResult ? 'fa-check-circle text-blue-500' : running ? 'fa-spinner fa-spin text-amber-500' : 'fa-wrench text-amber-500'}`}></i>
             <span className={`font-medium ${hasResult ? 'text-blue-700' : 'text-amber-700'}`}>
               {displayName}
             </span>
@@ -185,9 +207,11 @@ export function ChatMessage({ message, stepIndex }: ChatMessageProps) {
                 {argSummary}
               </span>
             )}
-            {hasResult && (
+            {hasResult ? (
               <span className="text-blue-400 text-[10px]">done</span>
-            )}
+            ) : running ? (
+              <span className="text-amber-500 text-[10px] animate-pulse">执行中...</span>
+            ) : null}
             <i className={`fas fa-chevron-${toolExpanded ? 'up' : 'down'} ${hasResult ? 'text-blue-400' : 'text-amber-400'} ml-auto text-[10px]`}></i>
           </button>
           {toolExpanded && (
@@ -248,14 +272,19 @@ export function ChatMessage({ message, stepIndex }: ChatMessageProps) {
   return null;
 }
 
-/** 格式化工具参数 */
+/** 格式化工具参数（超大参数截断展示，避免大量非格式化 JSON 刷屏） */
 function formatToolArgs(argsStr: string): string {
+  let formatted: string;
   try {
     const parsed = JSON.parse(argsStr);
-    return JSON.stringify(parsed, null, 2);
+    formatted = JSON.stringify(parsed, null, 2);
   } catch {
-    return argsStr;
+    formatted = argsStr;
   }
+  if (formatted.length > 2000) {
+    return formatted.slice(0, 2000) + '\n...(参数过长已截断)';
+  }
+  return formatted;
 }
 
 /** 提取工具参数简要摘要 */

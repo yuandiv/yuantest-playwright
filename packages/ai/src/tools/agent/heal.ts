@@ -7,16 +7,16 @@ import type { AgentToolContext } from './types';
 export function createAgentHealTool(ctx: AgentToolContext) {
   return defineTool(
     'agent_heal',
-    'Analyze a failing test and generate fix patches',
+    '分析失败的测试并生成修复补丁。当用户要求"修复/自愈失败的测试"时使用。',
     {
-      testFilePath: { type: 'string', description: 'Path to the failing test file' },
+      testFilePath: { type: 'string', description: '失败测试文件的路径' },
       error: {
         type: 'string',
-        description: 'Error message from the test failure (optional)',
+        description: '测试失败的错误信息（可选）',
       },
       stackTrace: {
         type: 'string',
-        description: 'Stack trace from the test failure (optional)',
+        description: '测试失败的堆栈跟踪（可选）',
       },
     },
     ['testFilePath'],

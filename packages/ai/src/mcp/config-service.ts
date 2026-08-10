@@ -52,6 +52,15 @@ export const BUILTIN_MCP_PRESETS: MCPPreset[] = [
     source: 'builtin',
     timeout_ms: 30000,
   },
+  {
+    name: 'docx-forge-mcp',
+    enabled: true,
+    command: 'npx',
+    args: ['-y', 'docx-forge-mcp'],
+    description: 'Word 文档（.docx）创建/读取/编辑工具：create_document 支持从 Markdown 生成 .docx（首次运行需联网下载）',
+    source: 'builtin',
+    timeout_ms: 30000,
+  },
 ];
 
 export class MCPConfigService {
