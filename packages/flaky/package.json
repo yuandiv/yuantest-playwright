@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@yuantest/contracts": "workspace:*",
-    "@yuantest/core": "workspace:*"
+    "@yuantest/core": "workspace:*",
+    "dayjs": "^1.11.10"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

@@ -105,6 +105,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace packages
+        run: pnpm build
+
       - name: Run E2E tests (AI chat conversation)
         run: pnpm --filter yuantest-playwright test:e2e
 

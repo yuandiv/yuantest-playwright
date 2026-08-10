@@ -292,6 +292,9 @@ importers:
       '@yuantest/core':
         specifier: workspace:*
         version: link:../core
+      dayjs:
+        specifier: ^1.11.10
+        version: 1.11.21
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -308,6 +311,9 @@ importers:
       '@yuantest/core':
         specifier: workspace:*
         version: link:../core
+      dayjs:
+        specifier: ^1.11.10
+        version: 1.11.21
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
