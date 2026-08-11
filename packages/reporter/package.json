@@ -13,10 +13,14 @@
   "dependencies": {
     "@yuantest/contracts": "workspace:*",
     "@yuantest/core": "workspace:*",
-    "@yuantest/diagnosis": "workspace:*"
+    "@yuantest/diagnosis": "workspace:*",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.10",
     "typescript": "^5.9.3"
   }
 }
