@@ -33,7 +33,9 @@ jobs:
 
       - name: Publish to npm
         working-directory: apps/cli
-        run: pnpm publish --provenance --access public
+        # --no-git-checks：发布由 release 事件（tag）触发，checkout 为 detached HEAD，
+        # pnpm 默认的 git 分支校验（master|main）会误报 ERR_PNPM_GIT_UNKNOWN_BRANCH
+        run: pnpm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
