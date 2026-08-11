@@ -52,7 +52,7 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          CHANGELOG=$(sed -n "/## \[${{ steps.version.outputs.VERSION }}\]/,/## \[/p" CHANGELOG.md | sed '1d;$d')
+          CHANGELOG=$(sed -n "/## \[${{ steps.version.outputs.VERSION }}\]/,/## \[/p" apps/cli/CHANGELOG.md | sed '1d;$d')
           echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
