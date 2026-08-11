@@ -1126,8 +1126,15 @@ export class LLMService {
       let currentToolCalls = firstToolCalls;
       let currentContent = firstContent ?? null;
       let round = 0;
-      // Plan progress tracking: maps step index → status
-      const planProgress: string[] = [];
+      // Plan progress tracking: structured task list injected into each round,
+      // so the model can see planned vs completed subtasks for complex requests.
+      // (string[] before; upgraded to items with status for task decomposition.)
+      interface PlanItem {
+        id: string;
+        title: string;
+        status: 'pending' | 'done' | 'blocked';
+      }
+      const planProgress: PlanItem[] = [];
       // 重复调用防护：记录"最近一次调用"及其连续相同调用次数。
       // 仅当连续（中间无其他工具/参数调用）出现相同工具+参数时才累加；
       // 穿插其他调用（如探索序列 snapshot→click→snapshot）会使计数重置，
@@ -1151,8 +1158,28 @@ export class LLMService {
             ? `max tool calls (${budget.maxToolCalls})`
             : `max total tokens (${budget.maxTotalTokens})`);
         this.log.warn(`Agent loop exceeded ${reason}, executing final call without tools`);
+        // 强制收尾时也注入结构化任务进度，让模型在最终答复中能看到
+        // 已完成（[✓]）与受阻（[!]）的子任务，并对照清单汇总
+        const finalRoundMessages = buildRoundMessages(
+          baseMessages,
+          reasoningSteps,
+          currentContent,
+          []
+        );
+        if (planProgress.length > 0) {
+          const planView = planProgress
+            .map((p) => {
+              const mark = p.status === 'done' ? '[✓]' : p.status === 'blocked' ? '[!]' : '[ ]';
+              return `${mark} ${p.id} ${p.title}`;
+            })
+            .join('\n');
+          finalRoundMessages.push({
+            role: 'user',
+            content: `[System: 最终任务进度]\n${planView}\n\n请基于以上进度与已执行结果，对照清单给出完整最终答案；若有 [!] 受阻项请说明原因与已获取的部分结果。`,
+          });
+        }
         const finalStream = this.chatWithToolsStream(
-          buildRoundMessages(baseMessages, reasoningSteps, currentContent, []),
+          finalRoundMessages,
           config,
           [],
           responseFormat,
@@ -1282,9 +1309,11 @@ export class LLMService {
               `或基于已有信息直接给出最终答案。`;
             step.output = guardMsg;
             reasoningSteps.push(step);
-            planProgress.push(
-              `[Round ${round}] ${toolCall.function.name}: skipped (重复调用防护 x${count})`
-            );
+            planProgress.push({
+              id: `T${planProgress.length + 1}`,
+              title: `${toolCall.function.name} (skipped: 重复调用防护 x${count})`,
+              status: 'blocked',
+            });
             forcedTerminationReason = `repeated identical tool call (${callKey}) x${count}`;
             repeatedGuardTriggered = true;
             safeEmit(AGENT_EVENT.TOOL_RESULT, {
@@ -1300,10 +1329,11 @@ export class LLMService {
 
           // 第 2 次连续原样重试：仍执行，但注入引导提示（下一轮 LLM 将看到）
           if (count === 2) {
-            planProgress.push(
-              `[System] 提示：工具 ${toolCall.function.name}（相同参数）已连续执行过且结果相同，` +
-                `原样重试不会获得新信息，请先滚动/展开/点击或改用其他工具/参数。`
-            );
+            planProgress.push({
+              id: `T${planProgress.length + 1}`,
+              title: `[System] 提示：工具 ${toolCall.function.name}（相同参数）已连续执行过且结果相同，原样重试不会获得新信息，请先滚动/展开/点击或改用其他工具/参数。`,
+              status: 'blocked',
+            });
           }
 
           safeEmit(AGENT_EVENT.TOOL_CALL, {
@@ -1365,7 +1395,11 @@ export class LLMService {
             tool_call_id: toolCall.id,
           });
 
-          planProgress.push(`[Round ${round}] ${toolCall.function.name}: completed`);
+          planProgress.push({
+            id: `T${planProgress.length + 1}`,
+            title: `${toolCall.function.name}: completed`,
+            status: 'done',
+          });
         }
 
         // 重复调用防护触发：本轮已跳过重复的相同调用（其余不同工具仍已执行），
@@ -1383,9 +1417,19 @@ export class LLMService {
         }
 
         // ── Inject plan progress context for the next LLM call ──
+        // 结构化任务清单视图：让模型看到已规划/已完成/受阻的子任务，
+        // 支持复杂任务的拆解与逐项核对（而非旧的字符串流水账）。
+        const planView = planProgress
+          .map((p) => {
+            const mark = p.status === 'done' ? '[✓]' : p.status === 'blocked' ? '[!]' : '[ ]';
+            return `${mark} ${p.id} ${p.title}`;
+          })
+          .join('\n');
         roundMessages.push({
           role: 'user',
-          content: `[System: Progress (Round ${round}/${MAX_AGENT_ROUNDS})]\n\n已完成:\n${planProgress.join('\n')}\n\n请根据当前进展决定下一步：\n- 如果任务目标已达成，给出完整的最终答案\n- 如果还需要更多信息或操作，继续调用合适的工具\n- 如果遇到错误，分析原因并尝试其他方法`,
+          content: `[System: Progress (Round ${round}/${MAX_AGENT_ROUNDS})]\n\n任务进度:\n${
+            planView || '（暂无）'
+          }\n\n请根据当前进展决定下一步：\n- 如果任务目标已达成，对照清单给出完整的最终答案\n- 如果还有未完成的子任务（[ ] 或 [!]），继续执行直到全部完成\n- 如果遇到错误，分析原因并尝试其他方法`,
         });
 
         // 再次流式调用 LLM
