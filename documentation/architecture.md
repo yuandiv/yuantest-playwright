@@ -80,7 +80,7 @@ flowchart LR
 
 ### 3.1 Orchestrator — Test Orchestration
 
-- **Source Location**: [packages/executor/src/orchestrator/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/packages/executor/src/orchestrator/index.ts)
+- **Source Location**: [packages/executor/src/orchestrator/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/src/orchestrator/index.ts)
 - **Core Responsibility**: Responsible for test task orchestration and scheduling, determining how tests are assigned to different shards for execution
 - **Key Capabilities**:
   - **distributed strategy**: Evenly distribute test cases to each shard
@@ -90,7 +90,7 @@ flowchart LR
 
 ### 3.2 Executor — Test Execution
 
-- **Source Location**: [packages/executor/src/executor/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/packages/executor/src/executor/index.ts)
+- **Source Location**: [packages/executor/src/executor/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/src/executor/index.ts)
 - **Core Responsibility**: Call Playwright CLI to execute tests, collect execution progress and results
 - **Key Capabilities**:
   - Call Playwright CLI to run test cases
@@ -155,7 +155,7 @@ graph TB
 
 ### 3.5 DiagnosisAgent — AI Intelligent Diagnosis
 
-- **Source Location**: [packages/ai/packages/ai/src/agents/diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts)
+- **Source Location**: [packages/ai/src/agents/diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/agents/diagnosis.ts)
 - **Core Responsibility**: Use AI to diagnose test failures and generate structured diagnosis results (root cause analysis, fix suggestions, confidence scoring)
 - **Key Technical Modules**:
   - **context-enricher.ts**: Context enrichment, automatically collecting source code, screenshots, console logs, stack traces, environment info, and history data
@@ -180,7 +180,7 @@ graph TB
 
 ### 3.7 RealtimeService — Realtime Push Service
 
-- **Source Location**: [packages/reporter/src/realtime/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/reporter/packages/reporter/src/realtime/index.ts)
+- **Source Location**: [packages/reporter/src/realtime/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/reporter/src/realtime/index.ts)
 - **Core Responsibility**: Push test execution events to clients in real-time via WebSocket
 - **Key Capabilities**:
   - WebSocket event-driven architecture
@@ -189,7 +189,7 @@ graph TB
 
 ### 3.8 StorageProvider — Storage Abstraction Layer
 
-- **Source Location**: [packages/core/src/storage/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/core/packages/core/src/storage/index.ts)
+- **Source Location**: [packages/core/src/storage/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/core/src/storage/index.ts)
 - **Core Responsibility**: Provide unified storage abstraction interface, shielding underlying storage implementation details
 - **Key Capabilities**:
   - File storage implementation

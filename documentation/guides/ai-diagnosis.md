@@ -32,7 +32,7 @@ The AI intelligent failure analysis system consists of the following core module
 | Response Parser | `src/diagnosis/response-parser.ts` | Parses LLM JSON responses into structured `AIDiagnosis` objects with fallback logic |
 | Diagnosis Cache | `src/diagnosis/diagnosis-cache.ts` | TTLCache-based in-memory cache, max 100 entries, TTL 30 min, LRU eviction |
 | Diagnosis Persister | `src/diagnosis/diagnosis-persister.ts` | Persists diagnosis results by `runId` to `{dataDir}/diagnosis/` directory |
-| Diagnosis Agent | `packages/ai/packages/ai/src/agents/diagnosis.ts` | Orchestrates the complete diagnosis flow, extends `BaseAgent`, supports sync and streaming modes |
+| Diagnosis Agent | `packages/ai/src/agents/diagnosis.ts` | Orchestrates the complete diagnosis flow, extends `BaseAgent`, supports sync and streaming modes |
 | Cluster Analysis | `packages/diagnosis/src/cluster.ts` | Failure test clustering using Jaccard similarity + Union-Find algorithm |
 | Type Definitions | `packages/contracts/src/index.ts` | Type definitions for all diagnosis-related interfaces |
 
@@ -250,7 +250,7 @@ The knowledge base supports registering custom error patterns:
 
 ## Diagnosis Mode and LLM Invocation
 
-Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts) (`DiagnosisAgent` class)
+Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/agents/diagnosis.ts) (`DiagnosisAgent` class)
 
 ### Diagnosis Mode
 
@@ -349,7 +349,7 @@ Agent loop logic:
 
 ## Confidence Calibration
 
-Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts) (`calibrateConfidence` method)
+Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/agents/diagnosis.ts) (`calibrateConfidence` method)
 
 Calibration formula:
 

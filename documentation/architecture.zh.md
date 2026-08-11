@@ -80,7 +80,7 @@ flowchart LR
 
 ### 3.1 Orchestrator — 测试编排
 
-- **源码位置**：[packages/executor/src/orchestrator/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/packages/executor/src/orchestrator/index.ts)
+- **源码位置**：[packages/executor/src/orchestrator/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/src/orchestrator/index.ts)
 - **核心职责**：负责测试任务的编排与调度，决定测试如何分配到不同分片执行
 - **关键能力**：
   - **distributed 策略**：均匀分配测试用例到各分片
@@ -90,7 +90,7 @@ flowchart LR
 
 ### 3.2 Executor — 测试执行
 
-- **源码位置**：[packages/executor/src/executor/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/packages/executor/src/executor/index.ts)
+- **源码位置**：[packages/executor/src/executor/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/src/executor/index.ts)
 - **核心职责**：调用 Playwright CLI 执行测试，收集执行进度与结果
 - **关键能力**：
   - 调用 Playwright CLI 运行测试用例
@@ -155,7 +155,7 @@ graph TB
 
 ### 3.5 DiagnosisAgent — AI 智能诊断
 
-- **源码位置**：[packages/ai/packages/ai/src/agents/diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts)
+- **源码位置**：[packages/ai/src/agents/diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/agents/diagnosis.ts)
 - **核心职责**：利用 AI 对测试失败进行智能诊断，生成结构化诊断结果（根因分析、修复建议、置信度评分）
 - **关键技术模块**：
   - **context-enricher.ts**：上下文富集，自动收集源代码、截图、控制台日志、堆栈跟踪、环境信息和历史数据
@@ -180,7 +180,7 @@ graph TB
 
 ### 3.7 RealtimeService — 实时推送服务
 
-- **源码位置**：[packages/reporter/src/realtime/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/reporter/packages/reporter/src/realtime/index.ts)
+- **源码位置**：[packages/reporter/src/realtime/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/reporter/src/realtime/index.ts)
 - **核心职责**：通过 WebSocket 将测试执行事件实时推送给客户端
 - **关键能力**：
   - WebSocket 事件驱动架构
@@ -189,7 +189,7 @@ graph TB
 
 ### 3.8 StorageProvider — 存储抽象层
 
-- **源码位置**：[packages/core/src/storage/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/core/packages/core/src/storage/index.ts)
+- **源码位置**：[packages/core/src/storage/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/core/src/storage/index.ts)
 - **核心职责**：提供统一的存储抽象接口，屏蔽底层存储实现细节
 - **关键能力**：
   - 文件存储实现
