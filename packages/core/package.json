@@ -13,6 +13,7 @@
   "dependencies": {
     "@yuantest/contracts": "workspace:*",
     "express": "^4.18.2",
+    "jiti": "^2.4.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
