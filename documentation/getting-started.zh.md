@@ -4,9 +4,9 @@
 
 ## 前置要求
 
-- Node.js >= 16.0.0
-- npm >= 7.0.0
-- Playwright >= 1.40.0
+- Node.js >= 21.7.0
+- npm >= 10.0.0（或 pnpm >= 10）
+- Playwright >= 1.60.0
 
 ## 安装
 
@@ -17,6 +17,18 @@ npm install -g yuantest-playwright
 # 安装 Playwright 浏览器（如果尚未安装）
 npx playwright install
 ```
+
+## 开发（Monorepo）
+
+本仓库为 pnpm + Turborepo 单仓（monorepo）。本地开发方式：
+
+```bash
+pnpm install      # 安装全部工作区依赖
+pnpm build        # 构建所有包与应用
+pnpm start        # 启动 Web Dashboard（http://localhost:5274）
+```
+
+> 终端用户可直接跳到下方"基本使用"，无需配置 monorepo。
 
 ## 基本使用
 

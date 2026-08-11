@@ -2,7 +2,7 @@
 
 UnifiedAIService 是统一 AI 服务，将 ChatService（对话管理 + MCP 集成）和 AgentService（测试规划/生成/修复管线）的所有能力合并到单个类中。所有子模块均被该类直接持有，不存在内部委托或包装。
 
-- **源码位置**：[src/ai/ai-service.ts](file:///d:/Coding/yuantest-playwright/src/ai/ai-service.ts)
+- **源码位置**：[packages/ai/src/ai-service.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/ai-service.ts)
 
 ---
 

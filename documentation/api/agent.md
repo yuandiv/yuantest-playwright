@@ -7,7 +7,7 @@
 
 AI-powered test creation and healing agent system.
 
-- **Source Location**: [src/agents/index.ts](file:///d:/Coding/yuantest-playwright/src/agents/index.ts)
+- **Source Location**: [packages/ai/src/agents/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/index.ts)
 
 ## Constructor
 
@@ -285,7 +285,7 @@ Tool registry providing `registerTool()`, `unregisterTool()`, `getToolSchemas()`
 
 ### PlannerAgent
 
-- **Source**: [src/agents/planner.ts](file:///d:/Coding/yuantest-playwright/src/agents/planner.ts)
+- **Source**: [packages/ai/src/agents/planner.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/planner.ts)
 - Generates structured test plans from feature descriptions
 - Uses project context to generate precise locators
 - Supports seed test and PRD references
@@ -293,7 +293,7 @@ Tool registry providing `registerTool()`, `unregisterTool()`, `getToolSchemas()`
 
 ### GeneratorAgent
 
-- **Source**: [src/agents/generator.ts](file:///d:/Coding/yuantest-playwright/src/agents/generator.ts)
+- **Source**: [packages/ai/src/agents/generator.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/generator.ts)
 - Converts Markdown test plans into Playwright TypeScript code
 - Uses modern locators (page.getByRole, page.getByText, etc.)
 - Includes appropriate assertions and follows testing best practices
@@ -301,7 +301,7 @@ Tool registry providing `registerTool()`, `unregisterTool()`, `getToolSchemas()`
 
 ### HealerAgent
 
-- **Source**: [src/agents/healer.ts](file:///d:/Coding/yuantest-playwright/src/agents/healer.ts)
+- **Source**: [packages/ai/src/agents/healer.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/healer.ts)
 - Analyzes failing tests and generates fix patches
 - Supports multi-round healing with progressive refinement
 - Generates unified diff output for each patch

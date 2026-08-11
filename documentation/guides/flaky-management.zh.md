@@ -73,7 +73,7 @@ Flaky 测试管理系统由以下核心模块组成，对应源码 `src/flaky/` 
 <a id="2-classification-algorithm"></a>
 ## 2. 分类算法
 
-> 源码：`src/flaky/classifier.ts`
+> 源码：`packages/flaky/src/classifier.ts`
 
 <a id="21-six-classifications"></a>
 ### 2.1 六种分类
@@ -304,7 +304,7 @@ confidence = min(1, (keywordHits / historyLength) × 0.6 + 0.3)
 <a id="4-correlation-analysis"></a>
 ## 4. 关联分析
 
-> 源码：`src/flaky/correlation.ts`
+> 源码：`packages/flaky/src/correlation.ts`
 
 <a id="41-correlation-types"></a>
 ### 4.1 关联类型
@@ -370,7 +370,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 <a id="5-trend-tracking"></a>
 ## 5. 趋势追踪
 
-> 源码：`src/flaky/trend.ts`
+> 源码：`packages/flaky/src/trend.ts`
 
 <a id="51-time-series-aggregation"></a>
 ### 5.1 时间序列聚合
@@ -581,7 +581,7 @@ Jaccard(A, B) = |A ∩ B| / |A ∪ B|
 <a id="7-health-score"></a>
 ## 7. 健康评分
 
-> 源码：`src/flaky/trend.ts` 中的 `calculateHealthScore()`
+> 源码：`packages/flaky/src/trend.ts` 中的 `calculateHealthScore()`
 
 <a id="71-four-dimensional-scoring-model"></a>
 ### 7.1 四维评分模型
@@ -707,7 +707,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 <a id="91-flakycriteriaconfig-12-parameters"></a>
 ### 9.1 FlakyCriteriaConfig（12 个参数）
 
-> 源码：`src/constants/index.ts` 中的 `DEFAULT_FLAKY_CRITERIA`
+> 源码：`packages/core/src/constants/index.ts` 中的 `DEFAULT_FLAKY_CRITERIA`
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
@@ -727,7 +727,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 <a id="92-quarantinecriteriaconfig-9-parameters"></a>
 ### 9.2 QuarantineCriteriaConfig（9 个参数）
 
-> 源码：`src/constants/index.ts` 中的 `DEFAULT_QUARANTINE_CRITERIA`
+> 源码：`packages/core/src/constants/index.ts` 中的 `DEFAULT_QUARANTINE_CRITERIA`
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|

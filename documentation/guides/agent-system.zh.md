@@ -33,11 +33,11 @@ graph TB
 
 | 组件 | 源文件 | 职责 |
 |------|--------|------|
-| UnifiedAIService | `src/ai/ai-service.ts` | 统一门面，合并 ChatService + AgentService |
-| AgentService (已废弃) | `src/agents/index.ts` | 向后兼容的 UnifiedAIService 别名 |
-| PlannerAgent | `src/agents/planner.ts` | 根据功能描述生成结构化测试计划 |
-| GeneratorAgent | `src/agents/generator.ts` | 将测试计划转换为 Playwright TypeScript 代码 |
-| HealerAgent | `src/agents/healer.ts` | 分析失败测试并生成修复补丁 |
+| UnifiedAIService | `packages/ai/src/ai-service.ts` | 统一门面，合并 ChatService + AgentService |
+| AgentService (已废弃) | `packages/ai/src/agents/index.ts` | 向后兼容的 UnifiedAIService 别名 |
+| PlannerAgent | `packages/ai/src/agents/planner.ts` | 根据功能描述生成结构化测试计划 |
+| GeneratorAgent | `packages/ai/src/agents/generator.ts` | 将测试计划转换为 Playwright TypeScript 代码 |
+| HealerAgent | `packages/ai/src/agents/healer.ts` | 分析失败测试并生成修复补丁 |
 
 ## 2. 项目上下文
 

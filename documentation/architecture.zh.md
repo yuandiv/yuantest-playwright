@@ -80,7 +80,7 @@ flowchart LR
 
 ### 3.1 Orchestrator — 测试编排
 
-- **源码位置**：[src/orchestrator/index.ts](file:///d:/Coding/yuantest-playwright/src/orchestrator/index.ts)
+- **源码位置**：[packages/executor/src/orchestrator/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/packages/executor/src/orchestrator/index.ts)
 - **核心职责**：负责测试任务的编排与调度，决定测试如何分配到不同分片执行
 - **关键能力**：
   - **distributed 策略**：均匀分配测试用例到各分片
@@ -90,7 +90,7 @@ flowchart LR
 
 ### 3.2 Executor — 测试执行
 
-- **源码位置**：[src/executor/index.ts](file:///d:/Coding/yuantest-playwright/src/executor/index.ts)
+- **源码位置**：[packages/executor/src/executor/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/packages/executor/src/executor/index.ts)
 - **核心职责**：调用 Playwright CLI 执行测试，收集执行进度与结果
 - **关键能力**：
   - 调用 Playwright CLI 运行测试用例
@@ -101,7 +101,7 @@ flowchart LR
 
 ### 3.3 Reporter — 报告生成
 
-- **源码位置**：[src/reporter/index.ts](file:///d:/Coding/yuantest-playwright/src/reporter/index.ts)
+- **源码位置**：[packages/reporter/src/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/reporter/src/index.ts)
 - **核心职责**：生成代码报告，对失败用例进行分类分析
 - **关键能力**：
   - 生成 HTML 格式的可视化测试报告
@@ -117,7 +117,7 @@ flowchart LR
 
 ### 3.4 FlakyTestManager — 不稳定测试管理
 
-- **源码位置**：[src/flaky/index.ts](file:///d:/Coding/yuantest-playwright/src/flaky/index.ts)
+- **源码位置**：[packages/flaky/src/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/flaky/src/index.ts)
 - **核心职责**：识别、分析和管理不稳定（Flaky）测试
 - **子模块说明**：
 
@@ -155,7 +155,7 @@ graph TB
 
 ### 3.5 DiagnosisAgent — AI 智能诊断
 
-- **源码位置**：[src/ai/agents/diagnosis.ts](file:///d:/Coding/yuantest-playwright/src/ai/agents/diagnosis.ts)
+- **源码位置**：[packages/ai/packages/ai/src/agents/diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts)
 - **核心职责**：利用 AI 对测试失败进行智能诊断，生成结构化诊断结果（根因分析、修复建议、置信度评分）
 - **关键技术模块**：
   - **context-enricher.ts**：上下文富集，自动收集源代码、截图、控制台日志、堆栈跟踪、环境信息和历史数据
@@ -171,7 +171,7 @@ graph TB
 
 ### 3.6 DashboardServer — Web UI 服务
 
-- **源码位置**：[src/ui/server.ts](file:///d:/Coding/yuantest-playwright/src/ui/server.ts)
+- **源码位置**：[apps/cli/src/ui/server.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/apps/cli/apps/cli/src/ui/server.ts)
 - **核心职责**：提供 Web 界面，展示测试报告、诊断结果与实时状态
 - **关键能力**：
   - REST API（`/api/v1/`）提供数据查询接口
@@ -180,7 +180,7 @@ graph TB
 
 ### 3.7 RealtimeService — 实时推送服务
 
-- **源码位置**：[src/realtime/index.ts](file:///d:/Coding/yuantest-playwright/src/realtime/index.ts)
+- **源码位置**：[packages/reporter/src/realtime/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/reporter/packages/reporter/src/realtime/index.ts)
 - **核心职责**：通过 WebSocket 将测试执行事件实时推送给客户端
 - **关键能力**：
   - WebSocket 事件驱动架构
@@ -189,7 +189,7 @@ graph TB
 
 ### 3.8 StorageProvider — 存储抽象层
 
-- **源码位置**：[src/storage/index.ts](file:///d:/Coding/yuantest-playwright/src/storage/index.ts)
+- **源码位置**：[packages/core/src/storage/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/core/packages/core/src/storage/index.ts)
 - **核心职责**：提供统一的存储抽象接口，屏蔽底层存储实现细节
 - **关键能力**：
   - 文件存储实现
@@ -200,7 +200,7 @@ graph TB
 
 原先分为 `AgentService` 和 `ChatService + MCP`，现已完全合并为单个 `UnifiedAIService` 类，直接持有所有子模块，零委托。
 
-- **源码位置**：[src/ai/ai-service.ts](file:///d:/Coding/yuantest-playwright/src/ai/ai-service.ts)
+- **源码位置**：[packages/ai/src/ai-service.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/ai-service.ts)
 - **核心职责**：统一的 AI 服务，合并对话式 AI（对话 + MCP）和 AI 驱动的测试创建/修复（Agent 管线）
 - **关键能力**：
   - **对话管理**：创建、读取、列出、删除对话，支持持久化存储
@@ -211,7 +211,7 @@ graph TB
   - **项目上下文**：自动加载 playwright.config 和 package.json，支持上下文感知的 Agent 操作
   - **代码提取**：Agent 生成的代码块自动提取并保存到 `tests/` 目录，支持智能命名
 - **子模块**：`ConversationStore`、`MCPClientManager`、`PlannerAgent`、`GeneratorAgent`、`HealerAgent`、`AgentConfigManager`、`AgentLifecycleManager`、`AgentPipelineOrchestrator`、`AgentFileOperations`
-- **模块布局**：AI 相关模块位于 `src/ai/` 下，包括 `src/ai/agents/` 中的 Agent 模块（base-agent、healer、planner、generator、diagnosis 等）
+- **模块布局**：AI 相关模块位于 `packages/ai/src/` 下，包括 `packages/ai/src/agents/` 中的 Agent 模块（base-agent、healer、planner、generator、diagnosis 等）
 
 ### 3.11 ServiceContainer (DI) — 依赖注入容器
 

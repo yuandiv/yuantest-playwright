@@ -33,14 +33,14 @@ import {
 | **UnifiedAIService** | Unified AI service (chat + MCP + agent pipeline) | [UnifiedAIService API](ai-service.md) |
 | **AgentService** | AI agent system (merged into UnifiedAIService) | [AgentService API (deprecated)](agent.md) |
 | **ChatService** | AI chat service (merged into UnifiedAIService) | [ChatService API (deprecated)](chat.md) |
-| **RealtimeReporter** | Real-time event broadcasting via WebSocket | [RealtimeReporter API](realtime-reporter.md) |
+| **RealtimeReporter** | Real-time event broadcasting via WebSocket | [RealtimeReporter API](realtime.md) |
 | **TraceManager** | Playwright trace file management | [TraceManager API](trace.md) |
-| **AnnotationManager** | Test annotation scanning and management | [AnnotationManager API](annotation.md) |
-| **TagManager** | Test tag scanning and filtering | [TagManager API](tag.md) |
-| **ArtifactManager** | Test artifact management | [ArtifactManager API](artifact.md) |
-| **VisualTestingManager** | Visual regression testing | [VisualTestingManager API](visual-testing.md) |
-| **TestDiscovery** | Automatic test file discovery | [TestDiscovery API](test-discovery.md) |
-| **ServiceContainer** | Dependency injection container | [ServiceContainer API](service-container.md) |
+| **AnnotationManager** | Test annotation scanning and management | [AnnotationManager API](annotations.md) |
+| **TagManager** | Test tag scanning and filtering | [TagManager API](tags.md) |
+| **ArtifactManager** | Test artifact management | [ArtifactManager API](artifacts.md) |
+| **VisualTestingManager** | Visual regression testing | [VisualTestingManager API](visual.md) |
+| **TestDiscovery** | Automatic test file discovery | [TestDiscovery API](discovery.md) |
+| **ServiceContainer** | Dependency injection container | [ServiceContainer API](container.md) |
 | **Storage** | Storage abstraction layer | [Storage API](storage.md) |
 | **Cache** | In-memory caching | [Cache API](cache.md) |
 | **Logger** | Structured logging | [Logger API](logger.md) |

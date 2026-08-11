@@ -29,13 +29,13 @@ AI 智能失败分析系统由以下核心模块组成：
 | 上下文富集引擎 | `src/diagnosis/context-enricher.ts` | 收集并组装多维度上下文信息（源代码、截图、日志、堆栈、环境、历史） |
 | Playwright 知识库 | `src/diagnosis/knowledge-base.ts` | 错误模式匹配与 few-shot 示例生成，支持自定义模式注册 |
 | 错误模式定义 | `src/diagnosis/patterns/*.ts` | 按类别拆分的 7 大类 30+ 个内置错误模式 |
-| 错误分类器 | `src/diagnosis/categorizer.ts` | 基于正则的错误消息分类，将错误归为 7 种预定义类别 |
+| 错误分类器 | `packages/diagnosis/src/categorizer.ts` | 基于正则的错误消息分类，将错误归为 7 种预定义类别 |
 | 响应解析器 | `src/diagnosis/response-parser.ts` | 将 LLM 的 JSON 回复解析为结构化 `AIDiagnosis` 对象，含兜底降级逻辑 |
 | 诊断缓存 | `src/diagnosis/diagnosis-cache.ts` | 基于 TTLCache 的内存缓存，最大 100 条，TTL 30 分钟，LRU 淘汰 |
 | 诊断持久化 | `src/diagnosis/diagnosis-persister.ts` | 按 `runId` 将诊断结果存储到磁盘 `{dataDir}/diagnosis/` 目录 |
-| 诊断 Agent | `src/ai/agents/diagnosis.ts` | 编排完整诊断流程，继承 `BaseAgent`，支持同步与流式两种诊断模式 |
-| 聚类分析 | `src/diagnosis/cluster.ts` | 基于 Jaccard 相似度 + 并查集算法的失败测试聚类 |
-| 类型定义 | `src/types/index.ts` | 所有诊断相关接口的类型定义 |
+| 诊断 Agent | `packages/ai/packages/ai/src/agents/diagnosis.ts` | 编排完整诊断流程，继承 `BaseAgent`，支持同步与流式两种诊断模式 |
+| 聚类分析 | `packages/diagnosis/src/cluster.ts` | 基于 Jaccard 相似度 + 并查集算法的失败测试聚类 |
+| 类型定义 | `packages/contracts/src/index.ts` | 所有诊断相关接口的类型定义 |
 
 ---
 
@@ -64,6 +64,41 @@ prepareDiagnosis → callLLM 或 chatStream → finalizeDiagnosis
 1. **parseResponse** — 解析 LLM 返回的文本为结构化 `AIDiagnosis` 对象（含 JSON 提取与兜底降级逻辑）
 2. **calibrateConfidence** — 基于模式匹配结果和上下文使用情况校准置信度
 3. 写入缓存（`DiagnosisCache`）和持久化（`DiagnosisPersister`）
+
+---
+
+## 诊断模式与 LLM 调用
+
+源文件：[diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/agents/diagnosis.ts)（`DiagnosisAgent` 类）
+
+### 诊断模式
+
+`DiagnosisAgent` 使用**单次 LLM 调用**模式，通过 `responseFormat: { type: 'json_object' }` 强制输出结构化 JSON 诊断结果，不涉及多轮工具调用循环。
+
+### 分析模式
+
+`analysisMode` 有三种取值，由 `parseResponse` 根据解析结果决定：
+
+| 模式 | 含义 |
+|------|------|
+| `single` | LLM 成功返回可解析的 JSON 响应 |
+| `fallback` | LLM 响应解析失败，使用截断后的原始文本作为摘要 |
+
+### 非流式诊断（diagnose 方法）
+
+1. 检查缓存（`DiagnosisCache`），命中则直接返回
+2. 调用 `prepareDiagnosis` 准备上下文、模式与提示词
+3. 调用 `BaseAgent.callLLM()`（委托给 `LLMService.chat()`），使用 `responseFormat: { type: 'json_object' }`
+4. 调用 `finalizeDiagnosis` 解析响应并校准置信度
+5. 写入缓存并返回
+
+### 流式诊断（diagnoseStream 方法）
+
+流式诊断使用 SSE（Server-Sent Events）进行实时推送。
+
+1. 调用 `prepareDiagnosis` 准备诊断上下文
+2. 调用 `llmService.chatStream()` 逐 token 产出
+3. 最终返回完整的 `AIDiagnosis` 对象
 
 ---
 
@@ -255,7 +290,7 @@ interface ErrorPattern {
 <a id="agent-multi-turn-reasoning"></a>
 ## 诊断模式与 LLM 调用
 
-源文件：[diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/ai/agents/diagnosis.ts)（`DiagnosisAgent` 类）
+源文件：[diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts)（`DiagnosisAgent` 类）
 
 ### 诊断模式
 
@@ -355,7 +390,7 @@ data: {"type":"...","...":"..."}\n\n
 <a id="confidence-calibration"></a>
 ## 置信度校准
 
-源文件：[diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/ai/agents/diagnosis.ts)（`calibrateConfidence` 方法）
+源文件：[diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts)（`calibrateConfidence` 方法）
 
 校准公式：
 

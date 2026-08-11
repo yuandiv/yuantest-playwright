@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/yuantest-playwright.svg)](https://www.npmjs.com/package/yuantest-playwright)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://opensource.org/licenses/GPL-3.0)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D21.7.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 
 A powerful Playwright test orchestrator, executor, and reporter with CLI tools and Web Dashboard visualization, helping teams manage and analyze E2E tests more efficiently.
@@ -73,6 +73,26 @@ npm install -g yuantest-playwright
 # Or as project dependency
 npm install --save-dev yuantest-playwright
 ```
+
+## 🏗️ Repository Structure (Monorepo)
+
+The repository is a **pnpm + Turborepo monorepo**:
+
+```text
+apps/
+  cli/          # CLI + Web Dashboard server (published as yuantest-playwright)
+  dashboard/    # Dashboard frontend (React + TypeScript)
+packages/
+  ai/           # LLM capability layer: agents, chat, MCP, tools, AI service
+  contracts/    # Shared TypeScript contracts and types
+  core/         # Core utilities, config, storage, service container
+  diagnosis/    # Failure diagnosis and error pattern analysis
+  executor/     # Playwright execution, progress tracking, reporting
+  flaky/        # Flaky test detection and management
+  reporter/     # Report generation and artifact management
+```
+
+For end users, the published `yuantest-playwright` package is a self-contained build of the CLI and server — no monorepo setup required.
 
 ## 🚀 Quick Start
 

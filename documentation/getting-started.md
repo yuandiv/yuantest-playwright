@@ -4,9 +4,9 @@ This guide will help you get started with YuanTest Playwright in 5 minutes.
 
 ## Prerequisites
 
-- Node.js >= 16.0.0
-- npm >= 7.0.0
-- Playwright >= 1.40.0
+- Node.js >= 21.7.0
+- npm >= 10.0.0 (or pnpm >= 10)
+- Playwright >= 1.60.0
 
 ## Installation
 
@@ -17,6 +17,18 @@ npm install -g yuantest-playwright
 # Install Playwright browsers (if not already installed)
 npx playwright install
 ```
+
+## Development (Monorepo)
+
+The repository is a pnpm + Turborepo monorepo. For local development:
+
+```bash
+pnpm install      # install all workspace dependencies
+pnpm build        # build all packages and apps
+pnpm start        # start the Web Dashboard at http://localhost:5274
+```
+
+> For end users, skip to "Basic Usage" below — no monorepo setup is needed.
 
 ## Basic Usage
 

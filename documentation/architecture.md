@@ -80,7 +80,7 @@ flowchart LR
 
 ### 3.1 Orchestrator — Test Orchestration
 
-- **Source Location**: [src/orchestrator/index.ts](file:///d:/Coding/yuantest-playwright/src/orchestrator/index.ts)
+- **Source Location**: [packages/executor/src/orchestrator/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/packages/executor/src/orchestrator/index.ts)
 - **Core Responsibility**: Responsible for test task orchestration and scheduling, determining how tests are assigned to different shards for execution
 - **Key Capabilities**:
   - **distributed strategy**: Evenly distribute test cases to each shard
@@ -90,7 +90,7 @@ flowchart LR
 
 ### 3.2 Executor — Test Execution
 
-- **Source Location**: [src/executor/index.ts](file:///d:/Coding/yuantest-playwright/src/executor/index.ts)
+- **Source Location**: [packages/executor/src/executor/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/executor/packages/executor/src/executor/index.ts)
 - **Core Responsibility**: Call Playwright CLI to execute tests, collect execution progress and results
 - **Key Capabilities**:
   - Call Playwright CLI to run test cases
@@ -101,7 +101,7 @@ flowchart LR
 
 ### 3.3 Reporter — Report Generation
 
-- **Source Location**: [src/reporter/index.ts](file:///d:/Coding/yuantest-playwright/src/reporter/index.ts)
+- **Source Location**: [packages/reporter/src/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/reporter/src/index.ts)
 - **Core Responsibility**: Generate test reports, perform classification analysis for failed cases
 - **Key Capabilities**:
   - Generate HTML format visualized test reports
@@ -117,7 +117,7 @@ flowchart LR
 
 ### 3.4 FlakyTestManager — Flaky Test Management
 
-- **Source Location**: [src/flaky/index.ts](file:///d:/Coding/yuantest-playwright/src/flaky/index.ts)
+- **Source Location**: [packages/flaky/src/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/flaky/src/index.ts)
 - **Core Responsibility**: Identify, analyze, and manage flaky tests
 - **Submodule Description**:
 
@@ -155,7 +155,7 @@ graph TB
 
 ### 3.5 DiagnosisAgent — AI Intelligent Diagnosis
 
-- **Source Location**: [src/ai/agents/diagnosis.ts](file:///d:/Coding/yuantest-playwright/src/ai/agents/diagnosis.ts)
+- **Source Location**: [packages/ai/packages/ai/src/agents/diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts)
 - **Core Responsibility**: Use AI to diagnose test failures and generate structured diagnosis results (root cause analysis, fix suggestions, confidence scoring)
 - **Key Technical Modules**:
   - **context-enricher.ts**: Context enrichment, automatically collecting source code, screenshots, console logs, stack traces, environment info, and history data
@@ -171,7 +171,7 @@ graph TB
 
 ### 3.6 DashboardServer — Web UI Service
 
-- **Source Location**: [src/ui/server.ts](file:///d:/Coding/yuantest-playwright/src/ui/server.ts)
+- **Source Location**: [apps/cli/src/ui/server.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/apps/cli/apps/cli/src/ui/server.ts)
 - **Core Responsibility**: Provide Web interface to display test reports, diagnosis results, and real-time status
 - **Key Capabilities**:
   - REST API (`/api/v1/`) provides data query interfaces
@@ -180,7 +180,7 @@ graph TB
 
 ### 3.7 RealtimeService — Realtime Push Service
 
-- **Source Location**: [src/realtime/index.ts](file:///d:/Coding/yuantest-playwright/src/realtime/index.ts)
+- **Source Location**: [packages/reporter/src/realtime/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/reporter/packages/reporter/src/realtime/index.ts)
 - **Core Responsibility**: Push test execution events to clients in real-time via WebSocket
 - **Key Capabilities**:
   - WebSocket event-driven architecture
@@ -189,7 +189,7 @@ graph TB
 
 ### 3.8 StorageProvider — Storage Abstraction Layer
 
-- **Source Location**: [src/storage/index.ts](file:///d:/Coding/yuantest-playwright/src/storage/index.ts)
+- **Source Location**: [packages/core/src/storage/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/core/packages/core/src/storage/index.ts)
 - **Core Responsibility**: Provide unified storage abstraction interface, shielding underlying storage implementation details
 - **Key Capabilities**:
   - File storage implementation
@@ -200,7 +200,7 @@ graph TB
 
 Previously split into `AgentService` and `ChatService + MCP`, these have been fully merged into a single `UnifiedAIService` class that directly owns all sub-modules with zero delegation.
 
-- **Source Location**: [src/ai/ai-service.ts](file:///d:/Coding/yuantest-playwright/src/ai/ai-service.ts)
+- **Source Location**: [packages/ai/src/ai-service.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/ai-service.ts)
 - **Core Responsibility**: Unified AI service combining conversational AI (chat + MCP) and AI-powered test creation/healing (agent pipeline)
 - **Key Capabilities**:
   - **Conversation Management**: Create, read, list, delete conversations with persistent storage
@@ -211,7 +211,7 @@ Previously split into `AgentService` and `ChatService + MCP`, these have been fu
   - **Project Context**: Auto-load playwright.config and package.json for context-aware agent operations
   - **Code Extraction**: Agent-generated code blocks are automatically extracted and saved to `tests/` directory with smart naming
 - **Sub-modules**: `ConversationStore`, `MCPClientManager`, `PlannerAgent`, `GeneratorAgent`, `HealerAgent`, `AgentConfigManager`, `AgentLifecycleManager`, `AgentPipelineOrchestrator`, `AgentFileOperations`
-- **Module Layout**: AI-related modules live under `src/ai/` including agent modules at `src/ai/agents/` (base-agent, healer, planner, generator, diagnosis, etc.)
+- **Module Layout**: AI-related modules live under `packages/ai/src/` including agent modules at `packages/ai/src/agents/` (base-agent, healer, planner, generator, diagnosis, etc.)
 
 ### 3.11 ServiceContainer (DI) — Dependency Injection Container
 

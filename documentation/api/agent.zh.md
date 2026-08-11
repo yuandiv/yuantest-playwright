@@ -7,7 +7,7 @@
 
 AI 驱动的测试创建和修复代理系统。
 
-- **源码位置**：[src/agents/index.ts](file:///d:/Coding/yuantest-playwright/src/agents/index.ts)
+- **源码位置**：[packages/ai/src/agents/index.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/index.ts)
 
 ## 构造函数
 
@@ -285,7 +285,7 @@ LLM 服务类，提供 `chat()`、`chatWithTools()`、`chatStream()`、`chatWith
 
 ### PlannerAgent
 
-- **源码**：[src/agents/planner.ts](file:///d:/Coding/yuantest-playwright/src/agents/planner.ts)
+- **源码**：[packages/ai/src/agents/planner.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/planner.ts)
 - 根据功能描述生成结构化测试计划
 - 使用项目上下文生成精确的定位器
 - 支持参考测试和 PRD 文档
@@ -293,7 +293,7 @@ LLM 服务类，提供 `chat()`、`chatWithTools()`、`chatStream()`、`chatWith
 
 ### GeneratorAgent
 
-- **源码**：[src/agents/generator.ts](file:///d:/Coding/yuantest-playwright/src/agents/generator.ts)
+- **源码**：[packages/ai/src/agents/generator.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/generator.ts)
 - 将 Markdown 测试计划转换为 Playwright TypeScript 代码
 - 使用现代定位器（page.getByRole、page.getByText 等）
 - 包含适当的断言，遵循测试最佳实践
@@ -301,7 +301,7 @@ LLM 服务类，提供 `chat()`、`chatWithTools()`、`chatStream()`、`chatWith
 
 ### HealerAgent
 
-- **源码**：[src/agents/healer.ts](file:///d:/Coding/yuantest-playwright/src/agents/healer.ts)
+- **源码**：[packages/ai/src/agents/healer.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/healer.ts)
 - 分析失败测试并生成修复补丁
 - 支持多轮修复，逐步优化
 - 为每个补丁生成统一 Diff 输出

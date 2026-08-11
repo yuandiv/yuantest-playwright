@@ -71,7 +71,7 @@ The Flaky Test Management System consists of the following core modules, corresp
 
 ## 2. Classification Algorithm
 
-> Source: `src/flaky/classifier.ts`
+> Source: `packages/flaky/src/classifier.ts`
 
 ### 2.1 Six Classifications
 
@@ -292,7 +292,7 @@ confidence = min(1, (keywordHits / historyLength) × 0.6 + 0.3)
 
 ## 4. Correlation Analysis
 
-> Source: `src/flaky/correlation.ts`
+> Source: `packages/flaky/src/correlation.ts`
 
 ### 4.1 Correlation Types
 
@@ -353,7 +353,7 @@ Uses Union-Find data structure to efficiently merge test pairs with high co-occu
 
 ## 5. Trend Tracking
 
-> Source: `src/flaky/trend.ts`
+> Source: `packages/flaky/src/trend.ts`
 
 ### 5.1 Time Series Aggregation
 
@@ -550,7 +550,7 @@ Optionally reset history on release (`resetHistory: true`), clearing all statist
 
 ## 7. Health Score
 
-> Source: `calculateHealthScore()` in `src/flaky/trend.ts`
+> Source: `calculateHealthScore()` in `packages/flaky/src/trend.ts`
 
 ### 7.1 Four-Dimensional Scoring Model
 
@@ -666,7 +666,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 
 ### 9.1 FlakyCriteriaConfig (12 Parameters)
 
-> Source: `DEFAULT_FLAKY_CRITERIA` in `src/constants/index.ts`
+> Source: `DEFAULT_FLAKY_CRITERIA` in `packages/core/src/constants/index.ts`
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -685,7 +685,7 @@ overall = stability × 0.35 + trend × 0.25 + recoverability × 0.2 + predictabi
 
 ### 9.2 QuarantineCriteriaConfig (9 Parameters)
 
-> Source: `DEFAULT_QUARANTINE_CRITERIA` in `src/constants/index.ts`
+> Source: `DEFAULT_QUARANTINE_CRITERIA` in `packages/core/src/constants/index.ts`
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|

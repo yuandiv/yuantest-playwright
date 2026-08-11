@@ -603,7 +603,7 @@ yuantest ui -d, --data <path>     # Data directory
 
 ## 13. Default Constants Table
 
-The following constants are defined in `src/constants/index.ts` and are the source of default configurations for all system modules.
+The following constants are defined in `packages/core/src/constants/index.ts` and are the source of default configurations for all system modules.
 
 ### DEFAULTS - Basic Default Values
 

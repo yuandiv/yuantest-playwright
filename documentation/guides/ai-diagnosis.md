@@ -28,13 +28,13 @@ The AI intelligent failure analysis system consists of the following core module
 | Context Enrichment Engine | `src/diagnosis/context-enricher.ts` | Collects and assembles multi-dimensional context information (source code, screenshots, logs, stack trace, environment, history) |
 | Playwright Knowledge Base | `src/diagnosis/knowledge-base.ts` | Error pattern matching and few-shot example generation, supports custom pattern registration |
 | Error Pattern Definitions | `src/diagnosis/patterns/*.ts` | 7 categories, 30+ built-in error patterns split by category |
-| Error Categorizer | `src/diagnosis/categorizer.ts` | Regex-based error message classification into 7 predefined categories |
+| Error Categorizer | `packages/diagnosis/src/categorizer.ts` | Regex-based error message classification into 7 predefined categories |
 | Response Parser | `src/diagnosis/response-parser.ts` | Parses LLM JSON responses into structured `AIDiagnosis` objects with fallback logic |
 | Diagnosis Cache | `src/diagnosis/diagnosis-cache.ts` | TTLCache-based in-memory cache, max 100 entries, TTL 30 min, LRU eviction |
 | Diagnosis Persister | `src/diagnosis/diagnosis-persister.ts` | Persists diagnosis results by `runId` to `{dataDir}/diagnosis/` directory |
-| Diagnosis Agent | `src/ai/agents/diagnosis.ts` | Orchestrates the complete diagnosis flow, extends `BaseAgent`, supports sync and streaming modes |
-| Cluster Analysis | `src/diagnosis/cluster.ts` | Failure test clustering using Jaccard similarity + Union-Find algorithm |
-| Type Definitions | `src/types/index.ts` | Type definitions for all diagnosis-related interfaces |
+| Diagnosis Agent | `packages/ai/packages/ai/src/agents/diagnosis.ts` | Orchestrates the complete diagnosis flow, extends `BaseAgent`, supports sync and streaming modes |
+| Cluster Analysis | `packages/diagnosis/src/cluster.ts` | Failure test clustering using Jaccard similarity + Union-Find algorithm |
+| Type Definitions | `packages/contracts/src/index.ts` | Type definitions for all diagnosis-related interfaces |
 
 ---
 
@@ -250,7 +250,7 @@ The knowledge base supports registering custom error patterns:
 
 ## Diagnosis Mode and LLM Invocation
 
-Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/ai/agents/diagnosis.ts) (`DiagnosisAgent` class)
+Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts) (`DiagnosisAgent` class)
 
 ### Diagnosis Mode
 
@@ -349,7 +349,7 @@ Agent loop logic:
 
 ## Confidence Calibration
 
-Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/src/ai/agents/diagnosis.ts) (`calibrateConfidence` method)
+Source file: [diagnosis.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/packages/ai/src/agents/diagnosis.ts) (`calibrateConfidence` method)
 
 Calibration formula:
 

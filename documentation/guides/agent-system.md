@@ -33,11 +33,11 @@ graph TB
 
 | Component | Source File | Responsibility |
 |-----------|-------------|----------------|
-| UnifiedAIService | `src/ai/ai-service.ts` | Unified facade combining ChatService + AgentService |
-| AgentService (deprecated) | `src/agents/index.ts` | Backward compatible alias for UnifiedAIService |
-| PlannerAgent | `src/agents/planner.ts` | Generate structured test plans from feature descriptions |
-| GeneratorAgent | `src/agents/generator.ts` | Transform test plans into Playwright TypeScript code |
-| HealerAgent | `src/agents/healer.ts` | Analyze failing tests and generate fix patches |
+| UnifiedAIService | `packages/ai/src/ai-service.ts` | Unified facade combining ChatService + AgentService |
+| AgentService (deprecated) | `packages/ai/src/agents/index.ts` | Backward compatible alias for UnifiedAIService |
+| PlannerAgent | `packages/ai/src/agents/planner.ts` | Generate structured test plans from feature descriptions |
+| GeneratorAgent | `packages/ai/src/agents/generator.ts` | Transform test plans into Playwright TypeScript code |
+| HealerAgent | `packages/ai/src/agents/healer.ts` | Analyze failing tests and generate fix patches |
 
 ## 2. Project Context
 

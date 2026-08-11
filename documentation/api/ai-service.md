@@ -2,7 +2,7 @@
 
 UnifiedAIService is the unified AI service that combines the capabilities of ChatService (conversation management + MCP integration) and AgentService (test planning/generation/healing pipeline) into a single class. All sub-modules are directly owned — no internal delegation or wrapping.
 
-- **Source Location**: [src/ai/ai-service.ts](file:///d:/Coding/yuantest-playwright/src/ai/ai-service.ts)
+- **Source Location**: [packages/ai/src/ai-service.ts](https://github.com/yuandiv/yuantest-playwright/blob/main/packages/ai/src/ai-service.ts)
 
 ---
 

@@ -131,7 +131,7 @@ diagnosis / flaky ──► core（含容器内核）；core ──► contracts
 | 验证点 | 实测结果 | 设计结论 |
 |---|---|---|
 | storage 归属 | `logger`、`config/loader`、`utils/filesystem`（属 core）直接 import storage；全项目 15+ 处使用 | storage 必须在 **core** |
-| executor 纯净性 | `src/executor/index.ts` 内部 `new AnnotationManager/TagManager/ArtifactManager/VisualTestingManager`；`flakyManager` 已构造注入 | 结果管理器需接口化注入（P3 改造） |
+| executor 纯净性 | `packages/executor/src/executor/index.ts` 内部 `new AnnotationManager/TagManager/ArtifactManager/VisualTestingManager`；`flakyManager` 已构造注入 | 结果管理器需接口化注入（P3 改造） |
 | reporter ↔ ai | `reporter/index.ts` import `categorizeError/generateSuggestions`（纯函数）；`import type { DiagnosisAgent, FlakyTestManager }` | categorizer 属 diagnosis（非 AI）；ai/flaky 保持 type-only |
 | ai 边界 | `ai/**` 只依赖 types/logger/diagnosis；唯一例外 `ai/tools/agent/execute.ts` 运行时 import Executor | 该例外经 `ITestExecutor` 接口注入消除（P5c 改造） |
 | analyzer 内部分层 | `ai → diagnosis` 单向，`flaky`、`diagnosis` 均不依赖 ai | analyzer 天然拆三包 |
@@ -218,6 +218,6 @@ diagnosis / flaky ──► core（含容器内核）；core ──► contracts
 
 ## 9. 备注：yuancode 集成（远期，暂不入架构）
 
-[yuancode](https://www.npmjs.com/package/yuancode)（v0.1.0，同作者）是"可嵌入的 AI 编码代理"库：分层为 kernel / capabilities / coding，可嵌入 Node 应用、支持 MCP 与 tree-sitter。与本项目 `@yuantest/ai` 的自研 agent 引擎（BaseAgent/LLMService/ToolRegistry + 领域工具）高度同构，`src/ai/adapters/`、`acp-bridge/` 即为预留接缝。
+[yuancode](https://www.npmjs.com/package/yuancode)（v0.1.0，同作者）是"可嵌入的 AI 编码代理"库：分层为 kernel / capabilities / coding，可嵌入 Node 应用、支持 MCP 与 tree-sitter。与本项目 `@yuantest/ai` 的自研 agent 引擎（BaseAgent/LLMService/ToolRegistry + 领域工具）高度同构，`packages/ai/src/adapters/`、`acp-bridge/` 即为预留接缝。
 
 **未来集成方向（未锁定，待 yuancode 成熟后评估）**：contracts 增加 `IAgentRuntime` 契约，ai 包新增 `adapters/yuancode-runtime.ts` 实现，将 run-test / query-test-history / apply-patch 注册为 yuancode capabilities；apps 层配置 `ai.agentRuntime: 'builtin' | 'yuancode'` 切换，渐进替换自研引擎。当前版本尚早，仅作备注。

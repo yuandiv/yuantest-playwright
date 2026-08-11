@@ -59,7 +59,7 @@
   - `ChatService` 和 `AgentService` 保留为向后兼容的别名
   - DI 容器：单一注册 `UnifiedAIService`，旧令牌指向同一实例
   - RouterDeps：`agentService` + `chatService` 字段 → 单一 `aiService` 字段
-- **源码**：`src/ai/ai-service.ts`（693 行，直接持有所有子模块）
+- **源码**：`packages/ai/src/ai-service.ts`（693 行，直接持有所有子模块）
 
 ### 移除
 

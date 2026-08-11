@@ -611,7 +611,7 @@ yuantest ui -d, --data <path>     # 数据目录
 <a id="13-default-constants-table"></a>
 ## 13. 默认值常量表
 
-以下常量定义在 `src/constants/index.ts` 中，是系统各模块的默认配置来源。
+以下常量定义在 `packages/core/src/constants/index.ts` 中，是系统各模块的默认配置来源。
 
 ### DEFAULTS - 基础默认值
 

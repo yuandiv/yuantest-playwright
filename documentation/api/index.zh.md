@@ -31,14 +31,14 @@ import {
 | **DashboardServer** | Dashboard 服务器，REST API + WebSocket 实时推送 | [DashboardServer API](dashboard.md) |
 | **UnifiedAIService** | 统一 AI 服务（对话 + MCP + Agent 管线） | [UnifiedAIService API](ai-service.zh.md) |
 | **ChatService** | AI 聊天服务（已合并到 UnifiedAIService） | [ChatService API (已废弃)](chat.zh.md) |
-| **RealtimeReporter** | 通过 WebSocket 实时事件广播 | [RealtimeReporter API](realtime-reporter.md) |
+| **RealtimeReporter** | 通过 WebSocket 实时事件广播 | [RealtimeReporter API](realtime.md) |
 | **TraceManager** | Playwright Trace 文件管理 | [TraceManager API](trace.md) |
-| **AnnotationManager** | 测试注解扫描和管理 | [AnnotationManager API](annotation.md) |
-| **TagManager** | 测试标签扫描和过滤 | [TagManager API](tag.md) |
-| **ArtifactManager** | 测试产物管理 | [ArtifactManager API](artifact.md) |
-| **VisualTestingManager** | 视觉回归测试 | [VisualTestingManager API](visual-testing.md) |
-| **TestDiscovery** | 自动测试文件发现 | [TestDiscovery API](test-discovery.md) |
-| **ServiceContainer** | 依赖注入容器 | [ServiceContainer API](service-container.md) |
+| **AnnotationManager** | 测试注解扫描和管理 | [AnnotationManager API](annotations.md) |
+| **TagManager** | 测试标签扫描和过滤 | [TagManager API](tags.md) |
+| **ArtifactManager** | 测试产物管理 | [ArtifactManager API](artifacts.md) |
+| **VisualTestingManager** | 视觉回归测试 | [VisualTestingManager API](visual.md) |
+| **TestDiscovery** | 自动测试文件发现 | [TestDiscovery API](discovery.md) |
+| **ServiceContainer** | 依赖注入容器 | [ServiceContainer API](container.md) |
 | **Storage** | 存储抽象层 | [Storage API](storage.md) |
 | **Cache** | 内存缓存 | [Cache API](cache.md) |
 | **Logger** | 结构化日志 | [Logger API](logger.md) |
